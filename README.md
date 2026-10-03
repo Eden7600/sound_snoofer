@@ -103,7 +103,9 @@ Switching can cause a short gap: old sends are disabled and verified before repl
 
 The Controls dashboard has one **Source** selector: Desk → Lav → Webcam → Off.
 Press Enter or Space to open the list, then Enter to confirm. Off disconnects
-all A1–A5/B1–B3 sends on the desk, lav, webcam and Element return strips. Computer
+all A1–A5/B1–B3 sends on the desk, lav, webcam and Element return strips. It also
+clears microphone input assignments and ASIO input patches. Volt stays on A1;
+playback keeps its normal output. Selecting a microphone reconnects its inputs. Computer
 audio and recorder transport continue. Choosing a microphone restores your
 processing, monitoring and recording choices. The choice persists; dry-run only
 previews, and live mode reports pending/errors until routing is verified.

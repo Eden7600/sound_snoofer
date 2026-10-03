@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+
 	"voice-snooter/internal/config"
 	"voice-snooter/internal/model"
 )
@@ -179,8 +180,13 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 		return nil
 	}
 	clear := model.Device{Driver: "wdm", Available: true}
+	micActive := true
+	if intent := c.VoiceIntent(); intent != nil {
+		micActive = intent.MicActive()
+	}
 	// Disable the old input patch before installing a direct fallback mic.
-	if !t.ASIOActive {
+	// Off disconnects ASIO inputs without releasing the A1 output device.
+	if !t.ASIOActive || !micActive {
 		for i := 0; i < 4; i++ {
 			if e := numberOp(fmt.Sprintf("Patch.asio[%d]", i), 0); e != nil {
 				return p, e
@@ -206,7 +212,7 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 	if playback != nil {
 		deviceOp(t.PlaybackTarget, *playback)
 	}
-	if t.ASIOActive {
+	if t.ASIOActive && micActive {
 		for i, v := range []int{1, 1, 2, 2} {
 			if e := numberOp(fmt.Sprintf("Patch.asio[%d]", i), v); e != nil {
 				return p, e

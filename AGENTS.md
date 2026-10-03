@@ -80,6 +80,8 @@ provides more specific guidance. Explicit user instructions take precedence.
   drift checks, bounded verification and default dry-run behavior.
 - Mic source Off disconnects all managed mic and Element-return sends. It must
   not disable computer playback/capture or operate recorder transport.
+- Off also clears managed microphone input assignments and ASIO input patches;
+  Volt remains assigned to A1 and playback retains its normal output.
 - Volt ASIO owns A1 when active. Physical channel 1 feeds stereo input 1 (L/R),
   channel 2 feeds stereo input 2 (L/R). Playback takes the lowest free output and
   its routing follows that output. Device matching uses Go regular expressions.

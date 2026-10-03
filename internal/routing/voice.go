@@ -3,6 +3,7 @@ package routing
 import (
 	"fmt"
 	"strings"
+
 	"voice-snooter/internal/config"
 	"voice-snooter/internal/model"
 )
@@ -38,6 +39,9 @@ func addVoice(c config.Config, s model.Snapshot, p Plan) (Plan, error) {
 	}
 	if webcam != nil && i.MicActive() {
 		t.Operations = append(t.Operations, Operation{Target: "input:3", Device: webcam, BeforeName: current, Change: current != webcam.Name})
+	} else if !i.MicActive() {
+		clear := &model.Device{Direction: "input", Driver: "wdm", Available: true}
+		t.Operations = append(t.Operations, Operation{Target: "input:3", Device: clear, BeforeName: current, Change: current != ""})
 	}
 	source := 0
 	if i.Source == "lav" {
