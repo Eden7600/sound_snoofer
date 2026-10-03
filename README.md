@@ -101,6 +101,10 @@ Pre monitoring means before Element, not before Voicemeeter's own effects. Post 
 Switching can cause a short gap on affected paths: changed sends are disabled and verified before replacement sends are enabled. Unchanged sends stay untouched unless their input device, ASIO patch or output device is being reconfigured. Failed operations stop the transition and remain visible; there is no atomic rollback. Restarting a live session reconciles from observed state. Removing the profile does not restore previous settings; stop enforcement and restore your recorded mixer/config backup if rolling back.
 # Recording
 
+The Devices tab and `devices` command omit recognized virtual endpoints such as
+VB-CABLE, Voicemeeter virtual ASIO and SteelSeries Sonar. Internal routing retains
+the full inventory. Unknown driver identities remain visible.
+
 The Controls dashboard has one **Source** selector: Desk → Lav → Webcam → Off.
 Press Enter or Space to open the list, then Enter to confirm. Off disconnects
 all A1–A5/B1–B3 sends on the desk, lav, webcam and Element return strips. It also

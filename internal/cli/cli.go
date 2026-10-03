@@ -140,6 +140,7 @@ func Run(ctx context.Context, args []string, out, errout io.Writer, deps Deps) (
 			fmt.Fprintln(errout, e)
 			return 1
 		}
+		s.Devices = model.InventoryDevices(s.Devices)
 		if *asJSON {
 			printJSON(s)
 		} else {

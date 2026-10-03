@@ -198,11 +198,12 @@ func (s screen) lines() []string {
 		}
 	case 2:
 		rows = append(rows, "DEVICE INVENTORY  (WDM presence; ASIO entries alone do not prove connection)")
-		for _, d := range s.state.Snapshot.Devices {
+		devices := model.InventoryDevices(s.state.Snapshot.Devices)
+		for _, d := range devices {
 			rows = append(rows, fmt.Sprintf("%-6s %-5s %s", d.Direction, d.Driver, d.Name))
 		}
-		if len(s.state.Snapshot.Devices) == 0 {
-			rows = append(rows, "No inventory yet.")
+		if len(devices) == 0 {
+			rows = append(rows, "No physical devices found.")
 		}
 	case 3:
 		rows = append(rows, "RECENT EVENTS  (newest first, last 50)")
