@@ -18,7 +18,9 @@ Mic capture requires a source other than Off. Enter or Space on Source opens
 Desk/Lav/Webcam/Off; arrows select, Enter confirms, Escape cancels. Browsing does
 not change routing. There is no separate Off hotkey or Microphone On/Off row.
 Pre uses the effective mic including fallback. Post requires Element mode and
-uses AUX; Direct/Post stays inactive, without substituting dry audio.
+uses AUX. Switching to Direct automatically selects Pre; Post cannot be selected
+in Direct. Returning to Element keeps Pre until you choose Post again. Older
+saved Direct/Post choices are normalized to Pre on load.
 
 Select Start recording or Stop recording and press Enter in live mode. Start
 requires settled routes and at least one eligible source. It prepares stereo

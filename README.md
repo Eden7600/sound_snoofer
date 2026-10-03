@@ -43,7 +43,7 @@ In studio mode, asio_pattern selects the installed driver, presence_pattern sele
 
 Studio mode owns inputs 1/2, ASIO A1, Patch.asio[0..3], outputs matching playback patterns, and managed playback sends. Playback regexes also identify old output assignments to release; keep them specific. Unrelated occupied outputs, B buses, gains, mutes, inserts, and other patch cells are preserved. If A1 belongs to an unrelated device, ASIO takeover reports a conflict. If no playback device is available, the topology is left unchanged and reported unresolved.
 
-Defaults: poll_ms=1000, debounce_ms=2000, verify_ms=5000. Each accepts 100–60000. Config loads once at startup; restart watch after edits. Rules repair managed settings continuously, even if devices do not change. Failed writes back off up to 30 seconds. No automatic application launch or engine restart occurs.
+Defaults: poll_ms=1000, debounce_ms=2000, verify_ms=5000. Each accepts 100–60000. Device assignment changes use debounce_ms; routing-only changes use 100 ms and wake at that deadline instead of waiting for the next normal poll. Native readback verification adds to total apply time. Config loads once at startup; restart watch after edits. Rules repair managed settings continuously, even if devices do not change. Failed writes back off up to 30 seconds. No automatic application launch or engine restart occurs.
 
 ## Verification and limitations
 
@@ -118,7 +118,9 @@ or j/k to select a control. The dashboard adapts to terminal size and supports
 `NO_COLOR=1`. Start/Stop require Enter; Space cannot start a recording.
 
 The Potato voice profile supports B1 recording with persistent mic/computer
-inclusion controls and a Pre/Post mic stage. Recording settings are ordered
+inclusion controls and a Pre/Post mic stage. The stage changes automatically
+to Pre when switching to Direct; Post is only selectable in Element.
+Returning to Element keeps Pre until explicitly changed. Recording controls are ordered
 Record Computer Audio, Record Microphone, Recording Mic Stage. Start/Stop appear
 under a separate Actions heading and require Enter in live mode.
 Capture never starts automatically. Quit and dry-run leave native recording

@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
 	"voice-snooter/internal/ownership"
 )
 
@@ -48,6 +49,7 @@ func LoadEffective(path string) (Config, error) {
 				}
 			}
 			if e == nil {
+				i.NormalizeRecordingStage()
 				e = i.Validate(c)
 			}
 			if e == nil {
@@ -64,6 +66,8 @@ func SaveIntent(path string, c Config, i *Intent, expected string) (string, erro
 	if i == nil {
 		return "", fmt.Errorf("voice profile is not configured")
 	}
+	i = i.Clone()
+	i.NormalizeRecordingStage()
 	if e := i.Validate(c); e != nil {
 		return "", e
 	}

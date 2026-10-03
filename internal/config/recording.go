@@ -28,4 +28,12 @@ func (i *Intent) NormalizeRecording(c Config) {
 	if i.Recording == nil && c.Studio != nil && c.Studio.Recording != nil {
 		i.Recording = &RecordingChoices{MicTap: "pre"}
 	}
+	i.NormalizeRecordingStage()
+}
+
+// NormalizeRecordingStage keeps the selected tap valid for the processing mode.
+func (i *Intent) NormalizeRecordingStage() {
+	if i.Recording != nil && i.Mode == "direct" && i.Recording.MicTap == "post" {
+		i.Recording.MicTap = "pre"
+	}
 }

@@ -55,6 +55,7 @@ func editIntent(i *config.Intent, a Action) error {
 		}
 		i.Playback[key] = b
 	}
+	i.NormalizeRecordingStage()
 	return nil
 }
 
@@ -127,6 +128,10 @@ func (s *screen) ruleAction(key string) {
 	value := row.value
 	switch row.key {
 	case "record-tap":
+		if s.state.Intent.Mode == "direct" {
+			s.pending = "Pre only in Direct"
+			return
+		}
 		value = cycle(value, "pre", "post")
 	case "source":
 		value = cycle(value, "desk", "lav", "webcam", "off")

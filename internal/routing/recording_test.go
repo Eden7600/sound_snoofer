@@ -89,10 +89,10 @@ func TestRecordingMatrix(t *testing.T) {
 						for n := 0; n < 8; n++ {
 							want := float32(0)
 							mic := map[string]int{"desk": 0, "lav": 1, "webcam": 2}[source]
-							if tap == "post" {
+							if tap == "post" && mode == "element" {
 								mic = 6
 							}
-							if (i.Recording.ComputerEnabled && n == 5) || (i.Enabled && i.Recording.MicEnabled && (tap == "pre" || mode == "element") && n == mic) {
+							if (i.Recording.ComputerEnabled && n == 5) || (i.Enabled && i.Recording.MicEnabled && n == mic) {
 								want = 1
 							}
 							if s.Numbers[fmt.Sprintf("Strip[%d].B1", n)] != want {

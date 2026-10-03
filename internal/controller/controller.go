@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
 	"voice-snooter/internal/config"
 	"voice-snooter/internal/model"
 	"voice-snooter/internal/routing"
@@ -160,14 +161,34 @@ func (c *Controller) Step(ctx context.Context, live bool) time.Duration {
 	}
 	p, e := c.Plan()
 	attempted := false
+	delay := c.Config.Poll()
 	if e == nil {
 		key := p.Key()
+		debounce := 100 * time.Millisecond
+		if p.Topology != nil {
+			for _, op := range p.Topology.Operations {
+				if op.Change && op.Device != nil {
+					debounce = c.Config.Debounce()
+					break
+				}
+			}
+		} else if p.HasChanges() {
+			debounce = c.Config.Debounce()
+		}
+		if p.Topology != nil {
+			key += p.Topology.InventoryKey
+		}
+		key += debounce.String()
 		if key != c.pending {
 			c.pending = key
 			c.since = c.Clock.Now()
 		}
 		c.event(Event{Kind: "plan", Plan: &p})
-		if live && p.HasChanges() && c.Clock.Now().Sub(c.since) >= c.Config.Debounce() {
+		remaining := debounce - c.Clock.Now().Sub(c.since)
+		if live && p.HasChanges() && remaining > 0 {
+			delay = min(delay, remaining)
+		}
+		if live && p.HasChanges() && remaining <= 0 {
 			attempted = true
 			e = c.Apply(ctx, p)
 			// A pass always starts a fresh debounce, including partial application.
@@ -190,7 +211,7 @@ func (c *Controller) Step(ctx context.Context, live bool) time.Duration {
 		c.retry = 0
 		c.retryWrite = false
 	}
-	return c.Config.Poll()
+	return delay
 }
 func (c *Controller) Watch(ctx context.Context, live bool) error {
 	for {
