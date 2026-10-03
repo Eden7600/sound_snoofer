@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "poll_ms": 1000,
+  "debounce_ms": 2000,
+  "verify_ms": 5000,
+  "routes": [
+    {
+      "target": "input:1",
+      "candidates": [
+        {"driver": "wdm", "pattern": "(?i)volt.*2"},
+        {"driver": "wdm", "pattern": "(?i)REPLACE_WITH_WEBCAM_MIC_NAME"}
+      ]
+    },
+    {
+      "target": "A1",
+      "candidates": [
+        {"driver": "wdm", "pattern": "(?i)airpods"},
+        {"driver": "wdm", "pattern": "(?i)steelseries"}
+      ]
+    }
+  ]
+}

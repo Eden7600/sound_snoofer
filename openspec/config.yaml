@@ -1,0 +1,25 @@
+schema: spec-driven
+context: |
+  Voice Snooter is a Windows desktop audio-routing utility implemented in Go.
+  Use the installed Voicemeeter Remote API; do not redistribute its DLL.
+  The user now runs Potato; legacy configurations still support Banana.
+  Volt ASIO owns A1 when connected. Channel 1 feeds Stereo Input 1 (L/R);
+  channel 2 feeds Stereo Input 2 (L/R). Desk mic is channel 1; lav is always channel 2.
+  Playback takes the lowest free output: normally A2 with Volt, A1 without.
+  Move existing playback sends and continuously enforce virtual:1 to playback.
+  Microphone and playback priorities are independent: Volt 2 beats webcam mic;
+  AirPods beat SteelSeries speakers. Exact endpoint identities require discovery.
+  Element uses Voicemeeter AUX Virtual ASIO. The confirmed pass-through path is
+  selected mic -> B2 -> Element -> AUX -> B3 -> Discord. Primary VAIO is app playback.
+  Specify selectable voice routing in its own opt-in change; monitoring defaults Off.
+  B1 is reserved for built-in recording in the planned recording profile, with TUI
+  Start/Stop, independent mic/computer inclusion and a mic Pre/Post Element selector.
+  Post recording requires enabled Element voice mode; do not start a separate FX path.
+  Match device names using Go regular expressions, as explicitly requested by the user.
+  Use OpenSpec proposals, scenario-based requirements, design, and tracked tasks.
+  A persistent Go TUI exists. Design every code change in OpenSpec before implementation; no ad hoc code edits.
+rules:
+  specs:
+    - Include disconnect, reconnect, ambiguity, and failure scenarios.
+  tasks:
+    - Separate automated tests from real-device acceptance tests.

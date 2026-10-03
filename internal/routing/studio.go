@@ -1,0 +1,282 @@
+package routing
+
+import (
+	"encoding/json"
+	"fmt"
+	"sort"
+	"voice-snooter/internal/config"
+	"voice-snooter/internal/model"
+)
+
+type Operation struct {
+	Target      string        `json:"target,omitempty"`
+	Device      *model.Device `json:"device,omitempty"`
+	Parameter   string        `json:"parameter,omitempty"`
+	Value       int           `json:"value,omitempty"`
+	BeforeName  string        `json:"before_name,omitempty"`
+	BeforeValue float32       `json:"before_value,omitempty"`
+	Change      bool          `json:"change"`
+}
+type Topology struct {
+	Recording      *RecordingStatus `json:"recording,omitempty"`
+	Voice          *VoiceStatus     `json:"voice,omitempty"`
+	Transition     []Operation      `json:"transition,omitempty"`
+	ASIOActive     bool             `json:"asio_active"`
+	PlaybackTarget string           `json:"playback_target,omitempty"`
+	Operations     []Operation      `json:"operations"`
+	Unresolved     []string         `json:"unresolved,omitempty"`
+	InventoryKey   string           `json:"-"`
+}
+
+func (t *Topology) Key() string {
+	type desired struct {
+		Target, Parameter string
+		Device            *model.Device
+		Value             int
+	}
+	v := struct {
+		Active     bool
+		Playback   string
+		Ops        []desired
+		Unresolved []string
+	}{Active: t.ASIOActive, Playback: t.PlaybackTarget, Unresolved: t.Unresolved}
+	for _, op := range t.Operations {
+		v.Ops = append(v.Ops, desired{op.Target, op.Parameter, op.Device, op.Value})
+	}
+	b, _ := json.Marshal(v)
+	return string(b)
+}
+
+// Enumeration reordering must not invalidate a transaction.
+func InventoryKey(s model.Snapshot) string {
+	entries := []string{}
+	for _, d := range s.Devices {
+		b, _ := json.Marshal(d)
+		entries = append(entries, string(b))
+	}
+	sort.Strings(entries)
+	b, _ := json.Marshal(struct {
+		Edition int
+		Devices []string
+	}{s.Edition, entries})
+	return string(b)
+}
+func selectDevice(list []config.Candidate, direction string, devices []model.Device) (*model.Device, []string) {
+	reasons := []string{}
+	for _, c := range list {
+		matches := []model.Device{}
+		for _, d := range devices {
+			if d.Available && d.Driver == c.Driver && d.Direction == direction && c.Regex.MatchString(d.Name) {
+				matches = append(matches, d)
+			}
+		}
+		if len(matches) == 1 {
+			return &matches[0], reasons
+		}
+		reasons = append(reasons, fmt.Sprintf("%s pattern %q matched %d devices", direction, c.Pattern, len(matches)))
+	}
+	return nil, reasons
+}
+func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
+	t := &Topology{InventoryKey: InventoryKey(s)}
+	p := Plan{Edition: s.Edition, Topology: t}
+	profile := c.Studio
+	n, _ := model.Limits(s.Edition)
+	for _, slot := range model.Slots(s.Edition) {
+		if _, ok := s.Assignments[slot]; !ok {
+			return p, fmt.Errorf("snapshot missing %s", slot)
+		}
+	}
+	// An installed ASIO driver is not evidence of connected hardware. A unique
+	// WDM input companion is required, but it is never opened as the mic input.
+	present := 0
+	for _, d := range s.Devices {
+		if d.Available && d.Direction == "input" && d.Driver == "wdm" && profile.PresenceRegex.MatchString(d.Name) {
+			present++
+		}
+	}
+	if present > 1 {
+		return p, fmt.Errorf("ASIO presence pattern is ambiguous (%d WDM inputs)", present)
+	}
+	var asio *model.Device
+	if present == 1 {
+		count := 0
+		for _, d := range s.Devices {
+			if d.Driver == "asio" && d.Direction == "output" && profile.ASIORegex.MatchString(d.Name) {
+				candidate := d
+				candidate.Available = true
+				asio = &candidate
+				count++
+			}
+		}
+		if count != 1 {
+			return p, fmt.Errorf("connected interface requires one ASIO driver match, found %d", count)
+		}
+		t.ASIOActive = true
+	}
+	ownsPlayback := func(name string) bool {
+		if name == "" {
+			return false
+		}
+		for _, c := range profile.Playback {
+			if c.Regex.MatchString(name) {
+				return true
+			}
+		}
+		return false
+	}
+	ownsASIO := func(name string) bool { return name != "" && profile.ASIORegex.MatchString(name) }
+	if t.ASIOActive && s.Assignments["A1"] != "" && !ownsASIO(s.Assignments["A1"]) && !ownsPlayback(s.Assignments["A1"]) {
+		return p, fmt.Errorf("A1 is occupied by unmanaged device %q; cannot reserve it for ASIO", s.Assignments["A1"])
+	}
+	playback, reasons := selectDevice(profile.Playback, "output", s.Devices)
+	if playback == nil {
+		t.Unresolved = append(t.Unresolved, reasons...)
+	}
+	oldBuses := []string{}
+	for i := 1; i <= n; i++ {
+		target := fmt.Sprintf("A%d", i)
+		current := s.Assignments[target]
+		if ownsPlayback(current) {
+			oldBuses = append(oldBuses, target)
+		}
+		if t.PlaybackTarget == "" && !(t.ASIOActive && i == 1) && (current == "" || ownsPlayback(current) || (i == 1 && ownsASIO(current))) {
+			t.PlaybackTarget = target
+		}
+	}
+	if t.PlaybackTarget == "" {
+		if profile.Voice == nil {
+			return p, fmt.Errorf("no free hardware output for playback")
+		}
+		playback = nil
+		t.Unresolved = append(t.Unresolved, "no free hardware output for playback")
+	}
+	// No playback device means no reconfiguration: avoids replacing the only
+	// audible output while there is no destination to migrate its source sends.
+	if playback == nil {
+		if profile.Voice == nil {
+			return p, nil
+		}
+		t.PlaybackTarget = ""
+	}
+	deviceOp := func(target string, d model.Device) {
+		d.Direction = func() string { slot, _ := model.ParseSlot(target); return slot.Direction }()
+		t.Operations = append(t.Operations, Operation{Target: target, Device: &d, BeforeName: s.Assignments[target], Change: s.Assignments[target] != d.Name})
+	}
+	numberOp := func(param string, value int) error {
+		current, ok := s.Numbers[param]
+		if !ok {
+			return fmt.Errorf("snapshot missing %s", param)
+		}
+		for i := range t.Operations {
+			if t.Operations[i].Parameter == param {
+				t.Operations[i].Value = value
+				t.Operations[i].Change = current != float32(value)
+				return nil
+			}
+		}
+		t.Operations = append(t.Operations, Operation{Parameter: param, Value: value, BeforeValue: current, Change: current != float32(value)})
+		return nil
+	}
+	clear := model.Device{Driver: "wdm", Available: true}
+	// Disable the old input patch before installing a direct fallback mic.
+	if !t.ASIOActive {
+		for i := 0; i < 4; i++ {
+			if e := numberOp(fmt.Sprintf("Patch.asio[%d]", i), 0); e != nil {
+				return p, e
+			}
+		}
+	}
+	if t.ASIOActive {
+		deviceOp("input:1", clear)
+		deviceOp("input:2", clear)
+		deviceOp("A1", *asio)
+	} else if profile.Voice != nil {
+		deviceOp("input:1", clear)
+		deviceOp("input:2", clear)
+	} else {
+		mic, why := selectDevice(profile.FallbackMic, "input", s.Devices)
+		if mic == nil {
+			t.Unresolved = append(t.Unresolved, why...)
+		} else {
+			deviceOp("input:1", *mic)
+		}
+		deviceOp("input:2", clear)
+	}
+	if playback != nil {
+		deviceOp(t.PlaybackTarget, *playback)
+	}
+	if t.ASIOActive {
+		for i, v := range []int{1, 1, 2, 2} {
+			if e := numberOp(fmt.Sprintf("Patch.asio[%d]", i), v); e != nil {
+				return p, e
+			}
+		}
+	}
+	// Transfer the union of currently enabled playback sends. This also repairs
+	// interrupted transitions where both old and new device slots are assigned.
+	if playback != nil && profile.MovePlaybackRouting && len(oldBuses) > 0 {
+		for strip := 0; strip < model.StripCount(s.Edition); strip++ {
+			if profile.Voice != nil && (strip < 3 || strip == 6) {
+				continue
+			}
+			enabled := 0
+			for _, bus := range oldBuses {
+				param := fmt.Sprintf("Strip[%d].%s", strip, bus)
+				v, ok := s.Numbers[param]
+				if !ok {
+					return p, fmt.Errorf("snapshot missing %s", param)
+				}
+				if v != 0 {
+					enabled = 1
+				}
+			}
+			if e := numberOp(fmt.Sprintf("Strip[%d].%s", strip, t.PlaybackTarget), enabled); e != nil {
+				return p, e
+			}
+			for _, bus := range oldBuses {
+				if bus != t.PlaybackTarget {
+					if e := numberOp(fmt.Sprintf("Strip[%d].%s", strip, bus), 0); e != nil {
+						return p, e
+					}
+				}
+			}
+		}
+	}
+	// Source rules override migrated button states, even without device changes.
+	for _, source := range profile.PlaybackSources {
+		virtual := int(source[len(source)-1] - '1')
+		strip := n + virtual
+		enabled := 1
+		if i := c.VoiceIntent(); i != nil && !i.Playback[source] {
+			enabled = 0
+		}
+		if t.PlaybackTarget != "" {
+			if e := numberOp(fmt.Sprintf("Strip[%d].%s", strip, t.PlaybackTarget), enabled); e != nil {
+				return p, e
+			}
+		}
+		for i := 1; i <= n; i++ {
+			bus := fmt.Sprintf("A%d", i)
+			if bus == t.PlaybackTarget {
+				continue
+			}
+			if ownsPlayback(s.Assignments[bus]) || (i == 1 && t.ASIOActive) {
+				if e := numberOp(fmt.Sprintf("Strip[%d].%s", strip, bus), 0); e != nil {
+					return p, e
+				}
+			}
+		}
+	}
+	// Release former playback outputs last. Match ownership across restarts;
+	// never clear unrelated occupied outputs.
+	for _, bus := range oldBuses {
+		if playback != nil && bus != t.PlaybackTarget && !(t.ASIOActive && bus == "A1") {
+			deviceOp(bus, clear)
+		}
+	}
+	if profile.Voice != nil {
+		return addVoice(c, s, p)
+	}
+	return p, nil
+}

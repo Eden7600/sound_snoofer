@@ -1,0 +1,8 @@
+/bin/
+/work/
+/.local/
+/node_modules/
+/config.local.json
+*.test
+coverage.out
+*.state.json

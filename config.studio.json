@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "poll_ms": 1000,
+  "debounce_ms": 2000,
+  "verify_ms": 5000,
+  "studio": {
+    "asio_pattern": "(?i)^Universal Audio Volt$",
+    "presence_pattern": "(?i)^INPUT 1/2 \\(Volt 2\\)$",
+    "playback": [
+      {"driver": "wdm", "pattern": "(?i)airpods"},
+      {"driver": "wdm", "pattern": "(?i)steelseries.*arena"}
+    ],
+    "fallback_mic": [
+      {"driver": "wdm", "pattern": "(?i)insta360.*link.*2"}
+    ],
+    "move_playback_routing": true,
+    "playback_sources": ["virtual:1"]
+  }
+}
