@@ -98,7 +98,7 @@ Element must use Voicemeeter AUX Virtual ASIO channels 1/2. The route is mic -> 
 
 Pre monitoring means before Element, not before Voicemeeter's own effects. Post uses AUX and is inactive in Direct mode. Monitoring follows the chosen playback output. Start with Off; test with headphones at low volume. To recover if Element stops, select Direct explicitly: process presence and mixer readback cannot prove audio is flowing, and Voice Snooter does not automatically expose dry voice.
 
-Switching can cause a short gap: old sends are disabled and verified before replacement sends are enabled. Failed operations stop the transition and remain visible; there is no atomic rollback. Restarting a live session reconciles from observed state. Removing the profile does not restore previous settings; stop enforcement and restore your recorded mixer/config backup if rolling back.
+Switching can cause a short gap on affected paths: changed sends are disabled and verified before replacement sends are enabled. Unchanged sends stay untouched unless their input device, ASIO patch or output device is being reconfigured. Failed operations stop the transition and remain visible; there is no atomic rollback. Restarting a live session reconciles from observed state. Removing the profile does not restore previous settings; stop enforcement and restore your recorded mixer/config backup if rolling back.
 # Recording
 
 The Controls dashboard has one **Source** selector: Desk → Lav → Webcam → Off.

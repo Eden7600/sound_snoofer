@@ -1,0 +1,9 @@
+# Design
+
+## Decisions
+Replace voice-wide and recording-wide gates with a per-send dependency set. Every changed send is ordered through a disconnect phase before any additions. An unchanged send is temporarily gated only when a changed device or patch affects it: input assignment affects that strip, an ASIO input patch affects its stereo strip, output assignment affects sends to that output. A1 changes additionally affect ASIO input strips 0/1 when current or desired A1 is the configured ASIO interface. An affected input feeding B2 makes AUX return strip 6 dependent too, so its owned sends remain gated during hardware changes. Ordinary B2 source/button changes do not require bouncing unchanged AUX return sends.
+
+Only existing managed operations may be gated; do not take ownership of additional routes. Disconnect nonzero affected sends first; apply device and patch operations next; restore affected desired sends last. Leave unaffected operations in the plan for observation/drift checks; the controller skips already matching values. Retain deterministic ordering, phase-local before values and stop-on-failure verification. Routing goals and recorder transport are unchanged. Computer B1 must remain untouched during voice edits, including mic Off and recording tap edits.
+
+## Risks and verification
+Under-gating hardware dependencies could expose intermediate audio; cover patch and input/output replacement with exact operation traces. Under-ordering route swaps could create doubled voice or feedback; test every intermediate state and preserve existing failure/cancellation coverage. An actual A1 audio-engine change can still interrupt audio; this change removes unnecessary send toggles, not driver interruptions. Run synthetic regression, vet and Windows build. Keep audible live acceptance separate.

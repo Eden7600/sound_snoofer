@@ -15,9 +15,6 @@ type VoiceStatus struct {
 	Monitor   string `json:"monitor"`
 }
 
-func voiceCell(param string) bool {
-	return strings.HasSuffix(param, ".B2") || strings.HasSuffix(param, ".B3") || (strings.Contains(param, ".A") && (strings.HasPrefix(param, "Strip[0]") || strings.HasPrefix(param, "Strip[1]") || strings.HasPrefix(param, "Strip[2]") || strings.HasPrefix(param, "Strip[6]")))
-}
 func addVoice(c config.Config, s model.Snapshot, p Plan) (Plan, error) {
 	i := c.VoiceIntent()
 	if e := i.Validate(c); e != nil {
@@ -150,44 +147,6 @@ func addVoice(c config.Config, s model.Snapshot, p Plan) (Plan, error) {
 			}
 		}
 	}
-	gate := false
-	recordGate := false
-	for _, op := range t.Operations {
-		if op.Change && (op.Device != nil || strings.HasPrefix(op.Parameter, "Patch.") || voiceCell(op.Parameter)) {
-			gate = true
-		}
-		if op.Change && (recordCell(op.Parameter) || op.Device != nil || strings.HasPrefix(op.Parameter, "Patch.")) {
-			recordGate = true
-		}
-		if op.Change && c.Studio.Recording != nil && i.Recording.MicEnabled && (strings.HasSuffix(op.Parameter, ".B2") || strings.HasSuffix(op.Parameter, ".B3")) {
-			recordGate = true
-		}
-	}
-	if !gate && !recordGate {
-		return p, nil
-	}
-	gated := func(param string) bool { return (gate && voiceCell(param)) || (recordGate && recordCell(param)) }
-	// Gate all owned voice paths before any device/patch changes. Final operations
-	// retain original observations; transition operations have phase-local ones.
-	for _, op := range t.Operations {
-		if gated(op.Parameter) && op.BeforeValue != 0 {
-			off := op
-			off.Value = 0
-			off.Change = true
-			t.Transition = append(t.Transition, off)
-		}
-	}
-	for _, op := range t.Operations {
-		if !gated(op.Parameter) {
-			t.Transition = append(t.Transition, op)
-		}
-	}
-	for _, op := range t.Operations {
-		if gated(op.Parameter) {
-			op.BeforeValue = 0
-			op.Change = op.Value != 0
-			t.Transition = append(t.Transition, op)
-		}
-	}
+	buildVoiceTransition(c, s, t)
 	return p, nil
 }
