@@ -1,0 +1,6 @@
+## Design
+Generate and check in an amd64 Windows COFF resource next to cmd/sound-snoofer/main.go, using pinned github.com/akavel/rsrc v0.10.2 as a build-time-only tool. Go links the .syso automatically; ordinary builds need no resource-tool download. A dedicated resource script regenerates it after the existing ICO packaging script. The source ICO remains the same mascot used by the tray.
+
+The controls child sets both large and small icons on its newly allocated classic console window through WM_SETICON, using icons loaded from its own executable resources. Use system icon dimensions and shared resource handles with process lifetime. Calls use a bounded SendMessageTimeout to avoid blocking controls on a hung console host. Failures are nonfatal presentation limitations and retain the host default. A terminal-hosted window may own its own branding; do not modify any other application's windows, terminal profiles or taskbar pinning. The passive parent has no taskbar button; opening controls creates the usual window entry and closing controls removes it while the tray continues.
+
+Validate strict OpenSpec, Go tests/vet, Windows build, and native resource extraction from the built executable. Verify generated resource content agrees with the source ICO. Keep visual taskbar confirmation separate from resource existence.

@@ -39,3 +39,10 @@ generation tool. Its transparent source is `docs/assets/sound-snoofer-tray.png`;
 run `./scripts/build-icon.ps1` to package 16–256 pixel ICO frames, then rebuild.
 The generation prompt and source attribution are recorded in
 `docs/assets/sound-snoofer-tray.md`.
+
+The same mascot is embedded in the executable for Explorer and requested as the
+controls window icon. A taskbar button exists while controls are open; the passive
+background process stays tray-only. Terminal hosts may supply their own window icon.
+The checked-in `resource_windows_amd64.syso` makes normal builds independent of
+resource compiler downloads. `scripts/build-icon.ps1` regenerates both the ICO and
+executable resource using pinned `github.com/akavel/rsrc@v0.10.2` (build-time only).

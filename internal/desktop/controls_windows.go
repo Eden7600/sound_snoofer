@@ -122,6 +122,7 @@ func RunControls(ctx context.Context, path string) error {
 		return err
 	}
 	configureControlsFont(out)
+	setControlsIcon()
 	focusConsole()
 	defer in.Close()
 	defer out.Close()

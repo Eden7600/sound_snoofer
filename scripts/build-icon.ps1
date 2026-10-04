@@ -49,4 +49,5 @@ try {
         }
         foreach ($frame in $frames) { $writer.Write($frame) }
     } finally { $writer.Dispose() }
+    & "$PSScriptRoot/build-resources.ps1"
 } finally { Pop-Location }

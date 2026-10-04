@@ -172,3 +172,33 @@ func configureControlsFont(out *os.File) {
 	// Best effort restoration when the console substitutes an unsupported face.
 	set.Call(out.Fd(), 0, uintptr(unsafe.Pointer(&original)))
 }
+
+// setControlsIcon brands only the console allocated by the controls child. The
+// resource compiler assigns group ID 1 to the first ICO (no manifest precedes it).
+// LR_SHARED keeps these resource handles alive until process exit.
+func setControlsIcon() {
+	window, _, _ := kernel.NewProc("GetConsoleWindow").Call()
+	if window == 0 {
+		return
+	}
+	module, _, _ := kernel.NewProc("GetModuleHandleW").Call(0)
+	if module == 0 {
+		return
+	}
+	for _, kind := range []struct{ icon, widthMetric, heightMetric uintptr }{
+		{0, 49, 50}, // ICON_SMALL; SM_CXSMICON / SM_CYSMICON
+		{1, 11, 12}, // ICON_BIG; SM_CXICON / SM_CYICON
+	} {
+		width, _, _ := user.NewProc("GetSystemMetrics").Call(kind.widthMetric)
+		height, _, _ := user.NewProc("GetSystemMetrics").Call(kind.heightMetric)
+		icon, _, _ := user.NewProc("LoadImageW").Call(module, 1, 1, width, height, 0x8000)
+		if icon == 0 {
+			// Presentation only: a development build without resources remains usable.
+			continue
+		}
+		var previous uintptr
+		// WM_SETICON; SMTO_ABORTIFHUNG. Hosts that reject the message keep their
+		// own branding; never stall controls waiting for another process's window.
+		user.NewProc("SendMessageTimeoutW").Call(window, 0x0080, kind.icon, icon, 2, 200, uintptr(unsafe.Pointer(&previous)))
+	}
+}
