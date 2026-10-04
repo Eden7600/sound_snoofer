@@ -23,6 +23,9 @@ func (c *Controller) PlaySnippet(ctx context.Context, live bool) error {
 	if err != nil {
 		return err
 	}
+	if p.Topology == nil || p.Topology.Voice == nil || p.Topology.Voice.EffectiveMode != "element" {
+		return fmt.Errorf("Element unavailable; snippet playback requires Element")
+	}
 	if p.HasChanges() || p.HasUnresolved() {
 		return fmt.Errorf("wait for verified rehearsal routes")
 	}

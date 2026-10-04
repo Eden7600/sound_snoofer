@@ -34,15 +34,12 @@ func (i *Intent) NormalizeRecording(c Config) {
 	i.NormalizeRecordingStage()
 }
 
-// NormalizeRecordingStage keeps the selected tap valid for the processing mode.
+// NormalizeRecordingStage maintains rehearsal ownership; Post remains a preference.
 func (i *Intent) NormalizeRecordingStage() {
 	if i.Recording != nil && i.Recording.ToVST {
 		i.Recording.TapeRoutingManaged = true
 	}
 	if i.Recording != nil && (!i.MicActive() || i.Mode != "element") {
 		i.Recording.ToVST = false
-	}
-	if i.Recording != nil && i.Mode == "direct" && i.Recording.MicTap == "post" {
-		i.Recording.MicTap = "pre"
 	}
 }

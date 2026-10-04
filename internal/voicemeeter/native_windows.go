@@ -11,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 	"unsafe"
+
 	"sound-snoofer/internal/model"
 )
 
@@ -45,7 +46,11 @@ func Open(path string) (*Client, error) {
 		}
 		a.procs[name] = p
 	}
-	return connect(a)
+	client, err := connect(a)
+	if err == nil {
+		client.elementProbe = elementProcess
+	}
+	return client, err
 }
 func discover() (string, error) {
 	const key = `SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VB:Voicemeeter {17359A74-1236-5467}`

@@ -15,6 +15,7 @@ type Device struct {
 }
 
 type Snapshot struct {
+	Element     *ProcessStatus     `json:"element,omitempty"`
 	Recorder    *RecorderSnapshot  `json:"recorder,omitempty"`
 	Edition     int                `json:"edition"`
 	Devices     []Device           `json:"devices"`

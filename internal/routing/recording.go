@@ -18,7 +18,7 @@ type RecordingStatus struct {
 
 func recordCell(p string) bool { return strings.HasPrefix(p, "Strip[") && strings.HasSuffix(p, ".B1") }
 func addRecording(c config.Config, s model.Snapshot, t *Topology, source int) error {
-	i := c.VoiceIntent()
+	i := EffectiveIntent(c, s)
 	r := i.Recording
 	state := &RecordingStatus{Mic: "disabled", ComputerSources: append([]string{}, c.Studio.Recording.ComputerSources...), Recorder: s.Recorder}
 	t.Recording = state
@@ -52,6 +52,9 @@ func addRecording(c config.Config, s model.Snapshot, t *Topology, source int) er
 		default:
 			desired[source] = 1
 			state.Mic = "Pre: " + t.Voice.Effective
+			if c.VoiceIntent().Recording.MicTap == "post" {
+				state.Mic += " (Post preferred; Direct fallback)"
+			}
 		}
 	}
 	if r.ComputerEnabled {

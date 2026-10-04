@@ -92,8 +92,8 @@ provides more specific guidance. Explicit user instructions take precedence.
   drivers alone do not prove hardware presence. Preserve fallback priorities.
 - Potato voice routing uses B2 to Element through AUX Virtual ASIO, AUX as the
   processing return, and B3 for the application microphone. Prevent AUX-to-B2 loops.
-- Under the recording profile, B1 is the recording mix. Post mic capture requires
-  enabled Element voice mode; never silently substitute dry mic audio.
+- Under the recording profile, B1 is the recording mix. Post mic capture is a preference: effective Direct uses Pre, visibly marked
+  as a fallback, and restores Post when Element processing is active.
 - Recorder capture arming and tape playback sends are different controls.
   Preserve native file format, output directory and other unowned settings.
 - Start/Stop are explicit one-shot commands, not persisted desired state. Never

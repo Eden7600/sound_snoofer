@@ -9,19 +9,27 @@ import (
 )
 
 type VoiceStatus struct {
-	Preferred string `json:"preferred"`
-	Effective string `json:"effective"`
-	Reason    string `json:"reason,omitempty"`
-	Monitor   string `json:"monitor"`
+	PreferredMode    string `json:"preferred_mode"`
+	EffectiveMode    string `json:"effective_mode"`
+	ProcessingReason string `json:"processing_reason,omitempty"`
+	Preferred        string `json:"preferred"`
+	Effective        string `json:"effective"`
+	Reason           string `json:"reason,omitempty"`
+	Monitor          string `json:"monitor"`
 }
 
 func addVoice(c config.Config, s model.Snapshot, p Plan) (Plan, error) {
-	i := c.VoiceIntent()
+	i := EffectiveIntent(c, s)
 	if e := i.Validate(c); e != nil {
 		return p, e
 	}
 	t := p.Topology
 	v := &VoiceStatus{Preferred: i.Source, Effective: i.Source, Monitor: "off"}
+	v.PreferredMode = c.VoiceIntent().Mode
+	v.EffectiveMode = i.Mode
+	if v.PreferredMode != v.EffectiveMode {
+		v.ProcessingReason = s.ElementStatus() + "; using Direct"
+	}
 	t.Voice = v
 	webcam, reasons := selectDevice(c.Studio.FallbackMic, "input", s.Devices)
 	current := s.Assignments["input:3"]

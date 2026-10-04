@@ -20,6 +20,7 @@ import (
 )
 
 type screen struct {
+	inflightAction             Action
 	draft                      *config.Intent
 	deferredEdits              []settingEdit
 	inflight                   uint64

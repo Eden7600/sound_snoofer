@@ -57,9 +57,10 @@ func InventoryKey(s model.Snapshot) string {
 	}
 	sort.Strings(entries)
 	b, _ := json.Marshal(struct {
-		Edition int
-		Devices []string
-	}{s.Edition, entries})
+		Edition        int
+		ElementRunning bool
+		Devices        []string
+	}{s.Edition, s.ElementRunning(), entries})
 	return string(b)
 }
 func selectDevice(list []config.Candidate, direction string, devices []model.Device) (*model.Device, []string) {

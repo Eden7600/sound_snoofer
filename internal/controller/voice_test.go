@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+
 	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/model"
 )
@@ -69,6 +70,7 @@ func (b *voiceBackend) SetNumber(p string, v int) error {
 func voiceController(t *testing.T) (*Controller, *voiceBackend) {
 	c, tb := topologyFixture(t)
 	tb.s.Edition = 3
+	tb.s.Element = &model.ProcessStatus{Known: true, Running: true}
 	for _, slot := range model.Slots(3) {
 		tb.s.Assignments[slot] = ""
 	}

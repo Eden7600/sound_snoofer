@@ -8,7 +8,7 @@ import (
 )
 
 func addRehearsal(c config.Config, s model.Snapshot, t *Topology) error {
-	i := c.VoiceIntent()
+	i := EffectiveIntent(c, s)
 	r := i.Recording
 	add := func(param string, value int) error {
 		before, ok := s.Recorder.Values[param]

@@ -3,6 +3,7 @@ package routing
 import (
 	"fmt"
 	"testing"
+
 	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/model"
 )
@@ -10,6 +11,7 @@ import (
 func voiceFixture(t *testing.T) (config.Config, model.Snapshot) {
 	c, s := studioFixture(t)
 	s.Edition = 3
+	s.Element = &model.ProcessStatus{Known: true, Running: true}
 	c.Studio.Voice = &config.Voice{}
 	if e := c.Validate(); e != nil {
 		t.Fatal(e)
@@ -77,7 +79,7 @@ func TestVoiceMatrix(t *testing.T) {
 						for _, strip := range []int{0, 1, 2, 6} {
 							for bus := 1; bus <= 5; bus++ {
 								want := float32(0)
-								if enabled && bus == 2 && ((monitor == "pre" && strip == src) || (monitor == "post" && mode == "element" && strip == 6)) {
+								if enabled && bus == 2 && (((monitor == "pre" || (monitor == "post" && mode == "direct")) && strip == src) || (monitor == "post" && mode == "element" && strip == 6)) {
 									want = 1
 								}
 								if s.Numbers[fmt.Sprintf("Strip[%d].A%d", strip, bus)] != want {

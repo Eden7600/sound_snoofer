@@ -94,7 +94,7 @@ func (c *Controller) applyTopology(ctx context.Context, p routing.Plan) error {
 				}
 			}
 			conflict := r.Conflict()
-			if i := c.Config.VoiceIntent(); i != nil && i.Recording != nil && (i.Recording.ToVST || r.Values["Recorder.B2"] != 0) {
+			if i := routing.EffectiveIntent(c.Config, s); i != nil && i.Recording != nil && (i.Recording.ToVST || r.Values["Recorder.B2"] != 0) {
 				conflict = r.RehearsalConflict()
 			}
 			if conflict != "" && !micOff {

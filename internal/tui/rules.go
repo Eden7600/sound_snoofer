@@ -154,10 +154,6 @@ func (s *screen) ruleAction(key string) {
 	value := row.value
 	switch row.key {
 	case "record-tap":
-		if s.choices().Mode == "direct" {
-			s.pending = "Pre only in Direct"
-			return
-		}
 		value = cycle(value, "pre", "post")
 	case "source":
 		value = cycle(value, "desk", "lav", "webcam", "off")
@@ -226,7 +222,7 @@ func (s screen) ruleLines() []string {
 	}
 	if s.state.Plan != nil && s.state.Plan.Topology != nil && s.state.Plan.Topology.Voice != nil {
 		v := s.state.Plan.Topology.Voice
-		rows = append(rows, "", "Effective mic: "+v.Effective, "Preferred mic: "+v.Preferred, "Monitoring: "+v.Monitor)
+		rows = append(rows, "", "Effective mic: "+v.Effective, "Preferred mic: "+v.Preferred, "Monitoring: "+v.Monitor, "Processing: "+pretty(v.EffectiveMode), v.ProcessingReason)
 		if v.Reason != "" {
 			rows = append(rows, v.Reason)
 		}
@@ -244,7 +240,7 @@ func (s screen) ruleLines() []string {
 			rows = append(rows, "WARNING: B1 is muted")
 		}
 	}
-	rows = append(rows, "", "LOCKED: AUX -> B2 OFF (feedback protection)", "RESERVED: B2 = Element send; AUX = return; B3 = app microphone", "Element audio is not verified by mixer readback. Use Direct for recovery.", "Pre monitoring is before Element; monitoring speakers can feed back.", "", "Observed voice sends:")
+	rows = append(rows, "", "LOCKED: AUX -> B2 OFF (feedback protection)", "RESERVED: B2 = Element send; AUX = return; B3 = app microphone", "Element process absence falls back to Direct; running does not prove audio health.", "Pre monitoring is before Element; monitoring speakers can feed back.", "", "Observed voice sends:")
 	for _, strip := range []int{0, 1, 2, 6} {
 		b2, ok2 := s.state.Snapshot.Numbers[fmt.Sprintf("Strip[%d].B2", strip)]
 		b3, ok3 := s.state.Snapshot.Numbers[fmt.Sprintf("Strip[%d].B3", strip)]

@@ -60,7 +60,7 @@ const ruleConfig = `{"version":1,"poll_ms":60000,"studio":{"asio_pattern":"Volt 
 type ruleClient struct{ *fakeClient }
 
 func (c *ruleClient) Snapshot() (model.Snapshot, error) {
-	s := model.Snapshot{Edition: 3, Assignments: map[string]string{}, Numbers: map[string]float32{}, Devices: []model.Device{{Name: "Volt ASIO", Driver: "asio", Direction: "output"}, {Name: "Volt input", Driver: "wdm", Direction: "input", Available: true}, {Name: "speakers", Driver: "wdm", Direction: "output", Available: true}, {Name: "webcam", Driver: "wdm", Direction: "input", Available: true}}}
+	s := model.Snapshot{Element: &model.ProcessStatus{Known: true, Running: true}, Edition: 3, Assignments: map[string]string{}, Numbers: map[string]float32{}, Devices: []model.Device{{Name: "Volt ASIO", Driver: "asio", Direction: "output"}, {Name: "Volt input", Driver: "wdm", Direction: "input", Available: true}, {Name: "speakers", Driver: "wdm", Direction: "output", Available: true}, {Name: "webcam", Driver: "wdm", Direction: "input", Available: true}}}
 	for _, slot := range model.Slots(3) {
 		s.Assignments[slot] = ""
 	}

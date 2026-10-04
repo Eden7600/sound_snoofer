@@ -29,6 +29,7 @@ type native interface {
 // Client owns one login. Calls are serialized; the CLI also pins its OS thread
 // because IsParametersDirty must be called from a single thread.
 type Client struct {
+	elementProbe     func() model.ProcessStatus
 	mu               sync.Mutex
 	api              native
 	closed           bool
@@ -138,6 +139,10 @@ func (c *Client) snapshot(enumerate bool) (model.Snapshot, error) {
 	if enumerate {
 		c.inventory = append([]model.Device{}, s.Devices...)
 		c.inventoryEdition = s.Edition
+	}
+	if c.elementProbe != nil {
+		status := c.elementProbe()
+		s.Element = &status
 	}
 	return s, nil
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"sound-snoofer/internal/model"
+	"sound-snoofer/internal/routing"
 )
 
 type RecorderBackend interface {
@@ -77,7 +78,11 @@ func (c *Controller) Record(ctx context.Context, start, live bool) error {
 		}
 	}
 	if start {
-		if i := c.Config.VoiceIntent(); i != nil && i.Recording != nil && i.Recording.ToVST {
+		snapshot, err := c.observe(false)
+		if err != nil {
+			return err
+		}
+		if i := routing.EffectiveIntent(c.Config, snapshot); i != nil && i.Recording != nil && i.Recording.ToVST {
 			return fmt.Errorf("disable Recording to VST before recording")
 		}
 	}

@@ -90,7 +90,25 @@ func (s screen) dashboardRows(w int) ([]string, int) {
 		if r.key == "record-stop" || r.key == "snippet-stop" {
 			value = "↵ Stop"
 		}
+		statusColor, statusText := s.controlStatus(r)
+		if statusColor == "196" {
+			value = statusText
+		} else if statusText != "" {
+			value += " · " + statusText
+		}
 		label := r.label
+		if statusColor != "" && w < 60 {
+			switch r.key {
+			case "record-tap":
+				label = "Mic Stage"
+			case "record-computer":
+				label = "Record Computer"
+			case "record-vst":
+				label = "Tape to VST"
+			case "output":
+				label = "Output"
+			}
+		}
 		if strings.HasPrefix(r.key, "playback:") {
 			label = "Playback " + strings.TrimPrefix(r.key, "playback:")
 		}
@@ -106,9 +124,17 @@ func (s screen) dashboardRows(w int) ([]string, int) {
 		}
 		line := fit(text+strings.Repeat(" ", gap)+value, w)
 		if n == s.selected {
-			line = paint("1;38;5;231;48;5;24", line)
+			color := "231"
+			if statusColor != "" {
+				color = statusColor
+			}
+			line = paint("1;38;5;"+color+";48;5;24", line)
 		} else {
-			line = paint("38;5;252", line)
+			color := "252"
+			if statusColor != "" {
+				color = statusColor
+			}
+			line = paint("38;5;"+color, line)
 		}
 		rows = append(rows, line)
 	}
@@ -158,7 +184,15 @@ func (s screen) statusRows(w int) []string {
 			output = t.PlaybackTarget + " · " + empty(s.state.Snapshot.Assignments[t.PlaybackTarget])
 		}
 	}
-	rows = append(rows, output, "", "Native recorder", s.state.Recorder.State())
+	rows = append(rows, output, "", s.state.Snapshot.ElementStatus())
+	if s.state.Plan != nil && s.state.Plan.Topology != nil && s.state.Plan.Topology.Voice != nil {
+		v := s.state.Plan.Topology.Voice
+		rows = append(rows, "Processing: "+pretty(v.EffectiveMode))
+		if v.ProcessingReason != "" {
+			rows = append(rows, v.ProcessingReason)
+		}
+	}
+	rows = append(rows, "", "Native recorder", s.state.Recorder.State())
 	if s.state.Intent != nil && s.state.Intent.Recording != nil {
 		if s.state.Plan != nil && s.state.Plan.Topology != nil && s.state.Plan.Topology.Recording != nil {
 			r := s.state.Plan.Topology.Recording

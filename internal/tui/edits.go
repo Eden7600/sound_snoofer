@@ -66,6 +66,7 @@ func (s *screen) queueEdit(action Action) {
 		select {
 		case s.actions <- action:
 			s.inflight = action.ID
+			s.inflightAction = action
 		default:
 			s.pending = "A command is already queued"
 			return
@@ -103,6 +104,7 @@ func (s *screen) acceptEditState() {
 			select {
 			case s.actions <- action:
 				s.inflight = action.ID
+				s.inflightAction = action
 				s.pending = "Queued"
 			default:
 				s.pending = "Settings not submitted: command queue full"

@@ -29,8 +29,8 @@ func TestDirectRecordingStageLoadAndSave(t *testing.T) {
 		t.Fatal(err)
 	}
 	c, err = LoadEffective(path)
-	if err != nil || c.StateError != "" || c.Intent.Recording.MicTap != "pre" {
-		t.Fatal("legacy normalization", err, c.StateError)
+	if err != nil || c.StateError != "" || c.Intent.Recording.MicTap != "post" {
+		t.Fatal("Post preference lost on load", err, c.StateError)
 	}
 	if _, err = SaveIntent(path, c, i, c.StateToken); err != nil {
 		t.Fatal(err)
@@ -46,13 +46,13 @@ func TestDirectRecordingStageLoadAndSave(t *testing.T) {
 	if err = json.Unmarshal(saved, &result); err != nil {
 		t.Fatal(err)
 	}
-	if result.Recording.MicTap != "pre" || !result.Recording.MicEnabled || !result.Recording.ComputerEnabled {
+	if result.Recording.MicTap != "post" || !result.Recording.MicEnabled || !result.Recording.ComputerEnabled {
 		t.Fatal(result)
 	}
 	result.Mode = "element"
 	result.NormalizeRecordingStage()
-	if result.Recording.MicTap != "pre" {
-		t.Fatal("Post was restored automatically")
+	if result.Recording.MicTap != "post" {
+		t.Fatal("Post preference lost")
 	}
 	i.Recording.MicTap = "invalid"
 	if _, err = SaveIntent(path, c, i, c.StateToken); err == nil {

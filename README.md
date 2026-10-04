@@ -114,7 +114,7 @@ Desk is Volt input 1; lav is always Volt input 2. If Volt disconnects, the selec
 
 Element must use Voicemeeter AUX Virtual ASIO channels 1/2. The route is mic -> B2 -> Element -> AUX -> B3. Direct instead sends mic -> B3. Discord and other voice apps must capture B3 (observed here as Voicemeeter Out 8); ordinary playback must use primary VAIO. AUX -> B2 stays off to prevent feedback. Keep AUX reserved for Element.
 
-Pre monitoring means before Element, not before Voicemeeter's own effects. Post uses AUX and is inactive in Direct mode. Monitoring follows the chosen playback output. Start with Off; test with headphones at low volume. To recover if Element stops, select Direct explicitly: process presence and mixer readback cannot prove audio is flowing, and Sound Snoofer does not automatically expose dry voice.
+Pre monitoring means before Element, not before Voicemeeter's own effects. Post prefers AUX and falls back to Pre in effective Direct mode. Monitoring follows the chosen playback output. Start with Off; test with headphones at low volume. If Element closes or process status cannot be read, Sound Snoofer temporarily routes the microphone directly and restores Element routing when the process returns. Process presence and mixer readback cannot prove plugin/audio health.
 
 Switching can cause a short gap on affected paths: changed sends are disabled and verified before replacement sends are enabled. Unchanged sends stay untouched unless their input device, ASIO patch or output device is being reconfigured. Failed operations stop the transition and remain visible; there is no atomic rollback. Restarting a live session reconciles from observed state. Removing the profile does not restore previous settings; stop enforcement and restore your recorded mixer/config backup if rolling back.
 # Recording
@@ -136,9 +136,9 @@ or j/k to select a control. The dashboard adapts to terminal size and supports
 `NO_COLOR=1`. Start/Stop require Enter; Space cannot start a recording.
 
 The Potato voice profile supports B1 recording with persistent mic/computer
-inclusion controls and a Pre/Post mic stage. The stage changes automatically
-to Pre when switching to Direct; Post is only selectable in Element.
-Returning to Element keeps Pre until explicitly changed. Recording controls are ordered
+inclusion controls and a preferred Pre/Post mic stage. Post stays saved when
+Direct is effective, while capture temporarily uses Pre. Returning to available
+Element processing restores Post. Recording controls are ordered
 Record Computer Audio, Record Microphone, Recording Mic Stage. Start/Stop appear
 under a separate Actions heading and require Enter in live mode.
 Capture never starts automatically. Quit and dry-run leave native recording
@@ -172,3 +172,13 @@ Send-only changes debounce for 20 ms and verify at 5 ms intervals. The controlle
 With `studio.asio_playback: true` (enabled in the default voice profile), the connected Volt appears as **Universal Audio Volt** in Playback Device and is the last automatic fallback. Selecting it uses the existing ASIO A1 output; no second WDM Volt output is opened. Playback and monitoring move to A1, and move back to A2 when a higher-priority WDM device returns in Automatic mode. An explicit Volt preference overrides automatic priority while connected. The driver alone does not establish presence. Mic Off leaves Volt playback working.
 
 Settings latency audit: TUI edits wake the worker immediately. Device selection performs a fresh availability check before saving; durable state saving remains synchronous. Device transactions use full inventory only at the start/end and before/after each changed device assignment, while sends and pending readback use cheap parameter snapshots. Device verification polls at 20 ms; numeric and recorder confirmation at 5 ms. Normal monitor/mode/capture/loop changes use a 20 ms debounce; source Off or a source change that clears/assigns hardware uses the 1-second device debounce. Physical hotplug discovery can additionally take up to the 1-second inventory poll. Native device opening and verification can extend these times. Error backoff remains 1–30 seconds; uncertain transport commands are not retried.
+
+### Preferred settings and Element availability
+
+Sound Snoofer observes `element.exe` without launching or terminating it. Your Processing preference remains Element when the host is closed or its process status is unknown; effective routing falls back to Direct and restores Element when it is observed running again. Idle detection uses the normal inventory poll; availability is also checked during routing transactions.
+
+Monitor Post-VST and Recording Mic Stage Post are persistent preferences. Whenever effective mode is Direct (including selecting Direct yourself), effective monitoring and capture use Pre. Returning to available Element processing restores Post. Preferences are not rewritten by the fallback. Mic Off still disconnects all mic sends.
+
+Requested Recording to VST pauses while Element is unavailable: tape sends are disconnected, direct live voice is restored if enabled, and Play Snippet is rejected. Reopening Element restores requested rehearsal routing but sends no transport command. A running process proves only availability, not working audio or a valid plugin graph.
+
+Controls show **yellow / … pending** while queued or awaiting relevant readback, and **red / requested → effective** for overrides (for example, Post-VST → Pre-VST). Markers remain visible with NO_COLOR. Normal color returns when the preference is met; unrelated satisfied settings are not globally marked pending.
