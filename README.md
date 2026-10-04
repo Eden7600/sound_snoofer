@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/sound-snoofer-logo.png" alt="Sound Snoofer: golden protogen mascot with headphones and a yellow digital visor" width="360">
+</p>
+
 # Sound Snoofer
 
 A Windows Go application that continuously enforces audio-routing rules through the Voicemeeter Remote API. Supports Banana and Potato.
@@ -182,3 +186,7 @@ Monitor Post-VST and Recording Mic Stage Post are persistent preferences. Whenev
 Requested Recording to VST pauses while Element is unavailable: tape sends are disconnected, direct live voice is restored if enabled, and Play Snippet is rejected. Reopening Element restores requested rehearsal routing but sends no transport command. A running process proves only availability, not working audio or a valid plugin graph.
 
 Controls show **yellow / … pending** while queued or awaiting relevant readback, and **red / requested → effective** for overrides (for example, Post-VST → Pre-VST). Markers remain visible with NO_COLOR. Normal color returns when the preference is met; unrelated satisfied settings are not globally marked pending.
+
+## License
+
+Sound Snoofer is licensed under the [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-only).
