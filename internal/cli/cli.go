@@ -7,15 +7,19 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
-	"voice-snooter/internal/config"
-	"voice-snooter/internal/controller"
-	"voice-snooter/internal/model"
-	"voice-snooter/internal/ownership"
-	"voice-snooter/internal/routing"
-	"voice-snooter/internal/tui"
-	"voice-snooter/internal/voicemeeter"
+
+	"sound-snoofer/internal/config"
+	"sound-snoofer/internal/controller"
+	"sound-snoofer/internal/model"
+	"sound-snoofer/internal/ownership"
+	"sound-snoofer/internal/routing"
+	"sound-snoofer/internal/tui"
+	"sound-snoofer/internal/voicemeeter"
 )
 
 type Client interface {
@@ -23,24 +27,29 @@ type Client interface {
 	Close() error
 }
 type Deps struct {
-	Open    func(string) (Client, error)
-	Acquire func() (func(), error)
-	Clock   controller.Clock
+	Executable func() (string, error)
+	RunTUI     func(context.Context, config.Config, string, string, bool, io.Writer, tui.Dependencies) error
+	Open       func(string) (Client, error)
+	Acquire    func() (func(), error)
+	Clock      controller.Clock
 }
 
 func DefaultDeps() Deps {
 	return Deps{Open: func(path string) (Client, error) { return voicemeeter.Open(path) }, Acquire: ownership.Acquire, Clock: controller.RealClock{}}
 }
 
-const usage = `Voice Snooter - regex-driven Voicemeeter device routing
+const usage = `Sound Snoofer - regex-driven Voicemeeter device routing
 
-  voice-snooter tui --config FILE [--apply] [--dll ABSOLUTE_PATH]
-  voice-snooter devices [--json] [--dll ABSOLUTE_PATH]
-  voice-snooter plan --config FILE [--json] [--dll ABSOLUTE_PATH]
-  voice-snooter apply --config FILE [--json] [--dll ABSOLUTE_PATH]
-  voice-snooter watch --config FILE [--apply] [--json] [--dll ABSOLUTE_PATH]
+  sound-snoofer [--dry-run] [--config FILE]
+  sound-snoofer tui [--config FILE] [--dry-run] [--dll ABSOLUTE_PATH]
+  sound-snoofer devices [--json] [--dll ABSOLUTE_PATH]
+  sound-snoofer plan --config FILE [--json] [--dll ABSOLUTE_PATH]
+  sound-snoofer apply --config FILE [--json] [--dll ABSOLUTE_PATH]
+  sound-snoofer watch --config FILE [--dry-run] [--json] [--dll ABSOLUTE_PATH]
 
-Watch is dry-run unless --apply is supplied. Fixed routes manage WDM devices;
+No arguments opens the live TUI with config.json beside the executable.
+TUI and watch are live by default; --dry-run opts into preview.
+Fixed routes manage WDM devices;
 studio rules manage ASIO input patches, playback outputs and strip sends.
 `
 
@@ -48,9 +57,12 @@ func Run(ctx context.Context, args []string, out, errout io.Writer, deps Deps) (
 	// Refresh and DLL connection lifetime stay on one Windows thread.
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	if len(args) == 0 || args[0] == "help" || args[0] == "--help" {
+	if len(args) > 0 && (args[0] == "help" || args[0] == "--help" || args[0] == "-h") {
 		fmt.Fprint(out, usage)
 		return 0
+	}
+	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
+		args = append([]string{"tui"}, args...)
 	}
 	command := args[0]
 	if command != "devices" && command != "plan" && command != "apply" && command != "watch" && command != "tui" {
@@ -63,11 +75,13 @@ func Run(ctx context.Context, args []string, out, errout io.Writer, deps Deps) (
 	asJSON := fs.Bool("json", false, "JSON output (watch uses JSON Lines)")
 	var configPath string
 	var live bool
+	var dryRun bool
 	if command != "devices" {
-		fs.StringVar(&configPath, "config", "", "configuration JSON path (required)")
+		fs.StringVar(&configPath, "config", "", "configuration JSON path (TUI default: config.json beside executable)")
 	}
 	if command == "watch" || command == "tui" {
-		fs.BoolVar(&live, "apply", false, "apply stable changes (default: dry-run)")
+		fs.BoolVar(&live, "apply", true, "apply stable changes (default: true)")
+		fs.BoolVar(&dryRun, "dry-run", false, "preview without applying mixer changes")
 	}
 	if e := fs.Parse(args[1:]); e != nil {
 		if errors.Is(e, flag.ErrHelp) {
@@ -80,6 +94,25 @@ func Run(ctx context.Context, args []string, out, errout io.Writer, deps Deps) (
 		return 2
 	}
 	var cfg config.Config
+	if dryRun {
+		live = false
+	}
+	if command == "tui" && configPath == "" {
+		executable := deps.Executable
+		if executable == nil {
+			executable = os.Executable
+		}
+		exe, err := executable()
+		if err != nil {
+			fmt.Fprintln(errout, err)
+			return 2
+		}
+		configPath = filepath.Join(filepath.Dir(exe), "config.json")
+		if err := config.EnsureDefault(configPath); err != nil {
+			fmt.Fprintln(errout, err)
+			return 2
+		}
+	}
 	if command != "devices" {
 		if configPath == "" {
 			fmt.Fprintln(errout, "--config is required")
@@ -101,7 +134,11 @@ func Run(ctx context.Context, args []string, out, errout io.Writer, deps Deps) (
 			fmt.Fprintln(errout, "tui does not support --json; use watch --json")
 			return 2
 		}
-		e := tui.Run(ctx, cfg, configPath, *path, live, out, tui.Dependencies{Open: func(path string) (tui.Client, error) { return deps.Open(path) }, Acquire: deps.Acquire, Load: config.LoadEffective})
+		run := deps.RunTUI
+		if run == nil {
+			run = tui.Run
+		}
+		e := run(ctx, cfg, configPath, *path, live, out, tui.Dependencies{Open: func(path string) (tui.Client, error) { return deps.Open(path) }, Acquire: deps.Acquire, Load: config.LoadEffective})
 		if e != nil {
 			fmt.Fprintln(errout, e)
 			return 1

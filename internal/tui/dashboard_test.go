@@ -7,7 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"voice-snooter/internal/config"
+	"sound-snoofer/internal/config"
 )
 
 func TestSourceOffKeyboardAndRestore(t *testing.T) {
@@ -186,7 +186,7 @@ func TestCompactLayoutAndPickerBounds(t *testing.T) {
 	s.picker = nil
 	s.width, s.height = 140, 40
 	text := ansi.Strip(s.View().Content)
-	for _, removed := range []string{"VOICE SNOOTER", "0 mic", "keeps running on exit", "before Element", "Choose a control", "Source: Desk"} {
+	for _, removed := range []string{"SOUND SNOOFER", "0 mic", "keeps running on exit", "before Element", "Choose a control", "Source: Desk"} {
 		if strings.Contains(text, removed) {
 			t.Fatal("obsolete chrome", removed)
 		}

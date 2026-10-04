@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"voice-snooter/internal/config"
-	"voice-snooter/internal/model"
+	"sound-snoofer/internal/config"
+	"sound-snoofer/internal/model"
 )
 
 func recordingFixture(t *testing.T) (config.Config, model.Snapshot) {

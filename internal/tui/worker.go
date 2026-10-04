@@ -6,10 +6,10 @@ import (
 	"runtime"
 	"time"
 
-	"voice-snooter/internal/config"
-	"voice-snooter/internal/controller"
-	"voice-snooter/internal/model"
-	"voice-snooter/internal/routing"
+	"sound-snoofer/internal/config"
+	"sound-snoofer/internal/controller"
+	"sound-snoofer/internal/model"
+	"sound-snoofer/internal/routing"
 )
 
 type Client interface {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
-	"voice-snooter/internal/config"
+	"sound-snoofer/internal/config"
 )
 
 func TestReloadRejectsUnsupportedEditionTargets(t *testing.T) {

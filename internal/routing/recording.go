@@ -3,8 +3,8 @@ package routing
 import (
 	"fmt"
 	"strings"
-	"voice-snooter/internal/config"
-	"voice-snooter/internal/model"
+	"sound-snoofer/internal/config"
+	"sound-snoofer/internal/model"
 )
 
 type RecordingStatus struct {

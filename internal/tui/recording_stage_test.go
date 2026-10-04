@@ -3,7 +3,7 @@ package tui
 import (
 	"testing"
 
-	"voice-snooter/internal/config"
+	"sound-snoofer/internal/config"
 )
 
 func TestDirectStageEditAndKeyboard(t *testing.T) {

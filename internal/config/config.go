@@ -8,7 +8,7 @@ import (
 	"os"
 	"regexp"
 	"time"
-	"voice-snooter/internal/model"
+	"sound-snoofer/internal/model"
 )
 
 type Candidate struct {

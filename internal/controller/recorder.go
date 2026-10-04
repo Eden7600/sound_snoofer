@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
-	"voice-snooter/internal/model"
+	"sound-snoofer/internal/model"
 )
 
 type RecorderBackend interface {

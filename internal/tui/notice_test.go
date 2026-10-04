@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"voice-snooter/internal/routing"
+	"sound-snoofer/internal/routing"
 )
 
 func TestNoticeExpiryAndConvergence(t *testing.T) {

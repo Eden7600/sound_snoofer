@@ -3,7 +3,7 @@ package voicemeeter
 import (
 	"strings"
 	"testing"
-	"voice-snooter/internal/model"
+	"sound-snoofer/internal/model"
 )
 
 type badRecorderAPI struct{ *fakeAPI }

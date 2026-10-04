@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	"voice-snooter/internal/config"
-	"voice-snooter/internal/model"
-	"voice-snooter/internal/routing"
+	"sound-snoofer/internal/config"
+	"sound-snoofer/internal/model"
+	"sound-snoofer/internal/routing"
 )
 
 type Backend interface {

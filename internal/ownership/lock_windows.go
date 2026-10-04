@@ -9,7 +9,7 @@ import (
 
 // A named kernel object lives while this handle is held. No thread-affine
 // mutex ownership is needed, and a process crash releases the handle.
-func Acquire() (func(), error) { return acquire(`Local\VoiceSnooter.Writer.v1`) }
+func Acquire() (func(), error) { return acquire(`Local\SoundSnoofer.Writer.v1`) }
 func acquire(name string) (func(), error) {
 	p, e := windows.UTF16PtrFromString(name)
 	if e != nil {
@@ -20,7 +20,7 @@ func acquire(name string) (func(), error) {
 		if h != 0 {
 			windows.CloseHandle(h)
 		}
-		return nil, fmt.Errorf("another Voice Snooter writer is active in this session")
+		return nil, fmt.Errorf("another Sound Snoofer writer is active in this session")
 	}
 	if e != nil {
 		return nil, e

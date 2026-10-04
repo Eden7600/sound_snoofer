@@ -1,6 +1,6 @@
 schema: spec-driven
 context: |
-  Voice Snooter is a Windows desktop audio-routing utility implemented in Go.
+  Sound Snoofer is a Windows desktop audio-routing utility implemented in Go.
   Use the installed Voicemeeter Remote API; do not redistribute its DLL.
   The user now runs Potato; legacy configurations still support Banana.
   Volt ASIO owns A1 when connected. Channel 1 feeds Stereo Input 1 (L/R);

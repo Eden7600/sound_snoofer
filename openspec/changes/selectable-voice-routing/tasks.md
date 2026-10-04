@@ -41,4 +41,4 @@
 - [ ] 6.3 With a charged lav, verify input-2 selection and separation from the desk mic, then verify explicit webcam, Volt disconnect fallback and preferred-source restoration after reconnect.
 - [ ] 6.4 Using headphones at low volume, verify Off/Pre/Post monitoring and switching voice mode; verify only the selected monitor path is audible and AUX-to-B2 stays off.
 - [ ] 6.5 Verify AirPods/speaker changes and A1/A2 migration preserve app playback and monitoring rules; verify mic delivery with no eligible playback device and document Element behavior across A1 engine changes.
-- [ ] 6.6 Close Element and verify no automatic dry bypass; select Direct to recover, restart Voice Snooter and verify saved choices with dry-run default. Record any required manual Element recovery.
+- [ ] 6.6 Close Element and verify no automatic dry bypass; select Direct to recover, restart Sound Snoofer and verify saved choices with dry-run default. Record any required manual Element recovery.

@@ -7,7 +7,7 @@ notice rows and added typed notice lifecycle handling.
 Automated checks passed:
 - `go test ./... -timeout 30s`
 - `go vet ./...`
-- Windows build to `bin/voice-snooter.exe`
+- Windows build to `bin/sound-snoofer.exe`
 - `openspec validate streamline-tui-controls --strict`
 
 Tests cover picker navigation/confirmation/cancellation, unchanged selections,

@@ -4,7 +4,7 @@
 
 - `go test ./... -timeout 30s`: passed, including legacy fixed-device/studio tests.
 - `go vet ./...`: passed.
-- Windows build: `bin/voice-snooter-next.exe`.
+- Windows build: `bin/sound-snoofer-next.exe`.
 - `openspec validate selectable-voice-routing --strict`: passed.
 
 Requirement coverage:
@@ -27,7 +27,7 @@ An interactive Windows terminal smoke test ran the new binary in dry-run using w
 
 The previous config was backed up to work/config.local.before-voice-rules-20261003.json. The read-only mixer baseline is work/voice-baseline-20261003.json. The local config now explicitly enables the voice profile with desk/Element/monitor Off defaults. Its read-only plan is work/voice-local-preview-20261003.json and resolves desk -> B2 -> AUX -> B3 with playback A2 and Volt A1. At inspection the only differing desired assignment was webcam on input 3; this was not applied.
 
-The earlier bin/voice-snooter.exe remains running. The updated binary is deliberately side-by-side as bin/voice-snooter-next.exe. Close the old instance before starting the new one in live mode. Do not reload the new config in the old binary: it does not understand studio.voice.
+The earlier bin/sound-snoofer.exe remains running. The updated binary is deliberately side-by-side as bin/sound-snoofer-next.exe. Close the old instance before starting the new one in live mode. Do not reload the new config in the old binary: it does not understand studio.voice.
 
 ## Outstanding hardware acceptance
 

@@ -2,7 +2,7 @@
 
 ## Why
 
-Device routing alone cannot express which microphone to use, whether voice passes through Element, or when monitoring should be audible. A working Potato setup is now confirmed by the user's Discord mic test; Voice Snooter needs to preserve and manage that topology explicitly from its persistent TUI.
+Device routing alone cannot express which microphone to use, whether voice passes through Element, or when monitoring should be audible. A working Potato setup is now confirmed by the user's Discord mic test; Sound Snoofer needs to preserve and manage that topology explicitly from its persistent TUI.
 
 ## What Changes
 

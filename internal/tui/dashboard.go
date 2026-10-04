@@ -276,13 +276,13 @@ func (s screen) dashboardView() tea.View {
 		out = s.pickerOverlay(out, w, len(out)-bodyHeight-2+selectedLine-start+1)
 	}
 	if height < 10 || width < 42 {
-		out = []string{fit("VOICE SNOOTER", w), fit("Terminal too small; enlarge to 42×10.", w), fit("L live · Q quit", w)}
+		out = []string{fit("SOUND SNOOFER", w), fit("Terminal too small; enlarge to 42×10.", w), fit("L live · Q quit", w)}
 	}
 	if len(out) > height {
 		out = out[:height]
 	}
 	v := tea.NewView(strings.Join(out, "\n"))
 	v.AltScreen = true
-	v.WindowTitle = "Voice Snooter"
+	v.WindowTitle = "Sound Snoofer"
 	return v
 }

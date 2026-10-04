@@ -29,7 +29,7 @@ Added recording profile with both inclusions Off by default; retained existing
 saved desk/Direct/monitor-Off choices. Compared before/after desired operations
 excluding B1: identical. Preview is `work/recording-local-preview.json`.
 
-Build: `bin/voice-snooter-recording.exe`.
+Build: `bin/sound-snoofer-recording.exe`.
 
 Hardware acceptance remains pending: no native Start/Stop or file-content test,
 no audible Element effect comparison, no physical hotplug or live-recording tap

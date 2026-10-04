@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"voice-snooter/internal/config"
+	"sound-snoofer/internal/config"
 )
 
 func editIntent(i *config.Intent, a Action) error {

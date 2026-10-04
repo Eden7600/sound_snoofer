@@ -68,7 +68,7 @@ The TUI SHALL show mic inclusion, Pre/Post tap, computer inclusion, recorder sta
 - **THEN** existing voice choices remain and recording inclusion defaults off
 
 #### Scenario: Restart while recorder is active
-- **WHEN** Voice Snooter restarts
+- **WHEN** Sound Snoofer restarts
 - **THEN** it restores source preferences, defaults to dry-run and displays the observed recorder state without starting or stopping it
 
 ### Requirement: Preserve other mixes during source changes

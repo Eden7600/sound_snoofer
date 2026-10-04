@@ -10,7 +10,7 @@ import (
 )
 
 func TestWriterOwnershipAndRelease(t *testing.T) {
-	name := fmt.Sprintf(`Local\VoiceSnooter.Test.%d.%d`, os.Getpid(), time.Now().UnixNano())
+	name := fmt.Sprintf(`Local\SoundSnoofer.Test.%d.%d`, os.Getpid(), time.Now().UnixNano())
 	release, e := acquire(name)
 	if e != nil {
 		t.Fatal(e)

@@ -4,7 +4,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
-	"voice-snooter/internal/cli"
+	"sound-snoofer/internal/cli"
 )
 
 func main() {

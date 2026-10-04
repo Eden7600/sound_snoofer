@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"voice-snooter/internal/config"
+	"sound-snoofer/internal/config"
 )
 
 type tracedRoutingBackend struct {

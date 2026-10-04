@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	"voice-snooter/internal/model"
-	"voice-snooter/internal/routing"
+	"sound-snoofer/internal/model"
+	"sound-snoofer/internal/routing"
 )
 
 type numberBackend interface{ SetNumber(string, int) error }

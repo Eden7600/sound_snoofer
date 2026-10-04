@@ -18,7 +18,7 @@ accepts Enter and Space and removes the redundant boolean row. Windows terminal
 color autodetection also returned monochrome with TERM absent; explicitly using
 the existing ANSI256 renderer fixed this while retaining NO_COLOR support.
 
-Built bin/voice-snooter.exe. The user's older voice-snooter-recording.exe process
+Built bin/sound-snoofer.exe. The user's older sound-snoofer-recording.exe process
 was left running, so it must be closed and the new executable launched to see the
 redesign. Personal config and source choices were not changed. Physical audio
 and recording-file acceptance from previous changes remain pending.

@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"sync"
-	"voice-snooter/internal/model"
+	"sound-snoofer/internal/model"
 )
 
 var ErrDisconnected = errors.New("Voicemeeter is disconnected; start Banana or Potato")

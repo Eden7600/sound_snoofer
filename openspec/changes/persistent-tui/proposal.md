@@ -2,7 +2,7 @@
 
 ## Why
 
-The watcher emits scrolling logs, making it difficult to see current routing at a glance. A persistent terminal dashboard should remain open while Voice Snooter observes devices and enforces rules.
+The watcher emits scrolling logs, making it difficult to see current routing at a glance. A persistent terminal dashboard should remain open while Sound Snoofer observes devices and enforces rules.
 
 ## What Changes
 

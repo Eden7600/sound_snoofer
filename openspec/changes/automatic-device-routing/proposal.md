@@ -2,7 +2,7 @@
 
 ## Why
 
-Frequently connecting and disconnecting microphones and playback devices forces manual Voicemeeter reconfiguration. Voice Snooter should select the best available device independently for each configured input or output and restore preferred devices when they return.
+Frequently connecting and disconnecting microphones and playback devices forces manual Voicemeeter reconfiguration. Sound Snoofer should select the best available device independently for each configured input or output and restore preferred devices when they return.
 
 ## What Changes
 

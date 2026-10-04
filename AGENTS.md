@@ -1,8 +1,8 @@
-# Voice Snooter development standards
+# Sound Snoofer development standards
 
 ## Project and scope
 
-Voice Snooter is a Windows Go application that manages Voicemeeter devices,
+Sound Snoofer is a Windows Go application that manages Voicemeeter devices,
 routing and recording through the installed Remote API, with a persistent TUI.
 Use the Go version declared in `go.mod`. Do not redistribute Voicemeeter's DLL.
 These instructions apply throughout the repository unless a deeper AGENTS.md
@@ -77,7 +77,8 @@ provides more specific guidance. Explicit user instructions take precedence.
   The controller applies and verifies plans; the TUI presents state and submits
   typed actions. Rendering and browsing selections must never write audio settings.
 - Preserve save-before-apply, stale-action rejection, atomic saved-choice updates,
-  drift checks, bounded verification and default dry-run behavior.
+  drift checks and bounded verification. TUI/watch default to live; --dry-run
+  explicitly selects preview. Development smoke tests must opt into preview.
 - Mic source Off disconnects all managed mic and Element-return sends. It must
   not disable computer playback/capture or operate recorder transport.
 - Off also clears managed microphone input assignments and ASIO input patches;
@@ -131,7 +132,7 @@ Run from the repository root; use an explicit tool path if Go is not on PATH.
 gofmt -w <changed-go-files>
 go test ./... -timeout 30s
 go vet ./...
-go build -o bin/voice-snooter.exe ./cmd/voice-snooter
+go build -o bin/sound-snoofer.exe ./cmd/sound-snoofer
 go test -race ./...
 node node_modules/@fission-ai/openspec/bin/openspec.js validate <change-name> --strict
 ```

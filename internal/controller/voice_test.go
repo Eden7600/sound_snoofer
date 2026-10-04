@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"voice-snooter/internal/config"
-	"voice-snooter/internal/model"
+	"sound-snoofer/internal/config"
+	"sound-snoofer/internal/model"
 )
 
 func TestVoiceDebounceDriftAndInventory(t *testing.T) {

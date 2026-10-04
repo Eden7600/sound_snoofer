@@ -11,7 +11,7 @@ import (
 	"strings"
 	"syscall"
 	"unsafe"
-	"voice-snooter/internal/model"
+	"sound-snoofer/internal/model"
 )
 
 type winAPI struct {

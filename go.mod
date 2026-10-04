@@ -1,4 +1,4 @@
-module voice-snooter
+module sound-snoofer
 
 go 1.26.0
 

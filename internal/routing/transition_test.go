@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"voice-snooter/internal/model"
+	"sound-snoofer/internal/model"
 )
 
 func TestHardwareTransitionGatesOnlyDependencies(t *testing.T) {

@@ -46,7 +46,7 @@ Watch SHALL continue observing while Voicemeeter is disconnected. After reconnec
 - **THEN** writes pause during disconnection and resume only after fresh validation and debounce
 
 ### Requirement: Single active writer and shutdown
-Only one live Voice Snooter writer SHALL manage a Voicemeeter session at a time. Shutdown SHALL release API and process resources without reverting assignments; dry-run processes SHALL remain read-only.
+Only one live Sound Snoofer writer SHALL manage a Voicemeeter session at a time. Shutdown SHALL release API and process resources without reverting assignments; dry-run processes SHALL remain read-only.
 
 #### Scenario: Second live watcher
 - **WHEN** another writer already holds ownership

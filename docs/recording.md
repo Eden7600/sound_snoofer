@@ -31,7 +31,7 @@ is available even when routing conflicts. No transport choice is saved, and
 launch, reload, reconnect, apply and watch never automatically start recording.
 
 Set the destination folder and format in Voicemeeter's recorder before use.
-Voice Snooter preserves those settings, A tape playback sends, B1 gain/mute and
+Sound Snoofer preserves those settings, A tape playback sends, B1 gain/mute and
 effects. This is a post-fader bus mix: Pre means before Element, not raw input.
 A muted B1 is shown as a warning. Readback confirms parameters, not audio or a
 successfully saved file. Verify a short recording in the chosen folder.

@@ -2,7 +2,7 @@ package voicemeeter
 
 import (
 	"testing"
-	"voice-snooter/internal/model"
+	"sound-snoofer/internal/model"
 )
 
 func TestASIOAndNumericWriteBoundaries(t *testing.T) {

@@ -1,6 +1,17 @@
-# Voice Snooter
+# Sound Snoofer
 
 A Windows Go application that continuously enforces audio-routing rules through the Voicemeeter Remote API. Supports Banana and Potato.
+
+## Run
+
+Double-click `bin/sound-snoofer.exe`. It opens the TUI in live mode using
+`bin/config.json` and remembers choices in `bin/config.json.state.json`.
+If the config is missing, the app creates one from bundled defaults.
+The config path is relative to the executable, independent of working directory.
+Your existing personal configuration and choices have been copied there.
+
+For preview, run `sound-snoofer.exe --dry-run`. No other flags are needed for
+normal use. Advanced commands below remain available for diagnostics.
 
 ## Personal studio rules
 
@@ -9,28 +20,28 @@ A Windows Go application that continuously enforces audio-routing rules through 
 - Playback priorities: AirPods, then SteelSeries Arena. Playback occupies the lowest free output (normally A2 with Volt, A1 without). Unrelated occupied buses are preserved.
 - Existing playback sends move with playback. The logical rule virtual:1 -> playback continuously keeps primary VAIO routed to the playback device, even after a manual button change. Banana/Potato strip indexes are resolved at runtime.
 
-The current personal configuration is config.local.json (Git-ignored); config.studio.json is its tracked example. The original config.example.json demonstrates compatible fixed-slot WDM mode.
+The active default configuration is bin/config.json (Git-ignored); config.local.json is retained as the pre-migration copy. config.voice.json is a tracked voice/recording example. The original config.example.json demonstrates compatible fixed-slot WDM mode.
 
 ## Build and preview
 
 Requires Windows x64, Go 1.26+, and installed Voicemeeter. No C compiler is needed.
 
 ~~~powershell
-go build -o bin/voice-snooter.exe ./cmd/voice-snooter
+go build -o bin/sound-snoofer.exe ./cmd/sound-snoofer
 go test ./...
 go vet ./...
-.\bin\voice-snooter.exe devices --json
-.\bin\voice-snooter.exe plan --config config.local.json
-.\bin\voice-snooter.exe watch --config config.local.json
+.\bin\sound-snoofer.exe devices --json
+.\bin\sound-snoofer.exe plan --config config.local.json
+.\bin\sound-snoofer.exe watch --config config.local.json
 ~~~
 
 If Go is missing from PATH, use & 'C:\Program Files\Go\bin\go.exe' instead. The Remote DLL is discovered through the install registry key; --dll accepts an explicit absolute path. No DLL is downloaded or bundled.
 
-Watch is dry-run unless --apply is provided. Live operation:
+TUI and watch are live by default. Live operation:
 
 ~~~powershell
-.\bin\voice-snooter.exe apply --config config.local.json
-.\bin\voice-snooter.exe watch --config config.local.json --apply
+.\bin\sound-snoofer.exe apply --config config.local.json
+.\bin\sound-snoofer.exe watch --config config.local.json
 ~~~
 
 Ctrl+C stops watch and releases ownership; it leaves settings in place. Only one writer per Windows session may run. Stop watch to make manual changes without rule enforcement.
@@ -70,10 +81,10 @@ The active change tracks the expanded ASIO/routing scope and remains unarchived 
 Run from the project directory:
 
 ~~~powershell
-.\bin\voice-snooter.exe tui --config config.local.json
+.\bin\sound-snoofer.exe tui --config config.local.json
 ~~~
 
-Add --apply for live enforcement from startup, or press **l** to toggle live/dry mode. **Tab** switches Routing / Devices / Events, **j/k** or arrows scroll, **r** reloads configuration, **Space** refreshes, and **q** or **Ctrl+C** quits. Invalid reloads preserve the previous config. Mode changes take effect after the current serialized operation; quit cancels pending waits. The dashboard stays open through connection errors and shows attention/stale state until recovery.
+Use --dry-run for preview from startup, or press **l** to toggle live/dry mode. **Tab** switches Routing / Devices / Events, **j/k** or arrows scroll, **r** reloads configuration, **Space** refreshes, and **q** or **Ctrl+C** quits. Invalid reloads preserve the previous config. Mode changes take effect after the current serialized operation; quit cancels pending waits. The dashboard stays open through connection errors and shows attention/stale state until recovery.
 
 This is a persistent foreground terminal session, not a Windows startup service. It needs interactive stdin/stdout; use watch --json for redirected logs. Dry mode changes no audio settings.
 
@@ -81,7 +92,7 @@ This is a persistent foreground terminal session, not a Windows startup service.
 
 Use `config.voice.json` as an opt-in example, or add `"voice": {}` to your studio configuration. Defaults are desk mic, Element mode, voice enabled and monitoring Off. Existing configs without this object keep legacy behavior.
 
-Start with `voice-snooter tui --config config.local.json`. Controls is the first view:
+Start with `sound-snoofer tui --config config.local.json`. Controls is the first view:
 
 - Up/down selects a control. Enter or Space on Source opens Desk/Lav/Webcam/Off; arrows select, Enter confirms, Escape cancels. Browsing does not change audio.
 - Enter/Space cycles Processing or Monitor and toggles playback/capture settings. Off is selected through the source list; there is no separate Off hotkey.
@@ -96,7 +107,7 @@ Desk is Volt input 1; lav is always Volt input 2. If Volt disconnects, the selec
 
 Element must use Voicemeeter AUX Virtual ASIO channels 1/2. The route is mic -> B2 -> Element -> AUX -> B3. Direct instead sends mic -> B3. Discord and other voice apps must capture B3 (observed here as Voicemeeter Out 8); ordinary playback must use primary VAIO. AUX -> B2 stays off to prevent feedback. Keep AUX reserved for Element.
 
-Pre monitoring means before Element, not before Voicemeeter's own effects. Post uses AUX and is inactive in Direct mode. Monitoring follows the chosen playback output. Start with Off; test with headphones at low volume. To recover if Element stops, select Direct explicitly: process presence and mixer readback cannot prove audio is flowing, and Voice Snooter does not automatically expose dry voice.
+Pre monitoring means before Element, not before Voicemeeter's own effects. Post uses AUX and is inactive in Direct mode. Monitoring follows the chosen playback output. Start with Off; test with headphones at low volume. To recover if Element stops, select Direct explicitly: process presence and mixer readback cannot prove audio is flowing, and Sound Snoofer does not automatically expose dry voice.
 
 Switching can cause a short gap on affected paths: changed sends are disabled and verified before replacement sends are enabled. Unchanged sends stay untouched unless their input device, ASIO patch or output device is being reconfigured. Failed operations stop the transition and remain visible; there is no atomic rollback. Restarting a live session reconciles from observed state. Removing the profile does not restore previous settings; stop enforcement and restore your recorded mixer/config backup if rolling back.
 # Recording

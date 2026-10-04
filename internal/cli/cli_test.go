@@ -6,10 +6,10 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sound-snoofer/internal/model"
 	"strings"
 	"testing"
 	"time"
-	"voice-snooter/internal/model"
 )
 
 type testClient struct {
@@ -62,6 +62,9 @@ func TestReadOnlyCommands(t *testing.T) {
 			args := []string{cmd, "--json"}
 			if cmd != "devices" {
 				args = append(args, "--config", path)
+			}
+			if cmd == "watch" {
+				args = append(args, "--dry-run")
 			}
 			var out, errout bytes.Buffer
 			code := Run(ctx, args, &out, &errout, d)

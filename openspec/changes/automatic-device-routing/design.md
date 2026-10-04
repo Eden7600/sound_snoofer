@@ -2,7 +2,7 @@
 
 ## Context
 
-Voice Snooter now has a working Go CLI and initial fixed-slot WDM routing. The user clarified that its primary purpose is automatic rule enforcement: Volt uses ASIO A1, channels 1 and 2 feed separate stereo strips, playback uses the lowest free hardware output, and primary VAIO always feeds playback. This supersedes the initial WDM-only Volt assumption. The lav currently occupies Volt input 2.
+Sound Snoofer now has a working Go CLI and initial fixed-slot WDM routing. The user clarified that its primary purpose is automatic rule enforcement: Volt uses ASIO A1, channels 1 and 2 feed separate stereo strips, playback uses the lowest free hardware output, and primary VAIO always feeds playback. This supersedes the initial WDM-only Volt assumption. The lav currently occupies Volt input 2.
 
 ## Goals / Non-Goals
 

@@ -23,7 +23,7 @@ their current cycling interaction.
 ### Compact screen chrome
 
 Start the screen with the existing mode/connection/recorder status row and tabs;
-remove the app-title row (the terminal window title can remain Voice Snooter).
+remove the app-title row (the terminal window title can remain Sound Snoofer).
 Show a notice row only when there is a meaningful pending operation, transient
 result or error. Remove the default 'Choose a control...' filler. Use one keyboard
 footer, updating its content while the source picker is open. Remove the second

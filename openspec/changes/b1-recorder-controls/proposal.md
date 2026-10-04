@@ -2,7 +2,7 @@
 
 ## Why
 
-B1 is now the dedicated recording mix. Voice Snooter must let the user choose microphone pre/post Element and computer audio independently, then start and stop Voicemeeter's built-in recorder from the TUI.
+B1 is now the dedicated recording mix. Sound Snoofer must let the user choose microphone pre/post Element and computer audio independently, then start and stop Voicemeeter's built-in recorder from the TUI.
 
 ## What Changes
 

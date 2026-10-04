@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"voice-snooter/internal/ownership"
+	"sound-snoofer/internal/ownership"
 )
 
 func stateBytes(path string) ([]byte, string, error) {

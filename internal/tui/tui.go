@@ -15,8 +15,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/term"
 
-	"voice-snooter/internal/config"
-	"voice-snooter/internal/model"
+	"sound-snoofer/internal/config"
+	"sound-snoofer/internal/model"
 )
 
 type screen struct {

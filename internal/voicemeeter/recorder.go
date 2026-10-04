@@ -2,7 +2,7 @@ package voicemeeter
 
 import (
 	"fmt"
-	"voice-snooter/internal/model"
+	"sound-snoofer/internal/model"
 )
 
 func (c *Client) Recorder() (model.RecorderSnapshot, error) {

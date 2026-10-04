@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"voice-snooter/internal/config"
-	"voice-snooter/internal/model"
+	"sound-snoofer/internal/config"
+	"sound-snoofer/internal/model"
 )
 
 func (c *testClient) SetNumber(p string, v int) error {

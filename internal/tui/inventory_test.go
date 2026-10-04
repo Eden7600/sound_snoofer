@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"voice-snooter/internal/model"
+	"sound-snoofer/internal/model"
 )
 
 func TestDeviceInventoryOmitsVirtual(t *testing.T) {
