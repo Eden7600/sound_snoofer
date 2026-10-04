@@ -3,11 +3,11 @@ package controller
 import (
 	"context"
 	"errors"
+	"sound-snoofer/internal/config"
+	"sound-snoofer/internal/model"
 	"strings"
 	"testing"
 	"time"
-	"sound-snoofer/internal/config"
-	"sound-snoofer/internal/model"
 )
 
 type fakeClock struct {
@@ -167,7 +167,7 @@ func TestDryRunAndDebounce(t *testing.T) {
 	}
 	c, b, clock = fixture(t)
 	c.Step(context.Background(), true)
-	clock.now = clock.now.Add(time.Second)
+	clock.now = clock.now.Add(999 * time.Millisecond)
 	c.Step(context.Background(), true)
 	if len(b.writes) != 0 {
 		t.Fatal("early write")

@@ -71,7 +71,7 @@ func (c *Controller) Record(ctx context.Context, start, live bool) error {
 			if c.Clock.Now().After(deadline) || c.Clock.Now().Equal(deadline) {
 				return fmt.Errorf("%s verification timed out; not retried", param)
 			}
-			if e := c.Clock.Wait(ctx, 100*time.Millisecond); e != nil {
+			if e := c.Clock.Wait(ctx, min(5*time.Millisecond, deadline.Sub(c.Clock.Now()))); e != nil {
 				return e
 			}
 		}

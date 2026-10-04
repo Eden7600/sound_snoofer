@@ -66,7 +66,7 @@ func (c *Client) refresh() error {
 func (c *Client) Snapshot() (model.Snapshot, error) { return c.snapshot(true) }
 
 // ParameterSnapshot reads fresh parameters using the last full inventory.
-// Callers bracket numeric-only transactions with full observations.
+// Callers retain full observations around transactions and device assignments.
 func (c *Client) ParameterSnapshot() (model.Snapshot, error) { return c.snapshot(false) }
 func (c *Client) snapshot(enumerate bool) (model.Snapshot, error) {
 	c.mu.Lock()

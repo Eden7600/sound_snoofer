@@ -8,7 +8,7 @@ import (
 	"sound-snoofer/internal/routing"
 )
 
-// ParameterBackend omits enumeration only inside a numeric-only transaction.
+// ParameterBackend omits enumeration between full inventory checkpoints.
 type ParameterBackend interface {
 	ParameterSnapshot() (model.Snapshot, error)
 }
@@ -38,7 +38,7 @@ func operationValue(s model.Snapshot, param string) (float32, bool) {
 }
 func verificationInterval(op routing.Operation) time.Duration {
 	if op.Device != nil {
-		return 100 * time.Millisecond
+		return 20 * time.Millisecond
 	}
 	return 5 * time.Millisecond
 }

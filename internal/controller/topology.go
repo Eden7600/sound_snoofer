@@ -31,12 +31,6 @@ func (c *Controller) applyTopology(ctx context.Context, p routing.Plan) error {
 	if fresh.Key() != p.Key() {
 		return ErrPlanChanged
 	}
-	fast := true
-	for _, op := range fresh.Topology.Operations {
-		if op.Change && op.Device != nil {
-			fast = false
-		}
-	}
 	verified := 0
 	ops := p.Topology.Operations
 	expectedNumbers := map[string]float32{}
@@ -77,7 +71,7 @@ func (c *Controller) applyTopology(ctx context.Context, p routing.Plan) error {
 		if e = ctx.Err(); e != nil {
 			return fail(e)
 		}
-		s, e := c.observe(fast)
+		s, e := c.observe(op.Device == nil)
 		if e != nil {
 			return fail(e)
 		}
@@ -143,7 +137,12 @@ func (c *Controller) applyTopology(ctx context.Context, p routing.Plan) error {
 			if e = ctx.Err(); e != nil {
 				return fail(e)
 			}
-			s, e = c.observe(fast)
+			s, e = c.observe(true)
+			// Before any subsequent write, confirm device completion against a full
+			// inventory. Pending retries only need refreshed assignment parameters.
+			if e == nil && op.Device != nil && matches(op, s) {
+				s, e = c.observe(false)
+			}
 			if e != nil {
 				return fail(e)
 			}

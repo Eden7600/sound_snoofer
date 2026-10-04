@@ -7,8 +7,8 @@ import (
 	"io"
 	"os"
 	"regexp"
-	"time"
 	"sound-snoofer/internal/model"
+	"time"
 )
 
 type Candidate struct {
@@ -40,7 +40,7 @@ func Load(path string) (Config, error) {
 	return Decode(b)
 }
 func Decode(b []byte) (Config, error) {
-	c := Config{PollMS: 1000, DebounceMS: 2000, VerifyMS: 5000}
+	c := Config{PollMS: 1000, DebounceMS: 1000, VerifyMS: 5000}
 	// Reject duplicate keys as well as unknown fields; ambiguous config is never applied.
 	if err := uniqueKeys(json.NewDecoder(bytes.NewReader(b))); err != nil {
 		return c, err

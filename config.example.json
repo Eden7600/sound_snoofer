@@ -1,7 +1,7 @@
 {
   "version": 1,
   "poll_ms": 1000,
-  "debounce_ms": 2000,
+  "debounce_ms": 1000,
   "verify_ms": 5000,
   "routes": [
     {

@@ -12,7 +12,7 @@ func TestDecode(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if c.PollMS != 1000 || c.DebounceMS != 2000 || c.VerifyMS != 5000 || !c.Routes[0].Candidates[0].Regex.MatchString("INPUT 1/2 (Volt 2)") {
+	if c.PollMS != 1000 || c.DebounceMS != 1000 || c.VerifyMS != 5000 || !c.Routes[0].Candidates[0].Regex.MatchString("INPUT 1/2 (Volt 2)") {
 		t.Fatal(c)
 	}
 	cases := map[string]string{
