@@ -107,7 +107,7 @@ func TestPickerDraftAndStaleState(t *testing.T) {
 		updated, _ := s.Update(key)
 		s = updated.(screen)
 	}
-	for _, tab := range []int{0, 1, 2, 3} {
+	for _, tab := range []int{0, 1} {
 		s.tab = tab
 		press(tea.KeyPressMsg{Code: '0'})
 	}

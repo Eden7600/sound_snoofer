@@ -237,7 +237,7 @@ func (s screen) dashboardView() tea.View {
 		connection = "Needs attention"
 	}
 	out := []string{paint(modeColor, fit("  "+mode+"   ·   "+connection+"   ·   Recorder: "+s.state.Recorder.State(), w))}
-	tabs := []string{"Controls", "Routing", "Devices", "Events"}
+	tabs := []string{"Controls", "Graph"}
 	for n := range tabs {
 		if n == s.tab {
 			tabs[n] = "[ " + tabs[n] + " ]"
@@ -266,7 +266,7 @@ func (s screen) dashboardView() tea.View {
 	rightWidth := w - leftWidth - 7
 	title := " CONTROLS "
 	if s.tab != 0 {
-		title = " " + strings.ToUpper(tabs[s.tab]) + " "
+		title = " GRAPH "
 	}
 	title = clean(title)
 	out = append(out, paint("38;5;60", "╭─"+title+strings.Repeat("─", max(0, w-3-ansi.StringWidth(title)))+"╮"))
@@ -275,7 +275,7 @@ func (s screen) dashboardView() tea.View {
 	if s.tab == 0 {
 		rows, selectedLine = s.dashboardRows(leftWidth)
 	} else {
-		for _, line := range s.lines() {
+		for _, line := range s.graphLines(leftWidth - 1) {
 			rows = append(rows, paint("38;5;252", fit(" "+line, leftWidth)))
 		}
 	}

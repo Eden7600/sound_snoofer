@@ -26,7 +26,7 @@ type controls struct {
 	exitErr       error
 }
 
-func startControls(ctx context.Context, path string, state tui.State, actions chan<- tui.Action) (*controls, error) {
+func startControls(ctx context.Context, state tui.State, actions chan<- tui.Action) (*controls, error) {
 	exe, err := os.Executable()
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func startControls(ctx context.Context, path string, state tui.State, actions ch
 		return nil, err
 	}
 	runCtx, cancel := context.WithCancel(ctx)
-	cmd := exec.Command(exe, "__controls", path)
+	cmd := exec.Command(exe, "__controls")
 	cmd.Stdin = childIn
 	cmd.Stdout = childOut
 	cmd.Stderr = io.Discard
@@ -115,7 +115,7 @@ func (c *controls) focus(state tui.State) {
 }
 
 // RunControls is the private attached renderer. It never opens the audio DLL.
-func RunControls(ctx context.Context, path string) error {
+func RunControls(ctx context.Context) error {
 	pipeIn, pipeOut := os.Stdin, os.Stdout
 	in, out, err := controlsConsole()
 	if err != nil {
@@ -174,7 +174,7 @@ func RunControls(ctx context.Context, path string) error {
 	select {
 	case initial, ok := <-states:
 		if ok {
-			err = tui.RunConnected(runCtx, path, initial, actions, states, in, out, true)
+			err = tui.RunConnected(runCtx, initial, actions, states, in, out, true)
 		}
 	case <-runCtx.Done():
 	}

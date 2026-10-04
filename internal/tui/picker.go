@@ -72,11 +72,7 @@ func (s *screen) pickerKey(key string) {
 		s.picker = nil
 	case "tab", "shift+tab":
 		s.picker = nil
-		step := 1
-		if key == "shift+tab" {
-			step = 3
-		}
-		s.tab = (s.tab + step) % 4
+		s.tab = (s.tab + 1) % 2
 		s.offset = 0
 	case "enter":
 		choice := s.picker.options[s.picker.selected]

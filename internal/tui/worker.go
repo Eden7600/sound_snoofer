@@ -24,25 +24,22 @@ type Dependencies struct {
 	Load    func(string) (config.Config, error)
 }
 type State struct {
-	MicOptions     []string
-	OutputOptions  []string
-	EditAck        uint64
-	EditError      string
-	Recorder       *model.RecorderSnapshot
-	RecorderNotice string
-	Intent         *config.Intent
-	Revision       uint64
-	StateError     string
-	Live           bool
-	Connected      bool
-	Error          string
-	Notice         string
-	NoticeKind     noticeKind
-	NoticeUntil    time.Time
-	Updated        time.Time
-	Snapshot       model.Snapshot
-	Plan           *routing.Plan
-	Events         []string
+	MicOptions    []string
+	OutputOptions []string
+	EditAck       uint64
+	EditError     string
+	Recorder      *model.RecorderSnapshot
+	Intent        *config.Intent
+	Revision      uint64
+	StateError    string
+	Live          bool
+	Connected     bool
+	Error         string
+	Notice        string
+	NoticeKind    noticeKind
+	NoticeUntil   time.Time
+	Snapshot      model.Snapshot
+	Plan          *routing.Plan
 }
 
 // NeedsAttention reports an active diagnostic without parsing its presentation text.
@@ -137,16 +134,6 @@ func work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		deps.Save = config.SaveIntent
 	}
 	revision := uint64(1)
-	history := []string{}
-	log := func(message string) {
-		if len(history) > 0 && history[len(history)-1][9:] == message {
-			return
-		}
-		history = append(history, time.Now().Format("15:04:05")+" "+message)
-		if len(history) > 50 {
-			history = history[len(history)-50:]
-		}
-	}
 	var release func()
 	defer func() {
 		if release != nil {
@@ -165,7 +152,6 @@ func work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 			r, e := deps.Acquire()
 			if e != nil {
 				state.setNotice(e.Error(), noticeError, time.Now())
-				log("Live mode refused: " + e.Error())
 				return
 			}
 			release = r
@@ -175,7 +161,6 @@ func work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		}
 		state.Live = enable
 		state.setNotice("", noticeSuccess, time.Now())
-		log(fmt.Sprintf("Live enforcement: %t", enable))
 	}
 	setLive(live)
 	var backend *observed
@@ -194,9 +179,6 @@ func work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 			if e.Kind == "error" {
 				state.Error = e.Message
 			}
-			if e.Kind != "plan" {
-				log(e.Kind + ": " + e.Message)
-			}
 		}}
 	}
 	publish := func() {
@@ -209,8 +191,6 @@ func work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		state.Intent = cfg.VoiceIntent()
 		state.Revision = revision
 		state.StateError = cfg.StateError
-		state.Updated = time.Now()
-		state.Events = append([]string{}, history...)
 		select {
 		case states <- state:
 		default:
@@ -236,18 +216,13 @@ func work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 			switch action.Kind {
 			case startRecording, stopRecording, playSnippet:
 				if action.Revision != revision {
-					state.RecorderNotice = "Stale recording command; inspect status and try again"
-					state.setNotice(state.RecorderNotice, noticeError, time.Now())
-					log(state.RecorderNotice)
+					state.setNotice("Stale recording command; inspect status and try again", noticeError, time.Now())
 					break
 				}
 				if ctl == nil {
-					state.RecorderNotice = "Recorder unavailable"
-					state.setNotice(state.RecorderNotice, noticeError, time.Now())
-					log(state.RecorderNotice)
+					state.setNotice("Recorder unavailable", noticeError, time.Now())
 					break
 				}
-				state.RecorderNotice = "Pending recorder command"
 				state.setNotice("Recorder pending", noticeError, time.Now())
 				publish()
 				var e error
@@ -257,13 +232,10 @@ func work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 					e = ctl.Record(ctx, action.Kind == startRecording, state.Live)
 				}
 				if e != nil {
-					state.RecorderNotice = e.Error()
 					state.setNotice("Recorder: "+e.Error(), noticeError, time.Now())
 				} else {
-					state.RecorderNotice = "Recorder command verified (file contents not verified)"
 					state.setNotice("Recorder verified", noticeSuccess, time.Now())
 				}
-				log(state.RecorderNotice)
 				revision++
 			case toggleLive:
 				revision++
@@ -279,12 +251,10 @@ func work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				}
 				if e != nil {
 					state.setNotice("Config reload failed: "+e.Error(), noticeError, time.Now())
-					log(state.Notice)
 				} else {
 					cfg = updated
 					revision++
 					state.setNotice("Reloaded", noticeSuccess, time.Now())
-					log(state.Notice)
 					reset()
 				}
 			case editRule, resetChoices:
@@ -295,14 +265,12 @@ func work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				if action.Revision != revision {
 					state.EditError = "Stale rule command; try again"
 					state.setNotice("Stale rule command; try again", noticeError, time.Now())
-					log(state.Notice)
 					break
 				}
 				next := cfg.VoiceIntent()
 				if next == nil {
 					state.EditError = "No voice profile configured"
 					state.setNotice("No voice profile configured", noticeError, time.Now())
-					log(state.Notice)
 					break
 				}
 				var e error
@@ -361,13 +329,11 @@ func work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 						} else {
 							state.setNotice("Saved · Preview", noticeSuccess, time.Now())
 						}
-						log(state.Notice)
 					}
 				}
 				if e != nil {
 					state.EditError = e.Error()
 					state.setNotice("Rule change rejected: "+e.Error(), noticeError, time.Now())
-					log(state.Notice)
 				}
 			case refresh:
 			}
@@ -381,7 +347,6 @@ func work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 			if e != nil {
 				state.Error = e.Error()
 				state.Connected = false
-				log("Connection: " + e.Error())
 				publish()
 				delay = 5 * time.Second
 				continue
@@ -415,7 +380,6 @@ func work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 			if e != nil {
 				state.Error = e.Error()
 				state.Connected = false
-				log("Routing: " + e.Error())
 			} else {
 				state.Plan = &p
 			}

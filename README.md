@@ -88,7 +88,7 @@ Run from the project directory:
 .\bin\sound-snoofer.exe tui --config config.local.json
 ~~~
 
-Use --dry-run for preview from startup, or press **l** to toggle live/dry mode. **Tab** switches Routing / Devices / Events, **j/k** or arrows scroll, **r** reloads configuration, **Space** refreshes, and **q** or **Ctrl+C** quits. Invalid reloads preserve the previous config. Mode changes take effect after the current serialized operation; quit cancels pending waits. The dashboard stays open through connection errors and shows attention/stale state until recovery.
+Use --dry-run for preview from startup, or press **l** to toggle live/dry mode. **Tab** switches Controls / Graph, **j/k** or arrows scroll, **r** reloads configuration, **Space** refreshes, and **q** or **Ctrl+C** quits. Invalid reloads preserve the previous config. Mode changes take effect after the current serialized operation; quit cancels pending waits. The dashboard stays open through connection errors and shows attention/stale state until recovery.
 
 This is a persistent foreground terminal session, not a Windows startup service. It needs interactive stdin/stdout; use watch --json for redirected logs. Dry mode changes no audio settings.
 
@@ -100,7 +100,7 @@ Start with `sound-snoofer tui --config config.local.json`. Controls is the first
 
 - Up/down selects a control. Enter or Space on Source opens connected microphone choices and Off; arrows select, Enter confirms, Escape cancels. Browsing does not change audio.
 - Enter/Space cycles Processing or Monitor and toggles playback/capture settings. Off is selected through the source list; there is no separate Off hotkey.
-- Tab switches Controls / Routing / Devices / Events and cancels an open source list. Page Up/Down scrolls details.
+- Tab switches Controls / Graph and cancels an open source list. Page Up/Down scrolls details.
 - `l` changes live/dry mode, `r` reloads, `f` refreshes, `x` resets saved choices to config defaults, and `q` exits.
 
 Selections are saved beside the config as `<config-filename>.state.json`, including in dry-run. All commands use this same saved intent. Live permission is never saved. An invalid sidecar blocks writes; repair it or use `x` in the TUI. Concurrent external edits require reload. A failed save leaves the previous selection active.
@@ -123,7 +123,7 @@ Pre monitoring means before Element, not before Voicemeeter's own effects. Post 
 Switching can cause a short gap on affected paths: changed sends are disabled and verified before replacement sends are enabled. Unchanged sends stay untouched unless their input device, ASIO patch or output device is being reconfigured. Failed operations stop the transition and remain visible; there is no atomic rollback. Restarting a live session reconciles from observed state. Removing the profile does not restore previous settings; stop enforcement and restore your recorded mixer/config backup if rolling back.
 # Recording
 
-The Devices tab and `devices` command omit recognized virtual endpoints such as
+The `devices` command omits recognized virtual endpoints such as
 VB-CABLE, Voicemeeter virtual ASIO and SteelSeries Sonar. Internal routing retains
 the full inventory. Unknown driver identities remain visible.
 
@@ -151,7 +151,7 @@ See [recording setup and behavior](docs/recording.md).
 
 Routine feedback is concise: Queued, Saved · Preview, Saved · Pending, Applied,
 or Reloaded. Success notices disappear after three seconds; pending operations
-and errors remain until resolved or superseded. Full diagnostics are in Events.
+and errors remain until resolved or superseded. Graph shows observed connections and unresolved destinations; `watch --json` remains available for diagnostic logging.
 
 Playback Device offers Automatic plus connected physical WDM outputs matched by the
 configured playback regexes. A manual preference overrides automatic priority while
@@ -190,3 +190,12 @@ Controls show **yellow / … pending** while queued or awaiting relevant readbac
 ## License
 
 Sound Snoofer is licensed under the [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-only).
+
+## Routing graph
+
+Controls and Graph are the only TUI tabs. Graph displays the current mixer sends
+as ASCII branches, including hardware outputs, ASIO microphone patches, app audio,
+Element sends/returns and recorder paths. Preview and pending edits still show
+observed mixer state. Missing observations are marked unknown; arrows describe
+configured routing, not measured audio. Dotted arrows identify the unverified
+external Element path. Use arrows/j/k or Page Up/Down to scroll.

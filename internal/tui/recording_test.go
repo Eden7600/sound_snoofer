@@ -167,17 +167,17 @@ func TestRecordingWorkerDryAndStale(t *testing.T) {
 	}
 	actions <- Action{Kind: startRecording, Revision: s.Revision - 1}
 	s = nextState(t, states)
-	if !strings.Contains(s.RecorderNotice, "Stale") {
+	if !strings.Contains(s.Notice, "Stale") {
 		t.Fatal(s)
 	}
 	actions <- Action{Kind: startRecording, Revision: s.Revision}
 	for n := 0; n < 3; n++ {
 		s = nextState(t, states)
-		if strings.Contains(s.RecorderNotice, "live mode") {
+		if strings.Contains(s.Notice, "live mode") {
 			break
 		}
 	}
-	if !strings.Contains(s.RecorderNotice, "live mode") || client.writes.Load() != 0 {
+	if !strings.Contains(s.Notice, "live mode") || client.writes.Load() != 0 {
 		t.Fatal(s)
 	}
 	cancel()

@@ -147,7 +147,7 @@ func serveTray(ctx context.Context, cancel context.CancelFunc, cfg config.Config
 			}
 		}
 		var err error
-		child, err = startControls(ctx, path, latest, actions)
+		child, err = startControls(ctx, latest, actions)
 		if err != nil {
 			status.SetTitle("Controls failed — try again")
 			ShowError(err)

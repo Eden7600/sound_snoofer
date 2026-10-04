@@ -16,8 +16,8 @@ func run() int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	args := os.Args[1:]
-	if len(args) == 2 && args[0] == "__controls" {
-		if err := desktop.RunControls(ctx, args[1]); err != nil {
+	if len(args) == 1 && args[0] == "__controls" {
+		if err := desktop.RunControls(ctx); err != nil {
 			desktop.ShowError(err)
 			return 1
 		}

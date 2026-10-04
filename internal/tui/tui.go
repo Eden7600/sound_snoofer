@@ -16,7 +16,6 @@ import (
 	"github.com/charmbracelet/x/term"
 
 	"sound-snoofer/internal/config"
-	"sound-snoofer/internal/model"
 )
 
 type screen struct {
@@ -31,7 +30,6 @@ type screen struct {
 	actions                    chan<- Action
 	ctx                        context.Context
 	cancel                     context.CancelFunc
-	configPath                 string
 	width, height, tab, offset int
 	pending                    string
 	selected                   int
@@ -102,10 +100,10 @@ func (s screen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			s.cancel()
 			return s, tea.Quit
 		case "tab", "right":
-			s.tab = (s.tab + 1) % 4
+			s.tab = (s.tab + 1) % 2
 			s.offset = 0
 		case "shift+tab", "left":
-			s.tab = (s.tab + 3) % 4
+			s.tab = (s.tab + 1) % 2
 			s.offset = 0
 		case "down", "j":
 			if s.tab == 0 {
@@ -163,61 +161,6 @@ func clean(v string) string {
 		return r
 	}, ansi.Strip(v))
 }
-func (s screen) lines() []string {
-	rows := []string{}
-	switch s.tab {
-	case 0:
-		return s.ruleLines()
-	case 1:
-		rows = append(rows, "ROUTING RULES / DESIRED STATE")
-		if s.state.Plan == nil {
-			rows = append(rows, "Waiting for a valid routing plan...")
-		} else if t := s.state.Plan.Topology; t != nil {
-			rows = append(rows, fmt.Sprintf("Volt ASIO: %t    Playback output: %s", t.ASIOActive, t.PlaybackTarget))
-			for _, op := range t.Operations {
-				mark := " = "
-				if op.Change {
-					mark = " > "
-				}
-				if op.Device != nil {
-					rows = append(rows, fmt.Sprintf("%s%-10s %s [%s]", mark, op.Target, empty(op.Device.Name), op.Device.Driver))
-				} else {
-					rows = append(rows, fmt.Sprintf("%s%-20s %g -> %d", mark, op.Parameter, op.BeforeValue, op.Value))
-				}
-			}
-			for _, reason := range t.Unresolved {
-				rows = append(rows, "UNRESOLVED: "+reason)
-			}
-		} else {
-			for _, d := range s.state.Plan.Decisions {
-				name := "unresolved"
-				if d.Desired != nil {
-					name = d.Desired.Name
-				}
-				rows = append(rows, fmt.Sprintf("%s: %s -> %s (change=%t)", d.Target, empty(d.Current), name, d.Change))
-			}
-		}
-		rows = append(rows, "", "CURRENT ASSIGNMENTS")
-		for _, target := range model.Slots(s.state.Snapshot.Edition) {
-			rows = append(rows, fmt.Sprintf("%-10s %s", target, empty(s.state.Snapshot.Assignments[target])))
-		}
-	case 2:
-		rows = append(rows, "DEVICE INVENTORY  (WDM presence; ASIO entries alone do not prove connection)")
-		devices := model.InventoryDevices(s.state.Snapshot.Devices)
-		for _, d := range devices {
-			rows = append(rows, fmt.Sprintf("%-6s %-5s %s", d.Direction, d.Driver, d.Name))
-		}
-		if len(devices) == 0 {
-			rows = append(rows, "No physical devices found.")
-		}
-	case 3:
-		rows = append(rows, "RECENT EVENTS  (newest first, last 50)")
-		for i := len(s.state.Events) - 1; i >= 0; i-- {
-			rows = append(rows, s.state.Events[i])
-		}
-	}
-	return rows
-}
 func empty(s string) string {
 	if s == "" {
 		return "(none)"
@@ -234,7 +177,7 @@ func Run(ctx context.Context, cfg config.Config, path, dll string, live bool, ou
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	actions, states, done := StartWorker(runCtx, cfg, path, dll, live, deps)
-	err := RunConnected(runCtx, path, State{Intent: cfg.VoiceIntent(), StateError: cfg.StateError}, actions, states, os.Stdin, out, false)
+	err := RunConnected(runCtx, State{Intent: cfg.VoiceIntent(), StateError: cfg.StateError}, actions, states, os.Stdin, out, false)
 	cancel()
 	select {
 	case <-done:
@@ -256,10 +199,10 @@ func StartWorker(ctx context.Context, cfg config.Config, path, dll string, live 
 
 // RunConnected displays controls over an existing actor connection. Closing the
 // view cancels only its readers, never the actor supplied by the caller.
-func RunConnected(ctx context.Context, path string, state State, actions chan<- Action, states <-chan State, in io.Reader, out io.Writer, attached bool) error {
+func RunConnected(ctx context.Context, state State, actions chan<- Action, states <-chan State, in io.Reader, out io.Writer, attached bool) error {
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	initial := screen{ctx: runCtx, cancel: cancel, states: states, actions: actions, configPath: path, state: state, nextEditID: state.EditAck, attached: attached}
+	initial := screen{ctx: runCtx, cancel: cancel, states: states, actions: actions, state: state, nextEditID: state.EditAck, attached: attached}
 	if attached {
 		initial.nextEditID = max(state.EditAck, uint64(time.Now().UnixNano()))
 	}
