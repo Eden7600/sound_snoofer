@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/sound-snoofer-logo.png" alt="Sound Snoofer: golden protogen mascot with headphones and a yellow digital visor" width="360">
+  <img src="docs/assets/sound-snoofer-painterly.png" alt="Sound Snoofer: golden protogen mascot with headphones and a yellow digital visor" width="360">
 </p>
 
 # Sound Snoofer
