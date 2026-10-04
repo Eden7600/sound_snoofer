@@ -47,7 +47,8 @@ const usage = `Sound Snoofer - regex-driven Voicemeeter device routing
   sound-snoofer apply --config FILE [--json] [--dll ABSOLUTE_PATH]
   sound-snoofer watch --config FILE [--dry-run] [--json] [--dll ABSOLUTE_PATH]
 
-No arguments opens the live TUI with config.json beside the executable.
+No arguments starts the live system tray with config.json beside the executable.
+Use the tray menu to open controls or quit; closing attached controls keeps routing active.
 TUI and watch are live by default; --dry-run opts into preview.
 Fixed routes manage WDM devices;
 studio rules manage ASIO input patches, playback outputs and strip sends.

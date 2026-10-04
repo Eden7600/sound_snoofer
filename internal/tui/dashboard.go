@@ -323,7 +323,11 @@ func (s screen) dashboardView() tea.View {
 	if len(out) > height {
 		out = out[:height]
 	}
-	v := tea.NewView(strings.Join(out, "\n"))
+	content := strings.Join(out, "\n")
+	if s.attached {
+		content = strings.ReplaceAll(content, "Q quit", "Q close")
+	}
+	v := tea.NewView(content)
 	v.AltScreen = true
 	v.WindowTitle = "Sound Snoofer"
 	return v

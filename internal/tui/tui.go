@@ -25,6 +25,7 @@ type screen struct {
 	deferredEdits              []settingEdit
 	inflight                   uint64
 	nextEditID                 uint64
+	attached                   bool
 	state                      State
 	states                     <-chan State
 	actions                    chan<- Action
@@ -232,22 +233,42 @@ func Run(ctx context.Context, cfg config.Config, path, dll string, live bool, ou
 	}
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	actions, states, done := StartWorker(runCtx, cfg, path, dll, live, deps)
+	err := RunConnected(runCtx, path, State{Intent: cfg.VoiceIntent(), StateError: cfg.StateError}, actions, states, os.Stdin, out, false)
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		return fmt.Errorf("audio worker did not stop within 3 seconds")
+	}
+	return err
+}
+
+// StartWorker starts the sole audio actor. The caller owns context cancellation;
+// the worker closes states and done. Consumers must treat published state as immutable.
+func StartWorker(ctx context.Context, cfg config.Config, path, dll string, live bool, deps Dependencies) (chan<- Action, <-chan State, <-chan struct{}) {
 	actions := make(chan Action, 8)
 	states := make(chan State, 1)
 	done := make(chan struct{})
-	go work(runCtx, cfg, path, dll, live, deps, actions, states, done)
-	initial := screen{ctx: runCtx, cancel: cancel, states: states, actions: actions, configPath: path, state: State{Intent: cfg.VoiceIntent(), StateError: cfg.StateError}}
+	go work(ctx, cfg, path, dll, live, deps, actions, states, done)
+	return actions, states, done
+}
+
+// RunConnected displays controls over an existing actor connection. Closing the
+// view cancels only its readers, never the actor supplied by the caller.
+func RunConnected(ctx context.Context, path string, state State, actions chan<- Action, states <-chan State, in io.Reader, out io.Writer, attached bool) error {
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	initial := screen{ctx: runCtx, cancel: cancel, states: states, actions: actions, configPath: path, state: state, nextEditID: state.EditAck, attached: attached}
+	if attached {
+		initial.nextEditID = max(state.EditAck, uint64(time.Now().UnixNano()))
+	}
 	// Windows VT terminals often omit TERM; use our 256-color palette explicitly.
 	profile := colorprofile.ANSI256
 	if os.Getenv("NO_COLOR") != "" {
 		profile = colorprofile.Ascii
 	}
-	final, err := tea.NewProgram(initial, tea.WithColorProfile(profile), tea.WithContext(runCtx), tea.WithOutput(out), tea.WithInput(os.Stdin)).Run()
-	cancel()
-	<-done
-	if view, ok := final.(screen); ok && view.state.Intent != nil && view.state.Intent.Recording != nil {
-		fmt.Fprintln(out, "Recorder transport was left unchanged. Any active recording continues in Voicemeeter.")
-	}
+	_, err := tea.NewProgram(initial, tea.WithColorProfile(profile), tea.WithContext(runCtx), tea.WithOutput(out), tea.WithInput(in)).Run()
 	if errors.Is(err, tea.ErrProgramKilled) && runCtx.Err() != nil {
 		return nil
 	}

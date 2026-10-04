@@ -44,6 +44,12 @@ type State struct {
 	Plan           *routing.Plan
 	Events         []string
 }
+
+// NeedsAttention reports an active diagnostic without parsing its presentation text.
+func (s State) NeedsAttention() bool {
+	return s.Error != "" || s.StateError != "" || (s.Notice != "" && s.NoticeKind == noticeError)
+}
+
 type ActionKind int
 
 const (
