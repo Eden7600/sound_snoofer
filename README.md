@@ -17,7 +17,7 @@ normal use. Advanced commands below remain available for diagnostics.
 
 - Volt present: A1 uses Universal Audio Volt ASIO. Physical channel 1 feeds both sides of Stereo Input 1; channel 2 feeds both sides of Stereo Input 2. Your lav is on channel 2.
 - Volt absent: input 1 falls back to the Insta360 microphone; input 2 has no direct device. The four ASIO input patch cells are reset.
-- Playback priorities: AirPods, then SteelSeries Arena. Playback occupies the lowest free output (normally A2 with Volt, A1 without). Unrelated occupied buses are preserved.
+- Playback priorities: AirPods, then SteelSeries Arena, then Volt. Playback occupies the lowest free output (normally A2 with Volt, A1 without). Unrelated occupied buses are preserved.
 - Existing playback sends move with playback. The logical rule virtual:1 -> playback continuously keeps primary VAIO routed to the playback device, even after a manual button change. Banana/Potato strip indexes are resolved at runtime.
 
 The active default configuration is bin/config.json (Git-ignored); config.local.json is retained as the pre-migration copy. config.voice.json is a tracked voice/recording example. The original config.example.json demonstrates compatible fixed-slot WDM mode.
@@ -168,3 +168,5 @@ Rehearsal feeds the tape to B2 and suppresses physical mic sends and the AUX-to-
 Monitor labels are Off, Pre-VST and Post-VST; saved values remain off/pre/post. Recording stage labels remain Pre/Post.
 
 Send-only changes debounce for 20 ms and verify at 5 ms intervals. The controller skips unchanged operations and uses fresh parameter reads inside numeric-only transitions, with full device inventory checks at the boundaries. Device assignments retain the configured 2-second debounce. Read-only measurements on this machine found full inventory reads around 78–80 ms; total application latency includes those boundary checks and native readback, so 20 ms is not an end-to-end guarantee.
+
+With `studio.asio_playback: true` (enabled in the default voice profile), the connected Volt appears as **Universal Audio Volt** in Playback Device and is the last automatic fallback. Selecting it uses the existing ASIO A1 output; no second WDM Volt output is opened. Playback and monitoring move to A1, and move back to A2 when a higher-priority WDM device returns in Automatic mode. An explicit Volt preference overrides automatic priority while connected. The driver alone does not establish presence. Mic Off leaves Volt playback working.

@@ -4,6 +4,7 @@
   "debounce_ms": 2000,
   "verify_ms": 5000,
   "studio": {
+    "asio_playback": true,
     "asio_pattern": "(?i)^Universal Audio Volt$",
     "presence_pattern": "(?i)^INPUT 1/2 \\(Volt 2\\)$",
     "playback": [

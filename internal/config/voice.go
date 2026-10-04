@@ -100,7 +100,7 @@ func (i Intent) Validate(c Config) error {
 		return fmt.Errorf("saved choices require voice profile")
 	}
 	if i.PlaybackDevice != "" {
-		matched := false
+		matched := c.Studio.ASIOPlayback && c.Studio.ASIORegex != nil && c.Studio.ASIORegex.MatchString(i.PlaybackDevice)
 		for _, candidate := range c.Studio.Playback {
 			if candidate.Regex != nil && candidate.Regex.MatchString(i.PlaybackDevice) {
 				matched = true

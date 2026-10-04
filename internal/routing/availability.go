@@ -69,6 +69,11 @@ func PlaybackOptions(c config.Config, s model.Snapshot) []string {
 			}
 		}
 	}
+	if c.Studio != nil && c.Studio.ASIOPlayback {
+		if asio, err := selectASIO(c.Studio, s); err == nil && asio != nil {
+			names[asio.Name]++
+		}
+	}
 	options := []string{""}
 	for name, count := range names {
 		if count == 1 {

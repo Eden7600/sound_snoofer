@@ -85,7 +85,9 @@ provides more specific guidance. Explicit user instructions take precedence.
   Volt remains assigned to A1 and playback retains its normal output.
 - Volt ASIO owns A1 when active. Physical channel 1 feeds stereo input 1 (L/R),
   channel 2 feeds stereo input 2 (L/R). Playback takes the lowest free output and
-  its routing follows that output. Device matching uses Go regular expressions.
+  its routing follows that output. Selecting Volt itself for playback reuses reserved
+  ASIO A1; other playback devices still use the lowest free output. Device matching
+  uses Go regular expressions.
 - Treat presence, absence and ambiguous matches distinctly; installed ASIO
   drivers alone do not prove hardware presence. Preserve fallback priorities.
 - Potato voice routing uses B2 to Element through AUX Virtual ASIO, AUX as the

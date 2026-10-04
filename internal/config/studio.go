@@ -8,6 +8,7 @@ import (
 // Studio owns A1 for the interface, inputs 1/2, the four input patch cells,
 // and outputs whose names match Playback. Other occupied outputs are reserved.
 type Studio struct {
+	ASIOPlayback        bool           `json:"asio_playback,omitempty"`
 	Recording           *Recording     `json:"recording,omitempty"`
 	Voice               *Voice         `json:"voice,omitempty"`
 	ASIOPattern         string         `json:"asio_pattern"`

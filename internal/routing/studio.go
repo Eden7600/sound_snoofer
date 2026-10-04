@@ -109,10 +109,17 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 		return p, fmt.Errorf("A1 is occupied by unmanaged device %q; cannot reserve it for ASIO", s.Assignments["A1"])
 	}
 	playback, reasons := selectDevice(profile.Playback, "output", s.Devices)
+	if playback == nil && profile.ASIOPlayback && asio != nil {
+		playback = asio
+	}
 	if intent := c.VoiceIntent(); intent != nil && intent.PlaybackDevice != "" {
 		for _, name := range PlaybackOptions(c, s) {
 			if name != intent.PlaybackDevice {
 				continue
+			}
+			if profile.ASIOPlayback && asio != nil && asio.Name == name {
+				playback = asio
+				break
 			}
 			for _, d := range s.Devices {
 				if d.Name == name && d.Available && d.Driver == "wdm" && d.Direction == "output" {
@@ -127,10 +134,13 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 		t.Unresolved = append(t.Unresolved, reasons...)
 	}
 	oldBuses := []string{}
+	if playback != nil && playback.Driver == "asio" {
+		t.PlaybackTarget = "A1"
+	}
 	for i := 1; i <= n; i++ {
 		target := fmt.Sprintf("A%d", i)
 		current := s.Assignments[target]
-		if ownsPlayback(current) {
+		if ownsPlayback(current) || (i == 1 && profile.ASIOPlayback && ownsASIO(current)) {
 			oldBuses = append(oldBuses, target)
 		}
 		if t.PlaybackTarget == "" && !(t.ASIOActive && i == 1) && (current == "" || ownsPlayback(current) || (i == 1 && ownsASIO(current))) {
@@ -201,7 +211,7 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 		}
 		deviceOp("input:2", clear)
 	}
-	if playback != nil {
+	if playback != nil && playback.Driver != "asio" {
 		deviceOp(t.PlaybackTarget, *playback)
 	}
 	if t.ASIOActive && micActive {
