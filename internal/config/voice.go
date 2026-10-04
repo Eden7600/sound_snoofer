@@ -9,13 +9,14 @@ type Voice struct {
 	Monitor string `json:"monitor,omitempty"`
 }
 type Intent struct {
-	Recording *RecordingChoices `json:"recording,omitempty"`
-	Version   int               `json:"version"`
-	Enabled   bool              `json:"enabled"`
-	Source    string            `json:"source"`
-	Mode      string            `json:"mode"`
-	Monitor   string            `json:"monitor"`
-	Playback  map[string]bool   `json:"playback"`
+	PlaybackDevice string            `json:"playback_device,omitempty"`
+	Recording      *RecordingChoices `json:"recording,omitempty"`
+	Version        int               `json:"version"`
+	Enabled        bool              `json:"enabled"`
+	Source         string            `json:"source"`
+	Mode           string            `json:"mode"`
+	Monitor        string            `json:"monitor"`
+	Playback       map[string]bool   `json:"playback"`
 }
 
 func (v *Voice) Validate() error {
@@ -97,6 +98,17 @@ func (i Intent) Validate(c Config) error {
 	}
 	if c.Studio == nil || c.Studio.Voice == nil {
 		return fmt.Errorf("saved choices require voice profile")
+	}
+	if i.PlaybackDevice != "" {
+		matched := false
+		for _, candidate := range c.Studio.Playback {
+			if candidate.Regex != nil && candidate.Regex.MatchString(i.PlaybackDevice) {
+				matched = true
+			}
+		}
+		if !matched {
+			return fmt.Errorf("playback device does not match configured playback rules")
+		}
 	}
 	if i.Version != 1 {
 		return fmt.Errorf("saved choices version must be 1")

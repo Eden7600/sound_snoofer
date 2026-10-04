@@ -11,6 +11,8 @@ import (
 
 func editIntent(i *config.Intent, a Action) error {
 	switch a.Row {
+	case "output":
+		i.PlaybackDevice = a.Value
 	case "record-mic", "record-computer", "record-tap":
 		if i.Recording == nil {
 			return fmt.Errorf("recording profile not configured")
@@ -74,6 +76,7 @@ func (s screen) rules() []ruleRow {
 		source = "off"
 	}
 	rows := []ruleRow{{"source", "Source", source, false}, {"mode", "Processing", i.Mode, false}, {"monitor", "Monitor", i.Monitor, false}}
+	rows = append(rows, ruleRow{"output", "Playback Device", i.PlaybackDevice, false})
 	keys := []string{}
 	for k := range i.Playback {
 		keys = append(keys, k)
@@ -107,8 +110,8 @@ func (s *screen) ruleAction(key string) {
 		return
 	}
 	row := rows[min(s.selected, len(rows)-1)]
-	if row.key == "source" && (key == "enter" || key == " ") {
-		s.openSource()
+	if (row.key == "source" || row.key == "output") && (key == "enter" || key == " ") {
+		s.openChoice(row.key)
 		return
 	}
 	if key == "enter" && (row.key == "record-start" || row.key == "record-stop") {

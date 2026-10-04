@@ -22,6 +22,8 @@ func fit(text string, w int) string {
 }
 func pretty(v string) string {
 	switch v {
+	case "":
+		return "Automatic"
 	case "desk":
 		return "Desk mic · Volt 1"
 	case "lav":
@@ -48,7 +50,7 @@ func group(r ruleRow) string {
 	if strings.HasPrefix(r.key, "record-") {
 		return "RECORDING"
 	}
-	if strings.HasPrefix(r.key, "playback:") {
+	if r.key == "output" || strings.HasPrefix(r.key, "playback:") {
 		return "COMPUTER AUDIO"
 	}
 	return "MICROPHONE"
@@ -67,7 +69,7 @@ func (s screen) dashboardRows(w int) ([]string, int) {
 			last = g
 		}
 		value := pretty(r.value)
-		if r.key == "source" {
+		if r.key == "source" || r.key == "output" {
 			value += " ▾"
 		}
 		if r.toggle {

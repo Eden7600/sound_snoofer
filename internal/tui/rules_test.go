@@ -133,7 +133,7 @@ func TestRuleWorkerSaveBeforeApplyAndStaleCommands(t *testing.T) {
 func TestRuleKeyboardAndStates(t *testing.T) {
 	c, _ := config.Decode([]byte(ruleConfig))
 	actions := make(chan Action, 8)
-	s := screen{width: 110, height: 35, actions: actions, state: State{Intent: c.VoiceIntent(), Revision: 3}}
+	s := screen{width: 110, height: 35, actions: actions, state: State{MicOptions: []string{"desk", "lav", "webcam", "off"}, Intent: c.VoiceIntent(), Revision: 3}}
 	m, _ := s.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	s = m.(screen)
 	s.pickerKey("down")

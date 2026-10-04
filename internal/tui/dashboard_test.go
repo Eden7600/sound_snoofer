@@ -13,7 +13,7 @@ import (
 func TestSourceOffKeyboardAndRestore(t *testing.T) {
 	c, _ := config.Decode([]byte(ruleConfig))
 	actions := make(chan Action, 8)
-	s := screen{state: State{Intent: c.VoiceIntent(), Revision: 2}, actions: actions}
+	s := screen{state: State{MicOptions: []string{"desk", "lav", "webcam", "off"}, Intent: c.VoiceIntent(), Revision: 2}, actions: actions}
 	for _, row := range s.rules() {
 		if row.key == "voice" {
 			t.Fatal("duplicate switch")
@@ -61,7 +61,7 @@ func TestDashboardBoundsSelectionAndColor(t *testing.T) {
 	c, _ := config.Decode([]byte(ruleConfig))
 	c.Studio.Recording = &config.Recording{}
 	c.Validate()
-	s := screen{state: State{Intent: c.VoiceIntent(), Notice: "bad\x1b[2J\nINJECT"}}
+	s := screen{state: State{MicOptions: []string{"desk", "lav", "webcam", "off"}, Intent: c.VoiceIntent(), Notice: "bad\x1b[2J\nINJECT"}}
 	for _, w := range []int{20, 42, 60, 100, 140} {
 		for _, h := range []int{3, 10, 16, 35} {
 			s.width = w
@@ -102,7 +102,7 @@ func TestPickerDraftAndStaleState(t *testing.T) {
 		t.Fatal(err)
 	}
 	actions := make(chan Action, 8)
-	s := screen{width: 80, height: 24, actions: actions, state: State{Intent: c.VoiceIntent(), Revision: 4}}
+	s := screen{width: 80, height: 24, actions: actions, state: State{MicOptions: []string{"desk", "lav", "webcam", "off"}, Intent: c.VoiceIntent(), Revision: 4}}
 	press := func(key tea.KeyPressMsg) {
 		updated, _ := s.Update(key)
 		s = updated.(screen)
@@ -161,10 +161,10 @@ func TestCompactLayoutAndPickerBounds(t *testing.T) {
 	if err := c.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	s := screen{state: State{Intent: c.VoiceIntent()}, actions: make(chan Action, 1)}
+	s := screen{state: State{Intent: c.VoiceIntent(), MicOptions: []string{"desk", "lav", "webcam", "off"}}, actions: make(chan Action, 1)}
 	want := []string{"record-computer", "record-mic", "record-tap", "record-start", "record-stop"}
 	for n, key := range want {
-		if s.rules()[4+n].key != key {
+		if s.rules()[5+n].key != key {
 			t.Fatal("recording order", s.rules())
 		}
 	}

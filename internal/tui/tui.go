@@ -66,6 +66,9 @@ func (s screen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			key = rows[min(s.selected, len(rows)-1)].key
 		}
 		s.state = State(m)
+		if s.picker != nil {
+			s.refreshPicker(s.picker.options[s.picker.selected])
+		}
 		s.pending = ""
 		s.acceptEditState()
 		for n, row := range s.rules() {

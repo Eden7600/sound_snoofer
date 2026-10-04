@@ -12,6 +12,18 @@ type settingEdit struct {
 	Row, Value string
 }
 
+func editsRow(action Action, row string) bool {
+	if len(action.Edits) == 0 {
+		return action.Row == row
+	}
+	for _, edit := range action.Edits {
+		if edit.Row == row {
+			return true
+		}
+	}
+	return false
+}
+
 func editBatch(intent *config.Intent, action Action) error {
 	if len(action.Edits) == 0 {
 		return editIntent(intent, action)
@@ -104,6 +116,6 @@ func (s *screen) acceptEditState() {
 	}
 	if s.picker != nil && s.choices() != nil {
 		s.picker.revision = s.state.Revision
-		s.picker.current = s.choices().Source
+		s.picker.current = s.choiceValue(s.picker.row)
 	}
 }

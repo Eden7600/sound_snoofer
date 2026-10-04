@@ -94,7 +94,7 @@ Use `config.voice.json` as an opt-in example, or add `"voice": {}` to your studi
 
 Start with `sound-snoofer tui --config config.local.json`. Controls is the first view:
 
-- Up/down selects a control. Enter or Space on Source opens Desk/Lav/Webcam/Off; arrows select, Enter confirms, Escape cancels. Browsing does not change audio.
+- Up/down selects a control. Enter or Space on Source opens connected microphone choices and Off; arrows select, Enter confirms, Escape cancels. Browsing does not change audio.
 - Enter/Space cycles Processing or Monitor and toggles playback/capture settings. Off is selected through the source list; there is no separate Off hotkey.
 - Tab switches Controls / Routing / Devices / Events and cancels an open source list. Page Up/Down scrolls details.
 - `l` changes live/dry mode, `r` reloads, `f` refreshes, `x` resets saved choices to config defaults, and `q` exits.
@@ -123,7 +123,7 @@ The Devices tab and `devices` command omit recognized virtual endpoints such as
 VB-CABLE, Voicemeeter virtual ASIO and SteelSeries Sonar. Internal routing retains
 the full inventory. Unknown driver identities remain visible.
 
-The Controls dashboard has one **Source** selector: Desk → Lav → Webcam → Off.
+The Controls dashboard has a **Source** selector showing connected microphones and Off.
 Press Enter or Space to open the list, then Enter to confirm. Off disconnects
 all A1–A5/B1–B3 sends on the desk, lav, webcam and Element return strips. It also
 clears microphone input assignments and ASIO input patches. Volt stays on A1;
@@ -148,3 +148,10 @@ See [recording setup and behavior](docs/recording.md).
 Routine feedback is concise: Queued, Saved · Preview, Saved · Pending, Applied,
 or Reloaded. Success notices disappear after three seconds; pending operations
 and errors remain until resolved or superseded. Full diagnostics are in Events.
+
+Playback Device offers Automatic plus connected physical WDM outputs matched by the
+configured playback regexes. A manual preference overrides automatic priority while
+connected; disconnecting uses the automatic fallback and reconnecting restores the
+preference. Add devices to the configured playback candidates to make them selectable.
+An installed Volt ASIO driver alone does not expose Desk/Lav: its unique WDM
+companion must also be connected. Off and Automatic remain available without inventory.

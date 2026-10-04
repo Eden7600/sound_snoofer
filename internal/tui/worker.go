@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+	"slices"
 	"time"
 
 	"sound-snoofer/internal/config"
@@ -23,6 +24,8 @@ type Dependencies struct {
 	Load    func(string) (config.Config, error)
 }
 type State struct {
+	MicOptions     []string
+	OutputOptions  []string
 	EditAck        uint64
 	EditError      string
 	Recorder       *model.RecorderSnapshot
@@ -179,6 +182,12 @@ func work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		}}
 	}
 	publish := func() {
+		state.MicOptions = []string{"off"}
+		state.OutputOptions = []string{""}
+		if state.Connected {
+			state.MicOptions = routing.MicrophoneOptions(cfg, state.Snapshot)
+			state.OutputOptions = routing.PlaybackOptions(cfg, state.Snapshot)
+		}
 		state.Intent = cfg.VoiceIntent()
 		state.Revision = revision
 		state.StateError = cfg.StateError
@@ -296,6 +305,22 @@ func work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 						e = fmt.Errorf("reset configuration has no voice profile; reload it first")
 					} else {
 						e = next.Validate(candidateConfig)
+					}
+				}
+				if e == nil {
+					if action.Kind == editRule && ((editsRow(action, "source") && next.Source != "off") || (editsRow(action, "output") && next.PlaybackDevice != "")) {
+						if backend == nil {
+							e = fmt.Errorf("device observation unavailable")
+						} else {
+							var snapshot model.Snapshot
+							snapshot, e = backend.Snapshot()
+							if e == nil && editsRow(action, "source") && !slices.Contains(routing.MicrophoneOptions(candidateConfig, snapshot), next.Source) {
+								e = fmt.Errorf("microphone is no longer connected")
+							}
+							if e == nil && editsRow(action, "output") && !slices.Contains(routing.PlaybackOptions(candidateConfig, snapshot), next.PlaybackDevice) {
+								e = fmt.Errorf("playback device is no longer connected")
+							}
+						}
 					}
 				}
 				if e == nil {

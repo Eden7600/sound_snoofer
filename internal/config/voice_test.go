@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
 	"sound-snoofer/internal/ownership"
 )
 
@@ -50,6 +51,7 @@ func TestIntentPersistence(t *testing.T) {
 		t.Fatal(c, e)
 	}
 	i := c.VoiceIntent()
+	i.PlaybackDevice = "speakers"
 	i.Source = "lav"
 	i.Mode = "direct"
 	token, e := SaveIntent(path, c, i, c.StateToken)
@@ -57,7 +59,7 @@ func TestIntentPersistence(t *testing.T) {
 		t.Fatal(e)
 	}
 	c, e = LoadEffective(path)
-	if e != nil || c.StateError != "" || c.VoiceIntent().Source != "lav" || c.StateToken != token {
+	if e != nil || c.StateError != "" || c.VoiceIntent().Source != "lav" || c.VoiceIntent().PlaybackDevice != "speakers" || c.StateToken != token {
 		t.Fatal(c, e)
 	}
 	if _, e = SaveIntent(path, c, i, "missing"); e == nil {
@@ -89,5 +91,24 @@ func TestIntentPersistence(t *testing.T) {
 	}
 	if _, e = SaveIntent(filepath.Join(path, "missing"), c, i, "missing"); e == nil {
 		t.Fatal("unwritable accepted")
+	}
+}
+
+func TestPlaybackPreferenceValidation(t *testing.T) {
+	c, err := Decode([]byte(voiceJSON))
+	if err != nil {
+		t.Fatal(err)
+	}
+	intent := c.VoiceIntent()
+	if intent.PlaybackDevice != "" {
+		t.Fatal("legacy intent must be automatic")
+	}
+	intent.PlaybackDevice = "unmanaged headphones"
+	if err := intent.Validate(c); err == nil {
+		t.Fatal("unmanaged output accepted")
+	}
+	intent.PlaybackDevice = "speakers disconnected"
+	if err := intent.Validate(c); err != nil {
+		t.Fatal("saved preference must survive absence:", err)
 	}
 }

@@ -88,33 +88,11 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 			return p, fmt.Errorf("snapshot missing %s", slot)
 		}
 	}
-	// An installed ASIO driver is not evidence of connected hardware. A unique
-	// WDM input companion is required, but it is never opened as the mic input.
-	present := 0
-	for _, d := range s.Devices {
-		if d.Available && d.Direction == "input" && d.Driver == "wdm" && profile.PresenceRegex.MatchString(d.Name) {
-			present++
-		}
+	asio, err := selectASIO(profile, s)
+	if err != nil {
+		return p, err
 	}
-	if present > 1 {
-		return p, fmt.Errorf("ASIO presence pattern is ambiguous (%d WDM inputs)", present)
-	}
-	var asio *model.Device
-	if present == 1 {
-		count := 0
-		for _, d := range s.Devices {
-			if d.Driver == "asio" && d.Direction == "output" && profile.ASIORegex.MatchString(d.Name) {
-				candidate := d
-				candidate.Available = true
-				asio = &candidate
-				count++
-			}
-		}
-		if count != 1 {
-			return p, fmt.Errorf("connected interface requires one ASIO driver match, found %d", count)
-		}
-		t.ASIOActive = true
-	}
+	t.ASIOActive = asio != nil
 	ownsPlayback := func(name string) bool {
 		if name == "" {
 			return false
@@ -131,6 +109,20 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 		return p, fmt.Errorf("A1 is occupied by unmanaged device %q; cannot reserve it for ASIO", s.Assignments["A1"])
 	}
 	playback, reasons := selectDevice(profile.Playback, "output", s.Devices)
+	if intent := c.VoiceIntent(); intent != nil && intent.PlaybackDevice != "" {
+		for _, name := range PlaybackOptions(c, s) {
+			if name != intent.PlaybackDevice {
+				continue
+			}
+			for _, d := range s.Devices {
+				if d.Name == name && d.Available && d.Driver == "wdm" && d.Direction == "output" {
+					chosen := d
+					playback = &chosen
+					break
+				}
+			}
+		}
+	}
 	if playback == nil {
 		t.Unresolved = append(t.Unresolved, reasons...)
 	}
