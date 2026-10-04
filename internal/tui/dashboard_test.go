@@ -35,6 +35,7 @@ func TestSourceOffKeyboardAndRestore(t *testing.T) {
 	if i.MicActive() {
 		t.Fatal("Off ignored")
 	}
+	acknowledgeEdit(t, &s, a)
 	s.ruleAction(" ")
 	s.pickerKey("up")
 	s.pickerKey("up")
@@ -48,6 +49,7 @@ func TestSourceOffKeyboardAndRestore(t *testing.T) {
 	if !i.MicActive() || i.Monitor != "post" || i.Mode != "element" {
 		t.Fatal("preferences lost")
 	}
+	acknowledgeEdit(t, &s, a)
 	s.ruleAction("enter")
 	s.pickerKey("down")
 	s.pickerKey("enter")

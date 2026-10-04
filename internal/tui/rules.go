@@ -65,7 +65,7 @@ type ruleRow struct {
 }
 
 func (s screen) rules() []ruleRow {
-	i := s.state.Intent
+	i := s.choices()
 	if i == nil {
 		return nil
 	}
@@ -128,7 +128,7 @@ func (s *screen) ruleAction(key string) {
 	value := row.value
 	switch row.key {
 	case "record-tap":
-		if s.state.Intent.Mode == "direct" {
+		if s.choices().Mode == "direct" {
 			s.pending = "Pre only in Direct"
 			return
 		}
@@ -145,6 +145,14 @@ func (s *screen) ruleAction(key string) {
 	s.queue(Action{Kind: editRule, Row: row.key, Value: value, Revision: s.state.Revision})
 }
 func (s *screen) queue(a Action) {
+	if a.Kind == editRule {
+		s.queueEdit(a)
+		return
+	}
+	if s.inflight != 0 || len(s.deferredEdits) != 0 {
+		s.pending = "Settings queued; wait before this action"
+		return
+	}
 	select {
 	case s.actions <- a:
 		s.pending = "Queued"

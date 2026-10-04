@@ -20,6 +20,10 @@ import (
 )
 
 type screen struct {
+	draft                      *config.Intent
+	deferredEdits              []settingEdit
+	inflight                   uint64
+	nextEditID                 uint64
 	state                      State
 	states                     <-chan State
 	actions                    chan<- Action
@@ -63,13 +67,14 @@ func (s screen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		s.state = State(m)
 		s.pending = ""
+		s.acceptEditState()
 		for n, row := range s.rules() {
 			if row.key == key {
 				s.selected = n
 			}
 		}
 		s.selected = min(s.selected, max(0, len(s.rules())-1))
-		if s.picker != nil && s.picker.revision != s.state.Revision {
+		if s.picker != nil && s.picker.revision != s.state.Revision && s.inflight == 0 {
 			s.picker = nil
 			s.pending = "Choices changed; reopen Source"
 		}
@@ -137,12 +142,7 @@ func (s screen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.String() == "r" {
 				a = Reload
 			}
-			select {
-			case s.actions <- a:
-				s.pending = "Queued"
-			default:
-				s.pending = "A command is already queued"
-			}
+			s.queue(a)
 		}
 	}
 	return s, nil

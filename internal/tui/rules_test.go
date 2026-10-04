@@ -142,6 +142,7 @@ func TestRuleKeyboardAndStates(t *testing.T) {
 	if a.Row != "source" || a.Value != "lav" || a.Revision != 3 {
 		t.Fatal(a)
 	}
+	acknowledgeEdit(t, &s, a)
 	m, _ = s.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 	s = m.(screen)
 	s.Update(tea.KeyPressMsg{Code: ' '})

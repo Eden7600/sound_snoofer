@@ -115,18 +115,21 @@ func TestRecordingKeyboard(t *testing.T) {
 			if a.Kind != editRule || a.Value != "true" {
 				t.Fatal(a)
 			}
+			acknowledgeEdit(t, &s, a)
 		case "record-tap":
 			s.ruleAction("enter")
-			if a := <-actions; a.Value != "post" {
+			a := <-actions
+			if a.Value != "post" {
 				t.Fatal(a)
 			}
+			acknowledgeEdit(t, &s, a)
 		case "record-start", "record-stop":
 			s.ruleAction("enter")
 			a := <-actions
 			if a.Kind != startRecording && a.Kind != stopRecording {
 				t.Fatal(a)
 			}
-			if a.Revision != 4 {
+			if a.Revision != s.state.Revision {
 				t.Fatal(a)
 			}
 		}

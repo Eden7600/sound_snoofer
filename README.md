@@ -101,6 +101,13 @@ Start with `sound-snoofer tui --config config.local.json`. Controls is the first
 
 Selections are saved beside the config as `<config-filename>.state.json`, including in dry-run. All commands use this same saved intent. Live permission is never saved. An invalid sidecar blocks writes; repair it or use `x` in the TUI. Concurrent external edits require reload. A failed save leaves the previous selection active.
 
+Controls show queued choices immediately while earlier audio changes finish.
+You can keep changing settings; ordered edits are saved in batches and then
+applied by the audio worker. `Queued` is not confirmation of persistence or mixer
+readback. Wait for saved/applied status before quitting if you want all pending
+edits retained. Reload, reset, live toggle and recorder actions wait until settings
+finish; navigation and quit remain available. A rejected batch restores saved choices.
+
 The profile dedicates B2 to Element and B3 to the app microphone. It owns all strips' B2/B3 sends and all A sends on mic inputs 1/2/3 and AUX. It preserves B1, gains, mutes, effects and inserts. AUX cannot also be an app-playback source. Input 3 is reserved for the configured webcam; unrelated occupants block the plan.
 
 Desk is Volt input 1; lav is always Volt input 2. If Volt disconnects, the selected Volt source falls back to webcam on input 3 and returns when Volt reconnects. Silence does not indicate a dead battery or trigger a mic switch.

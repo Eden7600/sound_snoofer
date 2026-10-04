@@ -23,6 +23,8 @@ type Dependencies struct {
 	Load    func(string) (config.Config, error)
 }
 type State struct {
+	EditAck        uint64
+	EditError      string
 	Recorder       *model.RecorderSnapshot
 	RecorderNotice string
 	Intent         *config.Intent
@@ -52,6 +54,8 @@ const (
 )
 
 type Action struct {
+	ID         uint64
+	Edits      []settingEdit
 	Kind       ActionKind
 	Row, Value string
 	Revision   uint64
@@ -252,13 +256,19 @@ func work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 					reset()
 				}
 			case editRule, resetChoices:
+				if action.ID != 0 {
+					state.EditAck = action.ID
+					state.EditError = ""
+				}
 				if action.Revision != revision {
+					state.EditError = "Stale rule command; try again"
 					state.setNotice("Stale rule command; try again", noticeError, time.Now())
 					log(state.Notice)
 					break
 				}
 				next := cfg.VoiceIntent()
 				if next == nil {
+					state.EditError = "No voice profile configured"
 					state.setNotice("No voice profile configured", noticeError, time.Now())
 					log(state.Notice)
 					break
@@ -279,7 +289,7 @@ func work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				} else if cfg.StateError != "" {
 					e = fmt.Errorf("reset or repair saved choices first")
 				} else {
-					e = editIntent(next, action)
+					e = editBatch(next, action)
 				}
 				if e == nil {
 					if next == nil {
@@ -307,6 +317,7 @@ func work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 					}
 				}
 				if e != nil {
+					state.EditError = e.Error()
 					state.setNotice("Rule change rejected: "+e.Error(), noticeError, time.Now())
 					log(state.Notice)
 				}
