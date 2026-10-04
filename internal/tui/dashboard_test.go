@@ -79,7 +79,7 @@ func TestDashboardBoundsSelectionAndColor(t *testing.T) {
 			if strings.Contains(text, "\x1b[2J") || strings.Contains(text, "\nINJECT") {
 				t.Fatal("unsafe text")
 			}
-			if w >= 42 && h >= 10 && !strings.Contains(ansi.Strip(text), "› Stop Recording") {
+			if w >= 42 && h >= 10 && !strings.Contains(ansi.Strip(text), "› Stop Playback") {
 				t.Fatal("selection hidden", w, h, text)
 			}
 		}
@@ -162,7 +162,7 @@ func TestCompactLayoutAndPickerBounds(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := screen{state: State{Intent: c.VoiceIntent(), MicOptions: []string{"desk", "lav", "webcam", "off"}}, actions: make(chan Action, 1)}
-	want := []string{"record-computer", "record-mic", "record-tap", "record-start", "record-stop"}
+	want := []string{"record-computer", "record-mic", "record-tap", "record-vst", "record-loop", "record-start", "record-stop", "snippet-play", "snippet-stop"}
 	for n, key := range want {
 		if s.rules()[5+n].key != key {
 			t.Fatal("recording order", s.rules())

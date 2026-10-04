@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
+
 	"sound-snoofer/internal/model"
 	"sound-snoofer/internal/routing"
 )
@@ -16,7 +16,7 @@ func matches(op routing.Operation, s model.Snapshot) bool {
 		v, ok := s.Assignments[op.Target]
 		return ok && v == op.Device.Name
 	}
-	v, ok := s.Numbers[op.Parameter]
+	v, ok := operationValue(s, op.Parameter)
 	return ok && v == float32(op.Value)
 }
 func (c *Controller) applyTopology(ctx context.Context, p routing.Plan) error {
@@ -30,6 +30,12 @@ func (c *Controller) applyTopology(ctx context.Context, p routing.Plan) error {
 	}
 	if fresh.Key() != p.Key() {
 		return ErrPlanChanged
+	}
+	fast := true
+	for _, op := range fresh.Topology.Operations {
+		if op.Change && op.Device != nil {
+			fast = false
+		}
 	}
 	verified := 0
 	ops := p.Topology.Operations
@@ -51,7 +57,7 @@ func (c *Controller) applyTopology(ctx context.Context, p routing.Plan) error {
 	check := func(s model.Snapshot, pending string) error {
 		for param, v := range expectedNumbers {
 			if param != pending {
-				if current, ok := s.Numbers[param]; !ok || current != v {
+				if current, ok := operationValue(s, param); !ok || current != v {
 					return ErrPlanChanged
 				}
 			}
@@ -65,10 +71,13 @@ func (c *Controller) applyTopology(ctx context.Context, p routing.Plan) error {
 	}
 	fail := func(e error) error { return fmt.Errorf("topology stopped (%d operations verified): %w", verified, e) }
 	for _, op := range ops {
+		if !op.Change {
+			continue
+		}
 		if e = ctx.Err(); e != nil {
 			return fail(e)
 		}
-		s, e := c.Backend.Snapshot()
+		s, e := c.observe(fast)
 		if e != nil {
 			return fail(e)
 		}
@@ -90,7 +99,11 @@ func (c *Controller) applyTopology(ctx context.Context, p routing.Plan) error {
 					micOff = true
 				}
 			}
-			if conflict := r.Conflict(); conflict != "" && !micOff {
+			conflict := r.Conflict()
+			if i := c.Config.VoiceIntent(); i != nil && i.Recording != nil && (i.Recording.ToVST || r.Values["Recorder.B2"] != 0) {
+				conflict = r.RehearsalConflict()
+			}
+			if conflict != "" && !micOff {
 				return fail(fmt.Errorf("%s", conflict))
 			}
 		}
@@ -101,7 +114,7 @@ func (c *Controller) applyTopology(ctx context.Context, p routing.Plan) error {
 				return fail(ErrPlanChanged)
 			}
 		} else {
-			if s.Numbers[op.Parameter] != op.BeforeValue {
+			if value, _ := operationValue(s, op.Parameter); value != op.BeforeValue {
 				return fail(ErrPlanChanged)
 			}
 		}
@@ -112,7 +125,15 @@ func (c *Controller) applyTopology(ctx context.Context, p routing.Plan) error {
 			e = c.Backend.Set(op.Target, *op.Device)
 		} else {
 			c.event(Event{Kind: "submitting", Message: fmt.Sprintf("%s = %d", op.Parameter, op.Value)})
-			e = numeric.SetNumber(op.Parameter, op.Value)
+			if strings.HasPrefix(op.Parameter, "Recorder.") {
+				b, ok := c.Backend.(RecorderBackend)
+				if !ok {
+					return fail(fmt.Errorf("recorder API unavailable"))
+				}
+				e = b.SetRecorder(op.Parameter, op.Value)
+			} else {
+				e = numeric.SetNumber(op.Parameter, op.Value)
+			}
 		}
 		if e != nil {
 			return fail(e)
@@ -122,7 +143,7 @@ func (c *Controller) applyTopology(ctx context.Context, p routing.Plan) error {
 			if e = ctx.Err(); e != nil {
 				return fail(e)
 			}
-			s, e = c.Backend.Snapshot()
+			s, e = c.observe(fast)
 			if e != nil {
 				return fail(e)
 			}
@@ -148,12 +169,19 @@ func (c *Controller) applyTopology(ctx context.Context, p routing.Plan) error {
 			if remain <= 0 {
 				return fail(fmt.Errorf("timed out verifying %s", label))
 			}
-			if e = c.Clock.Wait(ctx, min(100*time.Millisecond, remain)); e != nil {
+			if e = c.Clock.Wait(ctx, min(verificationInterval(op), remain)); e != nil {
 				return fail(e)
 			}
 		}
 	}
-	final, e := c.Plan()
+	finalSnapshot, e := c.observe(false)
+	if e != nil {
+		return fail(e)
+	}
+	if routing.InventoryKey(finalSnapshot) != p.Topology.InventoryKey {
+		return fail(ErrPlanChanged)
+	}
+	final, e := routing.Build(c.Config, finalSnapshot)
 	if e != nil {
 		return fail(e)
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
+
 	"sound-snoofer/internal/model"
 )
 
@@ -75,6 +76,11 @@ func (c *Controller) Record(ctx context.Context, start, live bool) error {
 			}
 		}
 	}
+	if start {
+		if i := c.Config.VoiceIntent(); i != nil && i.Recording != nil && i.Recording.ToVST {
+			return fmt.Errorf("disable Recording to VST before recording")
+		}
+	}
 	if !start {
 		if r.State() == "Stopped" {
 			return nil
@@ -137,6 +143,9 @@ func (c *Controller) protectRecorder(ctx context.Context) error {
 		return nil
 	}
 	for _, p := range []string{"Recorder.B1", "Recorder.B2", "Recorder.B3"} {
+		if i := c.Config.VoiceIntent(); p == "Recorder.B2" && i != nil && i.Recording != nil && i.Recording.ToVST {
+			continue
+		}
 		if e := ctx.Err(); e != nil {
 			return e
 		}

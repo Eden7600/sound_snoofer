@@ -8,7 +8,7 @@ type RecorderSnapshot struct {
 }
 
 func RecorderParameters() []string {
-	p := []string{"Recorder.record", "Recorder.stop", "Recorder.pause", "Recorder.play", "Recorder.mode.recbus", "Recorder.Channel", "Recorder.mode.MultiTrack", "Recorder.B1", "Recorder.B2", "Recorder.B3", "Bus[5].Mute"}
+	p := []string{"Recorder.record", "Recorder.stop", "Recorder.pause", "Recorder.play", "Recorder.mode.recbus", "Recorder.Channel", "Recorder.mode.MultiTrack", "Recorder.mode.Loop", "Recorder.A1", "Recorder.A2", "Recorder.A3", "Recorder.A4", "Recorder.A5", "Recorder.B1", "Recorder.B2", "Recorder.B3", "Bus[5].Mute"}
 	for i := 0; i < 8; i++ {
 		p = append(p, fmt.Sprintf("Recorder.ArmBus[%d]", i))
 	}
@@ -69,8 +69,27 @@ func (r *RecorderSnapshot) Conflict() string {
 	if r.State() == "Unknown" {
 		return "recorder state unavailable"
 	}
+	if r.State() == "Playing" && r.Values["Recorder.B1"] == 0 && r.Values["Recorder.B2"] == 0 && r.Values["Recorder.B3"] == 0 {
+		return ""
+	}
 	if r.State() != "Stopped" && !r.Ready() {
 		return "active recorder configuration conflicts with B1 capture; stop first"
+	}
+	return ""
+}
+
+// RehearsalConflict permits tape playback into Element without B1/B3 loops.
+func (r *RecorderSnapshot) RehearsalConflict() string {
+	if r.State() == "Unknown" {
+		return "recorder state unavailable"
+	}
+	if r.State() == "Recording" || (r.State() == "Paused" && r.Values["Recorder.record"] != 0) {
+		return "stop recording before VST rehearsal"
+	}
+	if r.Values["Recorder.B1"] != 0 || r.Values["Recorder.B3"] != 0 {
+		if r.State() != "Stopped" {
+			return "stop playback to clear conflicting tape sends"
+		}
 	}
 	return ""
 }

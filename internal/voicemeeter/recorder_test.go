@@ -3,6 +3,7 @@ package voicemeeter
 import (
 	"strings"
 	"testing"
+
 	"sound-snoofer/internal/model"
 )
 
@@ -21,11 +22,11 @@ func TestRecorderAllowlistAndIsolation(t *testing.T) {
 		if e := c.SetRecorder(s.Parameter, s.Value); e != nil {
 			t.Fatal(e)
 		}
-		if c.SetRecorder(s.Parameter, s.Value+1) == nil {
+		if c.SetRecorder(s.Parameter, s.Value+2) == nil {
 			t.Fatal(s)
 		}
 	}
-	for _, p := range []string{"Recorder.pause", "Recorder.FileType", "Recorder.A1", "Recorder.record;Command.Restart"} {
+	for _, p := range []string{"Recorder.pause", "Recorder.FileType", "Recorder.A6", "Recorder.record;Command.Restart"} {
 		if c.SetRecorder(p, 1) == nil {
 			t.Fatal(p)
 		}

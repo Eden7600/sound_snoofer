@@ -19,3 +19,8 @@ Potato voice routing reads strip A1..A5 and B1..B3 values and writes only boolea
 Semantic mappings in Potato: desk=Strip[0], lav=Strip[1], webcam=Strip[2], primary VAIO=Strip[5], AUX return=Strip[6]. B2 feeds AUX Virtual ASIO input channels 1/2; its output returns to AUX. B3 is the capture bus for Discord. Driver capture names vary by installation.
 
 The final operation matrix is separate from execution transitions. A transition first gates owned voice sends, then configures devices/patches, then enables the desired sends. Each phase updates expected readback state; any other owned-cell mutation aborts the pass. No audio stream health is implied by a successful readback.
+
+
+The recorder controls use Recorder.replay (restart the loaded tape at zero), Recorder.stop, Recorder.mode.Loop, and Recorder.A1..A5/B2 for rehearsal routing, as documented on page 16 of the official Remote API manual linked above. B1/B3 remain off for rehearsal. Recorder capture arming is distinct from tape sends.
+
+ParameterSnapshot refreshes all assignments and strip/patch parameters but reuses a copied inventory from the last full Snapshot. Only numeric-only transaction interiors use it. Full boundary snapshots retain inventory/edition checks; device-changing transactions continue enumerating during verification. On 2026-10-03, three read-only samples measured full snapshots at 78.08, 78.23 and 80.30 ms; individual parameter-only samples were below displayed timer resolution. These are read costs, not measured live routing latency or audio latency.

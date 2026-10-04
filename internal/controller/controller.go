@@ -66,13 +66,9 @@ func (c *Controller) event(e Event) {
 	}
 }
 func (c *Controller) Plan() (routing.Plan, error) {
-	s, e := c.Backend.Snapshot()
+	s, e := c.observe(false)
 	if e != nil {
 		return routing.Plan{}, e
-	}
-	if c.Config.Studio != nil && c.Config.Studio.Recording != nil {
-		r := c.readRecorder()
-		s.Recorder = &r
 	}
 	return routing.Build(c.Config, s)
 }
@@ -164,7 +160,7 @@ func (c *Controller) Step(ctx context.Context, live bool) time.Duration {
 	delay := c.Config.Poll()
 	if e == nil {
 		key := p.Key()
-		debounce := 100 * time.Millisecond
+		debounce := 20 * time.Millisecond
 		if p.Topology != nil {
 			for _, op := range p.Topology.Operations {
 				if op.Change && op.Device != nil {

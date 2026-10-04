@@ -10,16 +10,16 @@ func TestRoutingDebounceDeadline(t *testing.T) {
 	c, b := voiceController(t)
 	clock := c.Clock.(*fakeClock)
 	ctx := context.Background()
-	if got := c.Step(ctx, true); got != 100*time.Millisecond {
+	if got := c.Step(ctx, true); got != 20*time.Millisecond {
 		t.Fatal("initial deadline", got)
 	}
-	clock.now = clock.now.Add(99 * time.Millisecond)
+	clock.now = clock.now.Add(19 * time.Millisecond)
 	if got := c.Step(ctx, true); got != time.Millisecond || b.attempt != 0 {
 		t.Fatal("applied early or missed deadline", got)
 	}
 	clock.now = clock.now.Add(time.Millisecond)
 	if got := c.Step(ctx, true); got != c.Config.Poll() || b.attempt == 0 {
-		t.Fatal("did not apply at 100 ms", got)
+		t.Fatal("did not apply at 20 ms", got)
 	}
 }
 
@@ -31,7 +31,7 @@ func TestDeviceDebounceAndRoutingReset(t *testing.T) {
 	if got := c.Step(ctx, true); got != c.Config.Poll() {
 		t.Fatal(got)
 	}
-	clock.now = clock.now.Add(100 * time.Millisecond)
+	clock.now = clock.now.Add(20 * time.Millisecond)
 	c.Step(ctx, true)
 	if b.attempt != 0 || len(b.writes) != 0 {
 		t.Fatal("device change used routing debounce")
@@ -43,17 +43,17 @@ func TestDeviceDebounceAndRoutingReset(t *testing.T) {
 	}
 	c.Config.Intent = c.Config.VoiceIntent()
 	c.Config.Intent.Monitor = "pre"
-	if got := c.Step(ctx, true); got != 100*time.Millisecond {
+	if got := c.Step(ctx, true); got != 20*time.Millisecond {
 		t.Fatal(got)
 	}
-	clock.now = clock.now.Add(50 * time.Millisecond)
+	clock.now = clock.now.Add(10 * time.Millisecond)
 	c.Config.Intent.Monitor = "post"
-	if got := c.Step(ctx, true); got != 100*time.Millisecond {
+	if got := c.Step(ctx, true); got != 20*time.Millisecond {
 		t.Fatal("changed goal did not reset debounce", got)
 	}
-	clock.now = clock.now.Add(50 * time.Millisecond)
+	clock.now = clock.now.Add(10 * time.Millisecond)
 	b.s.Devices[0].ID += " changed"
-	if got := c.Step(ctx, true); got != 100*time.Millisecond {
+	if got := c.Step(ctx, true); got != 20*time.Millisecond {
 		t.Fatal("inventory did not reset debounce", got)
 	}
 	if got := c.Step(ctx, false); got != c.Config.Poll() {

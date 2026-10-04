@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"sync"
+
 	"sound-snoofer/internal/model"
 )
 
@@ -28,9 +29,11 @@ type native interface {
 // Client owns one login. Calls are serialized; the CLI also pins its OS thread
 // because IsParametersDirty must be called from a single thread.
 type Client struct {
-	mu     sync.Mutex
-	api    native
-	closed bool
+	mu               sync.Mutex
+	api              native
+	closed           bool
+	inventory        []model.Device
+	inventoryEdition int
 }
 
 func connect(api native) (*Client, error) {
@@ -60,7 +63,12 @@ func (c *Client) refresh() error {
 	}
 	return nil
 }
-func (c *Client) Snapshot() (model.Snapshot, error) {
+func (c *Client) Snapshot() (model.Snapshot, error) { return c.snapshot(true) }
+
+// ParameterSnapshot reads fresh parameters using the last full inventory.
+// Callers bracket numeric-only transactions with full observations.
+func (c *Client) ParameterSnapshot() (model.Snapshot, error) { return c.snapshot(false) }
+func (c *Client) snapshot(enumerate bool) (model.Snapshot, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	empty := model.Snapshot{}
@@ -72,25 +80,32 @@ func (c *Client) Snapshot() (model.Snapshot, error) {
 		return empty, e
 	}
 	s := model.Snapshot{Edition: int(edition), Devices: []model.Device{}, Assignments: map[string]string{}}
-	for _, direction := range []string{"input", "output"} {
-		n := c.api.Count(direction)
-		if n < 0 {
-			return empty, fmt.Errorf("%s enumeration returned %d", direction, n)
-		}
-		if n > 4096 {
-			return empty, fmt.Errorf("unreasonable %s device count %d", direction, n)
-		}
-		for i := 0; i < int(n); i++ {
-			dev, code := c.api.Device(direction, i)
-			if e := status(fmt.Sprintf("%s device %d", direction, i), code); e != nil {
-				return empty, e
+	if !enumerate && (c.inventory == nil || c.inventoryEdition != int(edition)) {
+		return empty, errors.New("full inventory observation required")
+	}
+	if enumerate {
+		for _, direction := range []string{"input", "output"} {
+			n := c.api.Count(direction)
+			if n < 0 {
+				return empty, fmt.Errorf("%s enumeration returned %d", direction, n)
 			}
-			dev.Direction = direction
-			// Only WDM enumeration is eligibility evidence in this milestone. ASIO
-			// entries may describe installed drivers with no connected hardware.
-			dev.Available = dev.Driver == "wdm"
-			s.Devices = append(s.Devices, dev)
+			if n > 4096 {
+				return empty, fmt.Errorf("unreasonable %s device count %d", direction, n)
+			}
+			for i := 0; i < int(n); i++ {
+				dev, code := c.api.Device(direction, i)
+				if e := status(fmt.Sprintf("%s device %d", direction, i), code); e != nil {
+					return empty, e
+				}
+				dev.Direction = direction
+				// Only WDM enumeration is eligibility evidence in this milestone. ASIO
+				// entries may describe installed drivers with no connected hardware.
+				dev.Available = dev.Driver == "wdm"
+				s.Devices = append(s.Devices, dev)
+			}
 		}
+	} else {
+		s.Devices = append([]model.Device{}, c.inventory...)
 	}
 	for _, target := range model.Slots(s.Edition) {
 		slot, _ := model.ParseSlot(target)
@@ -119,6 +134,10 @@ func (c *Client) Snapshot() (model.Snapshot, error) {
 			}
 			s.Numbers[param] = v
 		}
+	}
+	if enumerate {
+		c.inventory = append([]model.Device{}, s.Devices...)
+		c.inventoryEdition = s.Edition
 	}
 	return s, nil
 }

@@ -2,6 +2,7 @@ package voicemeeter
 
 import (
 	"fmt"
+
 	"sound-snoofer/internal/model"
 )
 
@@ -34,6 +35,9 @@ func (c *Client) SetRecorder(p string, v int) error {
 		if p == s.Parameter {
 			valid = v == s.Value
 		}
+	}
+	if (p == "Recorder.replay" && v == 1) || ((p == "Recorder.mode.Loop" || p == "Recorder.B2" || p == "Recorder.A1" || p == "Recorder.A2" || p == "Recorder.A3" || p == "Recorder.A4" || p == "Recorder.A5") && (v == 0 || v == 1)) {
+		valid = true
 	}
 	if !valid {
 		return fmt.Errorf("unsupported recorder setting %s=%d", p, v)

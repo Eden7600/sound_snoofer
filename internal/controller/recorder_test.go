@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
 	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/model"
 )
@@ -29,6 +30,10 @@ func (b *recorderFake) SetRecorder(p string, v int) error {
 	b.r.Values[p] = float32(v)
 	if b.afterRecorder != nil {
 		b.afterRecorder()
+	}
+	if p == "Recorder.replay" {
+		b.r.Values["Recorder.play"] = 1
+		b.r.Values["Recorder.stop"] = 0
 	}
 	if p == "Recorder.record" {
 		b.r.Values["Recorder.stop"] = 0

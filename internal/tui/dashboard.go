@@ -44,7 +44,7 @@ func pretty(v string) string {
 	return v
 }
 func group(r ruleRow) string {
-	if r.key == "record-start" || r.key == "record-stop" {
+	if r.key == "record-start" || r.key == "record-stop" || strings.HasPrefix(r.key, "snippet-") {
 		return "ACTIONS"
 	}
 	if strings.HasPrefix(r.key, "record-") {
@@ -69,6 +69,9 @@ func (s screen) dashboardRows(w int) ([]string, int) {
 			last = g
 		}
 		value := pretty(r.value)
+		if r.key == "monitor" && (r.value == "pre" || r.value == "post") {
+			value += "-VST"
+		}
 		if r.key == "source" || r.key == "output" {
 			value += " ▾"
 		}
@@ -81,7 +84,10 @@ func (s screen) dashboardRows(w int) ([]string, int) {
 		if r.key == "record-start" {
 			value = "↵ Start"
 		}
-		if r.key == "record-stop" {
+		if r.key == "snippet-play" {
+			value = "↵ Play"
+		}
+		if r.key == "record-stop" || r.key == "snippet-stop" {
 			value = "↵ Stop"
 		}
 		label := r.label

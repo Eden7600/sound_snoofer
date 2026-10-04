@@ -54,7 +54,7 @@ In studio mode, asio_pattern selects the installed driver, presence_pattern sele
 
 Studio mode owns inputs 1/2, ASIO A1, Patch.asio[0..3], outputs matching playback patterns, and managed playback sends. Playback regexes also identify old output assignments to release; keep them specific. Unrelated occupied outputs, B buses, gains, mutes, inserts, and other patch cells are preserved. If A1 belongs to an unrelated device, ASIO takeover reports a conflict. If no playback device is available, the topology is left unchanged and reported unresolved.
 
-Defaults: poll_ms=1000, debounce_ms=2000, verify_ms=5000. Each accepts 100–60000. Device assignment changes use debounce_ms; routing-only changes use 100 ms and wake at that deadline instead of waiting for the next normal poll. Native readback verification adds to total apply time. Config loads once at startup; restart watch after edits. Rules repair managed settings continuously, even if devices do not change. Failed writes back off up to 30 seconds. No automatic application launch or engine restart occurs.
+Defaults: poll_ms=1000, debounce_ms=2000, verify_ms=5000. Each accepts 100–60000. Device assignment changes use debounce_ms; routing-only changes use 20 ms and wake at that deadline instead of waiting for the next normal poll. Native readback verification adds to total apply time. Config loads once at startup; restart watch after edits. Rules repair managed settings continuously, even if devices do not change. Failed writes back off up to 30 seconds. No automatic application launch or engine restart occurs.
 
 ## Verification and limitations
 
@@ -155,3 +155,16 @@ connected; disconnecting uses the automatic fallback and reconnecting restores t
 preference. Add devices to the configured playback candidates to make them selectable.
 An installed Volt ASIO driver alone does not expose Desk/Lav: its unique WDM
 companion must also be connected. Off and Automatic remain available without inventory.
+
+### Tuning Element with a recorded snippet
+
+1. With Recording to VST off, enable Record Microphone, set Recording Mic Stage to Pre, disable Record Computer Audio for a clean voice sample, then Start/Stop Recording.
+2. Load that recording in Voicemeeter's native recorder if it is not already loaded.
+3. Keep Processing on Element / VST and an active microphone source selected. Enable Recording to VST and select Monitor Post-VST.
+4. Enable Loop Snippet if wanted, then Play Snippet. Stop Playback uses the native recorder Stop command. Turn Recording to VST off to restore the live microphone feed.
+
+Rehearsal feeds the tape to B2 and suppresses physical mic sends and the AUX-to-Discord send. Monitor Pre-VST listens to the dry tape; Post-VST listens to Element's return. Off disables listening. Switching source Off or Processing Direct disables rehearsal. Recording cannot start while rehearsal is enabled. Play starts the loaded tape at zero; no file is automatically opened and transport never starts automatically. Tape A/B sends become managed once rehearsal is used; on leaving rehearsal they are cleared, including after an interrupted transition. Other recorder file/format/gain settings are preserved.
+
+Monitor labels are Off, Pre-VST and Post-VST; saved values remain off/pre/post. Recording stage labels remain Pre/Post.
+
+Send-only changes debounce for 20 ms and verify at 5 ms intervals. The controller skips unchanged operations and uses fresh parameter reads inside numeric-only transitions, with full device inventory checks at the boundaries. Device assignments retain the configured 2-second debounce. Read-only measurements on this machine found full inventory reads around 78–80 ms; total application latency includes those boundary checks and native readback, so 20 ms is not an end-to-end guarantee.

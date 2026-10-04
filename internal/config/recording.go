@@ -6,9 +6,12 @@ type Recording struct {
 	ComputerSources []string `json:"computer_sources"`
 }
 type RecordingChoices struct {
-	MicEnabled      bool   `json:"mic_enabled"`
-	MicTap          string `json:"mic_tap"`
-	ComputerEnabled bool   `json:"computer_enabled"`
+	TapeRoutingManaged bool   `json:"tape_routing_managed,omitempty"`
+	ToVST              bool   `json:"to_vst,omitempty"`
+	Loop               bool   `json:"loop,omitempty"`
+	MicEnabled         bool   `json:"mic_enabled"`
+	MicTap             string `json:"mic_tap"`
+	ComputerEnabled    bool   `json:"computer_enabled"`
 }
 
 func (r *Recording) Validate() error {
@@ -33,6 +36,12 @@ func (i *Intent) NormalizeRecording(c Config) {
 
 // NormalizeRecordingStage keeps the selected tap valid for the processing mode.
 func (i *Intent) NormalizeRecordingStage() {
+	if i.Recording != nil && i.Recording.ToVST {
+		i.Recording.TapeRoutingManaged = true
+	}
+	if i.Recording != nil && (!i.MicActive() || i.Mode != "element") {
+		i.Recording.ToVST = false
+	}
 	if i.Recording != nil && i.Mode == "direct" && i.Recording.MicTap == "post" {
 		i.Recording.MicTap = "pre"
 	}

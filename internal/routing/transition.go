@@ -53,7 +53,7 @@ func buildVoiceTransition(c config.Config, s model.Snapshot, t *Topology) {
 		}
 	}
 	gated := func(op Operation) bool {
-		if !strings.HasPrefix(op.Parameter, "Strip[") {
+		if !strings.HasPrefix(op.Parameter, "Strip[") && !strings.HasPrefix(op.Parameter, "Recorder.A") && !strings.HasPrefix(op.Parameter, "Recorder.B") {
 			return false
 		}
 		if op.Change {

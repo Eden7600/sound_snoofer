@@ -64,3 +64,15 @@ func TestRecordingProfileAndPersistence(t *testing.T) {
 		t.Fatal("missing profile")
 	}
 }
+
+func TestRehearsalNormalizesOffAndDirect(t *testing.T) {
+	for _, source := range []string{"desk", "off"} {
+		for _, mode := range []string{"element", "direct"} {
+			i := &Intent{Source: source, Enabled: source != "off", Mode: mode, Recording: &RecordingChoices{ToVST: true, Loop: true, MicTap: "pre"}}
+			i.NormalizeRecordingStage()
+			if i.Recording.ToVST != (source == "desk" && mode == "element") || !i.Recording.Loop {
+				t.Fatal(i)
+			}
+		}
+	}
+}

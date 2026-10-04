@@ -3,6 +3,7 @@ package routing
 import (
 	"fmt"
 	"strings"
+
 	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/model"
 )
@@ -22,6 +23,14 @@ func addRecording(c config.Config, s model.Snapshot, t *Topology, source int) er
 	state := &RecordingStatus{Mic: "disabled", ComputerSources: append([]string{}, c.Studio.Recording.ComputerSources...), Recorder: s.Recorder}
 	t.Recording = state
 	state.Blocked = s.Recorder.Conflict()
+	if r.ToVST || (s.Recorder != nil && s.Recorder.Values["Recorder.B2"] != 0) {
+		state.Blocked = s.Recorder.RehearsalConflict()
+	}
+	if state.Blocked == "" {
+		if err := addRehearsal(c, s, t); err != nil {
+			return err
+		}
+	}
 	if state.Blocked != "" {
 		t.Unresolved = append(t.Unresolved, state.Blocked)
 		return nil
@@ -29,6 +38,8 @@ func addRecording(c config.Config, s model.Snapshot, t *Topology, source int) er
 	desired := [8]int{}
 	if r.MicEnabled {
 		switch {
+		case r.ToVST:
+			state.Mic = "inactive: VST rehearsal"
 		case !i.MicActive():
 			state.Mic = "inactive: voice disabled"
 		case source < 0:

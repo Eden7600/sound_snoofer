@@ -54,6 +54,7 @@ const (
 	resetChoices
 	startRecording
 	stopRecording
+	playSnippet
 )
 
 type Action struct {
@@ -75,6 +76,17 @@ type observed struct {
 
 func (o *observed) Snapshot() (model.Snapshot, error) {
 	s, e := o.Client.Snapshot()
+	if e == nil {
+		o.snapshot = s
+	}
+	return s, e
+}
+func (o *observed) ParameterSnapshot() (model.Snapshot, error) {
+	b, ok := o.Client.(controller.ParameterBackend)
+	if !ok {
+		return o.Snapshot()
+	}
+	s, e := b.ParameterSnapshot()
 	if e == nil {
 		o.snapshot = s
 	}
@@ -216,7 +228,7 @@ func work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		case action := <-actions:
 			timer.Stop()
 			switch action.Kind {
-			case startRecording, stopRecording:
+			case startRecording, stopRecording, playSnippet:
 				if action.Revision != revision {
 					state.RecorderNotice = "Stale recording command; inspect status and try again"
 					state.setNotice(state.RecorderNotice, noticeError, time.Now())
@@ -232,7 +244,12 @@ func work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				state.RecorderNotice = "Pending recorder command"
 				state.setNotice("Recorder pending", noticeError, time.Now())
 				publish()
-				e := ctl.Record(ctx, action.Kind == startRecording, state.Live)
+				var e error
+				if action.Kind == playSnippet {
+					e = ctl.PlaySnippet(ctx, state.Live)
+				} else {
+					e = ctl.Record(ctx, action.Kind == startRecording, state.Live)
+				}
 				if e != nil {
 					state.RecorderNotice = e.Error()
 					state.setNotice("Recorder: "+e.Error(), noticeError, time.Now())

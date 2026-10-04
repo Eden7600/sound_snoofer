@@ -135,7 +135,7 @@ func TestRecordingKeyboard(t *testing.T) {
 		}
 	}
 	s.selected = 0
-	for n := 0; n < 9; n++ {
+	for n := 0; n < 11; n++ {
 		m, _ := s.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 		s = m.(screen)
 	}

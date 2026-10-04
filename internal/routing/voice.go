@@ -73,7 +73,8 @@ func addVoice(c config.Config, s model.Snapshot, p Plan) (Plan, error) {
 			desired[fmt.Sprintf("Strip[%d].A%d", strip, bus)] = 0
 		}
 	}
-	active := i.MicActive() && source >= 0
+	rehearsal := i.Recording != nil && i.Recording.ToVST
+	active := i.MicActive() && source >= 0 && !rehearsal
 	if active {
 		if i.Mode == "direct" {
 			desired[fmt.Sprintf("Strip[%d].B3", source)] = 1
@@ -84,6 +85,13 @@ func addVoice(c config.Config, s model.Snapshot, p Plan) (Plan, error) {
 	}
 	monitor := -1
 	switch {
+	case rehearsal:
+		if i.Monitor == "post" && t.PlaybackTarget != "" {
+			monitor = 6
+			v.Monitor = "Post-VST -> " + t.PlaybackTarget
+		} else if i.Monitor == "pre" {
+			v.Monitor = "Pre-VST tape -> " + t.PlaybackTarget
+		}
 	case !i.MicActive():
 		v.Monitor = "inactive: voice disabled"
 	case source < 0:

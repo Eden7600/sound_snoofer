@@ -11,6 +11,22 @@ import (
 
 func editIntent(i *config.Intent, a Action) error {
 	switch a.Row {
+	case "record-vst", "record-loop":
+		if i.Recording == nil {
+			return fmt.Errorf("recording profile not configured")
+		}
+		value, err := strconv.ParseBool(a.Value)
+		if err != nil {
+			return err
+		}
+		if a.Row == "record-vst" {
+			if value && (!i.MicActive() || i.Mode != "element") {
+				return fmt.Errorf("Recording to VST requires an active source and Element mode")
+			}
+			i.Recording.ToVST = value
+		} else {
+			i.Recording.Loop = value
+		}
 	case "output":
 		i.PlaybackDevice = a.Value
 	case "record-mic", "record-computer", "record-tap":
@@ -91,8 +107,12 @@ func (s screen) rules() []ruleRow {
 			ruleRow{"record-computer", "Record Computer Audio", strconv.FormatBool(r.ComputerEnabled), true},
 			ruleRow{"record-mic", "Record Microphone", strconv.FormatBool(r.MicEnabled), true},
 			ruleRow{"record-tap", "Recording Mic Stage", r.MicTap, false},
+			ruleRow{"record-vst", "Recording to VST", strconv.FormatBool(r.ToVST), true},
+			ruleRow{"record-loop", "Loop Snippet", strconv.FormatBool(r.Loop), true},
 			ruleRow{"record-start", "Start Recording", "Enter (live only)", false},
-			ruleRow{"record-stop", "Stop Recording", "Enter (live only)", false})
+			ruleRow{"record-stop", "Stop Recording", "Enter (live only)", false},
+			ruleRow{"snippet-play", "Play Snippet", "Enter (live only)", false},
+			ruleRow{"snippet-stop", "Stop Playback", "Enter (live only)", false})
 	}
 	return rows
 }
@@ -114,15 +134,18 @@ func (s *screen) ruleAction(key string) {
 		s.openChoice(row.key)
 		return
 	}
-	if key == "enter" && (row.key == "record-start" || row.key == "record-stop") {
+	if key == "enter" && (row.key == "record-start" || row.key == "record-stop" || strings.HasPrefix(row.key, "snippet-")) {
 		kind := startRecording
-		if row.key == "record-stop" {
+		if row.key == "record-stop" || row.key == "snippet-stop" {
 			kind = stopRecording
+		}
+		if row.key == "snippet-play" {
+			kind = playSnippet
 		}
 		s.queue(Action{Kind: kind, Revision: s.state.Revision})
 		return
 	}
-	if row.key == "record-start" || row.key == "record-stop" {
+	if row.key == "record-start" || row.key == "record-stop" || strings.HasPrefix(row.key, "snippet-") {
 		return
 	}
 	if key != " " && key != "enter" {
