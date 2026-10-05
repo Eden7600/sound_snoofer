@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+
 	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/model"
 )
@@ -23,11 +24,12 @@ type Plan struct {
 }
 
 func Build(c config.Config, s model.Snapshot) (Plan, error) {
+	c = ProfileConfig(c, s)
 	inventory := InventoryKey(s)
 	s = VRDevices(c, s)
 	if c.Studio != nil && c.VR != nil {
 		profile := *c.Studio
-		profile.Playback = vrPlaybackCandidates(c)
+		profile.Playback = c.PlaybackCandidates()
 		c.Studio = &profile
 	}
 

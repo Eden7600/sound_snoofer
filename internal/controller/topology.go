@@ -88,9 +88,8 @@ func (c *Controller) applyTopology(ctx context.Context, p routing.Plan) error {
 			r := c.readRecorder()
 			micOff := false
 			if i := c.Config.VoiceIntent(); i != nil && !i.MicActive() && op.Value == 0 {
-				switch op.Parameter {
-				case "Strip[0].B1", "Strip[1].B1", "Strip[2].B1", "Strip[6].B1":
-					micOff = true
+				for _, strip := range routing.ManagedMicStrips(c.Config) {
+					micOff = micOff || op.Parameter == fmt.Sprintf("Strip[%d].B1", strip)
 				}
 			}
 			conflict := r.Conflict()

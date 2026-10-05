@@ -42,6 +42,7 @@ type Event struct {
 	Plan    *routing.Plan `json:"plan,omitempty"`
 }
 type Controller struct {
+	Error            string
 	FastObservation  bool
 	Mixer            *Mixer
 	RecorderPrepared bool
@@ -57,6 +58,9 @@ type Controller struct {
 }
 
 func (c *Controller) event(e Event) {
+	if e.Kind == "error" {
+		c.Error = e.Message
+	}
 	b, _ := json.Marshal(e)
 	key := string(b)
 	if key == c.lastEvent {
@@ -161,6 +165,7 @@ func (c *Controller) Apply(ctx context.Context, expected routing.Plan) error {
 // Step performs a single observation. Invalid snapshots discard pending state;
 // callers wait its returned delay. Tests drive this without real sleeping.
 func (c *Controller) Step(ctx context.Context, live bool) time.Duration {
+	c.Error = ""
 	if live && c.RecorderPrepared && c.Config.Studio != nil && c.Config.Studio.Recording != nil {
 		if e := c.protectRecorder(ctx); e != nil {
 			c.event(Event{Kind: "error", Message: e.Error()})

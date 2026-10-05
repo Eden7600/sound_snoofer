@@ -2,14 +2,11 @@ package streamdeck
 
 import (
 	"bytes"
-	"fmt"
+
 	"image"
 	"image/color"
 	"image/jpeg"
 	"strings"
-
-	"sound-snoofer/internal/control"
-	"sound-snoofer/internal/controller"
 )
 
 // Five-column glyphs keep the device display independent of installed fonts.
@@ -35,79 +32,124 @@ func text(im *image.RGBA, x, y, scale int, s string, c color.RGBA) {
 	}
 }
 func render(lines []string, w, h int, on bool, icon string, fallback bool) []byte {
-	im := image.NewRGBA(image.Rect(0, 0, w, h))
-	background := color.RGBA{14, 22, 30, 255}
-	if on {
-		background = color.RGBA{16, 43, 49, 255}
+	// Supersample geometry; text remains aligned to the native key pixel grid.
+	const scale = 4
+	im := image.NewRGBA(image.Rect(0, 0, w*scale, h*scale))
+	background := color.RGBA{14, 20, 27, 255}
+	foreground := color.RGBA{227, 237, 243, 255}
+	accent := color.RGBA{135, 151, 163, 255}
+	label, value := "", ""
+	if len(lines) > 0 {
+		label = lines[0]
 	}
-	for _, line := range lines {
-		if line == "ERROR" || line == "UNAVAIL" {
-			background = color.RGBA{34, 25, 27, 255}
-		}
-		if line == "PENDING" {
-			background = color.RGBA{37, 32, 21, 255}
-		}
+	if len(lines) > 1 {
+		value = strings.ToUpper(lines[1])
 	}
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
-			im.SetRGBA(x, y, background)
-		}
-	}
-	accent := color.RGBA{50, 184, 195, 255}
-	if strings.HasPrefix(icon, "record-") {
-		accent = color.RGBA{200, 102, 134, 255}
-	}
-	if strings.HasPrefix(icon, "media-") {
-		accent = color.RGBA{154, 143, 230, 255}
+	if on || value == "LIVE" || value == "AUDIBLE" || value == "ELEMENT" || strings.Contains(value, "VST") {
+		accent = color.RGBA{58, 198, 225, 255}
 	}
 	if strings.HasSuffix(icon, "-muted") || icon == "record-stop" {
-		accent = color.RGBA{244, 100, 105, 255}
+		accent = color.RGBA{255, 105, 120, 255}
 	}
-	for _, line := range lines {
-		if line == "PENDING" || line == "ERROR" || line == "UNAVAIL" || fallback {
-			accent = color.RGBA{225, 172, 74, 255}
-		}
+	if value == "PENDING" || value == "UNAVAIL" || value == "ERROR" || fallback {
+		accent = color.RGBA{238, 183, 76, 255}
 	}
-	if icon != "" {
-		for x := 12; x < 100; x++ {
-			for y := 5; y < 8; y++ {
-				im.SetRGBA(x, y, accent)
+	if value == "UNAVAILABLE" {
+		foreground = color.RGBA{80, 90, 100, 255}
+		accent = foreground
+	}
+	switch value {
+	case "RECORDING":
+		value = "REC"
+	case "STOPPED":
+		value = "READY"
+	case "AUDIBLE":
+		value = "ON"
+	case "PENDING":
+		value = "WAIT"
+	case "UNAVAIL":
+		value = "N/A"
+	}
+	rect := func(x, y, width, height int, c color.RGBA) {
+		for yy := y * scale; yy < (y+height)*scale; yy++ {
+			for xx := x * scale; xx < (x+width)*scale; xx++ {
+				im.SetRGBA(xx, yy, c)
 			}
 		}
 	}
-	iconDrawn := drawIcon(im, icon)
-	for n, line := range lines {
-		if len(line) > 9 && w == 112 && !iconDrawn {
-			line = line[:9]
+	rect(0, 0, w, h, background)
+	if label != "" {
+		rect(3, 3, w-6, 1, accent)
+		rect(3, h-4, w-6, 1, accent)
+		rect(3, 3, 1, h-6, accent)
+		rect(w-4, 3, 1, h-6, accent)
+	}
+	ink := foreground
+	if accent.G > 180 && accent.B > 180 {
+		ink = accent
+	}
+	iconDrawn := drawIcon(im, icon, ink)
+	centered := func(s string, y, size int, c color.RGBA) {
+		runes := []rune(strings.ToUpper(s))
+		maxChars := (w - 14) / (6 * size)
+		if len(runes) > maxChars {
+			runes = runes[:maxChars]
 		}
-		if iconDrawn {
-			text(im, (w-len(line)*6)/2, 78+n*17, 1, line, color.RGBA{230, 242, 245, 255})
-		} else {
-			text(im, 7, 12+n*22, 2, line, color.RGBA{230, 242, 245, 255})
+		text(im, (w-len(runes)*6*size+size)*scale/2, y*scale, size*scale, string(runes), c)
+	}
+	if iconDrawn {
+		centered(label, 10, 1, foreground)
+	} else if label != "" {
+		// Custom actions keep readable, wrapped labels instead of clipped text.
+		words := strings.Fields(label)
+		line := ""
+		y := 24
+		for _, word := range words {
+			if len(line)+len(word)+1 > 8 && line != "" {
+				centered(line, y, 2, foreground)
+				y += 18
+				line = ""
+			}
+			if line != "" {
+				line += " "
+			}
+			line += word
+		}
+		if line != "" {
+			centered(line, y, 2, foreground)
 		}
 	}
-	// + XL requires 90-degree counterclockwise JPEG images.
+	if value != "" {
+		rect(7, 87, w-14, 19, accent)
+		size := 2
+		if len([]rune(value)) > 8 {
+			size = 1
+		}
+		y := 90
+		if size == 1 {
+			y = 93
+		}
+		centered(value, y, size, background)
+	}
+	// Average the geometry and rotate 90 degrees counterclockwise for + XL.
 	rotated := image.NewRGBA(image.Rect(0, 0, h, w))
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
-			rotated.SetRGBA(y, w-1-x, im.RGBAAt(x, y))
+			var r, g, b uint32
+			for dy := 0; dy < scale; dy++ {
+				for dx := 0; dx < scale; dx++ {
+					p := im.RGBAAt(x*scale+dx, y*scale+dy)
+					r += uint32(p.R)
+					g += uint32(p.G)
+					b += uint32(p.B)
+				}
+			}
+			rotated.SetRGBA(y, w-1-x, color.RGBA{uint8(r / 16), uint8(g / 16), uint8(b / 16), 255})
 		}
 	}
 	var b bytes.Buffer
-	jpeg.Encode(&b, rotated, &jpeg.Options{Quality: 80})
+	jpeg.Encode(&b, rotated, &jpeg.Options{Quality: 92})
 	return b.Bytes()
-}
-
-// Physical key numbers are one-based; slice offsets are zero-based.
-var bindings = []string{
-	0: "mic-mute", 1: "speaker-mute", 2: "monitor", 3: "mode", 8: "open-controls",
-	9: "record-toggle", 11: "record-mic", 12: "record-computer", 13: "record-tap",
-	27: "media-prev", 28: "media-play", 29: "media-next", 35: "",
-}
-var labels = map[string]string{
-	"record-toggle": "RECORD", "record-computer": "PC RECORD", "record-mic": "MIC RECORD", "record-tap": "MIC STAGE",
-	"mic-mute": "MIC", "speaker-mute": "OUTPUT", "monitor": "MONITOR", "mode": "VST MODE", "open-controls": "CONTROLS",
-	"media-prev": "REWIND", "media-play": "PLAY/PAUSE", "media-next": "FORWARD",
 }
 
 type keyPresentation struct {
@@ -117,112 +159,7 @@ type keyPresentation struct {
 type knobPresentation struct{ Target, Value, Name, Status string }
 type presentation struct {
 	Keys  [Keys]keyPresentation
-	Knobs [3]knobPresentation
-}
-
-func present(s control.State, layout []string) presentation {
-	view := presentation{}
-	for n, key := range layout {
-		if n >= Keys {
-			break
-		}
-		if key == "" {
-			continue
-		}
-		label := strings.ToUpper(strings.ReplaceAll(key, "-", " "))
-		if title, ok := labels[key]; ok {
-			label = title
-		}
-		value := keyValue(s, key)
-		icon := key
-		if key == "mic-mute" || key == "speaker-mute" || key == "a1-mute" || key == "a2-mute" {
-			if value == "On" {
-				icon += "-muted"
-				value = "MUTED"
-			} else if value == "Off" {
-				if key == "mic-mute" {
-					value = "LIVE"
-				} else {
-					value = "AUDIBLE"
-				}
-			}
-		}
-		if key == "record-toggle" && (s.Recorder.State() == "Recording" || (s.Recorder.State() == "Paused" && s.Recorder.Values["Recorder.record"] == 1)) {
-			icon = "record-stop"
-			label = "STOP REC"
-		}
-		fallback := false
-		if value != "ERROR" && value != "UNAVAIL" && value != "PENDING" && value != "PREVIEW" && s.Intent != nil {
-			if strings.HasPrefix(key, "media-") {
-				value = ""
-			}
-			if s.Plan != nil && s.Plan.Topology != nil && s.Plan.Topology.Voice != nil {
-				voice := s.Plan.Topology.Voice
-				switch key {
-				case "mode":
-					if voice.EffectiveMode != "" {
-						value = voice.EffectiveMode
-						fallback = value != s.Intent.Mode
-					}
-				case "monitor":
-					if s.Intent.Monitor != "off" && (voice.Strip < 0 || s.Plan.Topology.PlaybackTarget == "") {
-						value = "INACTIVE"
-						fallback = true
-					} else if value == "post" && voice.EffectiveMode == "direct" {
-						value = "pre"
-						fallback = true
-					}
-				case "record-tap":
-					if value == "post" && voice.EffectiveMode == "direct" {
-						value = "pre"
-						fallback = true
-					}
-				}
-			}
-			if value == "pre" {
-				value = "PRE VST"
-			}
-			if value == "post" {
-				value = "POST VST"
-			}
-		}
-		if fallback {
-			value += "*"
-		}
-		view.Keys[n] = keyPresentation{Label: label, Value: value, Icon: icon, Fallback: fallback}
-	}
-	for n, target := range []string{"A1", "A2", "mic"} {
-		p := controller.GainTarget(s.Plan, target)
-		value := "?"
-		if gain, ok := s.Snapshot.Numbers[p]; ok && s.Connected {
-			value = fmt.Sprintf("%.1f DB", gain)
-		}
-		if s.Snapshot.Numbers[strings.TrimSuffix(p, "Gain")+"Mute"] == 1 {
-			value += " MUTE"
-		}
-		status := ""
-		if feedback, ok := s.Feedback["gain:"+target]; ok {
-			if feedback.Kind == control.NoticeError {
-				status = "ERR"
-			}
-			if feedback.Kind == control.NoticePending {
-				status = "WAIT"
-			}
-		}
-		name := s.Snapshot.Assignments[target]
-		if target == "mic" && s.Plan != nil && s.Plan.Topology != nil && s.Plan.Topology.Voice != nil {
-			name = s.Plan.Topology.Voice.Effective
-		}
-		if len(name) > 15 {
-			name = name[:15]
-		}
-		view.Knobs[n] = knobPresentation{Target: target, Value: value, Name: name, Status: status}
-	}
-	return view
-}
-
-func display(s control.State, layout []string) ([][]byte, []byte) {
-	return renderPresentation(present(s, layout))
+	Knobs [Encoders]knobPresentation
 }
 
 func renderPresentation(view presentation) ([][]byte, []byte) {

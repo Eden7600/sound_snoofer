@@ -22,7 +22,7 @@ The source selector SHALL include Off and SHALL remove the separate enabled row.
 - **THEN** the UI reports the error and does not claim verified mic disconnection
 
 ### Requirement: Responsive dashboard and controls
-The TUI SHALL group microphone, playback and recording controls with a visible selected row, clear mode/status and contextual keyboard help. Enter and Space SHALL change non-transport controls. Start/Stop SHALL remain explicit Enter actions. Source Off SHALL have a visible direct keyboard shortcut. External text SHALL be sanitized before styling, and NO_COLOR SHALL disable styling.
+The TUI SHALL group microphone, playback and recording controls with a visible selected row, clear mode/status and contextual keyboard help. Enter and Space SHALL change non-transport controls. The normal TUI SHALL omit transport and restart action rows and the Actions heading. An externally requested disruptive restart SHALL retain an explicit Enter-only confirmation under System. Source Off SHALL have a visible direct keyboard shortcut. External text SHALL be sanitized before styling, and NO_COLOR SHALL disable styling.
 
 #### Scenario: Small window
 - **WHEN** the terminal shrinks

@@ -1,3 +1,5 @@
+> Composition note: modular-snoofer supersedes this document's audio-centric startup, fixed deck bindings, and prefer-VR configuration. Unrelated native routing and safety requirements remain in force.
+
 ## Decisions
 SteamVR availability is observed independently from endpoint presence. Initial runtime detection uses exact vrserver.exe process presence in the current user session; stopped and unknown both exclude VR-classified endpoints. This is runtime presence, not proof the headset is worn or its audio is healthy. Do not launch SteamVR to query availability.
 

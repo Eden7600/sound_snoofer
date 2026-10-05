@@ -8,6 +8,7 @@ import (
 	"os"
 	"regexp"
 	"sound-snoofer/internal/model"
+	"sound-snoofer/internal/storage"
 	"time"
 )
 
@@ -20,18 +21,32 @@ type Route struct {
 	Target     string      `json:"target"`
 	Candidates []Candidate `json:"candidates"`
 }
+type DefaultEndpoints struct {
+	Playback string `json:"playback,omitempty"`
+	Capture  string `json:"capture,omitempty"`
+}
+
 type Config struct {
-	StreamDeck *StreamDeck `json:"stream_deck,omitempty"`
-	VR         *VR         `json:"vr,omitempty"`
-	Intent     *Intent     `json:"-"`
-	StateError string      `json:"-"`
-	StateToken string      `json:"-"`
-	Version    int         `json:"version"`
-	PollMS     int         `json:"poll_ms"`
-	DebounceMS int         `json:"debounce_ms"`
-	VerifyMS   int         `json:"verify_ms"`
-	Routes     []Route     `json:"routes"`
-	Studio     *Studio     `json:"studio,omitempty"`
+	PolicyPlayback    []Candidate           `json:"-"`
+	WindowsDefaults   *DefaultEndpoints     `json:"windows_defaults,omitempty"`
+	Profiles          *Profiles             `json:"profiles,omitempty"`
+	Policy            func() *ProfilePolicy `json:"-"`
+	ProfileBase       *Config               `json:"-"`
+	ProfileRunning    bool                  `json:"-"`
+	ProfileResolved   bool                  `json:"-"`
+	ProfileMicMissing bool                  `json:"-"`
+	ProfilePlayback   *model.Device         `json:"-"`
+	StreamDeck        *StreamDeck           `json:"stream_deck,omitempty"`
+	VR                *VR                   `json:"vr,omitempty"`
+	Intent            *Intent               `json:"-"`
+	StateError        string                `json:"-"`
+	StateToken        string                `json:"-"`
+	Version           int                   `json:"version"`
+	PollMS            int                   `json:"poll_ms"`
+	DebounceMS        int                   `json:"debounce_ms"`
+	VerifyMS          int                   `json:"verify_ms"`
+	Routes            []Route               `json:"routes"`
+	Studio            *Studio               `json:"studio,omitempty"`
 }
 
 func Load(path string) (Config, error) {
@@ -62,45 +77,19 @@ func Decode(b []byte) (Config, error) {
 	return c, nil
 }
 
-func uniqueKeys(d *json.Decoder) error {
-	t, e := d.Token()
-	if e != nil {
-		return e
-	}
-	if delim, ok := t.(json.Delim); ok {
-		switch delim {
-		case '{':
-			seen := map[string]bool{}
-			for d.More() {
-				k, e := d.Token()
-				if e != nil {
-					return e
-				}
-				s := k.(string)
-				if seen[s] {
-					return fmt.Errorf("duplicate JSON key %q", s)
-				}
-				seen[s] = true
-				if e = uniqueKeys(d); e != nil {
-					return e
-				}
-			}
-		case '[':
-			for d.More() {
-				if e = uniqueKeys(d); e != nil {
-					return e
-				}
-			}
-		default:
-			return fmt.Errorf("unexpected JSON delimiter")
-		}
-		_, e = d.Token()
-		return e
-	}
-	return nil
-}
+func uniqueKeys(d *json.Decoder) error { return storage.UniqueKeys(d) }
 
 func (c *Config) Validate() error {
+	if c.Profiles != nil {
+		if len(c.Profiles.Microphones) == 0 {
+			return fmt.Errorf("normal microphone priority is required")
+		}
+		for _, source := range c.Profiles.Microphones {
+			if source != "desk" && source != "lav" && source != "webcam" && source != "off" {
+				return fmt.Errorf("invalid normal microphone priority %s", source)
+			}
+		}
+	}
 	if c.StreamDeck != nil {
 		if err := c.StreamDeck.Validate(); err != nil {
 			return err

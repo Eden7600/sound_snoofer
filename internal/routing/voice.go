@@ -25,6 +25,10 @@ func addVoice(c config.Config, s model.Snapshot, p Plan) (Plan, error) {
 		return p, e
 	}
 	t := p.Topology
+	t.MicStrips = ManagedMicStrips(c)
+	if c.ProfileMicMissing {
+		t.Unresolved = append(t.Unresolved, "No eligible microphone in active profile; no configured fallback")
+	}
 	v := &VoiceStatus{Preferred: i.Source, Effective: i.Source, Monitor: "off"}
 	v.PreferredMode = c.VoiceIntent().Mode
 	v.EffectiveMode = i.Mode
@@ -94,7 +98,7 @@ func addVoice(c config.Config, s model.Snapshot, p Plan) (Plan, error) {
 			desired[fmt.Sprintf("Strip[%d].B%d", strip, bus)] = 0
 		}
 	}
-	for _, strip := range managedMicStrips(c) {
+	for _, strip := range ManagedMicStrips(c) {
 		for bus := 1; bus <= 5; bus++ {
 			desired[fmt.Sprintf("Strip[%d].A%d", strip, bus)] = 0
 		}
@@ -162,7 +166,7 @@ func addVoice(c config.Config, s model.Snapshot, p Plan) (Plan, error) {
 	// Master Off also disconnects microphone capture when B1 is otherwise
 	// unmanaged or recorder-specific reconciliation is frozen.
 	if !i.MicActive() {
-		for _, strip := range managedMicStrips(c) {
+		for _, strip := range ManagedMicStrips(c) {
 			param := fmt.Sprintf("Strip[%d].B1", strip)
 			before, ok := s.Numbers[param]
 			if !ok {

@@ -2,12 +2,34 @@ package control
 
 import (
 	"fmt"
-	"sound-snoofer/internal/config"
 	"strconv"
 	"strings"
+
+	"sound-snoofer/internal/config"
 )
 
 func EditIntent(i *config.Intent, a Action) error {
+	if strings.HasPrefix(a.Row, "normal-") {
+		a.Row = strings.TrimPrefix(a.Row, "normal-")
+	}
+	if strings.HasPrefix(a.Row, "vr-profile-") {
+		if i.VRProfile == nil {
+			return fmt.Errorf("VR profile unavailable")
+		}
+		switch strings.TrimPrefix(a.Row, "vr-profile-") {
+		case "source":
+			i.VRProfile.Source = a.Value
+		case "output":
+			i.VRProfile.Playback = a.Value
+		case "mode":
+			i.VRProfile.Mode = a.Value
+		case "monitor":
+			i.VRProfile.Monitor = a.Value
+		default:
+			return fmt.Errorf("unknown VR setting")
+		}
+		return config.ValidateProfileChoices(*i.VRProfile)
+	}
 	switch a.Row {
 	case "mic-mute", "speaker-mute", "a1-mute", "a2-mute", "vr-mic", "vr-playback", "defaults", "auto-recover":
 		value, err := strconv.ParseBool(a.Value)
@@ -95,7 +117,7 @@ func EditIntent(i *config.Intent, a Action) error {
 		}
 		i.Playback[key] = b
 	}
-	i.NormalizeRecordingStage()
+	i.NormalizeRehearsal()
 	return nil
 }
 

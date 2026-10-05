@@ -1,3 +1,7 @@
+## Supersession
+
+Historical requirements below are superseded by element-process-fallback: Post remains saved in Direct; effective Pre is temporary and returning to Element restores Post. Do not implement the historical normalization scenarios.
+
 ## ADDED Requirements
 
 ### Requirement: Direct recording uses Pre

@@ -8,7 +8,8 @@ import (
 	"sound-snoofer/internal/model"
 )
 
-func selectASIO(profile *config.Studio, s model.Snapshot) (*model.Device, error) {
+// SelectASIO requires one physical WDM presence match and one ASIO driver.
+func SelectASIO(profile *config.Studio, s model.Snapshot) (*model.Device, error) {
 	present := 0
 	for _, d := range s.Devices {
 		if d.Available && d.Direction == "input" && d.Driver == "wdm" && profile.PresenceRegex.MatchString(d.Name) {
@@ -43,7 +44,7 @@ func MicrophoneOptions(c config.Config, s model.Snapshot) []string {
 	s = VRDevices(c, s)
 	options := []string{}
 	if c.Studio != nil && c.Studio.Voice != nil {
-		if asio, err := selectASIO(c.Studio, s); err == nil && asio != nil {
+		if asio, err := SelectASIO(c.Studio, s); err == nil && asio != nil {
 			options = append(options, "desk", "lav")
 		}
 		if webcam, _ := selectDevice(c.Studio.FallbackMic, "input", s.Devices); webcam != nil {
@@ -70,7 +71,7 @@ func PlaybackOptions(c config.Config, s model.Snapshot) []string {
 			if !d.Available || d.Direction != "output" || d.Driver != "wdm" {
 				continue
 			}
-			for _, candidate := range vrPlaybackCandidates(c) {
+			for _, candidate := range c.PlaybackCandidates() {
 				if candidate.Regex.MatchString(d.Name) {
 					names[d.Name]++
 					break
@@ -79,7 +80,7 @@ func PlaybackOptions(c config.Config, s model.Snapshot) []string {
 		}
 	}
 	if c.Studio != nil && c.Studio.ASIOPlayback {
-		if asio, err := selectASIO(c.Studio, s); err == nil && asio != nil {
+		if asio, err := SelectASIO(c.Studio, s); err == nil && asio != nil {
 			names[asio.Name]++
 		}
 	}

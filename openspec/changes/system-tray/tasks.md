@@ -24,3 +24,11 @@
 - Development shell supplies NO_COLOR=1. Relaunched final preview without that override; deliberate user NO_COLOR remains supported.
 
 - User confirmed both the tray icon and TUI colours were visible. Added explicit Cascadia Mono / Consolas font selection in response to font feedback.
+
+## 4 Console allocation correction
+- [x] 4.1 Reproduce attached-console allocation failure with IPC redirected to pipes.
+- [x] 4.2 Detach tray console and give controls a private console without losing IPC.
+- [x] 4.3 Verify attached/detached subprocesses, actual renderer startup, tests, vet and spec validation.
+- [x] 4.4 Build the GUI executable in the repo, preserving any running live instance.
+
+Console fix evidence: both initially attached and detached native subprocess regressions first reproduced AllocConsole Access is denied, then passed after the fix with IPC intact. Full tests, vet and all 30 strict spec validations passed. The repo bin/sound-snoofer.exe was rebuilt with GUI subsystem 2 (previously console subsystem 3). An isolated dry-run tray launched that exact binary and a repeated launch created its __controls child; the child remained running. Desktop screenshot inspection was not completed because app approval timed out. The owned preview processes were removed; a separate three-second native tray cancellation smoke passed. Personal configuration and live audio were not changed.

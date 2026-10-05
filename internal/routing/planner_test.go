@@ -2,9 +2,9 @@ package routing
 
 import (
 	"reflect"
-	"testing"
 	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/model"
+	"testing"
 )
 
 func setup(t *testing.T) (config.Config, model.Snapshot) {

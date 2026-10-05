@@ -29,8 +29,7 @@ type native interface {
 // Client owns one login. Calls are serialized; the CLI also pins its OS thread
 // because IsParametersDirty must be called from a single thread.
 type Client struct {
-	elementProbe     func() model.ProcessStatus
-	vrProbe          func() model.ProcessStatus
+	processList      func() ([]string, error)
 	mu               sync.Mutex
 	api              native
 	closed           bool
@@ -163,13 +162,16 @@ func (c *Client) snapshot(enumerate bool) (model.Snapshot, error) {
 		c.inventory = append([]model.Device{}, s.Devices...)
 		c.inventoryEdition = s.Edition
 	}
-	if c.vrProbe != nil {
-		v := c.vrProbe()
-		s.SteamVR = &v
+	if c.processList != nil {
+		names, err := c.processList()
+		element := observeProcess(names, err, "element.exe")
+
+		s.Element = &element
+
 	}
-	if c.elementProbe != nil {
-		status := c.elementProbe()
-		s.Element = &status
+
+	if monitor, ok := c.api.(interface{ CallbackStatus() *model.CallbackStatus }); ok {
+		s.Callback = monitor.CallbackStatus()
 	}
 	return s, nil
 }
@@ -240,6 +242,11 @@ func (c *Client) Close() error {
 	defer c.mu.Unlock()
 	if c.closed {
 		return nil
+	}
+	if monitor, ok := c.api.(interface{ SetMonitoring(bool) error }); ok {
+		if err := monitor.SetMonitoring(false); err != nil {
+			return err
+		}
 	}
 	c.closed = true
 	return errors.Join(status("VBVMR_Logout", c.api.Logout()), c.api.Release())

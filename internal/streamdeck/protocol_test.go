@@ -2,8 +2,7 @@ package streamdeck
 
 import (
 	"encoding/binary"
-	"sound-snoofer/internal/config"
-	"sound-snoofer/internal/control"
+
 	"testing"
 )
 
@@ -39,36 +38,5 @@ func TestSignedEncoderAndImageFrames(t *testing.T) {
 	frames, err := ImageReports(2, false, make([]byte, 100), 64)
 	if err != nil || len(frames) != 2 || frames[1][3] != 1 || binary.LittleEndian.Uint16(frames[1][6:8]) != 1 {
 		t.Fatal(frames, err)
-	}
-}
-func TestMicMuteDoesNotSelectOff(t *testing.T) {
-	s := control.State{Intent: &config.Intent{Enabled: true, Source: "desk"}}
-	a, cmd := Action(Event{Encoder: 2, Key: -1, Press: true}, s)
-	if cmd != "audio" || a.Row != "mic-mute" || a.Value != "true" {
-		t.Fatal(a, cmd)
-	}
-	if s.Intent.Source != "desk" {
-		t.Fatal("mutated source")
-	}
-}
-
-func TestQueuedToggleUsesAcknowledgedState(t *testing.T) {
-	q := Queue{}
-	s := control.State{Intent: &config.Intent{}, Acks: map[string]control.Ack{}}
-	e := Event{Encoder: 2, Key: -1, Press: true}
-	q.Push(e, s)
-	q.Push(e, s)
-	a, ok := q.Next(s)
-	if !ok || a.Value != "true" {
-		t.Fatal(a)
-	}
-	if _, ok = q.Next(s); ok {
-		t.Fatal("parallel setting command")
-	}
-	s.Intent.MicMuted = true
-	s.Acks["streamdeck"] = control.Ack{ID: a.ID}
-	a, ok = q.Next(s)
-	if !ok || a.Value != "false" {
-		t.Fatal(a)
 	}
 }

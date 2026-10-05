@@ -34,7 +34,7 @@ func TestProtectionRolesPreviewAndContention(t *testing.T) {
 		t.Fatal("preview wrote defaults")
 	}
 	r.Live = true
-	if s := g.Reconcile(f, r, targets, now); s != "Verified" || f.writes != 6 {
+	if s := g.Reconcile(f, r, targets, now); s.Kind != Verified || f.writes != 6 {
 		t.Fatal(s, f.writes)
 	}
 	g.Reconcile(f, r, targets, now)

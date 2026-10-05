@@ -4,26 +4,45 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
+
 	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/model"
-	"time"
 )
 
+type recoveryJournal struct {
+	Attempts  []time.Time
+	Uncertain bool
+}
+
 type recovery struct {
-	path     string
-	attempts []time.Time
-	err      error
-	pending  bool
-	started  time.Time
-	samples  int
-	status   string
+	callback                    callbackHealth
+	blocked                     bool
+	verifyCallbacks             bool
+	verifyBuffers, verifySynced uint32
+	verifiedAt                  time.Time
+	clearSamples                int
+	path                        string
+	attempts                    []time.Time
+	err                         error
+	pending                     bool
+	started                     time.Time
+	samples                     int
+	status                      string
 }
 
 func newRecovery(path string) *recovery {
 	r := &recovery{path: path + ".recovery.json"}
 	b, e := os.ReadFile(r.path)
 	if e == nil {
-		r.err = json.Unmarshal(b, &r.attempts)
+		var journal recoveryJournal
+		r.err = json.Unmarshal(b, &journal)
+		if r.err != nil {
+			// Existing releases stored only the attempt timestamps.
+			r.err = json.Unmarshal(b, &r.attempts)
+		} else {
+			r.attempts, r.blocked = journal.Attempts, journal.Uncertain
+		}
 	} else if !os.IsNotExist(e) {
 		r.err = e
 	}
@@ -50,14 +69,27 @@ func (r *recovery) restart(b interface{ RestartEngine() error }, live bool, now 
 		return fmt.Errorf("too many restart requests; wait ten minutes")
 	}
 	recent = append(recent, now)
-	if err := config.WriteJournal(r.path, recent); err != nil {
+	if err := config.WriteJournal(r.path, recoveryJournal{Attempts: recent, Uncertain: true}); err != nil {
 		return err
 	}
 	r.attempts = recent
+	r.blocked = true
+	r.verifyBuffers, r.verifySynced = r.callback.buffers, r.callback.synced
+	r.clearSamples = 0
 	if err := b.RestartEngine(); err != nil {
 		r.status = "Restart outcome unknown; manual attention required"
 		return err
 	}
+	r.blocked = false
+	if err := config.WriteJournal(r.path, recoveryJournal{Attempts: r.attempts}); err != nil {
+		r.blocked = true
+		r.err = err
+		r.status = "Restart submitted; recovery journal failed; manual attention required"
+		return err
+	}
+	r.verifyCallbacks = r.callback.enabled
+	r.verifyBuffers, r.verifySynced = r.callback.buffers, r.callback.synced
+	r.verifiedAt = time.Time{}
 	r.pending = true
 	r.started = now
 	r.samples = 0
@@ -65,6 +97,22 @@ func (r *recovery) restart(b interface{ RestartEngine() error }, live bool, now 
 	return nil
 }
 func (r *recovery) observe(s model.Snapshot, now time.Time) string {
+	if r.blocked && r.err == nil {
+		cb := s.Callback
+		if cb != nil && cb.Active && cb.Error == "" && cb.Buffers != r.verifyBuffers && cb.Synced != r.verifySynced {
+			r.clearSamples++
+			r.verifyBuffers, r.verifySynced = cb.Buffers, cb.Synced
+			if r.clearSamples >= 2 {
+				if err := config.WriteJournal(r.path, recoveryJournal{Attempts: r.attempts}); err != nil {
+					r.err = err
+				} else {
+					r.blocked = false
+				}
+			}
+		} else {
+			r.clearSamples = 0
+		}
+	}
 	if r.pending {
 		if now.Sub(r.started) > 10*time.Second {
 			r.pending = false
@@ -74,7 +122,17 @@ func (r *recovery) observe(s model.Snapshot, now time.Time) string {
 		if now.Sub(r.started) < time.Second {
 			return r.status
 		}
-		if sr, ok := s.Numbers["Bus[0].device.sr"]; ok && sr > 0 {
+		if r.verifyCallbacks {
+			cb := s.Callback
+			if cb == nil || !cb.Active || cb.Error != "" {
+				r.samples = 0
+			} else if cb.Buffers != r.verifyBuffers && cb.Synced != r.verifySynced &&
+				(r.verifiedAt.IsZero() || now.Sub(r.verifiedAt) >= 500*time.Millisecond) {
+				r.samples++
+				r.verifiedAt = now
+				r.verifyBuffers, r.verifySynced = cb.Buffers, cb.Synced
+			}
+		} else if sr, ok := s.Numbers["Bus[0].device.sr"]; ok && sr > 0 {
 			r.samples++
 		} else {
 			r.samples = 0
@@ -82,11 +140,14 @@ func (r *recovery) observe(s model.Snapshot, now time.Time) string {
 		if r.samples >= 2 {
 			r.pending = false
 			r.status = "Engine responding; audio continuity unverified"
+			if r.verifyCallbacks {
+				r.status = "Audio processing resumed; audible output unverified"
+			}
 		}
 		return r.status
 	}
-	if r.status != "" {
-		return r.status
+	if s.Assignments == nil {
+		return "Engine health unknown"
 	}
 	if s.Assignments["A1"] != "" {
 		if sr, ok := s.Numbers["Bus[0].device.sr"]; !ok {
@@ -101,6 +162,12 @@ func (r *recovery) observe(s model.Snapshot, now time.Time) string {
 // automaticPermit is deliberately separate from signal levels. A caller must
 // supply a backend-validated fault signature before requesting automatic repair.
 func (r *recovery) automaticPermit(now time.Time, validated bool, recorder string) error {
+	if r.err != nil {
+		return fmt.Errorf("recovery journal: %w", r.err)
+	}
+	if r.blocked {
+		return fmt.Errorf("previous restart outcome uncertain; manual retry required")
+	}
 	if !validated {
 		return fmt.Errorf("no validated engine-stall evidence")
 	}

@@ -66,7 +66,7 @@ func TestElementExitDuringTransition(t *testing.T) {
 func TestRehearsalHostFallback(t *testing.T) {
 	c, b := recorderController(t)
 	c.Config.Intent.Recording.ToVST = true
-	c.Config.Intent.NormalizeRecordingStage()
+	c.Config.Intent.NormalizeRehearsal()
 	apply := func() {
 		t.Helper()
 		p, err := c.Plan()
@@ -103,7 +103,7 @@ func TestRehearsalHostFallback(t *testing.T) {
 func TestElementReturnDoesNotInterruptFallbackCapture(t *testing.T) {
 	c, b := recorderController(t)
 	c.Config.Intent.Recording.ToVST = true
-	c.Config.Intent.NormalizeRecordingStage()
+	c.Config.Intent.NormalizeRehearsal()
 	b.s.Element = &model.ProcessStatus{Known: true}
 	p, err := c.Plan()
 	if err != nil {

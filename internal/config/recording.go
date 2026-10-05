@@ -31,11 +31,11 @@ func (i *Intent) NormalizeRecording(c Config) {
 	if i.Recording == nil && c.Studio != nil && c.Studio.Recording != nil {
 		i.Recording = &RecordingChoices{MicTap: "pre"}
 	}
-	i.NormalizeRecordingStage()
+	i.NormalizeRehearsal()
 }
 
-// NormalizeRecordingStage maintains rehearsal ownership; Post remains a preference.
-func (i *Intent) NormalizeRecordingStage() {
+// NormalizeRehearsal maintains rehearsal ownership; Post remains a preference.
+func (i *Intent) NormalizeRehearsal() {
 	if i.Recording != nil && i.Recording.ToVST {
 		i.Recording.TapeRoutingManaged = true
 	}

@@ -12,7 +12,7 @@ func TestRehearsalRoutingAndTransport(t *testing.T) {
 	c, b := recorderController(t)
 	ctx := context.Background()
 	c.Config.Intent.Recording.ToVST = true
-	c.Config.Intent.NormalizeRecordingStage()
+	c.Config.Intent.NormalizeRehearsal()
 	c.Config.Intent.Recording.Loop = true
 	c.Config.Intent.Monitor = "post"
 	apply := func() {

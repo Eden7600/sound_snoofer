@@ -50,7 +50,7 @@ func TestDirectRecordingStageLoadAndSave(t *testing.T) {
 		t.Fatal(result)
 	}
 	result.Mode = "element"
-	result.NormalizeRecordingStage()
+	result.NormalizeRehearsal()
 	if result.Recording.MicTap != "post" {
 		t.Fatal("Post preference lost")
 	}

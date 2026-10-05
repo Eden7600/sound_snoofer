@@ -8,11 +8,12 @@ import (
 	"math"
 	"os"
 	"sort"
+	"strings"
+	"time"
+
 	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/model"
 	"sound-snoofer/internal/routing"
-	"strings"
-	"time"
 )
 
 // ErrMixerPending blocks dependent routes while native mute readback catches up.
@@ -83,19 +84,12 @@ func (m *Mixer) Reconcile(b Backend, c config.Config, p routing.Plan, s model.Sn
 		return nil
 	}
 	wanted := map[string]bool{}
-	if p.Topology != nil {
-		if i.MicMuted && i.MicActive() && p.Topology.Voice != nil && p.Topology.Voice.Strip >= 0 {
-			wanted[fmt.Sprintf("Strip[%d].Mute", p.Topology.Voice.Strip)] = true
-			wanted["Strip[6].Mute"] = true
-		}
-		if i.PlaybackMuted && p.Topology.PlaybackTarget != "" {
-			slot, _ := model.ParseSlot(p.Topology.PlaybackTarget)
-			wanted[fmt.Sprintf("Bus[%d].Mute", slot.Index)] = true
-		}
-	}
-	for n, on := range i.BusMuted {
-		if on {
-			wanted[fmt.Sprintf("Bus[%d].Mute", n)] = true
+	for _, key := range []string{"mic-mute", "speaker-mute", "a1-mute", "a2-mute"} {
+		parameters, requested, _ := routing.MuteTargets(i, &p, key)
+		if requested {
+			for _, parameter := range parameters {
+				wanted[parameter] = true
+			}
 		}
 	}
 	keys := []string{}

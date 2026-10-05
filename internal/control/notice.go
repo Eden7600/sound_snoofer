@@ -34,7 +34,7 @@ func (s State) NoticeAt(now time.Time) string {
 }
 
 func (s *State) ResolveNotice(now time.Time) {
-	if s.NoticeKind != NoticePending || s.Plan == nil || s.Error != "" || s.StateError != "" {
+	if s.RecoveryPending || s.NoticeKind != NoticePending || s.Plan == nil || s.Error != "" || s.StateError != "" {
 		return
 	}
 	if !s.Live {

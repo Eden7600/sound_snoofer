@@ -2,9 +2,9 @@ package routing
 
 import (
 	"fmt"
-	"testing"
 	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/model"
+	"testing"
 )
 
 func studioFixture(t *testing.T) (config.Config, model.Snapshot) {

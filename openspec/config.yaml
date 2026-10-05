@@ -1,6 +1,6 @@
 schema: spec-driven
 context: |
-  Sound Snoofer is a Windows desktop audio-routing utility implemented in Go.
+  Snoofer is a Windows Go plugin host with core tray/TUI and optional audio, VR, Stream Deck and media plugins.
   Use the installed Voicemeeter Remote API; do not redistribute its DLL.
   The user now runs Potato; legacy configurations still support Banana.
   Volt ASIO owns A1 when connected. Channel 1 feeds Stereo Input 1 (L/R);
@@ -13,8 +13,8 @@ context: |
   selected mic -> B2 -> Element -> AUX -> B3 -> Discord. Primary VAIO is app playback.
   Specify selectable voice routing in its own opt-in change; monitoring defaults Off.
   B1 is reserved for built-in recording in the planned recording profile, with TUI
-  Start/Stop, independent mic/computer inclusion and a mic Pre/Post Element selector.
-  Post recording requires enabled Element voice mode; do not start a separate FX path.
+  semantic Start/Stop bindings, independent mic/computer inclusion and a mic Pre/Post Element selector.
+  Post remains a saved preference; effective Direct uses Pre and Element restores Post.
   Match device names using Go regular expressions, as explicitly requested by the user.
   Use OpenSpec proposals, scenario-based requirements, design, and tracked tasks.
   A persistent Go TUI exists. Design every code change in OpenSpec before implementation; no ad hoc code edits.

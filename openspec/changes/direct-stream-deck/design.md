@@ -1,3 +1,5 @@
+> Composition note: modular-snoofer supersedes this document's audio-centric startup, fixed deck bindings, and prefer-VR configuration. Unrelated native routing and safety requirements remain in force.
+
 ## Hardware and scope
 The confirmed target is the single product Stream Deck + XL, not separate Plus and original XL units. Elgato documents PID 0x00C6 under VID 0x0FD9, 36 keys and six encoders. Its image rotation differs from the smaller Plus, so select an explicit product descriptor instead of guessing compatibility. Original XL and Plus are outside initial acceptance; unknown products are not opened.
 

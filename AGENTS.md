@@ -1,10 +1,8 @@
-# Sound Snoofer development standards
+# Snoofer development standards
 
 ## Project and scope
 
-Sound Snoofer is a Windows Go application that manages Voicemeeter devices,
-routing and recording through the installed Remote API, with a persistent TUI.
-Use the Go version declared in `go.mod`. Do not redistribute Voicemeeter's DLL.
+Snoofer is a Windows Go plugin host with a core tray, TUI, lifecycle and semantic controls. Optional audio, VR, Stream Deck and media plugins own their integrations. Audio preserves the Voicemeeter routing and recording invariants below. Use the Go version declared in `go.mod`. Do not redistribute Voicemeeter's DLL.
 These instructions apply throughout the repository unless a deeper AGENTS.md
 provides more specific guidance. Explicit user instructions take precedence.
 
@@ -23,6 +21,12 @@ provides more specific guidance. Explicit user instructions take precedence.
 - Keep existing user changes, personal configuration and unrelated work intact.
 - This file and documentation-only corrections do not require invented behavioral
   requirements; use the appropriate documentation/tooling workflow when needed.
+
+## Implementation Planning
+- IMPORTANT: Before implementing any feature, thoroughly search the codebase to check if it's already implemented or partially implemented
+- Always prefer reading existing similar implementations as reference before creating new patterns
+- When implementing cross-system features (frontend -> API -> backend), trace the complete data flow to ensure fields are properly passed through all layers
+
 
 ## Go style and maintainability
 
@@ -100,27 +104,6 @@ provides more specific guidance. Explicit user instructions take precedence.
   automatically retry an uncertain Start or start recording on launch/reconnect.
 - Changes to these invariants require an explicit OpenSpec design update.
 
-## Tests and verification
-
-- Test observable behavior, transitions and meaningful failure paths. Avoid tests
-  that merely repeat implementation details or add coverage without useful checks.
-- Use table-driven cases when they clarify a behavior matrix. Give failures enough
-  context to identify the scenario and expected versus observed result.
-- Use controlled backends, temporary directories and deterministic clocks for
-  device, persistence and timing tests. Avoid sleep-based synchronization.
-- Cover cancellation, stale commands, disconnect/reconnect, ambiguity, partial
-  application and failed readback when affected by a change.
-- TUI changes need keyboard, selection, resize, error-state and text-sanitization
-  checks, plus an interactive smoke test when interaction or layout changes.
-- Automated tests must not depend on live audio hardware or change personal mixer
-  settings. Use isolated profiles for UI smoke tests.
-- Run focused tests during development, then the relevant regression suite, vet
-  and Windows build before delivery. Do not repeatedly rerun unchanged checks.
-- For concurrency changes, run the race detector where supported. Report missing
-  toolchain prerequisites or unperformed checks explicitly; never imply a pass.
-- Native API readback, successful disk output and audible correctness are separate
-  acceptance claims. Do not mark listening/file/hotplug tests complete from mocks.
-
 ## Commands
 
 All commits must use Conventional Commits: `type(scope): description`, with an
@@ -134,7 +117,7 @@ Run from the repository root; use an explicit tool path if Go is not on PATH.
 gofmt -w <changed-go-files>
 go test ./... -timeout 30s
 go vet ./...
-go build -o bin/sound-snoofer.exe ./cmd/sound-snoofer
+go build -o bin/snoofer.exe ./cmd/snoofer
 go test -race ./...
 node node_modules/@fission-ai/openspec/bin/openspec.js validate <change-name> --strict
 ```
@@ -144,13 +127,66 @@ change the toolchain silently to make it run. If the executable is in use, build
 a clearly named replacement and report its path; do not silently stop live audio.
 Report what changed, what was verified and any remaining limitations concisely.
 
-## References
+# Behavioural guidelines
 
-- [Go Code Review Comments](https://go.dev/wiki/CodeReviewComments)
-- [Google Go Style Guide](https://google.github.io/styleguide/go/guide)
-- [Organizing a Go module](https://go.dev/doc/modules/layout)
-- [Go race detector](https://go.dev/doc/articles/race_detector)
+**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
-Use these as supporting guidance, with the concrete project rules above taking
-precedence. Do not impose arbitrary coverage quotas, function-length limits or
-mandatory architecture patterns without an agreed project need.
+## 1. Think Before Coding
+
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
+
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+## 2. Simplicity First
+
+**Minimum code that solves the problem. Nothing speculative.**
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+## 3. Surgical Changes
+
+**Touch only what you must. Clean up only your own mess.**
+
+When editing existing code:
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
+
+When your changes create orphans:
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+The test: Every changed line should trace directly to the user's request.
+
+## 4. Goal-Driven Execution
+
+**Define success criteria. Loop until verified.**
+
+Transform tasks into verifiable goals:
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan:
+```
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
+```
+
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+---
+
+**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

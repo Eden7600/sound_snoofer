@@ -9,3 +9,4 @@ coverage.out
 
 *.mutes.json
 *.recovery.json
+*.vr-ownership.json

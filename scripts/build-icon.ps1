@@ -1,6 +1,6 @@
 param(
     [string]$Source = "docs/assets/sound-snoofer-tray.png",
-    [string]$Output = "internal/desktop/tray.ico"
+    [string]$Output = "app/tray.ico"
 )
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Drawing

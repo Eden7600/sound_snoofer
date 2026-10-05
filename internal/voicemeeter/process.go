@@ -6,14 +6,13 @@ import (
 	"sound-snoofer/internal/model"
 )
 
-func observeElement(list func() ([]string, error)) model.ProcessStatus {
-	names, err := list()
+func observeProcess(names []string, err error, want string) model.ProcessStatus {
 	if err != nil {
 		return model.ProcessStatus{Error: err.Error()}
 	}
 	result := model.ProcessStatus{Known: true}
 	for _, name := range names {
-		if strings.EqualFold(name, "element.exe") {
+		if strings.EqualFold(name, want) {
 			result.Running = true
 			break
 		}

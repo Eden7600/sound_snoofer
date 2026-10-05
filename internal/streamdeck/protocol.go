@@ -11,12 +11,15 @@ const Keys = 36
 const Encoders = 6
 
 type Event struct {
-	Binding string
-	Key     int
-	Encoder int
-	Delta   int
-	Press   bool
-	Error   string
+	Generation uint64
+	Serial     string
+	Connected  bool
+	Binding    string
+	Key        int
+	Encoder    int
+	Delta      int
+	Press      bool
+	Error      string
 }
 type Decoder struct {
 	keys                     [Keys]bool

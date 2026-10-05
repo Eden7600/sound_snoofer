@@ -7,3 +7,5 @@
 ## 2. Dashboard
 - [x] 2.1 Implement styled responsive dashboard and contextual status/help; verify selection on resize, narrow/wide bounds, sanitization and NO_COLOR; document controls.
 - [x] 2.2 Run tests, vet, strict OpenSpec validation and Windows build; run interactive dry-run source-Off smoke and record results without changing personal audio.
+
+- [x] Remove normal Actions rows and heading, retain external restart confirmation under System, and validate compact navigation and retained recording preferences.

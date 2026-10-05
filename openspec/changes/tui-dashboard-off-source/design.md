@@ -44,3 +44,6 @@ pending/error, not a privacy guarantee. No global OS mic muting is promised.
 Existing enabled sources are unchanged; old disabled choices display Off.
 Preferences persist on explicit edits. Do not change the user's current live
 audio or saved source just to demonstrate the redesign.
+
+## Remove the Actions section (2026-10-05)
+The user no longer wants transport or restart actions in the TUI. Remove normal record-start, record-stop, snippet-play, snippet-stop and engine-restart rows and their obsolete keyboard/render branches. Retain recording preferences and system toggles, including auto recovery. Remove the Actions heading. A pending explicit restart request from tray/deck still exposes its Enter-only confirmation under System; do not bypass the active/unknown-recorder confirmation guard. Shared actions remain supported for tray/deck/native recorder use. Update keyboard/navigation tests and documentation; build in the repository.

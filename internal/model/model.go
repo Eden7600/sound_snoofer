@@ -14,7 +14,15 @@ type Device struct {
 	Available bool   `json:"available"`
 }
 
+// CallbackStatus reports processing progress, never proof of audible output.
+type CallbackStatus struct {
+	Active                                     bool
+	Buffers, Synced, Starting, Ending, Changes uint32
+	Error                                      string
+}
+
 type Snapshot struct {
+	Callback    *CallbackStatus    `json:"callback,omitempty"`
 	SteamVR     *ProcessStatus     `json:"steamvr,omitempty"`
 	Element     *ProcessStatus     `json:"element,omitempty"`
 	Recorder    *RecorderSnapshot  `json:"recorder,omitempty"`

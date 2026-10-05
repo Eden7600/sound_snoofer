@@ -1,3 +1,7 @@
+## Current behavior and supersession
+
+The element-process-fallback and sound-snoofer-default-launch changes supersede historical Direct/Post normalization, no-dry-bypass, and preview-default statements below. Current behavior preserves Post preference, uses effective Pre in Direct, automatically falls back to Direct when Element is unavailable, and defaults to live. Historical checkboxes are evidence only, not instructions to restore superseded behavior. Physical acceptance remains pending. The harden-application-consistency change adds reset/discard confirmation without replaying transport.
+
 # Design
 
 Maintain a UI-local draft separate from authoritative worker State. Controls and source picker use the draft; signal status continues using observed/authoritative state. Each click updates the cloned draft through editIntent (including Direct/Pre normalization). Submit at most one edit batch at a time with a nonzero monotonically increasing request ID and existing revision. While that request is in flight, collect ordered edits locally, bounded to 64 edits; reject overflow visibly without changing the draft. Subsequent toggles cycle the draft, not the stale worker state.

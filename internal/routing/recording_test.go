@@ -2,10 +2,10 @@ package routing
 
 import (
 	"fmt"
-	"strings"
-	"testing"
 	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/model"
+	"strings"
+	"testing"
 )
 
 func recordingFixture(t *testing.T) (config.Config, model.Snapshot) {

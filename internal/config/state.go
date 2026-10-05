@@ -30,8 +30,13 @@ func LoadEffective(path string) (Config, error) {
 	if e != nil {
 		return c, e
 	}
+	return LoadChoices(path, c), nil
+}
+
+// LoadChoices reads saved choices without requiring a second configuration file.
+func LoadChoices(path string, c Config) Config {
 	if c.VoiceIntent() == nil {
-		return c, nil
+		return c
 	}
 	b, token, e := stateBytes(path)
 	c.StateToken = token
@@ -49,7 +54,7 @@ func LoadEffective(path string) (Config, error) {
 				}
 			}
 			if e == nil {
-				i.NormalizeRecordingStage()
+				i.NormalizeRehearsal()
 				e = i.Validate(c)
 			}
 			if e == nil {
@@ -60,14 +65,14 @@ func LoadEffective(path string) (Config, error) {
 	if e != nil {
 		c.StateError = "Saved choices: " + e.Error()
 	}
-	return c, nil
+	return c
 }
 func SaveIntent(path string, c Config, i *Intent, expected string) (string, error) {
 	if i == nil {
 		return "", fmt.Errorf("voice profile is not configured")
 	}
 	i = i.Clone()
-	i.NormalizeRecordingStage()
+	i.NormalizeRehearsal()
 	if e := i.Validate(c); e != nil {
 		return "", e
 	}
@@ -92,24 +97,7 @@ func SaveIntent(path string, c Config, i *Intent, expected string) (string, erro
 		return "", e
 	}
 	b = append(b, '\n')
-	f, e := os.CreateTemp(filepath.Dir(absolute), ".voice-state-*")
-	if e != nil {
-		return "", e
-	}
-	name := f.Name()
-	defer os.Remove(name)
-	if _, e = f.Write(b); e != nil {
-		f.Close()
-		return "", e
-	}
-	if e = f.Sync(); e != nil {
-		f.Close()
-		return "", e
-	}
-	if e = f.Close(); e != nil {
-		return "", e
-	}
-	if e = replaceState(name, absolute+".state.json"); e != nil {
+	if e = replaceBytes(absolute+".state.json", b); e != nil {
 		return "", e
 	}
 	return fmt.Sprintf("%x", sha256.Sum256(b)), nil

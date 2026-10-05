@@ -4,3 +4,5 @@
 - [ ] Confirm layout and recording toggle on physical hardware.
 
 Shared speaker/bus mute aliases and alternating-press regression tests included. Rendered nine-column preview inspected. Full Go tests, vet, strict validation and Windows build passed. Build: bin/sound-snoofer-deck-workflows.exe. Live app left running; physical acceptance remains unchecked.
+
+- [x] Generate Studio/Signal icon concepts, implement the user-selected Studio direction with antialiased line art and state badges, and inspect the actual rendered deck preview.

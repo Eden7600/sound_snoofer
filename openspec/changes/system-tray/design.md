@@ -1,3 +1,5 @@
+> Composition note: modular-snoofer supersedes this document's audio-centric startup, fixed deck bindings, and prefer-VR configuration. Unrelated native routing and safety requirements remain in force.
+
 ## Architecture
 The tray parent owns the existing serialized audio worker for its entire lifetime. A separate controls child renders the existing TUI and sends typed actions over inherited anonymous pipes. Child stdio is reserved for JSON IPC; it opens CONIN$/CONOUT$ for the display after allocating its own console. Closing that console, Q, or Ctrl+C ends only the child. No listener ports, public pipe names, credentials, or second DLL connection are needed. Only one controls child is permitted at a time.
 
@@ -18,3 +20,7 @@ Confirm icon registration using Shell_NotifyIconGetRect after the tray callback,
 
 ## Controls presentation follow-up
 User confirmed icon visibility and colour after the preview environment correction, but requested a better font and a tray icon based on docs/assets/sound-snoofer-painterly.png. Configure only newly allocated controls consoles to use 18-pixel Cascadia Mono when installed, then Consolas fallback. Verify the returned font face; unsupported font configuration is nonfatal and keeps the console default. Do not change global console preferences or standalone tui terminal styling. Preserve the painterly source and generate a simplified transparent mascot derivative with multi-resolution ICO packaging for 16/20/24/32/48/64/256 pixel scaling. Icon packaging must be reproducible from the checked-in derivative.
+
+## Console allocation correction
+
+A console-subsystem build can inherit or create a console before the controls renderer starts. AllocConsole then fails with ERROR_ACCESS_DENIED. Tray startup must detach from its console without hiding a shared terminal. Spawn controls detached, then have controlsConsole detach any existing association before allocating its private console. Preserve the captured IPC pipe handles throughout. Explicit CLI commands retain their terminal. Ship the repo binary through scripts/build.ps1 with GUI subsystem. Validate native subprocess allocation from both initially attached and detached states, IPC survival and real attached-renderer startup in isolated preview. No live audio replacement is performed during checks.

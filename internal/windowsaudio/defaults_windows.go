@@ -5,12 +5,13 @@ package windowsaudio
 import (
 	"context"
 	"fmt"
-	"golang.org/x/sys/windows"
 	"runtime"
 	"strings"
 	"syscall"
 	"time"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 var ole = windows.NewLazySystemDLL("ole32.dll")
@@ -18,6 +19,7 @@ var ole = windows.NewLazySystemDLL("ole32.dll")
 type com struct{ vt *[32]uintptr }
 
 // call keeps Go arguments passed as native addresses alive through the COM call.
+//
 //go:uintptrescapes
 func call(o *com, index int, args ...uintptr) (uintptr, error) {
 	if o == nil {
@@ -170,13 +172,13 @@ func run(ctx context.Context, requests <-chan Request, results chan Result) {
 	defer close(results)
 	r, _, _ := ole.NewProc("CoInitializeEx").Call(0, 0)
 	if int32(r) < 0 {
-		results <- Result{"Windows COM initialization failed"}
+		results <- Result{Status: "Windows COM initialization failed", Kind: Attention}
 		return
 	}
 	defer ole.NewProc("CoUninitialize").Call()
 	b, err := open()
 	if err != nil {
-		results <- Result{err.Error()}
+		results <- Result{Status: err.Error(), Kind: Attention}
 		return
 	}
 	defer b.Close()
@@ -194,8 +196,15 @@ func run(ctx context.Context, requests <-chan Request, results chan Result) {
 			if next != request {
 				scan = time.Time{}
 			}
+			if next.Ack != nil {
+				close(next.Ack)
+				next.Ack = nil
+			}
 			request = next
 		case <-ticker.C:
+		}
+		if ctx.Err() != nil {
+			return
 		}
 		if request.Enabled && time.Since(scan) > 5*time.Second {
 			scan = time.Now()
@@ -214,14 +223,14 @@ func run(ctx context.Context, requests <-chan Request, results chan Result) {
 		}
 		status := guard.Reconcile(b, request, targets, time.Now())
 		select {
-		case results <- Result{status}:
+		case results <- status:
 		default:
 			select {
 			case <-results:
 			default:
 			}
 			select {
-			case results <- Result{status}:
+			case results <- status:
 			default:
 			}
 		}

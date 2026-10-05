@@ -28,3 +28,6 @@ func EnsureDefault(path string) error {
 	}
 	return nil
 }
+
+// DefaultBytes returns an independent copy of the built-in audio settings.
+func DefaultBytes() []byte { return append([]byte(nil), defaultConfig...) }

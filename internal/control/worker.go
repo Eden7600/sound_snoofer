@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime"
 	"slices"
@@ -20,21 +21,36 @@ type Client interface {
 	Close() error
 }
 type Dependencies struct {
-	Save    func(string, config.Config, *config.Intent, string) (string, error)
-	Open    func(string) (Client, error)
-	Acquire func() (func(), error)
-	Load    func(string) (config.Config, error)
+	OnStop        func(error)
+	Prepare       func(config.Config) config.Config
+	StartDefaults func(context.Context) (chan windowsaudio.Request, chan windowsaudio.Result, <-chan struct{})
+	Save          func(string, config.Config, *config.Intent, string) (string, error)
+	Open          func(string) (Client, error)
+	Acquire       func() (func(), error)
+	Load          func(string) (config.Config, error)
 }
 type State struct {
-	Feedback            map[string]Feedback
-	noticeRevision      uint64
-	ObservedAt          time.Time
-	VRMic               string
-	VRPlayback          string
-	Acks                map[string]Ack
-	Health              string
-	Defaults            string
-	RestartConfirmation bool
+	ActiveIntent                     *config.Intent
+	VRSourceOptions, VROutputOptions []string
+	Profile                          string
+	VRConfigured                     bool
+	Feedback                         map[string]Feedback
+	noticeRevision                   uint64
+	// ObservedAt advances only on successful native snapshots; PublishedAt tracks worker progress.
+	ObservedAt                          time.Time
+	PublishedAt                         time.Time
+	ConfigPath                          string
+	ChoiceLabels                        map[string]string
+	VRMicAvailable, VRPlaybackAvailable bool
+	DefaultKind                         windowsaudio.StatusKind
+	RecoveryOutcome                     string
+	RecoveryPending                     bool
+	VRMic                               string
+	VRPlayback                          string
+	Acks                                map[string]Ack
+	Health                              string
+	Defaults                            string
+	RestartConfirmation                 bool
 
 	MicOptions    []string
 	OutputOptions []string
@@ -94,8 +110,9 @@ var Refresh = Action{Kind: refresh}
 
 type observed struct {
 	Client
-	snapshot  model.Snapshot
-	readError error
+	snapshot   model.Snapshot
+	readError  error
+	observedAt time.Time
 }
 
 func (o *observed) Snapshot() (model.Snapshot, error) {
@@ -103,6 +120,7 @@ func (o *observed) Snapshot() (model.Snapshot, error) {
 	o.readError = e
 	if e == nil {
 		o.snapshot = s
+		o.observedAt = time.Now()
 	}
 	return s, e
 }
@@ -115,6 +133,7 @@ func (o *observed) ParameterSnapshot() (model.Snapshot, error) {
 	o.readError = e
 	if e == nil {
 		o.snapshot = s
+		o.observedAt = time.Now()
 	}
 	return s, e
 }
@@ -152,9 +171,24 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 	defer runtime.UnlockOSThread()
 	defer close(done)
 	defer close(states)
+	var cleanupError error
+	defer func() {
+		if deps.OnStop != nil {
+			deps.OnStop(cleanupError)
+		}
+	}()
 	defaultCtx, defaultCancel := context.WithCancel(ctx)
 	defer defaultCancel()
-	defaultRequests, defaultResults := windowsaudio.Start(defaultCtx)
+	startDefaults := deps.StartDefaults
+	if startDefaults == nil {
+		startDefaults = windowsaudio.Start
+	}
+	defaultRequests, defaultResults, defaultDone := startDefaults(defaultCtx)
+	revokeDefaults := func() error {
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+		defer stopCancel()
+		return windowsaudio.Revoke(stopCtx, defaultRequests, defaultDone)
+	}
 	state := State{Acks: map[string]Ack{}}
 	seen := map[string]uint64{}
 	if deps.Save == nil {
@@ -162,10 +196,26 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 	}
 	revision := uint64(1)
 	var release func()
+	var backend *observed
+	configureMonitor := func(enable bool) error {
+		if backend == nil {
+			return nil
+		}
+		if m, ok := backend.Client.(interface{ SetMonitoring(bool) error }); ok {
+			return m.SetMonitoring(enable)
+		}
+		if enable {
+			return fmt.Errorf("callback monitoring unsupported by this backend")
+		}
+		return nil
+	}
 	defer func() {
-		if release != nil {
+		err := revokeDefaults()
+		cleanupError = errors.Join(cleanupError, err)
+		if err == nil && release != nil {
 			release()
 		}
+		defaultCancel()
 	}()
 	setLive := func(enable bool) {
 		if enable == state.Live {
@@ -183,6 +233,14 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 			}
 			release = r
 		} else if release != nil {
+			if err := configureMonitor(false); err != nil {
+				state.SetNotice(err.Error(), NoticeError, time.Now())
+				return
+			}
+			if err := revokeDefaults(); err != nil {
+				state.SetNotice(err.Error(), NoticeError, time.Now())
+				return
+			}
 			release()
 			release = nil
 		}
@@ -190,15 +248,19 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		state.SetNotice("", NoticeSuccess, time.Now())
 	}
 	setLive(live)
-	var backend *observed
 	defer func() {
 		if backend != nil {
-			backend.Close()
+			if err := backend.Close(); err != nil {
+				cleanupError = errors.Join(cleanupError, err)
+				// Retain ownership when native callback cleanup is uncertain.
+				release = nil
+			}
 		}
 	}()
 	recovery := newRecovery(path)
 	mixer := &controller.Mixer{Path: path + ".mutes.json"}
 	var ctl *controller.Controller
+	var confirmRevision uint64
 	reset := func() {
 		if backend == nil {
 			return
@@ -212,22 +274,37 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 	}
 	publish := func() {
 		state.pruneFeedback(time.Now())
-		state.ObservedAt = time.Now()
-		if i := cfg.VoiceIntent(); i != nil {
-			r := windowsaudio.Request{Enabled: i.ProtectDefaults, Live: state.Live}
-			if cfg.VR != nil {
-				r.Playback = cfg.VR.PlaybackDefault
-				r.Capture = cfg.VR.CaptureDefault
-			}
-			select {
-			case defaultRequests <- r:
-			default:
+		state.PublishedAt = time.Now()
+		state.ConfigPath = path
+		state.ChoiceLabels = map[string]string{}
+		if cfg.VR != nil {
+			for _, h := range cfg.VR.Headsets {
+				state.ChoiceLabels["vr:"+h.ID] = h.Label
 			}
 		}
+		if backend != nil {
+			state.ObservedAt = backend.observedAt
+		}
+		r := windowsaudio.Request{}
+		if i := cfg.VoiceIntent(); i != nil {
+			r.Enabled = i.ProtectDefaults
+			r.Live = state.Live
+		}
+		if cfg.VR != nil {
+			r.Playback = cfg.VR.PlaybackDefault
+			r.Capture = cfg.VR.CaptureDefault
+		}
+		if cfg.WindowsDefaults != nil {
+			r.Playback = cfg.WindowsDefaults.Playback
+			r.Capture = cfg.WindowsDefaults.Capture
+		}
+		windowsaudio.Update(defaultRequests, r)
+
 		select {
 		case v, ok := <-defaultResults:
 			if ok {
 				state.Defaults = v.Status
+				state.DefaultKind = v.Kind
 			}
 		default:
 		}
@@ -238,11 +315,14 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 			state.MicOptions = routing.MicrophoneOptions(cfg, state.Snapshot)
 			state.OutputOptions = routing.PlaybackOptions(cfg, state.Snapshot)
 		}
+		state.VRMicAvailable = false
+		state.VRPlaybackAvailable = false
 		state.VRMic = "No eligible headset mic"
 		state.VRPlayback = "No eligible headset playback"
 		for _, option := range state.MicOptions {
 			if strings.HasPrefix(option, "vr:") {
 				state.VRMic = "Available"
+				state.VRMicAvailable = true
 				break
 			}
 		}
@@ -255,12 +335,56 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 					for _, h := range cfg.VR.Headsets {
 						if h.PlaybackRegex != nil && h.PlaybackRegex.MatchString(d.Name) {
 							state.VRPlayback = "Available"
+							state.VRPlaybackAvailable = true
 						}
 					}
 				}
 			}
 		}
 		state.Intent = cfg.VoiceIntent()
+		state.ActiveIntent = routing.ProfileConfig(cfg, state.Snapshot).VoiceIntent()
+		state.VRSourceOptions = []string{"auto", "off"}
+		if cfg.VR != nil {
+			for _, h := range cfg.VR.Headsets {
+				state.VRSourceOptions = append(state.VRSourceOptions, "vr:"+h.ID)
+			}
+			vrSnapshot := state.Snapshot
+			vrSnapshot.SteamVR = &model.ProcessStatus{Known: true, Running: true}
+			vrConfig := cfg
+			vrConfig.ProfileRunning = true
+			if cfg.Policy != nil {
+				if policy := cfg.Policy(); policy != nil {
+					studio := *cfg.Studio
+					studio.Playback = slices.Clone(studio.Playback)
+					for _, candidate := range policy.Playback {
+						if candidate.Driver != "normal" {
+							studio.Playback = append(studio.Playback, candidate)
+						}
+					}
+					vrConfig.Studio = &studio
+				}
+			}
+			state.VRSourceOptions = append(state.VRSourceOptions, "desk", "lav", "webcam")
+			state.VROutputOptions = routing.PlaybackOptions(vrConfig, vrSnapshot)
+		}
+		if cfg.Profiles != nil {
+			profile := "Normal"
+			if cfg.Policy != nil {
+				if p := cfg.Policy(); p != nil {
+					state.VRConfigured = true
+					if p.Running {
+						profile = "VR"
+					}
+				}
+			}
+			if state.Profile != profile {
+				revision++
+				state.Profile = profile
+			}
+		}
+		if confirmRevision != revision {
+			state.RestartConfirmation = false
+		}
 		state.Revision = revision
 		state.StateError = cfg.StateError
 		select {
@@ -279,12 +403,19 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 	delay := time.Duration(0)
 	lastInventory := time.Time{}
 	for {
+		if deps.Prepare != nil {
+			cfg = deps.Prepare(cfg)
+		}
 		timer := time.NewTimer(delay)
 		select {
 		case <-ctx.Done():
 			timer.Stop()
 			return
 		case action := <-actions:
+			if ctx.Err() != nil {
+				timer.Stop()
+				return
+			}
 			timer.Stop()
 			if action.Origin != "" && action.ID != 0 {
 				if seen[action.Origin] >= action.ID {
@@ -307,6 +438,10 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 			state.actionFeedback(action, NoticePending, time.Now())
 			switch action.Kind {
 			case restartEngine:
+				if action.Revision != revision || (action.Confirm && (!state.RestartConfirmation || confirmRevision != revision)) {
+					state.SetNotice("Stale restart command; inspect status and try again", NoticeError, time.Now())
+					break
+				}
 				if !state.Live {
 					state.SetNotice("Preview: engine restart not sent", NoticeSuccess, time.Now())
 					break
@@ -320,6 +455,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				if err != nil || recorder.State() != "Stopped" {
 					if !action.Confirm {
 						state.RestartConfirmation = true
+						confirmRevision = revision
 						state.SetNotice("Restart interrupts audio and may interrupt recording; select Confirm restart", NoticeError, time.Now())
 						break
 					}
@@ -328,6 +464,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				if err != nil {
 					state.SetNotice(err.Error(), NoticeError, time.Now())
 				} else {
+					revision++
 					state.SetNotice("Audio engine restart submitted", NoticePending, time.Now())
 				}
 			case gain:
@@ -356,7 +493,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 					state.SetNotice("Recorder unavailable", NoticeError, time.Now())
 					break
 				}
-				state.SetNotice("Recorder pending", NoticeError, time.Now())
+				state.SetNotice("Recorder pending", NoticePending, time.Now())
 				publish()
 				var e error
 				if action.Kind == playSnippet {
@@ -385,6 +522,10 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				if e != nil {
 					state.SetNotice("Config reload failed: "+e.Error(), NoticeError, time.Now())
 				} else {
+					if e := revokeDefaults(); e != nil {
+						state.SetNotice(e.Error(), NoticeError, time.Now())
+						break
+					}
 					cfg = updated
 					revision++
 					state.SetNotice("Reloaded", NoticeSuccess, time.Now())
@@ -451,6 +592,10 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 					var token string
 					token, e = deps.Save(path, candidateConfig, next, candidateConfig.StateToken)
 					if e == nil {
+						var revokeErr error
+						if old := cfg.VoiceIntent(); old != nil && old.ProtectDefaults && !next.ProtectDefaults {
+							revokeErr = revokeDefaults()
+						}
 						cfg = candidateConfig
 						cfg.Intent = next
 						cfg.StateToken = token
@@ -461,6 +606,9 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 							state.SetNotice("Saved · Pending", NoticePending, time.Now())
 						} else {
 							state.SetNotice("Saved · Preview", NoticeSuccess, time.Now())
+						}
+						if revokeErr != nil {
+							state.SetNotice("Saved; "+revokeErr.Error(), NoticeError, time.Now())
 						}
 					}
 				}
@@ -508,6 +656,8 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				return
 			}
 		}
+		monitorWanted := state.Live && cfg.VoiceIntent() != nil && cfg.VoiceIntent().AutoRecover
+		monitorErr := configureMonitor(monitorWanted)
 		state.Error = ""
 		if recovery.pending {
 			_, err := backend.ParameterSnapshot()
@@ -516,11 +666,13 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				state.Error = err.Error()
 			}
 		} else {
+			ctl.Config = cfg
 			ctl.FastObservation = !lastInventory.IsZero() && time.Since(lastInventory) < time.Second
 			if !ctl.FastObservation {
 				lastInventory = time.Now()
 			}
 			delay = ctl.Step(ctx, state.Live)
+			state.Error = ctl.Error
 		}
 		if ctx.Err() != nil {
 			return
@@ -530,12 +682,40 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		if backend.readError != nil {
 			healthSnapshot = model.Snapshot{}
 		}
+		fault := false
+		callbackMessage := ""
+		if monitorWanted {
+			fault, callbackMessage = recovery.callback.update(cfg, healthSnapshot, time.Now())
+			if monitorErr != nil {
+				fault = false
+				callbackMessage = "Callback monitor unavailable: " + monitorErr.Error()
+			}
+		} else {
+			recovery.callback = callbackHealth{}
+		}
+		wasPending := recovery.pending
 		state.Health = recovery.observe(healthSnapshot, time.Now())
-		if i := cfg.VoiceIntent(); i != nil && i.AutoRecover && !recovery.pending {
-			if err := recovery.automaticPermit(time.Now(), false, state.Recorder.State()); err != nil {
-				state.Health += " · Auto: " + err.Error()
+		if monitorWanted && !wasPending {
+			state.Health = callbackMessage
+			if fault && !recovery.pending {
+				if err := recovery.automaticRestart(backend, cfg, state.Live, time.Now()); err != nil {
+					state.Health += " · Auto: " + err.Error()
+				} else {
+					revision++
+					state.Health = recovery.status
+					state.SetNotice("Automatic audio engine restart submitted", NoticePending, time.Now())
+				}
 			}
 		}
+		if monitorErr != nil {
+			state.Health = "Callback monitor unavailable: " + monitorErr.Error()
+		}
+		if monitorWanted {
+			delay = min(delay, 500*time.Millisecond)
+		}
+		state.RecoveryOutcome = recovery.status
+		state.RecoveryPending = recovery.pending
+		state.Snapshot = backend.snapshot
 		if state.Recorder.State() != backend.snapshot.Recorder.State() {
 			revision++
 		}
@@ -565,6 +745,11 @@ type Ack struct {
 	Error string
 }
 
+// Exported aliases preserve one authoritative action numbering for UI and IPC.
+const ToggleLiveKind = toggleLive
+const ReloadKind = reload
+const RefreshKind = refresh
+const ResetChoices = resetChoices
 const Edit = editRule
 const Gain = gain
 const Restart = restartEngine

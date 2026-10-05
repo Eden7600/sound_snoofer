@@ -19,6 +19,9 @@ func (c *Controller) observe(fast bool) (model.Snapshot, error) {
 		read = b.ParameterSnapshot
 	}
 	s, err := read()
+	if err == nil {
+		c.Config = routing.ProfileConfig(c.Config, s)
+	}
 	if err == nil && c.Config.Studio != nil && c.Config.Studio.Recording != nil {
 		r := c.readRecorder()
 		s.Recorder = &r

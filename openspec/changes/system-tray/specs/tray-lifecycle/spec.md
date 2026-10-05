@@ -42,3 +42,13 @@ Attached controls SHALL select a readable installed monospace font where support
 #### Scenario: Small tray rendering
 - **WHEN** Windows displays the icon at a small or scaled size
 - **THEN** it uses an appropriate resolution of the transparent mascot icon
+
+### Requirement: Console ownership is explicit
+Tray startup SHALL detach any inherited console. Attached controls SHALL allocate a private console even if started from a console-subsystem executable, preserving IPC pipe handles and leaving an invoking terminal intact.
+#### Scenario: Controls already have a console
+- **WHEN** Windows attaches a console before the renderer initializes
+- **THEN** the renderer detaches and creates its own display without allocation access errors
+- **AND** IPC remains usable
+#### Scenario: Development console build
+- **WHEN** a console-subsystem build enters tray mode
+- **THEN** it releases its console association, while explicit CLI commands retain theirs

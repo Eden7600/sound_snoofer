@@ -50,3 +50,21 @@ Multiple affected targets SHALL be treated as a single engine incident rather th
 #### Scenario: All audio stalls
 - **WHEN** several targets show fault evidence during the same engine stall
 - **THEN** one recovery action and one global attempt budget cover the incident without device reselection
+
+### Requirement: Callback-qualified Volt recovery
+The system SHALL use a live-owner native output callback monitor for opt-in recovery of the validated Volt/Potato setup, preserving samples and refusing occupied callback slots.
+#### Scenario: Volt disconnected then reconnected
+- **WHEN** Volt is absent and later uniquely present on managed A1
+- **THEN** no restart occurs while absent and fresh callback qualification begins after reconnection grace
+#### Scenario: Sustained callback stall
+- **WHEN** registered callback delivery is absent for two seconds and three samples spanning one second after five-second transition grace, with current managed Volt identity, stable routing and stopped recorder
+- **THEN** the live worker may submit one restart within the persistent recovery budget
+#### Scenario: Preview or monitor unavailable
+- **WHEN** preview is active or callback registration, cleanup or device identification is uncertain
+- **THEN** no automatic restart occurs and the limitation is visible
+#### Scenario: Verify processing after restart
+- **WHEN** two fresh synchronized callback observations advance following restart
+- **THEN** processing recovery is reported with audibility unverified and latest desired routing is reconciled
+#### Scenario: Uncertain restart persists
+- **WHEN** a restart returns an uncertain outcome
+- **THEN** automatic retry remains blocked across relaunch until manual retry or observed callback recovery

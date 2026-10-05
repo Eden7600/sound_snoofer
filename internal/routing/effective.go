@@ -37,5 +37,5 @@ func ResolveIntent(preferred *config.Intent, s model.Snapshot) *config.Intent {
 
 // EffectiveIntent resolves saved choices against the latest host observation.
 func EffectiveIntent(c config.Config, s model.Snapshot) *config.Intent {
-	return ResolveIntent(c.VoiceIntent(), s)
+	return ResolveIntent(ProfileConfig(c, s).VoiceIntent(), s)
 }

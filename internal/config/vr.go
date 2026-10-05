@@ -53,3 +53,16 @@ func (v *VR) Validate() error {
 	}
 	return nil
 }
+
+// PlaybackCandidates includes configured headset outputs as well as normal playback.
+func (c Config) PlaybackCandidates() []Candidate {
+	out := append([]Candidate(nil), c.Studio.Playback...)
+	if c.VR != nil {
+		for _, h := range c.VR.Headsets {
+			if h.PlaybackRegex != nil {
+				out = append(out, Candidate{Driver: "wdm", Pattern: h.Playback, Regex: h.PlaybackRegex})
+			}
+		}
+	}
+	return out
+}

@@ -1,3 +1,7 @@
+## Current behavior and supersession
+
+The element-process-fallback and sound-snoofer-default-launch changes supersede historical Direct/Post normalization, no-dry-bypass, and preview-default statements below. Current behavior preserves Post preference, uses effective Pre in Direct, automatically falls back to Direct when Element is unavailable, and defaults to live. Historical checkboxes are evidence only, not instructions to restore superseded behavior. Physical acceptance remains pending. The harden-application-consistency change adds reset/discard confirmation without replaying transport.
+
 # Design
 
 Add a shared intent method normalizing only the recognized Direct/Post combination to Pre. Invoke from recording normalization, editing and SaveIntent on a cloned value before validation/serialization. LoadEffective normalizes decoded legacy intent before validation; effective intent normalization also protects direct planner callers. Invalid spelling still produces validation errors. Save-before-apply, revision checks and clone ownership remain intact. Do not rewrite sidecars merely by loading; subsequent explicit saves persist the normalized value.

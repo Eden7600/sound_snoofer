@@ -19,6 +19,7 @@ type Operation struct {
 	Change      bool          `json:"change"`
 }
 type Topology struct {
+	MicStrips      []int            `json:"mic_strips,omitempty"`
 	Recording      *RecordingStatus `json:"recording,omitempty"`
 	Voice          *VoiceStatus     `json:"voice,omitempty"`
 	Transition     []Operation      `json:"transition,omitempty"`
@@ -90,7 +91,7 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 			return p, fmt.Errorf("snapshot missing %s", slot)
 		}
 	}
-	asio, err := selectASIO(profile, s)
+	asio, err := SelectASIO(profile, s)
 	if err != nil {
 		return p, err
 	}
@@ -137,8 +138,14 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 			playback = d
 		}
 	}
+	if c.ProfileResolved {
+		playback = c.ProfilePlayback
+	}
 	if playback == nil {
 		t.Unresolved = append(t.Unresolved, reasons...)
+		if c.ProfileResolved {
+			t.Unresolved = append(t.Unresolved, "No eligible playback device in active profile")
+		}
 	}
 	oldBuses := []string{}
 	if playback != nil && playback.Driver == "asio" {

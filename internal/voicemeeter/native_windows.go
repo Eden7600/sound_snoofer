@@ -4,20 +4,22 @@ package voicemeeter
 
 import (
 	"fmt"
-	"golang.org/x/sys/windows"
-	"golang.org/x/sys/windows/registry"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
 	"unsafe"
 
+	"golang.org/x/sys/windows"
+	"golang.org/x/sys/windows/registry"
+
 	"sound-snoofer/internal/model"
 )
 
 type winAPI struct {
-	dll   *windows.DLL
-	procs map[string]*windows.Proc
+	monitor callbackMonitor
+	dll     *windows.DLL
+	procs   map[string]*windows.Proc
 }
 
 var exports = []string{"Login", "Logout", "IsParametersDirty", "GetVoicemeeterType", "Input_GetDeviceNumber", "Output_GetDeviceNumber", "Input_GetDeviceDescW", "Output_GetDeviceDescW", "GetParameterStringW", "SetParameterStringW", "GetParameterFloat", "SetParameters"}
@@ -48,8 +50,7 @@ func Open(path string) (*Client, error) {
 	}
 	client, err := connect(a)
 	if err == nil {
-		client.elementProbe = elementProcess
-		client.vrProbe = steamVRProcess
+		client.processList = processNames
 	}
 	return client, err
 }
@@ -132,7 +133,17 @@ func (a *winAPI) Set(param, value string) int32 {
 	r, _, _ := a.procs["SetParameterStringW"].Call(uintptr(unsafe.Pointer(p)), uintptr(unsafe.Pointer(v)))
 	return result(r)
 }
-func (a *winAPI) Release() error { return a.dll.Release() }
+func (a *winAPI) Release() error {
+	if a.monitor.unsafeClose {
+		return fmt.Errorf("callback cleanup uncertain; native modules retained until process exit")
+	}
+	if a.monitor.dll != nil {
+		if err := a.monitor.dll.Release(); err != nil {
+			return err
+		}
+	}
+	return a.dll.Release()
+}
 
 func (a *winAPI) GetNumber(param string) (float32, int32) {
 	p, e := syscall.BytePtrFromString(param)

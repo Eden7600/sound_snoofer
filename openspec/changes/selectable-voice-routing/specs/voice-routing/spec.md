@@ -1,3 +1,5 @@
+> **Superseded behavior:** For Direct/Post and Element availability, the current element-process-fallback requirements and AGENTS.md take precedence: retain Post as a preference, use effective Pre in Direct, and restore Post with Element. Live is the default; explicit --dry-run selects preview under sound-snoofer-default-launch. Historical contradictory scenarios below are retained for context, not current acceptance.
+
 # Voice routing
 
 ## Purpose

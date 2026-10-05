@@ -3,6 +3,7 @@ package routing
 import (
 	"fmt"
 	"regexp"
+
 	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/model"
 )
@@ -21,6 +22,10 @@ func vrRegex(h config.Headset, direction string) *regexp.Regexp {
 func VRDevices(c config.Config, s model.Snapshot) model.Snapshot {
 	if c.VR == nil {
 		return s
+	}
+	running := vrRunning(s)
+	if c.Profiles != nil {
+		running = c.ProfileRunning
 	}
 	devices := append([]model.Device(nil), s.Devices...)
 	for n, d := range devices {
@@ -42,7 +47,7 @@ func VRDevices(c config.Config, s model.Snapshot) model.Snapshot {
 				matches++
 			}
 		}
-		devices[n].Available = d.Available && d.Driver == "wdm" && vrRunning(s) && owners == 1 && matches == 1
+		devices[n].Available = d.Available && d.Driver == "wdm" && running && owners == 1 && matches == 1
 	}
 	s.Devices = devices
 	return s
@@ -69,18 +74,9 @@ func headsetDevice(c config.Config, s model.Snapshot, direction, id string) (*mo
 	}
 	return nil, ""
 }
-func vrPlaybackCandidates(c config.Config) []config.Candidate {
-	out := append([]config.Candidate(nil), c.Studio.Playback...)
-	if c.VR != nil {
-		for _, h := range c.VR.Headsets {
-			if h.PlaybackRegex != nil {
-				out = append(out, config.Candidate{Driver: "wdm", Pattern: h.Playback, Regex: h.PlaybackRegex})
-			}
-		}
-	}
-	return out
-}
-func managedMicStrips(c config.Config) []int {
+
+// ManagedMicStrips is the complete microphone/return ownership set.
+func ManagedMicStrips(c config.Config) []int {
 	out := []int{0, 1, 2, 6}
 	if c.VR != nil {
 		out = append(out, c.VR.Input-1)

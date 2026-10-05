@@ -7,18 +7,15 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"runtime"
-	"strings"
 	"time"
 
 	"sound-snoofer/internal/config"
+	"sound-snoofer/internal/control"
 	"sound-snoofer/internal/controller"
 	"sound-snoofer/internal/model"
 	"sound-snoofer/internal/ownership"
 	"sound-snoofer/internal/routing"
-	"sound-snoofer/internal/tui"
 	"sound-snoofer/internal/voicemeeter"
 )
 
@@ -27,31 +24,25 @@ type Client interface {
 	Close() error
 }
 type Deps struct {
-	Executable func() (string, error)
-	RunTUI     func(context.Context, config.Config, string, string, bool, io.Writer, tui.Dependencies) error
-	Open       func(string) (Client, error)
-	Acquire    func() (func(), error)
-	Clock      controller.Clock
+	Load    func(string) (config.Config, error)
+	Open    func(string) (Client, error)
+	Acquire func() (func(), error)
+	Clock   controller.Clock
 }
 
 func DefaultDeps() Deps {
 	return Deps{Open: func(path string) (Client, error) { return voicemeeter.Open(path) }, Acquire: ownership.Acquire, Clock: controller.RealClock{}}
 }
 
-const usage = `Sound Snoofer - regex-driven Voicemeeter device routing
+const usage = `Snoofer audio maintenance
 
-  sound-snoofer [--dry-run] [--config FILE]
-  sound-snoofer tui [--config FILE] [--dry-run] [--dll ABSOLUTE_PATH]
-  sound-snoofer devices [--json] [--dll ABSOLUTE_PATH]
-  sound-snoofer plan --config FILE [--json] [--dll ABSOLUTE_PATH]
-  sound-snoofer apply --config FILE [--json] [--dll ABSOLUTE_PATH]
-  sound-snoofer watch --config FILE [--dry-run] [--json] [--dll ABSOLUTE_PATH]
+  snoofer --config ENVELOPE audio devices [--json] [--dll ABSOLUTE_PATH]
+  snoofer --config ENVELOPE audio plan [--json] [--dll ABSOLUTE_PATH]
+  snoofer --config ENVELOPE audio apply [--json] [--dll ABSOLUTE_PATH]
+  snoofer --config ENVELOPE audio watch [--dry-run] [--json] [--dll ABSOLUTE_PATH]
 
-No arguments starts the live system tray with config.json beside the executable.
-Use the tray menu to open controls or quit; closing attached controls keeps routing active.
-TUI and watch are live by default; --dry-run opts into preview.
-Fixed routes manage WDM devices;
-studio rules manage ASIO input patches, playback outputs and strip sends.
+Open interactive controls from the Snoofer tray. Watch is live by default;
+--dry-run opts into preview. Maintenance runs audio without VR process policy.
 `
 
 func Run(ctx context.Context, args []string, out, errout io.Writer, deps Deps) (exit int) {
@@ -62,11 +53,12 @@ func Run(ctx context.Context, args []string, out, errout io.Writer, deps Deps) (
 		fmt.Fprint(out, usage)
 		return 0
 	}
-	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
-		args = append([]string{"tui"}, args...)
+	if len(args) == 0 {
+		fmt.Fprintln(errout, "choose an audio maintenance command; open interactive controls from the Snoofer tray")
+		return 2
 	}
 	command := args[0]
-	if command != "devices" && command != "plan" && command != "apply" && command != "watch" && command != "tui" {
+	if command != "devices" && command != "plan" && command != "apply" && command != "watch" {
 		fmt.Fprintf(errout, "unknown command %q\n%s", command, usage)
 		return 2
 	}
@@ -78,9 +70,9 @@ func Run(ctx context.Context, args []string, out, errout io.Writer, deps Deps) (
 	var live bool
 	var dryRun bool
 	if command != "devices" {
-		fs.StringVar(&configPath, "config", "", "configuration JSON path (TUI default: config.json beside executable)")
+		fs.StringVar(&configPath, "config", "", "audio state/configuration path")
 	}
-	if command == "watch" || command == "tui" {
+	if command == "watch" {
 		fs.BoolVar(&live, "apply", true, "apply stable changes (default: true)")
 		fs.BoolVar(&dryRun, "dry-run", false, "preview without applying mixer changes")
 	}
@@ -98,53 +90,39 @@ func Run(ctx context.Context, args []string, out, errout io.Writer, deps Deps) (
 	if dryRun {
 		live = false
 	}
-	if command == "tui" && configPath == "" {
-		executable := deps.Executable
-		if executable == nil {
-			executable = os.Executable
-		}
-		exe, err := executable()
-		if err != nil {
-			fmt.Fprintln(errout, err)
-			return 2
-		}
-		configPath = filepath.Join(filepath.Dir(exe), "config.json")
-		if err := config.EnsureDefault(configPath); err != nil {
-			fmt.Fprintln(errout, err)
-			return 2
-		}
-	}
 	if command != "devices" {
 		if configPath == "" {
 			fmt.Fprintln(errout, "--config is required")
 			return 2
 		}
 		var e error
-		cfg, e = config.LoadEffective(configPath)
+		load := deps.Load
+		if load == nil {
+			load = config.LoadEffective
+		}
+		cfg, e = load(configPath)
 		if e != nil {
 			fmt.Fprintln(errout, e)
 			return 2
 		}
 	}
-	if command != "tui" && cfg.StateError != "" {
+	if cfg.StateError != "" {
 		fmt.Fprintln(errout, cfg.StateError)
 		return 2
 	}
-	if command == "tui" {
-		if *asJSON {
-			fmt.Fprintln(errout, "tui does not support --json; use watch --json")
-			return 2
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	ctx = runCtx
+	output := &checkedWriter{writer: out, cancel: cancel}
+	out = output
+	defer func() {
+		if output.err != nil {
+			fmt.Fprintf(errout, "output: %v\n", output.err)
+			exit = 1
 		}
-		run := deps.RunTUI
-		if run == nil {
-			run = tui.Run
-		}
-		e := run(ctx, cfg, configPath, *path, live, out, tui.Dependencies{Open: func(path string) (tui.Client, error) { return deps.Open(path) }, Acquire: deps.Acquire, Load: config.LoadEffective})
-		if e != nil {
-			fmt.Fprintln(errout, e)
-			return 1
-		}
-		return 0
+	}()
+	if command == "watch" && cfg.VoiceIntent() != nil && cfg.VoiceIntent().AutoRecover {
+		return watchRecovery(ctx, cfg, configPath, *path, live, *asJSON, out, errout, deps)
 	}
 	if command == "apply" || (command == "watch" && live) {
 		release, e := deps.Acquire()
@@ -171,7 +149,14 @@ func Run(ctx context.Context, args []string, out, errout io.Writer, deps Deps) (
 	if e = deps.Clock.Wait(ctx, 50*time.Millisecond); e != nil {
 		return 0
 	}
-	printJSON := func(v any) { enc := json.NewEncoder(out); enc.SetIndent("", "  "); _ = enc.Encode(v) }
+	printJSON := func(v any) {
+		enc := json.NewEncoder(out)
+		enc.SetIndent("", "  ")
+		if e := enc.Encode(v); e != nil {
+			output.err = e
+			cancel()
+		}
+	}
 	if command == "devices" {
 		s, e := client.Snapshot()
 		if e != nil {
@@ -186,7 +171,7 @@ func Run(ctx context.Context, args []string, out, errout io.Writer, deps Deps) (
 		}
 		return 0
 	}
-	ctl := controller.Controller{Backend: client, Config: cfg, Clock: deps.Clock, Mixer: &controller.Mixer{Path: *path + ".mutes.json"}}
+	ctl := controller.Controller{Backend: client, Config: cfg, Clock: deps.Clock, Mixer: &controller.Mixer{Path: configPath + ".mutes.json"}}
 	ctl.Emit = func(e controller.Event) {
 		if *asJSON {
 			_ = json.NewEncoder(out).Encode(e)
@@ -270,4 +255,45 @@ func printPlan(w io.Writer, p routing.Plan) {
 			fmt.Fprintf(w, "  %s\n", reason)
 		}
 	}
+}
+
+// watchRecovery shares the same owner and recovery policy as the tray/controls.
+func watchRecovery(ctx context.Context, cfg config.Config, path, dll string, live, asJSON bool, out, errout io.Writer, deps Deps) int {
+	ctx, cancel := context.WithCancel(ctx)
+	states := make(chan control.State, 1)
+	done := make(chan struct{})
+	go control.Work(ctx, cfg, path, dll, live, control.Dependencies{
+		Open:    func(path string) (control.Client, error) { return deps.Open(path) },
+		Acquire: deps.Acquire, Load: config.LoadEffective,
+	}, nil, states, done)
+	defer func() { cancel(); <-done }()
+	previous := ""
+	for s := range states {
+		if live && !s.Live {
+			fmt.Fprintln(errout, s.Notice)
+			return 1
+		}
+		event := controller.Event{Kind: "health", Message: s.Health, Plan: s.Plan}
+		if s.Error != "" {
+			event.Kind, event.Message = "error", s.Error
+		}
+		encoded, err := json.Marshal(event)
+		if err != nil {
+			fmt.Fprintln(errout, err)
+			return 1
+		}
+		if string(encoded) == previous {
+			continue
+		}
+		previous = string(encoded)
+		if asJSON {
+			fmt.Fprintln(out, string(encoded))
+		} else {
+			fmt.Fprintln(out, event.Kind+": "+event.Message)
+			if event.Plan != nil {
+				printPlan(out, *event.Plan)
+			}
+		}
+	}
+	return 0
 }

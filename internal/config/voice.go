@@ -12,13 +12,14 @@ type Voice struct {
 	Monitor string `json:"monitor,omitempty"`
 }
 type Intent struct {
-	MicMuted         bool    `json:"mic_muted,omitempty"`
-	PlaybackMuted    bool    `json:"playback_muted,omitempty"`
-	BusMuted         [2]bool `json:"bus_muted,omitempty"`
-	PreferVRMic      bool    `json:"prefer_vr_mic,omitempty"`
-	PreferVRPlayback bool    `json:"prefer_vr_playback,omitempty"`
-	ProtectDefaults  bool    `json:"protect_defaults,omitempty"`
-	AutoRecover      bool    `json:"auto_recover,omitempty"`
+	VRProfile        *ProfileChoices `json:"vr_profile,omitempty"`
+	MicMuted         bool            `json:"mic_muted,omitempty"`
+	PlaybackMuted    bool            `json:"playback_muted,omitempty"`
+	BusMuted         [2]bool         `json:"bus_muted,omitempty"`
+	PreferVRMic      bool            `json:"prefer_vr_mic,omitempty"`
+	PreferVRPlayback bool            `json:"prefer_vr_playback,omitempty"`
+	ProtectDefaults  bool            `json:"protect_defaults,omitempty"`
+	AutoRecover      bool            `json:"auto_recover,omitempty"`
 
 	PlaybackDevice string            `json:"playback_device,omitempty"`
 	Recording      *RecordingChoices `json:"recording,omitempty"`
@@ -43,7 +44,7 @@ func (v *Voice) Validate() error {
 	return validateChoices(v.Source, v.Mode, v.Monitor)
 }
 func validateChoices(source, mode, monitor string) error {
-	if source != "off" && source != "desk" && source != "lav" && source != "webcam" && !strings.HasPrefix(source, "vr:") {
+	if source != "auto" && source != "off" && source != "desk" && source != "lav" && source != "webcam" && !strings.HasPrefix(source, "vr:") {
 		return fmt.Errorf("invalid voice source %q", source)
 	}
 	if mode != "direct" && mode != "element" {
@@ -88,6 +89,10 @@ func (i *Intent) Clone() *Intent {
 		return nil
 	}
 	n := *i
+	if i.VRProfile != nil {
+		p := *i.VRProfile
+		n.VRProfile = &p
+	}
 	if i.Recording != nil {
 		r := *i.Recording
 		n.Recording = &r
@@ -99,6 +104,11 @@ func (i *Intent) Clone() *Intent {
 	return &n
 }
 func (i Intent) Validate(c Config) error {
+	if i.VRProfile != nil {
+		if err := ValidateProfileChoices(*i.VRProfile); err != nil {
+			return err
+		}
+	}
 	if strings.HasPrefix(i.Source, "vr:") {
 		found := false
 		if c.VR != nil {
@@ -124,7 +134,7 @@ func (i Intent) Validate(c Config) error {
 	}
 	if i.PlaybackDevice != "" {
 		matched := c.Studio.ASIOPlayback && c.Studio.ASIORegex != nil && c.Studio.ASIORegex.MatchString(i.PlaybackDevice)
-		for _, candidate := range c.Studio.Playback {
+		for _, candidate := range c.PlaybackCandidates() {
 			if candidate.Regex != nil && candidate.Regex.MatchString(i.PlaybackDevice) {
 				matched = true
 			}
