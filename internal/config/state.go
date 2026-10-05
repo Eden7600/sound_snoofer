@@ -54,6 +54,7 @@ func LoadChoices(path string, c Config) Config {
 				}
 			}
 			if e == nil {
+				i.normalizeSource()
 				i.NormalizeRehearsal()
 				e = i.Validate(c)
 			}
@@ -72,6 +73,7 @@ func SaveIntent(path string, c Config, i *Intent, expected string) (string, erro
 		return "", fmt.Errorf("voice profile is not configured")
 	}
 	i = i.Clone()
+	i.normalizeSource()
 	i.NormalizeRehearsal()
 	if e := i.Validate(c); e != nil {
 		return "", e

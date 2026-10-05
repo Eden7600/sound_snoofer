@@ -73,7 +73,7 @@ func addVoice(c config.Config, s model.Snapshot, p Plan) (Plan, error) {
 	if !i.MicActive() {
 		source = -1
 		v.Effective = "off"
-		v.Reason = "Microphone source is Off"
+		v.Reason = "Mic stack disabled"
 	}
 	vrSource, vrID, err := addVRMic(c, s, t, source)
 	if err != nil {
@@ -140,6 +140,21 @@ func addVoice(c config.Config, s model.Snapshot, p Plan) (Plan, error) {
 	}
 	if monitor >= 0 {
 		desired[fmt.Sprintf("Strip[%d].%s", monitor, t.PlaybackTarget)] = 1
+	}
+	if c.SoundboardReserved {
+		for bus := 1; bus <= 5; bus++ {
+			desired[fmt.Sprintf("Strip[7].A%d", bus)] = 0
+		}
+		if c.SoundboardPolicy != nil {
+			if routes := c.SoundboardPolicy(); routes != nil {
+				if routes.Microphone {
+					desired["Strip[7].B3"] = 1
+				}
+				if routes.Monitor && t.PlaybackTarget != "" {
+					desired["Strip[7]."+t.PlaybackTarget] = 1
+				}
+			}
+		}
 	}
 	// Stable strip/bus ordering places the processing feed before the AUX return.
 	for strip := 0; strip < 8; strip++ {

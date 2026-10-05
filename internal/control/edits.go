@@ -18,6 +18,9 @@ func EditIntent(i *config.Intent, a Action) error {
 		}
 		switch strings.TrimPrefix(a.Row, "vr-profile-") {
 		case "source":
+			if a.Value == "off" {
+				return fmt.Errorf("use Mic stack enablement to disable the stack")
+			}
 			i.VRProfile.Source = a.Value
 		case "output":
 			i.VRProfile.Playback = a.Value
@@ -91,13 +94,15 @@ func EditIntent(i *config.Intent, a Action) error {
 			}
 		}
 	case "source":
+		if a.Value == "off" {
+			return fmt.Errorf("use Mic stack enablement to disable the stack")
+		}
 		i.Source = a.Value
-		i.Enabled = a.Value != "off"
 	case "mode":
 		i.Mode = a.Value
 	case "monitor":
 		i.Monitor = a.Value
-	case "voice":
+	case "voice", "mic-stack":
 		b, e := strconv.ParseBool(a.Value)
 		if e != nil {
 			return e

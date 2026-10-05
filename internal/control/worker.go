@@ -21,6 +21,7 @@ type Client interface {
 	Close() error
 }
 type Dependencies struct {
+	Meters        bool
 	OnStop        func(error)
 	Prepare       func(config.Config) config.Config
 	StartDefaults func(context.Context) (chan windowsaudio.Request, chan windowsaudio.Result, <-chan struct{})
@@ -30,6 +31,8 @@ type Dependencies struct {
 	Load          func(string) (config.Config, error)
 }
 type State struct {
+	Levels                           map[string]float32
+	LevelsAt                         time.Time
 	ActiveIntent                     *config.Intent
 	VRSourceOptions, VROutputOptions []string
 	Profile                          string
@@ -91,11 +94,12 @@ const (
 )
 
 type Action struct {
-	Origin   string
-	Target   string
-	Identity string
-	Delta    float32
-	Confirm  bool
+	ResetGain bool
+	Origin    string
+	Target    string
+	Identity  string
+	Delta     float32
+	Confirm   bool
 
 	ID         uint64
 	Edits      []SettingEdit
@@ -272,7 +276,39 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 			}
 		}}
 	}
+	sampleLevels := func() {
+		if !deps.Meters {
+			return
+		}
+		state.Levels = nil
+		if backend != nil && state.Connected && !state.RecoveryPending {
+			if reader, ok := backend.Client.(interface{ GainLevels(int) map[string]float32 }); ok {
+				strip := -1
+				if state.Plan != nil && state.Plan.Topology != nil && state.Plan.Topology.Voice != nil {
+					strip = state.Plan.Topology.Voice.Strip
+				}
+				state.Levels = reader.GainLevels(strip)
+			}
+		}
+		state.LevelsAt = time.Now()
+
+	}
+	emit := func() {
+		select {
+		case states <- state:
+		default:
+			select {
+			case <-states:
+			default:
+			}
+			select {
+			case states <- state:
+			case <-ctx.Done():
+			}
+		}
+	}
 	publish := func() {
+		sampleLevels() // Routing observations may change the meter's source.
 		state.pruneFeedback(time.Now())
 		state.PublishedAt = time.Now()
 		state.ConfigPath = path
@@ -387,18 +423,13 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		}
 		state.Revision = revision
 		state.StateError = cfg.StateError
-		select {
-		case states <- state:
-		default:
-			select {
-			case <-states:
-			default:
-			}
-			select {
-			case states <- state:
-			case <-ctx.Done():
-			}
-		}
+		emit()
+	}
+	var meterTicks <-chan time.Time
+	if deps.Meters {
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+		meterTicks = ticker.C
 	}
 	delay := time.Duration(0)
 	lastInventory := time.Time{}
@@ -406,11 +437,18 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		if deps.Prepare != nil {
 			cfg = deps.Prepare(cfg)
 		}
+		pollAt := time.Now().Add(delay)
 		timer := time.NewTimer(delay)
 		select {
 		case <-ctx.Done():
 			timer.Stop()
 			return
+		case <-meterTicks:
+			timer.Stop()
+			sampleLevels()
+			emit()
+			delay = time.Until(pollAt)
+			continue
 		case action := <-actions:
 			if ctx.Err() != nil {
 				timer.Stop()
@@ -474,7 +512,11 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				} else if ctl == nil {
 					err = fmt.Errorf("audio unavailable")
 				} else {
-					err = ctl.Gain(ctx, action.Target, action.Identity, action.Delta, state.Live)
+					if action.ResetGain {
+						err = ctl.ResetGain(ctx, action.Target, action.Identity, state.Live)
+					} else {
+						err = ctl.Gain(ctx, action.Target, action.Identity, action.Delta, state.Live)
+					}
 				}
 				if err != nil {
 					state.SetNotice(err.Error(), NoticeError, time.Now())

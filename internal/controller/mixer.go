@@ -163,6 +163,10 @@ func (m *Mixer) Reconcile(b Backend, c config.Config, p routing.Plan, s model.Sn
 }
 func GainTarget(p *routing.Plan, target string) string {
 	switch target {
+	case "soundboard":
+		if p != nil && p.Edition == 3 {
+			return "Strip[7].Gain"
+		}
 	case "A1":
 		return "Bus[0].Gain"
 	case "A2":
@@ -190,11 +194,23 @@ func GainIdentity(p *routing.Plan, s model.Snapshot, target string) string {
 	return param + "|" + s.Assignments[target]
 }
 func (c *Controller) Gain(ctx context.Context, target, identity string, delta float32, live bool) error {
+	return c.changeGain(ctx, target, identity, delta, false, live)
+}
+
+// ResetGain sets an absolute 0 dB, independent of queued increments or old UI values.
+func (c *Controller) ResetGain(ctx context.Context, target, identity string, live bool) error {
+	return c.changeGain(ctx, target, identity, 0, true, live)
+}
+
+func (c *Controller) changeGain(ctx context.Context, target, identity string, delta float32, reset, live bool) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 	if math.IsNaN(float64(delta)) || math.IsInf(float64(delta), 0) || delta < -127 || delta > 127 {
 		return fmt.Errorf("invalid gain increment")
+	}
+	if target == "soundboard" && (!c.Config.SoundboardReserved || c.Config.SoundboardPolicy == nil || c.Config.SoundboardPolicy() == nil) {
+		return fmt.Errorf("soundboard input is not active")
 	}
 	s, e := c.observe(true)
 	if e != nil {
@@ -220,6 +236,9 @@ func (c *Controller) Gain(ctx context.Context, target, identity string, delta fl
 		return fmt.Errorf("gain API unavailable")
 	}
 	value := max(float32(-60), min(float32(12), v+delta))
+	if reset {
+		value = 0
+	}
 	if e = api.SetMixer(param, value); e != nil {
 		return e
 	}

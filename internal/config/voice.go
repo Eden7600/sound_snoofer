@@ -75,12 +75,15 @@ func (c Config) VoiceIntent() *Intent {
 	return i
 }
 
+// normalizeSource interprets legacy Off without discarding a disabled target.
 func (i *Intent) normalizeSource() {
-	if !i.Enabled {
-		i.Source = "off"
-	}
 	if i.Source == "off" {
 		i.Enabled = false
+		i.Source = "auto"
+	}
+	if i.VRProfile != nil && i.VRProfile.Source == "off" {
+		i.Enabled = false
+		i.VRProfile.Source = "auto"
 	}
 }
 func (i *Intent) MicActive() bool { return i != nil && i.Enabled && i.Source != "off" }

@@ -7,9 +7,10 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"time"
+
 	"sound-snoofer/internal/model"
 	"sound-snoofer/internal/storage"
-	"time"
 )
 
 type Candidate struct {
@@ -26,27 +27,35 @@ type DefaultEndpoints struct {
 	Capture  string `json:"capture,omitempty"`
 }
 
+// SoundboardRoutes is the audio-owned routing request for the reserved VAIO3 input.
+type SoundboardRoutes struct {
+	Microphone bool
+	Monitor    bool
+}
+
 type Config struct {
-	PolicyPlayback    []Candidate           `json:"-"`
-	WindowsDefaults   *DefaultEndpoints     `json:"windows_defaults,omitempty"`
-	Profiles          *Profiles             `json:"profiles,omitempty"`
-	Policy            func() *ProfilePolicy `json:"-"`
-	ProfileBase       *Config               `json:"-"`
-	ProfileRunning    bool                  `json:"-"`
-	ProfileResolved   bool                  `json:"-"`
-	ProfileMicMissing bool                  `json:"-"`
-	ProfilePlayback   *model.Device         `json:"-"`
-	StreamDeck        *StreamDeck           `json:"stream_deck,omitempty"`
-	VR                *VR                   `json:"vr,omitempty"`
-	Intent            *Intent               `json:"-"`
-	StateError        string                `json:"-"`
-	StateToken        string                `json:"-"`
-	Version           int                   `json:"version"`
-	PollMS            int                   `json:"poll_ms"`
-	DebounceMS        int                   `json:"debounce_ms"`
-	VerifyMS          int                   `json:"verify_ms"`
-	Routes            []Route               `json:"routes"`
-	Studio            *Studio               `json:"studio,omitempty"`
+	SoundboardReserved bool                     `json:"-"`
+	SoundboardPolicy   func() *SoundboardRoutes `json:"-"`
+	PolicyPlayback     []Candidate              `json:"-"`
+	WindowsDefaults    *DefaultEndpoints        `json:"windows_defaults,omitempty"`
+	Profiles           *Profiles                `json:"profiles,omitempty"`
+	Policy             func() *ProfilePolicy    `json:"-"`
+	ProfileBase        *Config                  `json:"-"`
+	ProfileRunning     bool                     `json:"-"`
+	ProfileResolved    bool                     `json:"-"`
+	ProfileMicMissing  bool                     `json:"-"`
+	ProfilePlayback    *model.Device            `json:"-"`
+	StreamDeck         *StreamDeck              `json:"stream_deck,omitempty"`
+	VR                 *VR                      `json:"vr,omitempty"`
+	Intent             *Intent                  `json:"-"`
+	StateError         string                   `json:"-"`
+	StateToken         string                   `json:"-"`
+	Version            int                      `json:"version"`
+	PollMS             int                      `json:"poll_ms"`
+	DebounceMS         int                      `json:"debounce_ms"`
+	VerifyMS           int                      `json:"verify_ms"`
+	Routes             []Route                  `json:"routes"`
+	Studio             *Studio                  `json:"studio,omitempty"`
 }
 
 func Load(path string) (Config, error) {

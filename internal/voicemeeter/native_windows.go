@@ -48,6 +48,10 @@ func Open(path string) (*Client, error) {
 		}
 		a.procs[name] = p
 	}
+	// Meter support is optional; an older DLL must still support routing.
+	if p, err := dll.FindProc("VBVMR_GetLevel"); err == nil {
+		a.procs["GetLevel"] = p
+	}
 	client, err := connect(a)
 	if err == nil {
 		client.processList = processNames
@@ -172,4 +176,14 @@ func (a *winAPI) SetScalar(param string, value float32) int32 {
 	}
 	r, _, _ := a.procs["SetParameters"].Call(uintptr(unsafe.Pointer(p)))
 	return result(r)
+}
+
+func (a *winAPI) GetLevel(kind, channel int) (float32, int32) {
+	p := a.procs["GetLevel"]
+	if p == nil {
+		return 0, -3
+	}
+	var v float32
+	r, _, _ := p.Call(uintptr(kind), uintptr(channel), uintptr(unsafe.Pointer(&v)))
+	return v, result(r)
 }

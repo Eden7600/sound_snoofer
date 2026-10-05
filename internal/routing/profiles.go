@@ -19,6 +19,7 @@ func ProfileConfig(c config.Config, s model.Snapshot) config.Config {
 	}
 	base := c
 	i := c.VoiceIntent()
+	stackEnabled := i.Enabled
 	profile := *c.Studio
 	c.Studio = &profile
 	policy := (*config.ProfilePolicy)(nil)
@@ -152,6 +153,10 @@ func ProfileConfig(c config.Config, s model.Snapshot) config.Config {
 		i.Source = "off"
 		i.Enabled = false
 		c.ProfileMicMissing = true
+	}
+	i.Enabled = stackEnabled && i.Enabled
+	if !stackEnabled {
+		c.ProfileMicMissing = false
 	}
 	i.PreferVRMic = false
 	i.PreferVRPlayback = false

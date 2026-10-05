@@ -9,10 +9,14 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Control is an immutable snapshot. Operations are press, adjust or set.
 type Control struct {
+	Artwork                                     string // Optional base64 PNG thumbnail, square and at most 64px; immutable across snapshots.
+	ShortLabel                                  string // Optional label for icon-bearing compact surfaces.
+	Meter                                       Meter
 	SurfaceOnly                                 bool
 	OptionLabels                                map[string]string
 	EnterOnly                                   bool
@@ -23,6 +27,13 @@ type Control struct {
 	Operations                                  []string
 	Available                                   bool
 	Revision                                    uint64
+}
+
+// Meter is optional display-only telemetry in dBFS; it never changes command identity.
+type Meter struct {
+	Present, Known bool
+	DB             float64
+	At             time.Time
 }
 
 // Request identifies the published control against which input was generated.
@@ -76,6 +87,7 @@ func (c *Controls) Publish(provider string, controls []Control, invoke func(cont
 		old, ok := c.entries[v.ID]
 		previous := old.control
 		previous.Revision = 0
+		previous.Meter = v.Meter // Signal motion must not invalidate pending control input.
 		v.Revision = 0
 		if ok && reflect.DeepEqual(previous, v) {
 			v.Revision = old.control.Revision
