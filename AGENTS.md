@@ -83,9 +83,9 @@ provides more specific guidance. Explicit user instructions take precedence.
 - Preserve save-before-apply, stale-action rejection, atomic saved-choice updates,
   drift checks and bounded verification. TUI/watch default to live; --dry-run
   explicitly selects preview. Development smoke tests must opt into preview.
-- Mic source Off disconnects all managed mic and Element-return sends. It must
+- Mic stack disabled disconnects all managed mic and Element-return sends while retaining Normal/VR targets. It must
   not disable computer playback/capture or operate recorder transport.
-- Off also clears managed microphone input assignments and ASIO input patches;
+- Disabling also clears managed microphone input assignments and ASIO input patches;
   Volt remains assigned to A1 and playback retains its normal output.
 - Volt ASIO owns A1 when active. Physical channel 1 feeds stereo input 1 (L/R),
   channel 2 feeds stereo input 2 (L/R). Playback takes the lowest free output and
@@ -104,6 +104,10 @@ provides more specific guidance. Explicit user instructions take precedence.
   automatically retry an uncertain Start or start recording on launch/reconnect.
 - Changes to these invariants require an explicit OpenSpec design update.
 
+## Git commits
+
+Stop and commit frequently throughout every implementation session. The user reviews each commit as it lands and may return with suggestions. Commit completed, validated logical blocks that make sense independently for review; do not accumulate unrelated work until the end. Structure proposals, specifications and task lists around these commit-sized checkpoints. Report each completed commit and its validation. Never include unrelated user changes or generated runtime files.
+
 ## Commands
 
 All commits must use Conventional Commits: `type(scope): description`, with an
@@ -117,14 +121,19 @@ Run from the repository root; use an explicit tool path if Go is not on PATH.
 gofmt -w <changed-go-files>
 go test ./... -timeout 30s
 go vet ./...
-go build -o bin/snoofer.exe ./cmd/snoofer
+./scripts/build.ps1
 go test -race ./...
 node node_modules/@fission-ai/openspec/bin/openspec.js validate <change-name> --strict
 ```
 
 The race detector requires a supported platform/toolchain; do not install or
-change the toolchain silently to make it run. If the executable is in use, build
-a clearly named replacement and report its path; do not silently stop live audio.
+change the toolchain silently to make it run. Use scripts/build.ps1 for every app
+build; bin/snoofer.exe is the only application build output. Never create alternate
+names or output directories. The user authorizes stopping and restarting this
+repository's Snoofer for builds without asking again. Prefer graceful exit when
+available; terminate Snoofer if needed, then restore its prior launch configuration
+after validation. Do not stop Voicemeeter, Element or unrelated apps. The build
+script itself refuses locked outputs; scripts/check.ps1 delegates builds to it.
 Report what changed, what was verified and any remaining limitations concisely.
 
 # Behavioural guidelines
@@ -190,3 +199,13 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+
+## UI language
+Users know this application. Prefer short nouns and state words, omit redundant
+Active/Enablement prefixes and tutorial prose, and let icons/group headings supply
+context. Keep distinctions needed for correctness and concise consequential-action
+warnings; detailed diagnostics remain available. Compact surfaces use ShortLabel
+when an icon makes the full label redundant. See internal/streamdeck/AGENTS.md for
+the Stream Deck graphics and copy rules.
+
+Before changing any UI, read docs/ui-contract.md. It is the shared baseline for goals, tone, content, vocabulary, color semantics and stable interaction/layout rules. Routine builds must not alter that baseline. Update the contract and focused presentation tests for intentional UX changes; retain unrelated behavior and verify actual renderer output.
