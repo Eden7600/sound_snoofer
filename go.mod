@@ -7,6 +7,7 @@ require (
 	github.com/charmbracelet/colorprofile v0.4.3
 	github.com/charmbracelet/x/ansi v0.11.7
 	github.com/getlantern/systray v1.2.2
+	golang.org/x/image v0.46.0
 	golang.org/x/sys v0.48.0
 )
 

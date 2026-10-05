@@ -10,7 +10,7 @@ Use Tab to switch Controls/Plugins, arrows to select, Enter to edit or press, +/
 
 Normal microphone/playback and VR microphone/playback are separate sections. SteamVR running makes VR effective. Overridden Normal sections remain editable and explain that their edits apply outside VR. Mute, gain and recording preferences are shared. Unknown engine or device state is not reported as verified success.
 
-Microphone Off disconnects managed mic routing without stopping playback or recorder transport. Muting does not change the selected microphone. Recorder transport remains available as Stream Deck semantic bindings; the removed Actions section stays removed. An external engine-restart request that may interrupt recording produces an Enter-only confirmation under System.
+Mic stack enablement is a master switch for both Normal and VR. Disabling disconnects managed mic inputs, ASIO input patches, monitoring and processing-return sends without stopping playback or recorder transport; Volt remains on A1 for playback. Mic stack target selects Automatic or a microphone and remains editable while disabled. Target edits and SteamVR changes never re-enable the stack. Enabling restores the active profile target through normal availability/fallback rules. Mic mute remains independent and does not disconnect devices or change the target. Recorder transport remains available as Stream Deck semantic bindings; the removed Actions section stays removed. An external engine-restart request that may interrupt recording produces an Enter-only confirmation under System.
 
 ## Stream Deck
 
@@ -22,3 +22,5 @@ See [plugin and configuration guide](plugins.md) for build composition, settings
 
 
 The Bubble Tea interface uses blue section headers, a bordered viewport, aligned values and a highlighted selection. The header identifies the active tab; status and keyboard hints remain at the bottom. NO_COLOR preserves text selection markers without color. Terminals smaller than 42×10 show a resize notice and block hidden edits or confirmations.
+
+Stream Deck gain dials show live digital level bars below their gain readouts. A1/A2 show the loudest channel on that output bus; Mic shows the active input after mute. Green/amber/red runs from -60 to 0 dBFS. LEVEL N/A means readings are unavailable or stale. These sampled meters are not calibrated analog VU or guaranteed true-peak meters.

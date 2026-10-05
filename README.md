@@ -1,6 +1,6 @@
 # Snoofer
 
-A Windows tray application with optional compiled Audio, VR, Stream Deck and Windows media plugins. Core owns the tray, unified TUI, plugin lifecycle and semantic controls. Audio retains Sound Snoofer's Voicemeeter routing, recording and recovery behavior.
+A Windows tray application with optional compiled Audio, VR, Stream Deck, Soundboard and Windows media plugins. Core owns the tray, unified TUI, plugin lifecycle and semantic controls. Audio retains Sound Snoofer's Voicemeeter routing, recording and recovery behavior.
 
 ## Run
 
@@ -16,13 +16,13 @@ Use the Go version in go.mod. Default audio builds require installed MSVC x64 to
 
 ```powershell
 .\scripts\build.ps1
-.\scripts\build.ps1 -Tags core -Output .local/snoofer-core.exe
-.\scripts\build.ps1 -Tags no_audio -Output .local/snoofer-media-deck.exe
+.\scripts\build.ps1 -Tags core
+.\scripts\build.ps1 -Tags no_audio
 .\scripts\check.ps1
 .\bin\snoofer.exe --check --config .\bin\snoofer.json
 ```
 
-Keep `snoofer-audio-monitor.dll` beside audio-enabled executables. Build scripts use the Windows GUI subsystem to avoid a blank terminal. They do not stop an in-use application.
+Keep `snoofer-audio-monitor.dll` beside audio-enabled executables and `snoofer-soundboard.dll` beside soundboard-enabled executables. Build scripts use the Windows GUI subsystem to avoid a blank terminal. They do not stop an in-use application.
 
 For interactive development preview, copy the envelope and audio sidecars into a repository-local scratch directory, update state_path, and use `--dry-run --config <copied-envelope>`. Preview avoids audio writes but can save UI settings; do not interactively smoke-test against personal state.
 
@@ -42,3 +42,7 @@ Callback progress proves processing, not audible output. Physical Volt/VR/Stream
 ## License
 
 [GNU AGPL version 3](LICENSE), AGPL-3.0-only.
+
+## Build
+
+Run ./scripts/build.ps1 from PowerShell (Go, MSVC and Windows SDK required for the default audio build). Exit Snoofer first. The only app output is bin/snoofer.exe. Run ./scripts/check.ps1 for tests, vet, OpenSpec validation and that same build; no duplicate build commands.
