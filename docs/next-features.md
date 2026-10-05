@@ -33,12 +33,16 @@ No Elgato software, plugin host, Python or replacement USB driver is needed. The
 
 Encoders 1-3 adjust A1, A2 and active physical mic gain in 1 dB increments, clamped to -60..+12 dB. Press toggles native mute. Encoders 4-6 remain unassigned. The touch strip reports observed dB and native mute.
 
-Default key rows, left to right:
+Default keys use four rows of nine, with empty space separating workflows:
 
-1. Record start, record stop, record computer, record mic, mic stage, snippet play, snippet stop, loop, To VST.
-2. Mic mute, speaker mute, monitor, processing mode, previous media, play/pause media, next media, stop media, open controls.
-3. Unassigned.
-4. Unassigned.
+1. Mic mute, output mute, monitor, processing, four blanks, Open controls.
+2. Record/Stop, blank, record mic, record computer, mic stage, four blanks.
+3. Reserved for future soundboard controls.
+4. Rewind, Play/Pause, Forward, six blanks (zero-based keys 27, 28, 29).
+
+Record/Stop uses observed recorder state and refuses to guess when unavailable or playing tape. Mic/output icons show LIVE/AUDIBLE or MUTED. Monitor and stage show PRE VST/POST VST; an asterisk marks a preference falling back to its effective state. Small amber accents identify pending, unavailable or failed controls without repainting unrelated keys.
+
+The playback-output button and the knob for that bus toggle one combined Snoofer mute preference. Either can undo the other; other bus knobs remain independent. Preexisting native/manual mutes retain their ownership safeguards.
 
 Media controls dispatch system media keys and do not report player state. Recorder/source actions obey the same guards as the TUI. Reconnect does not replay held keys or transport commands.
 
@@ -48,7 +52,7 @@ Optional top-level stream_deck.profiles entries contain serial and keys (up to 3
 "stream_deck": {
   "profiles": [{
     "serial": "REPLACE WITH DEVICE SERIAL",
-    "keys": ["mic-mute", "speaker-mute", "record-start", "record-stop",
+    "keys": ["mic-mute", "speaker-mute", "record-toggle", "",
              "engine-restart", "vr-mic", "vr-playback", "defaults", "open-controls"]
   }]
 }

@@ -30,6 +30,16 @@ func keyValue(s control.State, key string) string {
 		return "UNAVAIL"
 	}
 	switch key {
+	case "record-toggle":
+		switch s.Recorder.State() {
+		case "Stopped", "Recording":
+			return s.Recorder.State()
+		case "Paused":
+			if s.Recorder.Values["Recorder.record"] == 1 {
+				return "Paused"
+			}
+		}
+		return "UNAVAIL"
 	case "record-start", "record-stop", "snippet-play", "snippet-stop":
 		if s.Recorder.State() == "Unknown" {
 			return "UNAVAIL"
@@ -65,6 +75,9 @@ func muteValue(s control.State, key string) (string, bool) {
 		n := int(key[1] - '1')
 		parameters = append(parameters, fmt.Sprintf("Bus[%d].Mute", n))
 		requested = s.Intent.BusMuted[n]
+		if s.Plan != nil && s.Plan.Topology != nil && s.Plan.Topology.PlaybackTarget == fmt.Sprintf("A%d", n+1) {
+			requested = requested || s.Intent.PlaybackMuted
+		}
 	case "speaker-mute":
 		requested = s.Intent.PlaybackMuted
 		if s.Plan == nil || s.Plan.Topology == nil || len(s.Plan.Topology.PlaybackTarget) != 2 {

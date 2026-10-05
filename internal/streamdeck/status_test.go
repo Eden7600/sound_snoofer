@@ -51,10 +51,10 @@ func TestUnrelatedStatusLeavesImagesUnchanged(t *testing.T) {
 func TestBindingFeedbackAndAvailability(t *testing.T) {
 	s := statusFixture()
 	baseline := present(s, bindings)
-	s.Feedback = map[string]control.Feedback{"record-start": {Kind: control.NoticeError}, "gain:mic": {Kind: control.NoticePending}}
+	s.Feedback = map[string]control.Feedback{"record-toggle": {Kind: control.NoticeError}, "gain:mic": {Kind: control.NoticePending}}
 	view := present(s, bindings)
 	for i, binding := range bindings {
-		if binding == "record-start" {
+		if binding == "record-toggle" {
 			if view.Keys[i].Value != "ERROR" {
 				t.Fatal(view.Keys[i])
 			}

@@ -21,7 +21,7 @@ func TestFeedbackLifecycle(t *testing.T) {
 		t.Fatal("success retained failure")
 	}
 	s.actionFeedback(Action{Kind: RecordStop}, NoticeError, now)
-	if len(s.Feedback) != 2 {
+	if len(s.Feedback) != 3 {
 		t.Fatal("stop transport aliases missing")
 	}
 	s.pruneFeedback(now.Add(10 * time.Second))

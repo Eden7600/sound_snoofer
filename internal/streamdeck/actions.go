@@ -80,6 +80,63 @@ func Action(e Event, s control.State) (control.Action, string) {
 		}
 	}
 	switch key {
+	case "":
+		return a, ""
+	case "record-toggle":
+		if !s.Connected {
+			return a, ""
+		}
+		switch s.Recorder.State() {
+		case "Stopped":
+			a.Kind = control.RecordStart
+		case "Recording":
+			a.Kind = control.RecordStop
+		case "Paused":
+			if s.Recorder.Values["Recorder.record"] != 1 {
+				return a, ""
+			}
+			a.Kind = control.RecordStop
+		default:
+			return a, ""
+		}
+	case "speaker-mute", "a1-mute", "a2-mute":
+		if s.Intent == nil {
+			return a, ""
+		}
+		target := ""
+		if s.Plan != nil && s.Plan.Topology != nil {
+			target = s.Plan.Topology.PlaybackTarget
+		}
+		bus := ""
+		if key == "a1-mute" {
+			bus = "A1"
+		}
+		if key == "a2-mute" {
+			bus = "A2"
+		}
+		a.Kind = control.Edit
+		if key == "speaker-mute" || (bus != "" && bus == target) {
+			if target == "" {
+				return a, ""
+			}
+			muted := s.Intent.PlaybackMuted
+			busRow := ""
+			if target == "A1" {
+				muted = muted || s.Intent.BusMuted[0]
+				busRow = "a1-mute"
+			}
+			if target == "A2" {
+				muted = muted || s.Intent.BusMuted[1]
+				busRow = "a2-mute"
+			}
+			a.Edits = []control.SettingEdit{{Row: "speaker-mute", Value: strconv.FormatBool(!muted)}}
+			if busRow != "" {
+				a.Edits = append(a.Edits, control.SettingEdit{Row: busRow, Value: "false"})
+			}
+		} else {
+			a.Row = key
+			a.Value = strconv.FormatBool(Value(s, key) != "On")
+		}
 	case "engine-restart":
 		a.Kind = control.Restart
 	case "record-start":

@@ -30,7 +30,7 @@ func (d *StreamDeck) Validate() error {
 }
 func DeckAction(key string) bool {
 	switch key {
-	case "", "record-start", "record-stop", "record-computer", "record-mic", "record-tap", "snippet-play", "snippet-stop", "record-loop", "record-vst", "mic-mute", "speaker-mute", "a1-mute", "a2-mute", "monitor", "mode", "media-prev", "media-play", "media-next", "media-stop", "open-controls", "engine-restart", "vr-mic", "vr-playback", "defaults":
+	case "", "record-toggle", "record-start", "record-stop", "record-computer", "record-mic", "record-tap", "snippet-play", "snippet-stop", "record-loop", "record-vst", "mic-mute", "speaker-mute", "a1-mute", "a2-mute", "monitor", "mode", "media-prev", "media-play", "media-next", "media-stop", "open-controls", "engine-restart", "vr-mic", "vr-playback", "defaults":
 		return true
 	}
 	return false

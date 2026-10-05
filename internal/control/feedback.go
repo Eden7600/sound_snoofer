@@ -20,9 +20,9 @@ func actionBindings(a Action) []string {
 		}
 		return keys
 	case startRecording:
-		return []string{"record-start"}
+		return []string{"record-start", "record-toggle"}
 	case stopRecording:
-		return []string{"record-stop", "snippet-stop"}
+		return []string{"record-stop", "snippet-stop", "record-toggle"}
 	case playSnippet:
 		return []string{"snippet-play"}
 	case restartEngine:
