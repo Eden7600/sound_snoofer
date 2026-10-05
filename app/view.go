@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -57,7 +58,10 @@ func row(label, value string, width int, selected, subdued bool) string {
 	if value == "" {
 		labelWidth = width - 2
 	}
-	text := prefix + fit(label, labelWidth) + " " + fit(value, max(0, width-labelWidth-3))
+	text := prefix + fit(label, labelWidth)
+	if value != "" {
+		text += " " + fit(value, max(0, width-labelWidth-3))
+	}
 	text = fit(text, width)
 	color := "38;5;252"
 	if subdued {
@@ -72,7 +76,7 @@ func row(label, value string, width int, selected, subdued bool) string {
 	return paint(color, text)
 }
 func (s screen) View() tea.View {
-	width, height := max(1, s.width-1), max(1, s.height)
+	width, height := max(1, min(112, s.width-1)), max(1, s.height)
 	finish := func(lines []string) tea.View {
 		if len(lines) > height {
 			lines = lines[:height]
@@ -105,6 +109,11 @@ func (s screen) View() tea.View {
 		tabs = append(tabs, paint(code, text))
 	}
 	inner := width - 4
+	rail := 0
+	if width >= 79 && s.tab == 0 && !s.editing && len(s.groups()) > 0 {
+		rail = 25
+		inner -= rail
+	}
 	body := []string{}
 	selectedLine := 0
 	section := func(name string) {
@@ -114,7 +123,10 @@ func (s screen) View() tea.View {
 		body = append(body, paint("1;38;5;110", fit("  "+strings.ToUpper(clean(name)), inner)))
 	}
 	detail := "Ready"
-	footer := "↑↓ select · Enter edit · Tab switch · +/- adjust · r retry · q close"
+	footer := "←→ section · ↑↓ select · Enter edit · +/- gain · Tab plugins · r retry · q close"
+	if width < 79 {
+		footer = "←→ section · Enter edit · Tab plugins · q close"
+	}
 	if s.editing {
 		section("Edit " + s.target.Label)
 		detail = "Enter applies"
@@ -157,17 +169,19 @@ func (s screen) View() tea.View {
 		}
 		footer = "↑↓ select · Enter enable/disable · Tab controls · r retry · q close"
 	} else {
-		group := ""
 		controls := s.rows()
+		if len(controls) > 0 {
+			name := s.currentGroup()
+			if rail == 0 {
+				name = fmt.Sprintf("%s  %d/%d", name, slices.Index(s.groups(), name)+1, len(s.groups()))
+			}
+			section(name)
+		}
 		if len(controls) == 0 {
 			section("Welcome")
 			body = append(body, fit("  Enable plugins in the Plugins tab.", inner))
 		}
 		for n, c := range controls {
-			if group != c.Group {
-				group = c.Group
-				section(group)
-			}
 			if n == s.selected {
 				selectedLine = len(body)
 				detail = c.Label
@@ -179,12 +193,13 @@ func (s screen) View() tea.View {
 				}
 			}
 			body = append(body, row(c.Label, controlValue(c), inner, n == s.selected, c.Subdued))
-			if c.Status != "" {
-				body = append(body, paint("38;5;245", fit("    "+c.Status, inner)))
-			}
 		}
 	}
-	capacity := height - 7
+	contentHeight := len(body)
+	if rail > 0 {
+		contentHeight = max(contentHeight, len(s.groups()))
+	}
+	capacity := min(height-7, max(6, contentHeight))
 	start := max(0, selectedLine-capacity+1)
 	start = min(start, max(0, len(body)-capacity))
 	visible := body[start:min(len(body), start+capacity)]
@@ -197,6 +212,20 @@ func (s screen) View() tea.View {
 		}
 		text = ansi.Truncate(text, inner, "…")
 		text += strings.Repeat(" ", max(0, inner-ansi.StringWidth(text)))
+		if rail > 0 {
+			groups := s.groups()
+			index := slices.Index(groups, s.currentGroup())
+			first := max(0, index-capacity+1)
+			left := strings.Repeat(" ", rail-2)
+			if n+first < len(groups) {
+				name := groups[n+first]
+				if name == "" {
+					name = "General"
+				}
+				left = row(name, "", rail-2, n+first == index, false)
+			}
+			text = left + edge + " " + text
+		}
 		lines = append(lines, edge+" "+text+" "+edge)
 	}
 	scroll := ""

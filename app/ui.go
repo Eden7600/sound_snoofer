@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -35,17 +36,18 @@ type UIAction struct {
 }
 
 type screen struct {
-	ctx                                  context.Context
-	states                               <-chan ViewState
-	actions                              chan<- UIAction
-	state                                ViewState
-	selected, tab, width, height, offset int
-	editing                              bool
-	text                                 string
-	options                              []string
-	option                               int
-	target                               snoofer.Control
-	notice                               string
+	ctx                          context.Context
+	states                       <-chan ViewState
+	actions                      chan<- UIAction
+	state                        ViewState
+	selected, tab, width, height int
+	group                        string
+	editing                      bool
+	text                         string
+	options                      []string
+	option                       int
+	target                       snoofer.Control
+	notice                       string
 }
 type stateMsg ViewState
 type ended struct{}
@@ -63,11 +65,28 @@ func (s screen) next() tea.Cmd {
 	}
 }
 func (s screen) Init() tea.Cmd { return s.next() }
+func (s screen) groups() []string {
+	groups := []string{}
+	for _, c := range s.state.Controls {
+		if !c.SurfaceOnly && !slices.Contains(groups, c.Group) {
+			groups = append(groups, c.Group)
+		}
+	}
+	return groups
+}
+func (s screen) currentGroup() string {
+	groups := s.groups()
+	if slices.Contains(groups, s.group) || len(groups) == 0 {
+		return s.group
+	}
+	return groups[0]
+}
 func (s screen) rows() []snoofer.Control {
+	group := s.currentGroup()
 	rows := []snoofer.Control{}
 	for _, c := range s.state.Controls {
 		// One-shot recorder transport remains a deck binding, not an Actions section.
-		if !c.SurfaceOnly {
+		if !c.SurfaceOnly && c.Group == group {
 			rows = append(rows, c)
 		}
 	}
@@ -99,7 +118,13 @@ func (s screen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if s.selected < len(rows) {
 			id = rows[s.selected].ID
 		}
+		previousGroup := s.currentGroup()
 		s.state = ViewState(m)
+		s.group = previousGroup
+		if s.currentGroup() != previousGroup {
+			s.selected = 0
+		}
+		s.group = s.currentGroup()
 		if s.tab == 0 {
 			for n, c := range s.rows() {
 				if c.ID == id {
@@ -170,7 +195,19 @@ func (s screen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "tab", "shift+tab":
 			s.tab = 1 - s.tab
 			s.selected = 0
-			s.offset = 0
+		case "left", "right", "[", "]":
+			if s.tab == 0 {
+				groups := s.groups()
+				if len(groups) > 0 {
+					step := 1
+					if k == "left" || k == "[" {
+						step = -1
+					}
+					index := slices.Index(groups, s.currentGroup())
+					s.group = groups[(index+step+len(groups))%len(groups)]
+					s.selected = 0
+				}
+			}
 		case "up", "k":
 			s.selected = max(0, s.selected-1)
 		case "down", "j":

@@ -80,7 +80,7 @@ func TestStyledSelectionAndResizeSafety(t *testing.T) {
 	t.Setenv("NO_COLOR", "")
 	s := styledFixture()
 	view := s.View().Content
-	for _, want := range []string{"╭", "╯", "[Controls]", "NORMAL MICROPHONE", "›", "VR overriding", "● On", "\x1b[48;5;238"} {
+	for _, want := range []string{"╭", "╯", "[Controls]", "NORMAL MICROPHONE", "›", "VR overriding", "\x1b[48;5;238"} {
 		if !strings.Contains(view, want) {
 			t.Fatal("missing presentation", want)
 		}

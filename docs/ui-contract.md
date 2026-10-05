@@ -52,6 +52,8 @@ Colors supplement shape and words; they never carry state alone. Key backgrounds
 
 Precedence: unavailable > failure > pending/fallback > muted/recording > active > neutral. Ordinary Off is neutral, including disabled mic stack. Recording's circle/square and Ready/Rec distinguish transport state. No arbitrary colors per control/category. Color definitions and precedence live in internal/streamdeck/palette.go.
 
+TUI displays one existing control group at a time. Left/right or brackets cycle groups; up/down select controls. At 80 columns and above, show a section rail; narrower views show the section position. Editors use the full form width; forms are capped at 112 cells and shrink to content with a six-line minimum. Show row diagnostics once in the selected detail. Keep all groups reachable, preserve selection across snapshots, and exclude surface-only actions.
+
 TUI retains blue focus/section styling, neutral text/details and subdued overridden rows. Amber is for consequential confirmations, not every footer. Honor NO_COLOR; preserve keyboard navigation, terminal bounds and diagnostics. Do not force pixel-exact deck colors into terminal themes.
 
 ## Visual and behavioral invariants

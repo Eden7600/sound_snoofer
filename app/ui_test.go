@@ -13,11 +13,11 @@ func TestGenericSectionsAndUnavailableControls(t *testing.T) {
 		{ID: "x.transport", Group: "Transport", SurfaceOnly: true, Label: "Start recording"},
 		{ID: "external.light", Group: "Lighting", Label: "Light", Value: "Off"},
 	}}}
-	if len(s.rows()) != 2 {
+	if len(s.rows()) != 1 || len(s.groups()) != 2 {
 		t.Fatal(s.rows())
 	}
 	text := s.View().Content
-	for _, want := range []string{"VR overriding", "Normal choice", "Lighting", "Unavailable"} {
+	for _, want := range []string{"VR overriding", "Normal choice", "Lighting"} {
 		if !strings.Contains(strings.ToLower(text), strings.ToLower(want)) {
 			t.Fatalf("missing %s: %s", want, text)
 		}
