@@ -28,6 +28,7 @@ controls.find(c=>c.ID==="streamdeck.preview").ViewData=view;
 const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",streamdeck:"Running",vr:"Running",media:"Disabled"},Enabled:{audio:true,soundboard:true,streamdeck:true,vr:true,media:false}};
 (async()=>{
  const server=http.createServer((req,res)=>{
+  if(req.url==="/logo.ico"){res.setHeader("Content-Type","image/x-icon");res.end(fs.readFileSync(path.join(root,"app/tray.ico")));return;}
   const file=path.join(root,"app/web",req.url==="/"?"index.html":req.url.split("?")[0]);
   if(!file.startsWith(path.join(root,"app/web")+path.sep)){res.writeHead(403);return res.end();}
   fs.readFile(file,(err,data)=>{if(err){res.writeHead(404);res.end();return;}res.setHeader("Content-Type",file.endsWith(".css")?"text/css":/\.(js|mjs)$/.test(file)?"text/javascript":"text/html");res.end(data);});
@@ -50,6 +51,7 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   },fixture);
   await page.goto("http://127.0.0.1:"+server.address().port);
   await page.getByRole("heading",{name:"Live controls"}).waitFor();
+  await page.waitForFunction(()=>document.querySelector(".brandmark").naturalWidth>0);
   await page.screenshot({path:path.join(root,".local/gui-audio.png"),fullPage:true});
   await page.getByRole("button",{name:"Stream Deck",exact:false}).click();
   await page.getByRole("heading",{name:"Binding",exact:true}).waitFor();

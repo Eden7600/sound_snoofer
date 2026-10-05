@@ -3,14 +3,17 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"encoding/json"
 	"errors"
 	"io/fs"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/logger"
@@ -65,8 +68,15 @@ func RunDesktop(ctx context.Context) error {
 	var workers sync.WaitGroup
 	err = wails.Run(&options.App{
 		Title: "Snoofer", Width: 1280, Height: 820, MinWidth: 800, MinHeight: 600,
-		BackgroundColour:   options.NewRGB(14, 20, 27),
-		AssetServer:        &assetserver.Options{Assets: assets},
+		BackgroundColour: options.NewRGB(14, 20, 27),
+		AssetServer: &assetserver.Options{Assets: assets, Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/logo.ico" {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", "image/x-icon")
+			http.ServeContent(w, r, "logo.ico", time.Time{}, bytes.NewReader(trayIcon))
+		})},
 		Logger:             logger.NewFileLogger(filepath.Join(filepath.Dir(exe), "snoofer-gui.log")),
 		LogLevelProduction: logger.ERROR,
 		Windows:            &wwindows.Options{Theme: wwindows.Dark, IsZoomControlEnabled: true, WebviewUserDataPath: filepath.Join(filepath.Dir(exe), "webview-cache")},
