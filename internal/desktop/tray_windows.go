@@ -18,7 +18,9 @@ import (
 	"golang.org/x/sys/windows"
 
 	"sound-snoofer/internal/config"
+	"sound-snoofer/internal/control"
 	"sound-snoofer/internal/ownership"
+	"sound-snoofer/internal/streamdeck"
 	"sound-snoofer/internal/tui"
 	"sound-snoofer/internal/voicemeeter"
 )
@@ -125,6 +127,9 @@ func serveTray(ctx context.Context, cancel context.CancelFunc, cfg config.Config
 		Open:    func(path string) (tui.Client, error) { return voicemeeter.Open(path) },
 		Acquire: ownership.Acquire, Load: config.LoadEffective,
 	})
+	restart := systray.AddMenuItem("Restart audio engine", "Restart audio; controls request confirmation if recording")
+	deckStates, deckEvents := streamdeck.Start(ctx, cfg.StreamDeck)
+	deckQueue := streamdeck.Queue{}
 	latest := tui.State{Live: live, Intent: cfg.VoiceIntent(), StateError: cfg.StateError}
 	var child *controls
 	var childDone <-chan struct{}
@@ -168,6 +173,44 @@ func serveTray(ctx context.Context, cancel context.CancelFunc, cfg config.Config
 			}
 		case <-quit.ClickedCh:
 			cancel()
+		case <-restart.ClickedCh:
+			select {
+			case actions <- tui.Action{Kind: control.Restart, Revision: latest.Revision}:
+			default:
+				status.SetTitle("Audio command queue full")
+			}
+		case event, ok := <-deckEvents:
+			if !ok {
+				deckEvents = nil
+				continue
+			}
+			if event.Error != "" {
+				status.SetTitle("Stream Deck: " + event.Error)
+				continue
+			}
+			_, command := streamdeck.Action(event, latest)
+			switch command {
+			case "audio":
+				if err := deckQueue.Push(event, latest); err != nil {
+					status.SetTitle(err.Error())
+				}
+				if next, ok := deckQueue.Next(latest); ok {
+					select {
+					case actions <- next:
+					default:
+						deckQueue.Rejected()
+						status.SetTitle("Stream Deck command queue full")
+					}
+				}
+			case "open-controls":
+				openControls()
+			case "media-next", "media-prev", "media-play", "media-stop":
+				if latest.Live {
+					if err := streamdeck.Media(command); err != nil {
+						status.SetTitle(err.Error())
+					}
+				}
+			}
 		case <-open.ClickedCh:
 			controlsError = ""
 			openControls()
@@ -179,6 +222,9 @@ func serveTray(ctx context.Context, cancel context.CancelFunc, cfg config.Config
 			child = nil
 			childDone = nil
 		case <-ticker.C:
+			if !latest.ObservedAt.IsZero() && time.Since(latest.ObservedAt) > 5*time.Second {
+				status.SetTitle("Audio worker stalled — open controls")
+			}
 			signaled, err := windows.WaitForSingleObject(handle, 0)
 			if err != nil {
 				return fmt.Errorf("tray instance signal: %w", err)
@@ -192,6 +238,25 @@ func serveTray(ctx context.Context, cancel context.CancelFunc, cfg config.Config
 				return nil
 			}
 			latest = state
+			if next, ok := deckQueue.Next(latest); ok {
+				select {
+				case actions <- next:
+				default:
+					deckQueue.Rejected()
+					status.SetTitle("Stream Deck command queue full")
+				}
+			}
+			if state.RestartConfirmation {
+				openControls()
+			}
+			select {
+			case <-deckStates:
+			default:
+			}
+			select {
+			case deckStates <- state:
+			default:
+			}
 			label := statusText(state)
 			if controlsError != "" {
 				label = controlsError

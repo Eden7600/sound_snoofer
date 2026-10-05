@@ -31,6 +31,9 @@ func TestControlPendingAndOverride(t *testing.T) {
 		}
 	}
 	s.state.Snapshot.Element.Running = true
+	s.state.Plan.Topology.Voice = &routing.VoiceStatus{Strip: 0, Effective: "desk", EffectiveMode: "element"}
+	s.state.Plan.Topology.PlaybackTarget = "A2"
+	s.state.Snapshot.Numbers = map[string]float32{"Strip[0].Mute": 0, "Bus[1].Mute": 0}
 	for _, r := range s.rules() {
 		color, _ := s.controlStatus(r)
 		if color != "" {

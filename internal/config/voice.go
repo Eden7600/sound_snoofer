@@ -1,6 +1,9 @@
 package config
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type Voice struct {
 	Enabled *bool  `json:"enabled,omitempty"`
@@ -9,6 +12,14 @@ type Voice struct {
 	Monitor string `json:"monitor,omitempty"`
 }
 type Intent struct {
+	MicMuted         bool    `json:"mic_muted,omitempty"`
+	PlaybackMuted    bool    `json:"playback_muted,omitempty"`
+	BusMuted         [2]bool `json:"bus_muted,omitempty"`
+	PreferVRMic      bool    `json:"prefer_vr_mic,omitempty"`
+	PreferVRPlayback bool    `json:"prefer_vr_playback,omitempty"`
+	ProtectDefaults  bool    `json:"protect_defaults,omitempty"`
+	AutoRecover      bool    `json:"auto_recover,omitempty"`
+
 	PlaybackDevice string            `json:"playback_device,omitempty"`
 	Recording      *RecordingChoices `json:"recording,omitempty"`
 	Version        int               `json:"version"`
@@ -32,7 +43,7 @@ func (v *Voice) Validate() error {
 	return validateChoices(v.Source, v.Mode, v.Monitor)
 }
 func validateChoices(source, mode, monitor string) error {
-	if source != "off" && source != "desk" && source != "lav" && source != "webcam" {
+	if source != "off" && source != "desk" && source != "lav" && source != "webcam" && !strings.HasPrefix(source, "vr:") {
 		return fmt.Errorf("invalid voice source %q", source)
 	}
 	if mode != "direct" && mode != "element" {
@@ -88,6 +99,18 @@ func (i *Intent) Clone() *Intent {
 	return &n
 }
 func (i Intent) Validate(c Config) error {
+	if strings.HasPrefix(i.Source, "vr:") {
+		found := false
+		if c.VR != nil {
+			for _, h := range c.VR.Headsets {
+				found = found || i.Source == "vr:"+h.ID
+			}
+		}
+		if !found {
+			return fmt.Errorf("unknown VR microphone")
+		}
+	}
+
 	if i.Recording != nil {
 		if c.Studio == nil || c.Studio.Recording == nil {
 			return fmt.Errorf("saved recording choices require recording profile")

@@ -40,6 +40,7 @@ func selectASIO(profile *config.Studio, s model.Snapshot) (*model.Device, error)
 // MicrophoneOptions uses the same hardware evidence as routing, never ASIO
 // driver installation alone. Off remains valid without a device observation.
 func MicrophoneOptions(c config.Config, s model.Snapshot) []string {
+	s = VRDevices(c, s)
 	options := []string{}
 	if c.Studio != nil && c.Studio.Voice != nil {
 		if asio, err := selectASIO(c.Studio, s); err == nil && asio != nil {
@@ -49,19 +50,27 @@ func MicrophoneOptions(c config.Config, s model.Snapshot) []string {
 			options = append(options, "webcam")
 		}
 	}
+	if c.VR != nil {
+		for _, h := range c.VR.Headsets {
+			if d, _ := headsetDevice(c, s, "input", "vr:"+h.ID); d != nil {
+				options = append(options, "vr:"+h.ID)
+			}
+		}
+	}
 	return append(options, "off")
 }
 
 // PlaybackOptions lists unique connected physical outputs within configured
 // ownership. The empty choice means automatic priority selection.
 func PlaybackOptions(c config.Config, s model.Snapshot) []string {
+	s = VRDevices(c, s)
 	names := map[string]int{}
 	if c.Studio != nil {
 		for _, d := range model.InventoryDevices(s.Devices) {
 			if !d.Available || d.Direction != "output" || d.Driver != "wdm" {
 				continue
 			}
-			for _, candidate := range c.Studio.Playback {
+			for _, candidate := range vrPlaybackCandidates(c) {
 				if candidate.Regex.MatchString(d.Name) {
 					names[d.Name]++
 					break

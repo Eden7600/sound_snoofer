@@ -186,7 +186,7 @@ func Run(ctx context.Context, args []string, out, errout io.Writer, deps Deps) (
 		}
 		return 0
 	}
-	ctl := controller.Controller{Backend: client, Config: cfg, Clock: deps.Clock}
+	ctl := controller.Controller{Backend: client, Config: cfg, Clock: deps.Clock, Mixer: &controller.Mixer{Path: *path + ".mutes.json"}}
 	ctl.Emit = func(e controller.Event) {
 		if *asJSON {
 			_ = json.NewEncoder(out).Encode(e)

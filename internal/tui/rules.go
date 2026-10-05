@@ -1,81 +1,12 @@
 package tui
 
 import (
-	"fmt"
 	"sort"
+	"sound-snoofer/internal/control"
 	"strconv"
 	"strings"
-
-	"sound-snoofer/internal/config"
+	"time"
 )
-
-func editIntent(i *config.Intent, a Action) error {
-	switch a.Row {
-	case "record-vst", "record-loop":
-		if i.Recording == nil {
-			return fmt.Errorf("recording profile not configured")
-		}
-		value, err := strconv.ParseBool(a.Value)
-		if err != nil {
-			return err
-		}
-		if a.Row == "record-vst" {
-			if value && (!i.MicActive() || i.Mode != "element") {
-				return fmt.Errorf("Recording to VST requires an active source and Element mode")
-			}
-			i.Recording.ToVST = value
-		} else {
-			i.Recording.Loop = value
-		}
-	case "output":
-		i.PlaybackDevice = a.Value
-	case "record-mic", "record-computer", "record-tap":
-		if i.Recording == nil {
-			return fmt.Errorf("recording profile not configured")
-		}
-		if a.Row == "record-tap" {
-			i.Recording.MicTap = a.Value
-		} else {
-			b, e := strconv.ParseBool(a.Value)
-			if e != nil {
-				return e
-			}
-			if a.Row == "record-mic" {
-				i.Recording.MicEnabled = b
-			} else {
-				i.Recording.ComputerEnabled = b
-			}
-		}
-	case "source":
-		i.Source = a.Value
-		i.Enabled = a.Value != "off"
-	case "mode":
-		i.Mode = a.Value
-	case "monitor":
-		i.Monitor = a.Value
-	case "voice":
-		b, e := strconv.ParseBool(a.Value)
-		if e != nil {
-			return e
-		}
-		i.Enabled = b
-	default:
-		if !strings.HasPrefix(a.Row, "playback:") {
-			return fmt.Errorf("unknown rule")
-		}
-		key := strings.TrimPrefix(a.Row, "playback:")
-		if _, ok := i.Playback[key]; !ok {
-			return fmt.Errorf("playback rule no longer exists")
-		}
-		b, e := strconv.ParseBool(a.Value)
-		if e != nil {
-			return e
-		}
-		i.Playback[key] = b
-	}
-	i.NormalizeRecordingStage()
-	return nil
-}
 
 type ruleRow struct {
 	key, label, value string
@@ -92,7 +23,9 @@ func (s screen) rules() []ruleRow {
 		source = "off"
 	}
 	rows := []ruleRow{{"source", "Source", source, false}, {"mode", "Processing", i.Mode, false}, {"monitor", "Monitor", i.Monitor, false}}
+	rows = append(rows, ruleRow{"mic-mute", "Mute Microphone", strconv.FormatBool(i.MicMuted), true})
 	rows = append(rows, ruleRow{"output", "Playback Device", i.PlaybackDevice, false})
+	rows = append(rows, ruleRow{"speaker-mute", "Mute Speakers", strconv.FormatBool(i.PlaybackMuted), true})
 	keys := []string{}
 	for k := range i.Playback {
 		keys = append(keys, k)
@@ -114,6 +47,15 @@ func (s screen) rules() []ruleRow {
 			ruleRow{"snippet-play", "Play Snippet", "Enter (live only)", false},
 			ruleRow{"snippet-stop", "Stop Playback", "Enter (live only)", false})
 	}
+	rows = append(rows,
+		ruleRow{"vr-mic", "Prefer Headset Mic", strconv.FormatBool(i.PreferVRMic), true},
+		ruleRow{"vr-playback", "Prefer Headset Playback", strconv.FormatBool(i.PreferVRPlayback), true},
+		ruleRow{"defaults", "Keep Windows on Voicemeeter", strconv.FormatBool(i.ProtectDefaults), true},
+		ruleRow{"auto-recover", "Auto-recover Audio", strconv.FormatBool(i.AutoRecover), true},
+		ruleRow{"engine-restart", "Restart Audio Engine", "Enter", false})
+	if s.state.RestartConfirmation {
+		rows = append(rows, ruleRow{"engine-confirm", "Confirm Restart (interrupts audio)", "Enter", false})
+	}
 	return rows
 }
 func cycle(current string, values ...string) string {
@@ -130,6 +72,16 @@ func (s *screen) ruleAction(key string) {
 		return
 	}
 	row := rows[min(s.selected, len(rows)-1)]
+	if strings.HasPrefix(row.key, "engine-") {
+		if !s.state.ObservedAt.IsZero() && time.Since(s.state.ObservedAt) > 5*time.Second {
+			s.pending = "Audio worker stalled; restart unavailable"
+			return
+		}
+		if key == "enter" {
+			s.queue(Action{Kind: control.Restart, Confirm: row.key == "engine-confirm", Revision: s.state.Revision})
+		}
+		return
+	}
 	if (row.key == "source" || row.key == "output") && (key == "enter" || key == " ") {
 		s.openChoice(row.key)
 		return

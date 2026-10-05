@@ -21,15 +21,17 @@ type Route struct {
 	Candidates []Candidate `json:"candidates"`
 }
 type Config struct {
-	Intent     *Intent `json:"-"`
-	StateError string  `json:"-"`
-	StateToken string  `json:"-"`
-	Version    int     `json:"version"`
-	PollMS     int     `json:"poll_ms"`
-	DebounceMS int     `json:"debounce_ms"`
-	VerifyMS   int     `json:"verify_ms"`
-	Routes     []Route `json:"routes"`
-	Studio     *Studio `json:"studio,omitempty"`
+	StreamDeck *StreamDeck `json:"stream_deck,omitempty"`
+	VR         *VR         `json:"vr,omitempty"`
+	Intent     *Intent     `json:"-"`
+	StateError string      `json:"-"`
+	StateToken string      `json:"-"`
+	Version    int         `json:"version"`
+	PollMS     int         `json:"poll_ms"`
+	DebounceMS int         `json:"debounce_ms"`
+	VerifyMS   int         `json:"verify_ms"`
+	Routes     []Route     `json:"routes"`
+	Studio     *Studio     `json:"studio,omitempty"`
 }
 
 func Load(path string) (Config, error) {
@@ -99,6 +101,19 @@ func uniqueKeys(d *json.Decoder) error {
 }
 
 func (c *Config) Validate() error {
+	if c.StreamDeck != nil {
+		if err := c.StreamDeck.Validate(); err != nil {
+			return err
+		}
+	}
+	if c.VR != nil {
+		if err := c.VR.Validate(); err != nil {
+			return err
+		}
+		if c.Studio == nil || c.Studio.Voice == nil {
+			return fmt.Errorf("VR requires studio voice profile")
+		}
+	}
 	if c.Version != 1 {
 		return fmt.Errorf("configuration version must be 1")
 	}

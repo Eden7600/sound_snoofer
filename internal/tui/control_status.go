@@ -14,6 +14,19 @@ func intentValue(i *config.Intent, key string) string {
 		return ""
 	}
 	switch key {
+	case "mic-mute":
+		return strconv.FormatBool(i.MicMuted)
+	case "speaker-mute":
+		return strconv.FormatBool(i.PlaybackMuted)
+	case "vr-mic":
+		return strconv.FormatBool(i.PreferVRMic)
+	case "vr-playback":
+		return strconv.FormatBool(i.PreferVRPlayback)
+	case "defaults":
+		return strconv.FormatBool(i.ProtectDefaults)
+	case "auto-recover":
+		return strconv.FormatBool(i.AutoRecover)
+
 	case "source":
 		if !i.MicActive() {
 			return "off"
@@ -66,6 +79,64 @@ func controlValue(key, value string) string {
 func (s screen) controlStatus(r ruleRow) (string, string) {
 	if r.key == "record-start" || r.key == "record-stop" || strings.HasPrefix(r.key, "snippet-") {
 		return "", ""
+	}
+	if strings.HasPrefix(r.key, "engine-") {
+		return "", ""
+	}
+	if r.key == "auto-recover" && r.value == "true" {
+		return "196", "! No validated detector"
+	}
+	if r.key == "defaults" && r.value == "true" && s.state.Defaults != "Verified" {
+		return "196", "! " + s.state.Defaults
+	}
+	if (r.key == "vr-mic" || r.key == "vr-playback") && r.value == "true" {
+		reason := s.state.VRMic
+		if r.key == "vr-playback" {
+			reason = s.state.VRPlayback
+		}
+		if reason != "Available" {
+			return "196", "! " + reason
+		}
+		running := s.state.Snapshot.SteamVR
+		if running == nil || !running.Known || !running.Running {
+			return "196", "! SteamVR unavailable"
+		}
+	}
+	if r.key == "mic-mute" || r.key == "speaker-mute" {
+		if s.inflight != 0 && editsRow(s.inflightAction, r.key) {
+			return "226", "pending"
+		}
+		for _, edit := range s.deferredEdits {
+			if edit.Row == r.key {
+				return "226", "pending"
+			}
+		}
+
+		p := s.state.Plan
+		if p == nil || p.Topology == nil {
+			return "226", "pending"
+		}
+		param := ""
+		if r.key == "mic-mute" && p.Topology.Voice != nil && p.Topology.Voice.Strip >= 0 {
+			param = fmt.Sprintf("Strip[%d].Mute", p.Topology.Voice.Strip)
+		}
+		if r.key == "speaker-mute" && p.Topology.PlaybackTarget != "" {
+			param = fmt.Sprintf("Bus[%c].Mute", p.Topology.PlaybackTarget[1]-1)
+		}
+		v, ok := s.state.Snapshot.Numbers[param]
+		if !ok {
+			return "226", "unavailable"
+		}
+		want := float32(0)
+		if r.value == "true" {
+			want = 1
+		}
+		if v != want {
+			if want == 1 && s.state.Error == "" {
+				return "226", "mute pending"
+			}
+			return "196", "! Native mute differs"
+		}
 	}
 	preferred := s.choices()
 	effective := routing.ResolveIntent(preferred, s.state.Snapshot)

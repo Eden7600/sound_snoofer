@@ -6,3 +6,6 @@
 *.test
 coverage.out
 *.state.json
+
+*.mutes.json
+*.recovery.json

@@ -42,6 +42,9 @@ func (s screen) graphLines(width int) []string {
 			}
 			edge := branch + graphNode(bus, 4)
 			destination := s.graphDestination(bus)
+			if len(bus) == 2 && bus[0] == 'A' && s.state.Snapshot.Numbers[fmt.Sprintf("Bus[%d].Mute", int(bus[1]-'1'))] == 1 {
+				destination += " (MUTED)"
+			}
 			if destination != "" {
 				if ansi.StringWidth(edge)+5+ansi.StringWidth(destination)+2 <= width {
 					edge += " --> " + graphNode(destination, width-ansi.StringWidth(edge)-5)
@@ -69,7 +72,11 @@ func (s screen) graphLines(width int) []string {
 				sends = append(sends, bus)
 			}
 		}
-		addSource(s.graphSource(strip, physical), sends)
+		label := s.graphSource(strip, physical)
+		if s.state.Snapshot.Numbers[fmt.Sprintf("Strip[%d].Mute", strip)] == 1 {
+			label += " (MUTED)"
+		}
+		addSource(label, sends)
 		if strip == physical+1 && len(sends) > 0 {
 			elementPath = true
 		}

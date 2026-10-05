@@ -1,0 +1,577 @@
+package control
+
+import (
+	"context"
+	"fmt"
+	"runtime"
+	"slices"
+	"strings"
+	"time"
+
+	"sound-snoofer/internal/config"
+	"sound-snoofer/internal/controller"
+	"sound-snoofer/internal/model"
+	"sound-snoofer/internal/routing"
+	"sound-snoofer/internal/windowsaudio"
+)
+
+type Client interface {
+	controller.Backend
+	Close() error
+}
+type Dependencies struct {
+	Save    func(string, config.Config, *config.Intent, string) (string, error)
+	Open    func(string) (Client, error)
+	Acquire func() (func(), error)
+	Load    func(string) (config.Config, error)
+}
+type State struct {
+	ObservedAt          time.Time
+	VRMic               string
+	VRPlayback          string
+	Acks                map[string]Ack
+	Health              string
+	Defaults            string
+	RestartConfirmation bool
+
+	MicOptions    []string
+	OutputOptions []string
+	EditAck       uint64
+	EditError     string
+	Recorder      *model.RecorderSnapshot
+	Intent        *config.Intent
+	Revision      uint64
+	StateError    string
+	Live          bool
+	Connected     bool
+	Error         string
+	Notice        string
+	NoticeKind    NoticeKind
+	NoticeUntil   time.Time
+	Snapshot      model.Snapshot
+	Plan          *routing.Plan
+}
+
+// NeedsAttention reports an active diagnostic without parsing its presentation text.
+func (s State) NeedsAttention() bool {
+	return s.Error != "" || s.StateError != "" || (s.Notice != "" && s.NoticeKind == NoticeError)
+}
+
+type ActionKind int
+
+const (
+	toggleLive ActionKind = iota
+	reload
+	refresh
+	editRule
+	resetChoices
+	startRecording
+	stopRecording
+	playSnippet
+	gain
+	restartEngine
+)
+
+type Action struct {
+	Origin   string
+	Target   string
+	Identity string
+	Delta    float32
+	Confirm  bool
+
+	ID         uint64
+	Edits      []SettingEdit
+	Kind       ActionKind
+	Row, Value string
+	Revision   uint64
+}
+
+var ToggleLive = Action{Kind: toggleLive}
+var Reload = Action{Kind: reload}
+var Refresh = Action{Kind: refresh}
+
+type observed struct {
+	Client
+	snapshot model.Snapshot
+}
+
+func (o *observed) Snapshot() (model.Snapshot, error) {
+	s, e := o.Client.Snapshot()
+	if e == nil {
+		o.snapshot = s
+	}
+	return s, e
+}
+func (o *observed) ParameterSnapshot() (model.Snapshot, error) {
+	b, ok := o.Client.(controller.ParameterBackend)
+	if !ok {
+		return o.Snapshot()
+	}
+	s, e := b.ParameterSnapshot()
+	if e == nil {
+		o.snapshot = s
+	}
+	return s, e
+}
+func (o *observed) SetNumber(p string, v int) error {
+	b, ok := o.Client.(interface{ SetNumber(string, int) error })
+	if !ok {
+		return fmt.Errorf("backend does not support numeric routing")
+	}
+	return b.SetNumber(p, v)
+}
+func (o *observed) Recorder() (model.RecorderSnapshot, error) {
+	b, ok := o.Client.(controller.RecorderBackend)
+	if !ok {
+		return model.RecorderSnapshot{}, fmt.Errorf("recorder API unavailable")
+	}
+	r, e := b.Recorder()
+	o.snapshot.Recorder = &r
+	if e != nil {
+		o.snapshot.Recorder = &model.RecorderSnapshot{Error: e.Error()}
+	}
+	return r, e
+}
+func (o *observed) SetRecorder(p string, v int) error {
+	b, ok := o.Client.(controller.RecorderBackend)
+	if !ok {
+		return fmt.Errorf("recorder API unavailable")
+	}
+	return b.SetRecorder(p, v)
+}
+
+// The actor exclusively owns DLL calls, controller state and writer ownership.
+// State messages contain fresh snapshots; no shared mutable maps reach the UI.
+func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, deps Dependencies, actions <-chan Action, states chan State, done chan struct{}) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	defer close(done)
+	defer close(states)
+	defaultCtx, defaultCancel := context.WithCancel(ctx)
+	defer defaultCancel()
+	defaultRequests, defaultResults := windowsaudio.Start(defaultCtx)
+	state := State{Acks: map[string]Ack{}}
+	seen := map[string]uint64{}
+	if deps.Save == nil {
+		deps.Save = config.SaveIntent
+	}
+	revision := uint64(1)
+	var release func()
+	defer func() {
+		if release != nil {
+			release()
+		}
+	}()
+	setLive := func(enable bool) {
+		if enable == state.Live {
+			return
+		}
+		if enable {
+			if cfg.StateError != "" {
+				state.SetNotice(cfg.StateError, NoticeError, time.Now())
+				return
+			}
+			r, e := deps.Acquire()
+			if e != nil {
+				state.SetNotice(e.Error(), NoticeError, time.Now())
+				return
+			}
+			release = r
+		} else if release != nil {
+			release()
+			release = nil
+		}
+		state.Live = enable
+		state.SetNotice("", NoticeSuccess, time.Now())
+	}
+	setLive(live)
+	var backend *observed
+	defer func() {
+		if backend != nil {
+			backend.Close()
+		}
+	}()
+	recovery := newRecovery(path)
+	mixer := &controller.Mixer{Path: path + ".mutes.json"}
+	var ctl *controller.Controller
+	reset := func() {
+		if backend == nil {
+			return
+		}
+		prepared := ctl != nil && ctl.RecorderPrepared
+		ctl = &controller.Controller{Mixer: mixer, RecorderPrepared: prepared, Backend: backend, Config: cfg, Clock: controller.RealClock{}, Emit: func(e controller.Event) {
+			if e.Kind == "error" {
+				state.Error = e.Message
+			}
+		}}
+	}
+	publish := func() {
+		state.ObservedAt = time.Now()
+		if i := cfg.VoiceIntent(); i != nil {
+			r := windowsaudio.Request{Enabled: i.ProtectDefaults, Live: state.Live}
+			if cfg.VR != nil {
+				r.Playback = cfg.VR.PlaybackDefault
+				r.Capture = cfg.VR.CaptureDefault
+			}
+			select {
+			case defaultRequests <- r:
+			default:
+			}
+		}
+		select {
+		case v, ok := <-defaultResults:
+			if ok {
+				state.Defaults = v.Status
+			}
+		default:
+		}
+
+		state.MicOptions = []string{"off"}
+		state.OutputOptions = []string{""}
+		if state.Connected {
+			state.MicOptions = routing.MicrophoneOptions(cfg, state.Snapshot)
+			state.OutputOptions = routing.PlaybackOptions(cfg, state.Snapshot)
+		}
+		state.VRMic = "No eligible headset mic"
+		state.VRPlayback = "No eligible headset playback"
+		for _, option := range state.MicOptions {
+			if strings.HasPrefix(option, "vr:") {
+				state.VRMic = "Available"
+				break
+			}
+		}
+		if cfg.VR == nil || len(cfg.VR.Headsets) == 0 {
+			state.VRMic = "Configure headset matchers"
+			state.VRPlayback = "Configure headset matchers"
+		} else {
+			for _, d := range routing.VRDevices(cfg, state.Snapshot).Devices {
+				if d.Available && d.Direction == "output" && d.Driver == "wdm" {
+					for _, h := range cfg.VR.Headsets {
+						if h.PlaybackRegex != nil && h.PlaybackRegex.MatchString(d.Name) {
+							state.VRPlayback = "Available"
+						}
+					}
+				}
+			}
+		}
+		state.Intent = cfg.VoiceIntent()
+		state.Revision = revision
+		state.StateError = cfg.StateError
+		select {
+		case states <- state:
+		default:
+			select {
+			case <-states:
+			default:
+			}
+			select {
+			case states <- state:
+			case <-ctx.Done():
+			}
+		}
+	}
+	delay := time.Duration(0)
+	lastInventory := time.Time{}
+	for {
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case action := <-actions:
+			timer.Stop()
+			if action.Origin != "" && action.ID != 0 {
+				if seen[action.Origin] >= action.ID {
+					publish()
+					continue
+				}
+				if len(seen) >= 16 && seen[action.Origin] == 0 {
+					continue
+				}
+				seen[action.Origin] = action.ID
+			}
+			previousEditError := state.EditError
+			if action.Origin != "" {
+				state.SetNotice("", NoticeSuccess, time.Now())
+			}
+			if action.Origin != "" {
+				state.EditError = ""
+			}
+			switch action.Kind {
+			case restartEngine:
+				if !state.Live {
+					state.SetNotice("Preview: engine restart not sent", NoticeSuccess, time.Now())
+					break
+				}
+				state.RestartConfirmation = false
+				if ctl == nil || backend == nil {
+					state.SetNotice("Audio unavailable", NoticeError, time.Now())
+					break
+				}
+				recorder, err := backend.Recorder()
+				if err != nil || recorder.State() != "Stopped" {
+					if !action.Confirm {
+						state.RestartConfirmation = true
+						state.SetNotice("Restart interrupts audio and may interrupt recording; select Confirm restart", NoticeError, time.Now())
+						break
+					}
+				}
+				err = recovery.restart(backend, state.Live, time.Now())
+				if err != nil {
+					state.SetNotice(err.Error(), NoticeError, time.Now())
+				} else {
+					state.SetNotice("Audio engine restart submitted", NoticePending, time.Now())
+				}
+			case gain:
+				var err error
+				if recovery.pending || action.Revision != revision {
+					err = fmt.Errorf("gain pending or target revision changed")
+				} else if ctl == nil {
+					err = fmt.Errorf("audio unavailable")
+				} else {
+					err = ctl.Gain(action.Target, action.Identity, action.Delta, state.Live)
+				}
+				if err != nil {
+					state.SetNotice(err.Error(), NoticeError, time.Now())
+				}
+
+			case startRecording, stopRecording, playSnippet:
+				if recovery.pending {
+					state.SetNotice("Audio recovery in progress; transport not submitted", NoticeError, time.Now())
+					break
+				}
+				if action.Revision != revision {
+					state.SetNotice("Stale recording command; inspect status and try again", NoticeError, time.Now())
+					break
+				}
+				if ctl == nil {
+					state.SetNotice("Recorder unavailable", NoticeError, time.Now())
+					break
+				}
+				state.SetNotice("Recorder pending", NoticeError, time.Now())
+				publish()
+				var e error
+				if action.Kind == playSnippet {
+					e = ctl.PlaySnippet(ctx, state.Live)
+				} else {
+					e = ctl.Record(ctx, action.Kind == startRecording, state.Live)
+				}
+				if e != nil {
+					state.SetNotice("Recorder: "+e.Error(), NoticeError, time.Now())
+				} else {
+					state.SetNotice("Recorder verified", NoticeSuccess, time.Now())
+				}
+				revision++
+			case toggleLive:
+				revision++
+				setLive(!state.Live)
+				reset()
+			case reload:
+				updated, e := deps.Load(path)
+				if e == nil && updated.StateError != "" {
+					e = fmt.Errorf("%s", updated.StateError)
+				}
+				if e == nil && backend != nil && backend.snapshot.Edition != 0 {
+					e = updated.ValidateEdition(backend.snapshot.Edition)
+				}
+				if e != nil {
+					state.SetNotice("Config reload failed: "+e.Error(), NoticeError, time.Now())
+				} else {
+					cfg = updated
+					revision++
+					state.SetNotice("Reloaded", NoticeSuccess, time.Now())
+					reset()
+				}
+			case editRule, resetChoices:
+				if action.ID != 0 && action.Origin == "" {
+					state.EditAck = action.ID
+					state.EditError = ""
+				}
+				if action.Revision != revision {
+					state.EditError = "Stale rule command; try again"
+					state.SetNotice("Stale rule command; try again", NoticeError, time.Now())
+					break
+				}
+				next := cfg.VoiceIntent()
+				if next == nil {
+					state.EditError = "No voice profile configured"
+					state.SetNotice("No voice profile configured", NoticeError, time.Now())
+					break
+				}
+				var e error
+				candidateConfig := cfg
+				if action.Kind == resetChoices {
+					base, err := config.LoadEffective(path)
+					e = err
+					if e == nil {
+						base.Intent = nil
+						next = base.VoiceIntent()
+						candidateConfig = base
+						if backend != nil && backend.snapshot.Edition != 0 {
+							e = base.ValidateEdition(backend.snapshot.Edition)
+						}
+					}
+				} else if cfg.StateError != "" {
+					e = fmt.Errorf("reset or repair saved choices first")
+				} else {
+					e = EditBatch(next, action)
+				}
+				if e == nil {
+					if next == nil {
+						e = fmt.Errorf("reset configuration has no voice profile; reload it first")
+					} else {
+						e = next.Validate(candidateConfig)
+					}
+				}
+				if e == nil {
+					if action.Kind == editRule && ((EditsRow(action, "source") && next.Source != "off") || (EditsRow(action, "output") && next.PlaybackDevice != "")) {
+						if backend == nil {
+							e = fmt.Errorf("device observation unavailable")
+						} else {
+							var snapshot model.Snapshot
+							snapshot, e = backend.Snapshot()
+							if e == nil && EditsRow(action, "source") && !slices.Contains(routing.MicrophoneOptions(candidateConfig, snapshot), next.Source) {
+								e = fmt.Errorf("microphone is no longer connected")
+							}
+							if e == nil && EditsRow(action, "output") && !slices.Contains(routing.PlaybackOptions(candidateConfig, snapshot), next.PlaybackDevice) {
+								e = fmt.Errorf("playback device is no longer connected")
+							}
+						}
+					}
+				}
+				if e == nil {
+					var token string
+					token, e = deps.Save(path, candidateConfig, next, candidateConfig.StateToken)
+					if e == nil {
+						cfg = candidateConfig
+						cfg.Intent = next
+						cfg.StateToken = token
+						cfg.StateError = ""
+						revision++
+						reset()
+						if state.Live {
+							state.SetNotice("Saved · Pending", NoticePending, time.Now())
+						} else {
+							state.SetNotice("Saved · Preview", NoticeSuccess, time.Now())
+						}
+					}
+				}
+				if e != nil {
+					state.EditError = e.Error()
+					state.SetNotice("Rule change rejected: "+e.Error(), NoticeError, time.Now())
+				}
+			case refresh:
+			}
+			if action.Origin != "" {
+				next := map[string]Ack{}
+				for k, v := range state.Acks {
+					next[k] = v
+				}
+				actionError := state.EditError
+				if state.NoticeKind == NoticeError && state.Notice != "" {
+					actionError = state.Notice
+				}
+				next[action.Origin] = Ack{ID: action.ID, Error: actionError}
+				state.EditError = previousEditError
+				state.Acks = next
+			}
+		case <-timer.C:
+		}
+		if ctx.Err() != nil {
+			return
+		}
+		if backend == nil {
+			client, e := deps.Open(dll)
+			if e != nil {
+				state.Error = e.Error()
+				state.Connected = false
+				publish()
+				delay = 5 * time.Second
+				continue
+			}
+			backend = &observed{Client: client}
+			reset()
+			if e := (controller.RealClock{}).Wait(ctx, 50*time.Millisecond); e != nil {
+				return
+			}
+		}
+		state.Error = ""
+		if recovery.pending {
+			_, err := backend.ParameterSnapshot()
+			delay = 100 * time.Millisecond
+			if err != nil {
+				state.Error = err.Error()
+			}
+		} else {
+			ctl.FastObservation = !lastInventory.IsZero() && time.Since(lastInventory) < time.Second
+			if !ctl.FastObservation {
+				lastInventory = time.Now()
+			}
+			delay = ctl.Step(ctx, state.Live)
+		}
+		if ctx.Err() != nil {
+			return
+		}
+		state.Snapshot = backend.snapshot
+		healthSnapshot := state.Snapshot
+		if state.Error != "" {
+			healthSnapshot = model.Snapshot{}
+		}
+		state.Health = recovery.observe(healthSnapshot, time.Now())
+		if i := cfg.VoiceIntent(); i != nil && i.AutoRecover && !recovery.pending {
+			if err := recovery.automaticPermit(time.Now(), false, state.Recorder.State()); err != nil {
+				state.Health += " · Auto: " + err.Error()
+			}
+		}
+		if state.Recorder.State() != backend.snapshot.Recorder.State() {
+			revision++
+		}
+		state.Recorder = backend.snapshot.Recorder
+		// A successful read may still yield a routing conflict. Do not label the
+		// plan healthy on stale data after an error.
+		state.Connected = state.Error == ""
+		if !state.Connected {
+			revision++
+			state.Recorder = &model.RecorderSnapshot{Error: state.Error}
+		}
+		state.Plan = nil
+		if state.Connected {
+			p, e := routing.Build(cfg, state.Snapshot)
+			if e != nil {
+				state.Error = e.Error()
+				state.Connected = false
+			} else {
+				state.Plan = &p
+			}
+		}
+		state.ResolveNotice(time.Now())
+		publish()
+	}
+}
+
+type Ack struct {
+	ID    uint64
+	Error string
+}
+
+const Edit = editRule
+const Gain = gain
+const Restart = restartEngine
+const RecordStart = startRecording
+const RecordStop = stopRecording
+const SnippetPlay = playSnippet
+
+func (o *observed) SetMixer(p string, v float32) error {
+	b, ok := o.Client.(controller.MixerBackend)
+	if !ok {
+		return fmt.Errorf("mixer unavailable")
+	}
+	return b.SetMixer(p, v)
+}
+func (o *observed) RestartEngine() error {
+	b, ok := o.Client.(interface{ RestartEngine() error })
+	if !ok {
+		return fmt.Errorf("engine restart unavailable")
+	}
+	return b.RestartEngine()
+}

@@ -44,13 +44,16 @@ func pretty(v string) string {
 	return v
 }
 func group(r ruleRow) string {
-	if r.key == "record-start" || r.key == "record-stop" || strings.HasPrefix(r.key, "snippet-") {
+	if strings.HasPrefix(r.key, "engine-") || r.key == "record-start" || r.key == "record-stop" || strings.HasPrefix(r.key, "snippet-") {
 		return "ACTIONS"
 	}
 	if strings.HasPrefix(r.key, "record-") {
 		return "RECORDING"
 	}
-	if r.key == "output" || strings.HasPrefix(r.key, "playback:") {
+	if strings.HasPrefix(r.key, "vr-") || r.key == "defaults" || r.key == "auto-recover" {
+		return "SYSTEM"
+	}
+	if r.key == "speaker-mute" || r.key == "output" || strings.HasPrefix(r.key, "playback:") {
 		return "COMPUTER AUDIO"
 	}
 	return "MICROPHONE"
@@ -184,7 +187,7 @@ func (s screen) statusRows(w int) []string {
 			output = t.PlaybackTarget + " · " + empty(s.state.Snapshot.Assignments[t.PlaybackTarget])
 		}
 	}
-	rows = append(rows, output, "", s.state.Snapshot.ElementStatus())
+	rows = append(rows, output, "", s.state.Snapshot.ElementStatus(), s.state.Health, s.state.Defaults)
 	if s.state.Plan != nil && s.state.Plan.Topology != nil && s.state.Plan.Topology.Voice != nil {
 		v := s.state.Plan.Topology.Voice
 		rows = append(rows, "Processing: "+pretty(v.EffectiveMode))
@@ -250,7 +253,7 @@ func (s screen) dashboardView() tea.View {
 	if now.IsZero() {
 		now = time.Now()
 	}
-	notice := s.state.noticeAt(now)
+	notice := s.state.NoticeAt(now)
 	if s.pending != "" && s.state.Error == "" && s.state.StateError == "" && (s.state.NoticeKind != noticeError || notice == "") {
 		notice = s.pending
 	}

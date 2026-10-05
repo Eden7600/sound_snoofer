@@ -1,0 +1,133 @@
+package control
+
+import (
+	"fmt"
+	"sound-snoofer/internal/config"
+	"strconv"
+	"strings"
+)
+
+func EditIntent(i *config.Intent, a Action) error {
+	switch a.Row {
+	case "mic-mute", "speaker-mute", "a1-mute", "a2-mute", "vr-mic", "vr-playback", "defaults", "auto-recover":
+		value, err := strconv.ParseBool(a.Value)
+		if err != nil {
+			return err
+		}
+		switch a.Row {
+		case "mic-mute":
+			i.MicMuted = value
+		case "speaker-mute":
+			i.PlaybackMuted = value
+		case "a1-mute":
+			i.BusMuted[0] = value
+		case "a2-mute":
+			i.BusMuted[1] = value
+		case "vr-mic":
+			i.PreferVRMic = value
+		case "vr-playback":
+			i.PreferVRPlayback = value
+		case "defaults":
+			i.ProtectDefaults = value
+		case "auto-recover":
+			i.AutoRecover = value
+		}
+
+	case "record-vst", "record-loop":
+		if i.Recording == nil {
+			return fmt.Errorf("recording profile not configured")
+		}
+		value, err := strconv.ParseBool(a.Value)
+		if err != nil {
+			return err
+		}
+		if a.Row == "record-vst" {
+			if value && (!i.MicActive() || i.Mode != "element") {
+				return fmt.Errorf("Recording to VST requires an active source and Element mode")
+			}
+			i.Recording.ToVST = value
+		} else {
+			i.Recording.Loop = value
+		}
+	case "output":
+		i.PlaybackDevice = a.Value
+	case "record-mic", "record-computer", "record-tap":
+		if i.Recording == nil {
+			return fmt.Errorf("recording profile not configured")
+		}
+		if a.Row == "record-tap" {
+			i.Recording.MicTap = a.Value
+		} else {
+			b, e := strconv.ParseBool(a.Value)
+			if e != nil {
+				return e
+			}
+			if a.Row == "record-mic" {
+				i.Recording.MicEnabled = b
+			} else {
+				i.Recording.ComputerEnabled = b
+			}
+		}
+	case "source":
+		i.Source = a.Value
+		i.Enabled = a.Value != "off"
+	case "mode":
+		i.Mode = a.Value
+	case "monitor":
+		i.Monitor = a.Value
+	case "voice":
+		b, e := strconv.ParseBool(a.Value)
+		if e != nil {
+			return e
+		}
+		i.Enabled = b
+	default:
+		if !strings.HasPrefix(a.Row, "playback:") {
+			return fmt.Errorf("unknown rule")
+		}
+		key := strings.TrimPrefix(a.Row, "playback:")
+		if _, ok := i.Playback[key]; !ok {
+			return fmt.Errorf("playback rule no longer exists")
+		}
+		b, e := strconv.ParseBool(a.Value)
+		if e != nil {
+			return e
+		}
+		i.Playback[key] = b
+	}
+	i.NormalizeRecordingStage()
+	return nil
+}
+
+const maxDeferredEdits = 64
+
+type SettingEdit struct {
+	Row, Value string
+}
+
+func EditsRow(action Action, row string) bool {
+	if len(action.Edits) == 0 {
+		return action.Row == row
+	}
+	for _, edit := range action.Edits {
+		if edit.Row == row {
+			return true
+		}
+	}
+	return false
+}
+
+func EditBatch(intent *config.Intent, action Action) error {
+	if len(action.Edits) == 0 {
+		return EditIntent(intent, action)
+	}
+	if len(action.Edits) > maxDeferredEdits {
+		return fmt.Errorf("too many queued settings")
+	}
+	for _, edit := range action.Edits {
+		if err := EditIntent(intent, Action{Row: edit.Row, Value: edit.Value}); err != nil {
+			return err
+		}
+	}
+	return nil
+}

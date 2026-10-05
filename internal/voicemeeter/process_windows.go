@@ -5,6 +5,7 @@ package voicemeeter
 import (
 	"errors"
 	"golang.org/x/sys/windows"
+	"strings"
 	"unsafe"
 
 	"sound-snoofer/internal/model"
@@ -23,11 +24,27 @@ func processNames() ([]string, error) {
 	names := []string{}
 	err = windows.Process32First(handle, &entry)
 	for err == nil {
-		names = append(names, windows.UTF16ToString(entry.ExeFile[:]))
+		var currentSession, processSession uint32
+		if windows.ProcessIdToSessionId(windows.GetCurrentProcessId(), &currentSession) == nil && windows.ProcessIdToSessionId(entry.ProcessID, &processSession) == nil && currentSession == processSession {
+			names = append(names, windows.UTF16ToString(entry.ExeFile[:]))
+		}
 		err = windows.Process32Next(handle, &entry)
 	}
 	if !errors.Is(err, windows.ERROR_NO_MORE_FILES) {
 		return nil, err
 	}
 	return names, nil
+}
+
+func steamVRProcess() model.ProcessStatus {
+	names, err := processNames()
+	if err != nil {
+		return model.ProcessStatus{Error: err.Error()}
+	}
+	for _, name := range names {
+		if strings.EqualFold(name, "vrserver.exe") {
+			return model.ProcessStatus{Known: true, Running: true}
+		}
+	}
+	return model.ProcessStatus{Known: true}
 }

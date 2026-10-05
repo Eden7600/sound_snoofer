@@ -8,8 +8,9 @@ A Windows Go application that continuously enforces audio-routing rules through 
 
 ## Run
 
-Double-click `bin/sound-snoofer.exe`. It opens the TUI in live mode using
+Double-click `bin/sound-snoofer.exe`. It starts in the system tray in live mode using
 `bin/config.json` and remembers choices in `bin/config.json.state.json`.
+Open controls from the tray to show the TUI. Closing controls leaves audio management running.
 If the config is missing, the app creates one from bundled defaults.
 The config path is relative to the executable, independent of working directory.
 Your existing personal configuration and choices have been copied there.
@@ -199,3 +200,7 @@ Element sends/returns and recorder paths. Preview and pending edits still show
 observed mixer state. Missing observations are marked unknown; arrows describe
 configured routing, not measured audio. Dotted arrows identify the unverified
 external Element path. Use arrows/j/k or Page Up/Down to scroll.
+
+## VR, Stream Deck and native mute
+
+See [feature setup and current acceptance limits](docs/next-features.md) for headset regex profiles, Windows default protection, Stream Deck + XL mappings, native microphone/speaker mute and engine restart. The current feature build is bin/sound-snoofer-next.exe. Automatic engine-stall detection remains gated pending a validated failure signature.

@@ -49,6 +49,7 @@ func Open(path string) (*Client, error) {
 	client, err := connect(a)
 	if err == nil {
 		client.elementProbe = elementProcess
+		client.vrProbe = steamVRProcess
 	}
 	return client, err
 }
@@ -146,6 +147,15 @@ func (a *winAPI) SetNumber(param string, value int) int32 {
 	// Client validates the parameter and integer domain. Device names never
 	// enter this script, avoiding float-register ABI differences in syscall.
 	p, e := syscall.BytePtrFromString(param + "=" + strconv.Itoa(value) + ";")
+	if e != nil {
+		return -3
+	}
+	r, _, _ := a.procs["SetParameters"].Call(uintptr(unsafe.Pointer(p)))
+	return result(r)
+}
+
+func (a *winAPI) SetScalar(param string, value float32) int32 {
+	p, e := syscall.BytePtrFromString(param + "=" + strconv.FormatFloat(float64(value), 'f', -1, 32) + ";")
 	if e != nil {
 		return -3
 	}

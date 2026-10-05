@@ -84,6 +84,9 @@ func (s screen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return s, s.next()
 	case tickMsg:
 		s.now = time.Time(m)
+		if !s.state.ObservedAt.IsZero() && s.now.Sub(s.state.ObservedAt) > 5*time.Second {
+			s.state.Health = "Audio worker stalled; native recovery unavailable"
+		}
 		return s, noticeTick()
 	case endedMsg:
 		return s, tea.Quit

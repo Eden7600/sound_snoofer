@@ -5,12 +5,12 @@ import (
 	"context"
 	"errors"
 	"github.com/charmbracelet/x/ansi"
+	"sound-snoofer/internal/config"
+	"sound-snoofer/internal/model"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
-	"sound-snoofer/internal/config"
-	"sound-snoofer/internal/model"
 )
 
 type fakeClient struct{ closed, writes atomic.Int32 }

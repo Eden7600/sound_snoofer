@@ -9,6 +9,7 @@ import (
 )
 
 type VoiceStatus struct {
+	Strip            int    `json:"strip"`
 	PreferredMode    string `json:"preferred_mode"`
 	EffectiveMode    string `json:"effective_mode"`
 	ProcessingReason string `json:"processing_reason,omitempty"`
@@ -52,7 +53,7 @@ func addVoice(c config.Config, s model.Snapshot, p Plan) (Plan, error) {
 	if i.Source == "lav" {
 		source = 1
 	}
-	if i.MicActive() && (i.Source == "webcam" || !t.ASIOActive) {
+	if i.MicActive() && (i.Source == "webcam" || strings.HasPrefix(i.Source, "vr:") || !t.ASIOActive) {
 		source = 2
 		v.Effective = "webcam"
 		if i.Source != "webcam" {
@@ -70,13 +71,30 @@ func addVoice(c config.Config, s model.Snapshot, p Plan) (Plan, error) {
 		v.Effective = "off"
 		v.Reason = "Microphone source is Off"
 	}
+	vrSource, vrID, err := addVRMic(c, s, t, source)
+	if err != nil {
+		return p, err
+	}
+	source = vrSource
+	if vrID != "" {
+		filtered := t.Unresolved[:0]
+		for _, reason := range t.Unresolved {
+			if !strings.HasPrefix(reason, "no eligible microphone:") {
+				filtered = append(filtered, reason)
+			}
+		}
+		t.Unresolved = filtered
+		v.Effective = vrID
+		v.Reason = "Headset microphone selected"
+	}
+	v.Strip = source
 	desired := map[string]int{}
 	for strip := 0; strip < 8; strip++ {
 		for bus := 2; bus <= 3; bus++ {
 			desired[fmt.Sprintf("Strip[%d].B%d", strip, bus)] = 0
 		}
 	}
-	for _, strip := range []int{0, 1, 2, 6} {
+	for _, strip := range managedMicStrips(c) {
 		for bus := 1; bus <= 5; bus++ {
 			desired[fmt.Sprintf("Strip[%d].A%d", strip, bus)] = 0
 		}
@@ -144,7 +162,7 @@ func addVoice(c config.Config, s model.Snapshot, p Plan) (Plan, error) {
 	// Master Off also disconnects microphone capture when B1 is otherwise
 	// unmanaged or recorder-specific reconciliation is frozen.
 	if !i.MicActive() {
-		for _, strip := range []int{0, 1, 2, 6} {
+		for _, strip := range managedMicStrips(c) {
 			param := fmt.Sprintf("Strip[%d].B1", strip)
 			before, ok := s.Numbers[param]
 			if !ok {

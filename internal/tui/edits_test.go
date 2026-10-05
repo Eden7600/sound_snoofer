@@ -108,7 +108,7 @@ func TestWorkerBatchSavesOnceAndAcknowledgesFailure(t *testing.T) {
 			states, actions, done := make(chan State, 1), make(chan Action, 1), make(chan struct{})
 			go work(ctx, c, "unused", "", false, deps, actions, states, done)
 			state := nextState(t, states)
-			actions <- Action{Kind: editRule, ID: 1, Revision: state.Revision, Edits: []settingEdit{{"source", "lav"}, {"monitor", "pre"}, {"monitor", "post"}}}
+			actions <- Action{Kind: editRule, ID: 1, Revision: state.Revision, Edits: []settingEdit{{Row: "source", Value: "lav"}, {Row: "monitor", Value: "pre"}, {Row: "monitor", Value: "post"}}}
 			state = nextState(t, states)
 			if state.EditAck != 1 || (state.EditError != "") != fail || saves != 1 {
 				t.Fatal(state.EditAck, state.EditError, saves)

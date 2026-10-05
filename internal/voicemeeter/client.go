@@ -30,6 +30,7 @@ type native interface {
 // because IsParametersDirty must be called from a single thread.
 type Client struct {
 	elementProbe     func() model.ProcessStatus
+	vrProbe          func() model.ProcessStatus
 	mu               sync.Mutex
 	api              native
 	closed           bool
@@ -136,9 +137,35 @@ func (c *Client) snapshot(enumerate bool) (model.Snapshot, error) {
 			s.Numbers[param] = v
 		}
 	}
+	// Optional health/mixer observations must not break legacy parameter snapshots.
+	for _, target := range model.Slots(s.Edition) {
+		slot, _ := model.ParseSlot(target)
+		p := slot.Parameter("sr")
+		if v, code := c.api.GetNumber(p); code == 0 {
+			s.Numbers[p] = v
+		}
+	}
+	for _, prefix := range []string{"Strip", "Bus"} {
+		count := model.StripCount(s.Edition)
+		if prefix == "Bus" {
+			count, _ = model.Limits(s.Edition)
+		}
+		for j := 0; j < count; j++ {
+			for _, suffix := range []string{"Gain", "Mute"} {
+				p := fmt.Sprintf("%s[%d].%s", prefix, j, suffix)
+				if v, code := c.api.GetNumber(p); code == 0 {
+					s.Numbers[p] = v
+				}
+			}
+		}
+	}
 	if enumerate {
 		c.inventory = append([]model.Device{}, s.Devices...)
 		c.inventoryEdition = s.Edition
+	}
+	if c.vrProbe != nil {
+		v := c.vrProbe()
+		s.SteamVR = &v
 	}
 	if c.elementProbe != nil {
 		status := c.elementProbe()

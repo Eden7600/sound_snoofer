@@ -38,7 +38,7 @@ func buildVoiceTransition(c config.Config, s model.Snapshot, t *Topology) {
 		}
 	}
 	// Hardware changes upstream of Element also affect its return strip.
-	for strip := 0; strip < 3; strip++ {
+	for strip := 0; strip < 5; strip++ {
 		if !inputs[strip] {
 			continue
 		}

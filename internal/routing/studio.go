@@ -58,9 +58,10 @@ func InventoryKey(s model.Snapshot) string {
 	sort.Strings(entries)
 	b, _ := json.Marshal(struct {
 		Edition        int
+		SteamVRRunning bool
 		ElementRunning bool
 		Devices        []string
-	}{s.Edition, s.ElementRunning(), entries})
+	}{s.Edition, vrRunning(s), s.ElementRunning(), entries})
 	return string(b)
 }
 func selectDevice(list []config.Candidate, direction string, devices []model.Device) (*model.Device, []string) {
@@ -129,6 +130,11 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 					break
 				}
 			}
+		}
+	}
+	if i := c.VoiceIntent(); i != nil && i.PreferVRPlayback {
+		if d, _ := headsetDevice(c, s, "output", ""); d != nil {
+			playback = d
 		}
 	}
 	if playback == nil {
@@ -226,7 +232,7 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 	// interrupted transitions where both old and new device slots are assigned.
 	if playback != nil && profile.MovePlaybackRouting && len(oldBuses) > 0 {
 		for strip := 0; strip < model.StripCount(s.Edition); strip++ {
-			if profile.Voice != nil && (strip < 3 || strip == 6) {
+			if profile.Voice != nil && (strip < 3 || strip == 6 || (c.VR != nil && strip == c.VR.Input-1)) {
 				continue
 			}
 			enabled := 0

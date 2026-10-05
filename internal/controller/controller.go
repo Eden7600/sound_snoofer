@@ -42,6 +42,8 @@ type Event struct {
 	Plan    *routing.Plan `json:"plan,omitempty"`
 }
 type Controller struct {
+	FastObservation  bool
+	Mixer            *Mixer
 	RecorderPrepared bool
 	Backend          Backend
 	Config           config.Config
@@ -66,7 +68,7 @@ func (c *Controller) event(e Event) {
 	}
 }
 func (c *Controller) Plan() (routing.Plan, error) {
-	s, e := c.observe(false)
+	s, e := c.observe(c.FastObservation)
 	if e != nil {
 		return routing.Plan{}, e
 	}
@@ -76,6 +78,15 @@ func (c *Controller) Plan() (routing.Plan, error) {
 // Apply revalidates the complete plan before every write. No setter is called
 // for unresolved slots, unconfigured slots, or already matching names.
 func (c *Controller) Apply(ctx context.Context, expected routing.Plan) error {
+	if c.Mixer != nil {
+		s, e := c.observe(true)
+		if e != nil {
+			return e
+		}
+		if e = c.Mixer.Reconcile(c.Backend, c.Config, expected, s, false); e != nil {
+			return e
+		}
+	}
 	if expected.Topology != nil {
 		return c.applyTopology(ctx, expected)
 	}
@@ -159,6 +170,16 @@ func (c *Controller) Step(ctx context.Context, live bool) time.Duration {
 	attempted := false
 	delay := c.Config.Poll()
 	if e == nil {
+		if live && c.Mixer != nil {
+			s, err := c.observe(true)
+			if err == nil {
+				err = c.Mixer.Reconcile(c.Backend, c.Config, p, s, !p.HasChanges())
+			}
+			if err != nil {
+				c.event(Event{Kind: "error", Message: err.Error()})
+				return 100 * time.Millisecond
+			}
+		}
 		key := p.Key()
 		debounce := 20 * time.Millisecond
 		if p.Topology != nil {

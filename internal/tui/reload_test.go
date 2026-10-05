@@ -2,9 +2,9 @@ package tui
 
 import (
 	"context"
+	"sound-snoofer/internal/config"
 	"strings"
 	"testing"
-	"sound-snoofer/internal/config"
 )
 
 func TestReloadRejectsUnsupportedEditionTargets(t *testing.T) {

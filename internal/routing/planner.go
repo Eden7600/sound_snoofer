@@ -23,6 +23,14 @@ type Plan struct {
 }
 
 func Build(c config.Config, s model.Snapshot) (Plan, error) {
+	inventory := InventoryKey(s)
+	s = VRDevices(c, s)
+	if c.Studio != nil && c.VR != nil {
+		profile := *c.Studio
+		profile.Playback = vrPlaybackCandidates(c)
+		c.Studio = &profile
+	}
+
 	p := Plan{Edition: s.Edition}
 	if c.StateError != "" {
 		return p, fmt.Errorf("%s", c.StateError)
@@ -31,7 +39,11 @@ func Build(c config.Config, s model.Snapshot) (Plan, error) {
 		return p, e
 	}
 	if c.Studio != nil {
-		return buildStudio(c, s)
+		p, err := buildStudio(c, s)
+		if p.Topology != nil {
+			p.Topology.InventoryKey = inventory
+		}
+		return p, err
 	}
 	for _, r := range c.Routes {
 		current, ok := s.Assignments[r.Target]

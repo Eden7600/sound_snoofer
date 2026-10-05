@@ -1,43 +1,8 @@
 package tui
 
 import (
-	"fmt"
-
 	"sound-snoofer/internal/config"
 )
-
-const maxDeferredEdits = 64
-
-type settingEdit struct {
-	Row, Value string
-}
-
-func editsRow(action Action, row string) bool {
-	if len(action.Edits) == 0 {
-		return action.Row == row
-	}
-	for _, edit := range action.Edits {
-		if edit.Row == row {
-			return true
-		}
-	}
-	return false
-}
-
-func editBatch(intent *config.Intent, action Action) error {
-	if len(action.Edits) == 0 {
-		return editIntent(intent, action)
-	}
-	if len(action.Edits) > maxDeferredEdits {
-		return fmt.Errorf("too many queued settings")
-	}
-	for _, edit := range action.Edits {
-		if err := editIntent(intent, Action{Row: edit.Row, Value: edit.Value}); err != nil {
-			return err
-		}
-	}
-	return nil
-}
 
 func (s screen) choices() *config.Intent {
 	if s.draft != nil {
