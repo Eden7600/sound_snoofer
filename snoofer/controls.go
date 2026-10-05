@@ -2,6 +2,7 @@ package snoofer
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -14,8 +15,9 @@ import (
 
 // Control is an immutable snapshot. Operations are press, adjust or set.
 type Control struct {
-	Artwork                                     string // Optional base64 PNG thumbnail, square and at most 64px; immutable across snapshots.
-	ShortLabel                                  string // Optional label for icon-bearing compact surfaces.
+	ViewData                                    json.RawMessage `json:",omitempty"` // Optional provider-owned structured view; core treats it as opaque.
+	Artwork                                     string          // Optional base64 PNG thumbnail, square and at most 64px; immutable across snapshots.
+	ShortLabel                                  string          // Optional label for icon-bearing compact surfaces.
 	Meter                                       Meter
 	SurfaceOnly                                 bool
 	OptionLabels                                map[string]string
@@ -95,6 +97,7 @@ func (c *Controls) Publish(provider string, controls []Control, invoke func(cont
 			c.revision++
 			v.Revision = c.revision
 		}
+		v.ViewData = append(json.RawMessage(nil), v.ViewData...)
 		v.Options = append([]string(nil), v.Options...)
 		v.OptionLabels = maps.Clone(v.OptionLabels)
 		v.Operations = append([]string(nil), v.Operations...)
@@ -110,6 +113,7 @@ func (c *Controls) Snapshot() []Control {
 	out := make([]Control, 0, len(c.entries))
 	for _, e := range c.entries {
 		v := e.control
+		v.ViewData = append(json.RawMessage(nil), v.ViewData...)
 		v.Options = append([]string(nil), v.Options...)
 		v.OptionLabels = maps.Clone(v.OptionLabels)
 		v.Operations = append([]string(nil), v.Operations...)

@@ -224,6 +224,12 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 				reason += " — Unavailable"
 			}
 			add("preview", "Effective position", "status", reason, nil)
+			viewData, viewErr := json.Marshal(editorView(draft, editPage, slot, dirty, all))
+			if viewErr != nil {
+				status = viewErr.Error()
+			} else {
+				list[len(list)-1].ViewData = viewData
+			}
 			note := status
 			if dirty {
 				note = "Unsaved — " + note

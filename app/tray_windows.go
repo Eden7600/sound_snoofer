@@ -27,7 +27,7 @@ var trayIcon []byte
 // Run composes the supplied plugins and owns the desktop lifecycle.
 func Run(ctx context.Context, args []string, plugins ...snoofer.Plugin) error {
 	if len(args) == 1 && args[0] == "__controls" {
-		return RunControls(ctx)
+		return RunDesktop(ctx)
 	}
 	fs := flag.NewFlagSet("Snoofer", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)

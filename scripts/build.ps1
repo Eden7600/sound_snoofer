@@ -25,7 +25,7 @@ try {
         if ($selected -notcontains "no_soundboard") { & ./scripts/build-soundboard.ps1 }
     }
     $arguments = @("build", "-trimpath", "-ldflags", "-H=windowsgui", "-o", "bin/snoofer.exe")
-    if ($Tags) { $arguments += @("-tags", $Tags) }
+    $arguments += @("-tags", ("production " + $Tags).Trim())
     & $goPath @arguments ./cmd/snoofer
     if ($LASTEXITCODE -ne 0) { throw "Build failed. The only app output is bin/snoofer.exe." }
     Write-Output "Built: bin/snoofer.exe"
