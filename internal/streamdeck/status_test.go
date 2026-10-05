@@ -64,7 +64,7 @@ func TestBindingFeedbackAndAvailability(t *testing.T) {
 			t.Errorf("feedback leaked to %s", binding)
 		}
 	}
-	if view.Knobs[0] != baseline.Knobs[0] || view.Knobs[1] != baseline.Knobs[1] || view.Knobs[2].Value != "PENDING" {
+	if view.Knobs[0] != baseline.Knobs[0] || view.Knobs[1] != baseline.Knobs[1] || view.Knobs[2].Status != "WAIT" || view.Knobs[2].Value != baseline.Knobs[2].Value {
 		t.Fatal("gain feedback leaked", view.Knobs)
 	}
 	s.Feedback = nil
@@ -100,5 +100,19 @@ func TestNativeMuteIsScoped(t *testing.T) {
 	s.Intent.MicMuted = false
 	if keyValue(s, "mic-mute") != "On" {
 		t.Fatal("native mute hidden")
+	}
+}
+
+func TestGainErrorRetainsObservedDB(t *testing.T) {
+	s := statusFixture()
+	s.Snapshot.Numbers["Bus[1].Gain"] = -12.5
+	baseline := present(s, bindings)
+	s.Feedback = map[string]control.Feedback{"gain:A2": {Kind: control.NoticeError}}
+	view := present(s, bindings)
+	if view.Knobs[1].Value != "-12.5 DB" || view.Knobs[1].Status != "ERR" {
+		t.Fatal(view.Knobs[1])
+	}
+	if view.Keys != baseline.Keys || view.Knobs[0] != baseline.Knobs[0] || view.Knobs[2] != baseline.Knobs[2] {
+		t.Fatal("gain feedback affected unrelated controls")
 	}
 }

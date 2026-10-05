@@ -175,6 +175,9 @@ func (c *Controller) Step(ctx context.Context, live bool) time.Duration {
 			if err == nil {
 				err = c.Mixer.Reconcile(c.Backend, c.Config, p, s, !p.HasChanges())
 			}
+			if errors.Is(err, ErrMixerPending) {
+				return 20 * time.Millisecond
+			}
 			if err != nil {
 				c.event(Event{Kind: "error", Message: err.Error()})
 				return 100 * time.Millisecond
@@ -211,6 +214,9 @@ func (c *Controller) Step(ctx context.Context, live bool) time.Duration {
 			// A pass always starts a fresh debounce, including partial application.
 			c.pending = ""
 		}
+	}
+	if errors.Is(e, ErrMixerPending) {
+		return 20 * time.Millisecond
 	}
 	if e != nil {
 		c.retryWrite = attempted

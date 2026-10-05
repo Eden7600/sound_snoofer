@@ -1,7 +1,9 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -10,7 +12,11 @@ import (
 	"sound-snoofer/internal/model"
 	"sound-snoofer/internal/routing"
 	"strings"
+	"time"
 )
+
+// ErrMixerPending blocks dependent routes while native mute readback catches up.
+var ErrMixerPending = errors.New("mixer readback pending")
 
 type MixerBackend interface{ SetMixer(string, float32) error }
 type MuteOwnership struct {
@@ -148,7 +154,7 @@ func (m *Mixer) Reconcile(b Backend, c config.Config, p routing.Plan, s model.Sn
 			}
 			v, known := next.Numbers[param]
 			if !known || v != value {
-				return fmt.Errorf("mute pending verification: %s", param)
+				return fmt.Errorf("%w: %s", ErrMixerPending, param)
 			}
 		}
 		if !wanted[param] {
@@ -189,7 +195,10 @@ func GainIdentity(p *routing.Plan, s model.Snapshot, target string) string {
 	}
 	return param + "|" + s.Assignments[target]
 }
-func (c *Controller) Gain(target, identity string, delta float32, live bool) error {
+func (c *Controller) Gain(ctx context.Context, target, identity string, delta float32, live bool) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if math.IsNaN(float64(delta)) || math.IsInf(float64(delta), 0) || delta < -127 || delta > 127 {
 		return fmt.Errorf("invalid gain increment")
 	}
@@ -220,12 +229,24 @@ func (c *Controller) Gain(target, identity string, delta float32, live bool) err
 	if e = api.SetMixer(param, value); e != nil {
 		return e
 	}
-	s, e = c.observe(true)
-	if e != nil {
-		return e
+	deadline := c.Clock.Now().Add(100 * time.Millisecond)
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		s, e = c.observe(true)
+		if e != nil {
+			return e
+		}
+		if got, ok := s.Numbers[param]; ok && math.Abs(float64(got-value)) <= 0.01 {
+			return nil
+		}
+		remaining := deadline.Sub(c.Clock.Now())
+		if remaining <= 0 {
+			return fmt.Errorf("%s gain unverified", strings.TrimSuffix(param, ".Gain"))
+		}
+		if e = c.Clock.Wait(ctx, min(10*time.Millisecond, remaining)); e != nil {
+			return e
+		}
 	}
-	if got, ok := s.Numbers[param]; !ok || got != value {
-		return fmt.Errorf("%s gain unverified", strings.TrimSuffix(param, ".Gain"))
-	}
-	return nil
 }

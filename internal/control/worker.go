@@ -94,11 +94,13 @@ var Refresh = Action{Kind: refresh}
 
 type observed struct {
 	Client
-	snapshot model.Snapshot
+	snapshot  model.Snapshot
+	readError error
 }
 
 func (o *observed) Snapshot() (model.Snapshot, error) {
 	s, e := o.Client.Snapshot()
+	o.readError = e
 	if e == nil {
 		o.snapshot = s
 	}
@@ -110,6 +112,7 @@ func (o *observed) ParameterSnapshot() (model.Snapshot, error) {
 		return o.Snapshot()
 	}
 	s, e := b.ParameterSnapshot()
+	o.readError = e
 	if e == nil {
 		o.snapshot = s
 	}
@@ -334,7 +337,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				} else if ctl == nil {
 					err = fmt.Errorf("audio unavailable")
 				} else {
-					err = ctl.Gain(action.Target, action.Identity, action.Delta, state.Live)
+					err = ctl.Gain(ctx, action.Target, action.Identity, action.Delta, state.Live)
 				}
 				if err != nil {
 					state.SetNotice(err.Error(), NoticeError, time.Now())
@@ -524,7 +527,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		}
 		state.Snapshot = backend.snapshot
 		healthSnapshot := state.Snapshot
-		if state.Error != "" {
+		if backend.readError != nil {
 			healthSnapshot = model.Snapshot{}
 		}
 		state.Health = recovery.observe(healthSnapshot, time.Now())
@@ -537,19 +540,17 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 			revision++
 		}
 		state.Recorder = backend.snapshot.Recorder
-		// A successful read may still yield a routing conflict. Do not label the
-		// plan healthy on stale data after an error.
-		state.Connected = state.Error == ""
+		// Routing/write diagnostics do not mean the native observation was lost.
+		state.Connected = backend.readError == nil
 		if !state.Connected {
 			revision++
-			state.Recorder = &model.RecorderSnapshot{Error: state.Error}
+			state.Recorder = &model.RecorderSnapshot{Error: backend.readError.Error()}
 		}
 		state.Plan = nil
 		if state.Connected {
 			p, e := routing.Build(cfg, state.Snapshot)
 			if e != nil {
 				state.Error = e.Error()
-				state.Connected = false
 			} else {
 				state.Plan = &p
 			}

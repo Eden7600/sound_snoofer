@@ -75,7 +75,7 @@ var bindings = []string{"record-start", "record-stop", "record-computer", "recor
 var labels = []string{"RECORD", "STOP REC", "PC RECORD", "MIC REC", "MIC STAGE", "PLAY TAPE", "STOP TAPE", "LOOP", "TO VST", "MIC MUTE", "SPKR MUTE", "MONITOR", "VST MODE", "PREVIOUS", "PLAY/PAUSE", "NEXT", "STOP MEDIA", "CONTROLS"}
 
 type keyPresentation struct{ Label, Value string }
-type knobPresentation struct{ Target, Value, Name string }
+type knobPresentation struct{ Target, Value, Name, Status string }
 type presentation struct {
 	Keys  [Keys]keyPresentation
 	Knobs [3]knobPresentation
@@ -108,12 +108,13 @@ func present(s control.State, layout []string) presentation {
 		if s.Snapshot.Numbers[strings.TrimSuffix(p, "Gain")+"Mute"] == 1 {
 			value += " MUTE"
 		}
+		status := ""
 		if feedback, ok := s.Feedback["gain:"+target]; ok {
 			if feedback.Kind == control.NoticeError {
-				value = "ERROR"
+				status = "ERR"
 			}
 			if feedback.Kind == control.NoticePending {
-				value = "PENDING"
+				status = "WAIT"
 			}
 		}
 		name := s.Snapshot.Assignments[target]
@@ -123,7 +124,7 @@ func present(s control.State, layout []string) presentation {
 		if len(name) > 15 {
 			name = name[:15]
 		}
-		view.Knobs[n] = knobPresentation{Target: target, Value: value, Name: name}
+		view.Knobs[n] = knobPresentation{Target: target, Value: value, Name: name, Status: status}
 	}
 	return view
 }
@@ -144,6 +145,7 @@ func renderPresentation(view presentation) ([][]byte, []byte) {
 	touchImage := image.NewRGBA(image.Rect(0, 0, 1200, 100))
 	for n, knob := range view.Knobs {
 		text(touchImage, n*200+8, 12, 2, knob.Target, color.RGBA{30, 200, 220, 255})
+		text(touchImage, n*200+100, 12, 2, knob.Status, color.RGBA{255, 170, 60, 255})
 		text(touchImage, n*200+8, 40, 2, knob.Value, color.RGBA{240, 240, 240, 255})
 		text(touchImage, n*200+8, 72, 2, knob.Name, color.RGBA{150, 160, 170, 255})
 	}
