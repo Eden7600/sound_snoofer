@@ -1,4 +1,25 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Snoofer</title></head>
-<body style="background:#0e141b;color:#e3edf3;font-family:Segoe UI,sans-serif"><h1>Snoofer</h1><p>Connecting to plugins…</p></body></html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Snoofer</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<aside class="sidebar">
+ <div class="brand"><span class="brandmark">s</span><strong>snoofer</strong></div>
+ <div class="nav-caption">WORKSPACE</div>
+ <nav aria-label="Workspace">
+  <button data-screen="audio"><span>≋</span>Audio</button>
+  <button data-screen="soundboard"><span>▷</span>Soundboard</button>
+  <button data-screen="deck"><span>▦</span>Stream Deck</button>
+  <button data-screen="plugins"><span>◇</span>Plugins</button>
+  <button data-screen="diagnostics"><span>⌁</span>Diagnostics</button>
+ </nav>
+ <div class="sidebar-foot"><span id="connection" class="badge">Connecting</span><small>Plugin host</small></div>
+</aside>
+<main>
+ <header><div><div id="eyebrow" class="eyebrow">CONTROLS</div><h1 id="title">Audio</h1></div><div id="summary" class="header-status"></div></header>
+ <div id="notice" role="alert" hidden></div>
+ <div id="content" aria-busy="true"><div class="empty">Connecting to Snoofer…</div></div>
+</main>
+<dialog id="confirm"><h2>Apply changes?</h2><p id="confirm-text"></p><div class="actions"><button id="confirm-no">Cancel</button><button class="primary" id="confirm-yes">Apply & restart</button></div></dialog>
+<script type="module" src="app.js"></script>
+</body></html>
 

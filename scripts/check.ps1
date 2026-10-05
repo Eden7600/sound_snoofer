@@ -9,6 +9,8 @@ try {
 
     & $goPath test ./... -timeout 30s
     if ($LASTEXITCODE -ne 0) { throw "Tests failed" }
+    node --test app/web/model.test.mjs
+    if ($LASTEXITCODE -ne 0) { throw "GUI model tests failed" }
     & $goPath vet ./...
     if ($LASTEXITCODE -ne 0) { throw "Vet failed" }
     node node_modules/@fission-ai/openspec/bin/openspec.js validate --all --strict --no-interactive
