@@ -1,0 +1,2 @@
+# Design
+Use the expanded layout already captured for each frame, including generated overflow pages. Previous/current/next follow the existing cyclic page order. With one page all three names match; with two pages previous and next match. The sixth dial remains reserved. Map its three existing presentation strings to these names, render centered bounded text, and highlight the middle name using the active palette and larger text. Neighbor names use neutral smaller text. Long names truncate inside the 200px panel. Other dial displays and input behavior remain unchanged.

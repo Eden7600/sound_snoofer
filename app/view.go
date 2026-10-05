@@ -117,7 +117,7 @@ func (s screen) View() tea.View {
 	footer := "↑↓ select · Enter edit · Tab switch · +/- adjust · r retry · q close"
 	if s.editing {
 		section("Edit " + s.target.Label)
-		detail = "Choose a value; changes apply only after Enter."
+		detail = "Enter applies"
 		footer = "↑↓ choose · Enter apply · Esc cancel"
 		if len(s.options) > 0 {
 			for n, value := range s.options {
@@ -135,7 +135,7 @@ func (s screen) View() tea.View {
 		} else {
 			selectedLine = len(body)
 			body = append(body, row(s.text+"▏", "", inner, true, false))
-			detail = "Type a value · Backspace deletes"
+			detail = "Enter value"
 			footer = "Enter apply · Esc cancel"
 		}
 	} else if s.tab == 1 {
@@ -151,7 +151,7 @@ func (s screen) View() tea.View {
 			}
 			if n == s.selected {
 				selectedLine = len(body)
-				detail = id + " · " + s.state.Plugins[id] + " · Enter changes enablement"
+				detail = id + " · " + s.state.Plugins[id] + ""
 			}
 			body = append(body, row(id, value, inner, n == s.selected, !s.state.Enabled[id]))
 		}
@@ -215,6 +215,10 @@ func (s screen) View() tea.View {
 		detail = s.state.Confirmation
 		footer = "y confirm and restart · n / Esc cancel"
 	}
-	lines = append(lines, paint("38;5;179", fit(" "+detail, width)), paint("38;5;245", fit(" "+footer, width)))
+	detailColor := "38;5;252"
+	if s.state.Confirmation != "" {
+		detailColor = "38;5;179"
+	}
+	lines = append(lines, paint(detailColor, fit(" "+detail, width)), paint("38;5;245", fit(" "+footer, width)))
 	return finish(lines)
 }

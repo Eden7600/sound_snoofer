@@ -4,6 +4,7 @@ package streamdeck
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"sound-snoofer/snoofer"
 )
@@ -19,10 +20,11 @@ type Binding struct {
 
 // Page covers keys and the five user-assignable dials.
 type Page struct {
-	ID    string         `json:"id"`
-	Name  string         `json:"name"`
-	Keys  [Keys]Binding  `json:"keys"`
-	Dials [Dials]Binding `json:"dials"`
+	AutoControls string         `json:"auto_controls,omitempty"`
+	ID           string         `json:"id"`
+	Name         string         `json:"name"`
+	Keys         [Keys]Binding  `json:"keys"`
+	Dials        [Dials]Binding `json:"dials"`
 }
 
 // Layout reserves shared positions globally and the sixth dial for navigation.
@@ -123,6 +125,23 @@ func (l Layout) Validate(controls []snoofer.Control) error {
 			return fmt.Errorf("page IDs must be unique and names nonempty")
 		}
 		seen[p.ID] = true
+		if strings.Contains(p.ID, "~auto~") {
+			return fmt.Errorf("page ID uses reserved automatic suffix")
+		}
+		if p.AutoControls != "" {
+			if !strings.Contains(p.AutoControls, ".") {
+				return fmt.Errorf("automatic controls need a provider prefix")
+			}
+			free := 0
+			for n, b := range p.Keys {
+				if b.Control == "" && l.SharedKeys[n].Control == "" {
+					free++
+				}
+			}
+			if free == 0 {
+				return fmt.Errorf("automatic page needs a free key")
+			}
+		}
 		for n, b := range p.Keys {
 			if b.Control != "" && l.SharedKeys[n].Control != "" {
 				return fmt.Errorf("%s key %d conflicts with shared binding", p.Name, n+1)
@@ -151,4 +170,10 @@ func (l Layout) Validate(controls []snoofer.Control) error {
 		}
 	}
 	return nil
+}
+
+// pageNames follows the same cyclic order as navigation, including automatic pages.
+func (l Layout) pageNames(id string) [3]string {
+	current := l.effective(id).ID
+	return [3]string{l.effective(l.next(current, -1)).Name, l.effective(current).Name, l.effective(l.next(current, 1)).Name}
 }

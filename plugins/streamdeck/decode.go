@@ -11,10 +11,11 @@ import (
 // silently truncating JSON arrays into Go's fixed-size arrays.
 func (l *Layout) UnmarshalJSON(data []byte) error {
 	type page struct {
-		ID    string    `json:"id"`
-		Name  string    `json:"name"`
-		Keys  []Binding `json:"keys"`
-		Dials []Binding `json:"dials"`
+		AutoControls string    `json:"auto_controls,omitempty"`
+		ID           string    `json:"id"`
+		Name         string    `json:"name"`
+		Keys         []Binding `json:"keys"`
+		Dials        []Binding `json:"dials"`
 	}
 	var raw struct {
 		Home        string    `json:"home"`
@@ -35,7 +36,7 @@ func (l *Layout) UnmarshalJSON(data []byte) error {
 		if len(p.Keys) > Keys || len(p.Dials) > Dials {
 			return fmt.Errorf("page %s exceeds device positions; dial 6 is reserved", p.Name)
 		}
-		v := Page{ID: p.ID, Name: p.Name}
+		v := Page{ID: p.ID, Name: p.Name, AutoControls: p.AutoControls}
 		copy(v.Keys[:], p.Keys)
 		copy(v.Dials[:], p.Dials)
 		next.Pages = append(next.Pages, v)

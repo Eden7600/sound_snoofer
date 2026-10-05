@@ -117,7 +117,7 @@ func surfaceSession(parent context.Context, d *device, frames <-chan Frame, even
 		if haveFrame && frame == lastFrame {
 			return nil
 		}
-		tiles, touch := renderFrame(frame)
+		tiles, touch := renderChangedFrame(frame, lastFrame, previous)
 		all := append(tiles, touch)
 		for n, tile := range all {
 			if len(previous) == len(all) && bytes.Equal(previous[n], tile) {

@@ -86,6 +86,8 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			return settings.Layout
 		}
 		var shown map[string]snoofer.Control
+		var displayed Layout
+		var displayedPage Page
 		lastBindings := ""
 		publish := func() {
 			all := s.Controls.Snapshot()
@@ -93,8 +95,9 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			for _, c := range all {
 				shown[c.ID] = c
 			}
-			l := active()
+			l := active().expanded(all)
 			p := l.effective(page)
+			displayed, displayedPage = l, p
 			page = p.ID
 			var signature strings.Builder
 			for _, b := range p.Keys {
@@ -113,14 +116,18 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					return device.Tile{}
 				}
 				c, ok := shown[b.Control]
-				if !ok || !c.Available {
-					return device.Tile{Label: b.Label, Value: "Unavailable"}
+				if ok && !c.Available {
+					c.Status = "Unavailable"
+					return controlTile(c, "N/A", time.Now())
+				}
+				if !ok {
+					return device.Tile{Label: b.Label, Value: "N/A"}
 				}
 				value := c.Value
 				if c.Status != "" {
 					value = c.Status
 				}
-				return device.Tile{Label: c.Label, Value: value, Icon: c.Icon}
+				return controlTile(c, value, time.Now())
 			}
 			for n, b := range p.Keys {
 				frame.Keys[n] = tile(b)
@@ -128,7 +135,8 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			for n, b := range p.Dials {
 				frame.Dials[n] = tile(b)
 			}
-			frame.Dials[5] = device.Tile{Label: "PAGE", Value: p.Name, Icon: "Press for Home"}
+			names := l.pageNames(p.ID)
+			frame.Dials[5] = device.Tile{Label: names[0], Value: names[1], Icon: names[2]}
 			select {
 			case <-frames:
 			default:
@@ -189,6 +197,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			add("profile", "Device layout", "selection", editSerial, profiles, "set")
 			add("page", "Page", "selection", editPage, pages, "set")
 			add("name", "Rename page", "text", draft.Pages[selected].Name, nil, "set")
+			add("auto-controls", "Auto controls prefix", "text", draft.Pages[selected].AutoControls, nil, "set")
 			add("add", "New page (name)", "text", "", nil, "set")
 			add("delete", "Delete page", "command", "", nil, "press")
 			add("earlier", "Move page earlier", "command", "", nil, "press")
@@ -201,7 +210,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			}
 			add("shared", "Shared across pages", "toggle", value, nil, "press")
 			add("binding", "Binding (empty clears)", "selection", b.Control, ids, "set")
-			preview := draft.effective(editPage)
+			preview := draft.expanded(all).effective(editPage)
 			effective := preview.Keys[0]
 			if slot < Keys {
 				effective = preview.Keys[slot]
@@ -283,13 +292,14 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					if event.Press {
 						page = active().Home
 					} else {
-						page = active().next(page, event.Delta)
+						page = displayed.next(page, event.Delta)
 					}
 					generation++
 					publish()
 					continue
 				}
-				p := active().effective(page)
+				// Dispatch the binding actually displayed, even if the catalogue changed.
+				p := displayedPage
 				var b Binding
 				if event.Encoder >= 0 {
 					if event.Encoder >= Dials {
@@ -351,6 +361,9 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					}
 				case "page":
 					editPage = r.Value
+				case "auto-controls":
+					draft.Pages[draft.index(editPage)].AutoControls = strings.TrimSpace(r.Value)
+					dirty = true
 				case "name":
 					if strings.TrimSpace(r.Value) == "" {
 						err = fmt.Errorf("name is required")

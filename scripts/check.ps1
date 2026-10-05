@@ -1,17 +1,16 @@
-param([string]$Output = "bin/snoofer.exe", [switch]$Fuzz)
+param([switch]$Fuzz)
 $ErrorActionPreference = "Stop"
 Push-Location (Split-Path $PSScriptRoot -Parent)
+$previousCache = $env:GOCACHE
 try {
     $go = Get-Command go -ErrorAction SilentlyContinue
     if ($go) { $goPath = $go.Source } else { $goPath = "$env:ProgramFiles\Go\bin\go.exe" }
     $env:GOCACHE = Join-Path (Get-Location) ".local/go-build"
-    & ./scripts/build-monitor.ps1 -OutputDirectory (Split-Path $Output -Parent)
+
     & $goPath test ./... -timeout 30s
     if ($LASTEXITCODE -ne 0) { throw "Tests failed" }
     & $goPath vet ./...
     if ($LASTEXITCODE -ne 0) { throw "Vet failed" }
-    & $goPath build -trimpath -ldflags "-H=windowsgui" -o $Output ./cmd/snoofer
-    if ($LASTEXITCODE -ne 0) { throw "Build failed; use another output if the executable is running" }
     node node_modules/@fission-ai/openspec/bin/openspec.js validate --all --strict --no-interactive
     if ($LASTEXITCODE -ne 0) { throw "OpenSpec validation failed" }
     $cgo = & $goPath env CGO_ENABLED
@@ -27,5 +26,8 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "HID fuzz check failed" }
     }
     Write-Output "SKIPPED: native probes, GUI smoke, and audible/hardware acceptance are separate opt-in checks"
-    Write-Output "Built: $Output"
-} finally { Pop-Location }
+    & ./scripts/build.ps1
+} finally {
+    $env:GOCACHE = $previousCache
+    Pop-Location
+}

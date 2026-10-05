@@ -131,7 +131,7 @@ func TestEditorSaveAndInputGenerations(t *testing.T) {
 		t.Fatal("old page input replayed")
 	}
 	registry.Remove("test")
-	frame("Renamed", "Unavailable")
+	frame("Renamed", "N/A")
 	provider()
 	restored := frame("Renamed", "")
 	events <- device.Event{Encoder: -1, Key: 0, Press: true, Generation: current.Generation}

@@ -40,7 +40,7 @@ func Plugin() snoofer.Plugin {
 		queue := make(chan snoofer.Request, 8)
 		controls := []snoofer.Control{}
 		for _, name := range []string{"prev", "play", "next", "stop"} {
-			controls = append(controls, snoofer.Control{ID: "media." + name, Label: "Media " + name, Group: "Media", SurfaceOnly: true, Kind: "command", Icon: "media-" + name, Available: s.Live, Operations: []string{"press"}})
+			controls = append(controls, snoofer.Control{ID: "media." + name, Label: "Media " + name, ShortLabel: name, Group: "Media", SurfaceOnly: true, Kind: "command", Icon: "media-" + name, Available: s.Live, Operations: []string{"press"}})
 		}
 		publish := func(status string) {
 			for n := range controls {

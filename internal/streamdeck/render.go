@@ -2,10 +2,13 @@ package streamdeck
 
 import (
 	"bytes"
+	"encoding/base64"
 
 	"image"
 	"image/color"
+	"image/draw"
 	"image/jpeg"
+	"image/png"
 	"strings"
 )
 
@@ -32,12 +35,16 @@ func text(im *image.RGBA, x, y, scale int, s string, c color.RGBA) {
 	}
 }
 func render(lines []string, w, h int, on bool, icon string, fallback bool) []byte {
+	return renderArtwork(lines, w, h, on, icon, fallback, "")
+}
+
+func renderArtwork(lines []string, w, h int, on bool, icon string, fallback bool, artwork string) []byte {
 	// Supersample geometry; text remains aligned to the native key pixel grid.
 	const scale = 4
 	im := image.NewRGBA(image.Rect(0, 0, w*scale, h*scale))
-	background := color.RGBA{14, 20, 27, 255}
-	foreground := color.RGBA{227, 237, 243, 255}
-	accent := color.RGBA{135, 151, 163, 255}
+	background := backgroundColor
+	foreground := textColor
+
 	label, value := "", ""
 	if len(lines) > 0 {
 		label = lines[0]
@@ -45,19 +52,7 @@ func render(lines []string, w, h int, on bool, icon string, fallback bool) []byt
 	if len(lines) > 1 {
 		value = strings.ToUpper(lines[1])
 	}
-	if on || value == "LIVE" || value == "AUDIBLE" || value == "ELEMENT" || strings.Contains(value, "VST") {
-		accent = color.RGBA{58, 198, 225, 255}
-	}
-	if strings.HasSuffix(icon, "-muted") || icon == "record-stop" {
-		accent = color.RGBA{255, 105, 120, 255}
-	}
-	if value == "PENDING" || value == "UNAVAIL" || value == "ERROR" || fallback {
-		accent = color.RGBA{238, 183, 76, 255}
-	}
-	if value == "UNAVAILABLE" {
-		foreground = color.RGBA{80, 90, 100, 255}
-		accent = foreground
-	}
+	accent := keyAccent(value, icon, on, fallback)
 	switch value {
 	case "RECORDING":
 		value = "REC"
@@ -70,6 +65,9 @@ func render(lines []string, w, h int, on bool, icon string, fallback bool) []byt
 	case "UNAVAIL":
 		value = "N/A"
 	}
+	if fallback && accent == attentionColor && value != "WAIT" && value != "" {
+		value += "*"
+	}
 	rect := func(x, y, width, height int, c color.RGBA) {
 		for yy := y * scale; yy < (y+height)*scale; yy++ {
 			for xx := x * scale; xx < (x+width)*scale; xx++ {
@@ -78,17 +76,15 @@ func render(lines []string, w, h int, on bool, icon string, fallback bool) []byt
 		}
 	}
 	rect(0, 0, w, h, background)
-	if label != "" {
-		rect(3, 3, w-6, 1, accent)
-		rect(3, h-4, w-6, 1, accent)
-		rect(3, 3, 1, h-6, accent)
-		rect(w-4, 3, 1, h-6, accent)
-	}
+
 	ink := foreground
-	if accent.G > 180 && accent.B > 180 {
+	if accent != neutralColor {
 		ink = accent
 	}
-	iconDrawn := drawIcon(im, icon, ink)
+	iconDrawn := drawArtwork(im, artwork)
+	if !iconDrawn {
+		iconDrawn = drawIcon(im, icon, ink)
+	}
 	centered := func(s string, y, size int, c color.RGBA) {
 		runes := []rune(strings.ToUpper(s))
 		maxChars := (w - 14) / (6 * size)
@@ -153,30 +149,66 @@ func render(lines []string, w, h int, on bool, icon string, fallback bool) []byt
 }
 
 type keyPresentation struct {
+	Artwork            string
 	Label, Value, Icon string
 	Fallback           bool
 }
-type knobPresentation struct{ Target, Value, Name, Status string }
+type knobPresentation struct {
+	Target, Value, Name, Status string
+	Meter, LevelKnown           bool
+	LevelDB                     float64
+}
 type presentation struct {
 	Keys  [Keys]keyPresentation
 	Knobs [Encoders]knobPresentation
 }
 
+func renderKey(key keyPresentation) []byte {
+	var lines []string
+	if key.Label != "" {
+		lines = []string{key.Label, key.Value}
+	}
+	return renderArtwork(lines, 112, 112, key.Value == "On" || key.Value == "Recording", key.Icon, key.Fallback, key.Artwork)
+}
+
 func renderPresentation(view presentation) ([][]byte, []byte) {
 	tiles := make([][]byte, Keys)
 	for n, key := range view.Keys {
-		var lines []string
-		if key.Label != "" {
-			lines = []string{key.Label, key.Value}
-		}
-		tiles[n] = render(lines, 112, 112, key.Value == "On" || key.Value == "Recording", key.Icon, key.Fallback)
+		tiles[n] = renderKey(key)
 	}
+	return tiles, renderKnobs(view.Knobs)
+}
+
+func renderKnobs(knobs [Encoders]knobPresentation) []byte {
 	touchImage := image.NewRGBA(image.Rect(0, 0, 1200, 100))
-	for n, knob := range view.Knobs {
-		text(touchImage, n*200+8, 12, 2, knob.Target, color.RGBA{30, 200, 220, 255})
-		text(touchImage, n*200+100, 12, 2, knob.Status, color.RGBA{255, 170, 60, 255})
-		text(touchImage, n*200+8, 40, 2, knob.Value, color.RGBA{240, 240, 240, 255})
-		text(touchImage, n*200+8, 72, 2, knob.Name, color.RGBA{150, 160, 170, 255})
+	draw.Draw(touchImage, touchImage.Bounds(), &image.Uniform{backgroundColor}, image.Point{}, draw.Src)
+	for n, knob := range knobs {
+		panel := touchImage.SubImage(image.Rect(n*200, 0, (n+1)*200, 100)).(*image.RGBA)
+		if n == Encoders-1 {
+			// The reserved page dial carries previous/current/next in these fields.
+			for row, name := range []string{knob.Target, knob.Value, knob.Name} {
+				size, ink := 1, neutralColor
+				if row == 1 {
+					size, ink = 2, activeColor
+				}
+				runes := []rune(name)
+				limit := 184 / (6 * size)
+				if len(runes) > limit {
+					runes = append(runes[:limit-3], '.', '.', '.')
+				}
+				x := n*200 + (200-len(runes)*6*size+size)/2
+				text(panel, x, []int{12, 42, 76}[row], size, string(runes), ink)
+			}
+			continue
+		}
+		text(panel, n*200+8, 12, 2, knob.Target, activeColor)
+		text(panel, n*200+100, 12, 2, knob.Status, attentionColor)
+		text(panel, n*200+8, 40, 2, knob.Value, textColor)
+		if knob.Meter {
+			drawMeter(panel, n*200+8, knob)
+		} else {
+			text(panel, n*200+8, 72, 2, knob.Name, neutralColor)
+		}
 	}
 	rotated := image.NewRGBA(image.Rect(0, 0, 100, 1200))
 	for y := 0; y < 100; y++ {
@@ -186,5 +218,62 @@ func renderPresentation(view presentation) ([][]byte, []byte) {
 	}
 	var buf bytes.Buffer
 	jpeg.Encode(&buf, rotated, &jpeg.Options{Quality: 80})
-	return tiles, buf.Bytes()
+	return buf.Bytes()
+}
+
+func drawMeter(im *image.RGBA, x int, k knobPresentation) {
+	if !k.LevelKnown {
+		text(im, x, 72, 1, "LEVEL N/A", neutralColor)
+		return
+	}
+	for segment := 0; segment < 24; segment++ {
+		threshold := -60 + float64(segment)*2.5
+		c := meterQuietColor
+		if k.LevelDB > threshold {
+			c = meterGreenColor
+			if threshold >= -12 {
+				c = meterAmberColor
+			}
+			if threshold >= -3 {
+				c = meterRedColor
+			}
+		}
+		for yy := 68; yy < 81; yy++ {
+			for xx := x + segment*7; xx < x+segment*7+5; xx++ {
+				im.SetRGBA(xx, yy, c)
+			}
+		}
+	}
+	scale := neutralColor
+	text(im, x, 87, 1, "-60", scale)
+	text(im, x+75, 87, 1, "-30", scale)
+	text(im, x+114, 87, 1, "DBFS", scale)
+	text(im, x+162, 87, 1, "0", scale)
+}
+
+// drawArtwork accepts only the bounded thumbnail contract, never source files.
+func drawArtwork(im *image.RGBA, artwork string) bool {
+	if artwork == "" || len(artwork) > 32768 {
+		return false
+	}
+	data, err := base64.StdEncoding.DecodeString(artwork)
+	if err != nil {
+		return false
+	}
+	cfg, err := png.DecodeConfig(bytes.NewReader(data))
+	if err != nil || cfg.Width < 1 || cfg.Width != cfg.Height || cfg.Width > 64 {
+		return false
+	}
+	source, err := png.Decode(bytes.NewReader(data))
+	if err != nil {
+		return false
+	}
+	scale := im.Bounds().Dx() / 112
+	for y := 0; y < 64; y++ {
+		for x := 0; x < 64; x++ {
+			pixel := source.At(x*cfg.Width/64, y*cfg.Height/64)
+			draw.Draw(im, image.Rect((24+x)*scale, (20+y)*scale, (25+x)*scale, (21+y)*scale), &image.Uniform{pixel}, image.Point{}, draw.Over)
+		}
+	}
+	return true
 }
