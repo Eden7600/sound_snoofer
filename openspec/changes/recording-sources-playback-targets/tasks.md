@@ -1,0 +1,8 @@
+- [x] Confirm playback is direct sends only; Element is exclusively for live voice.
+- [ ] Verify native file loading and identity/completion readback against official Remote API documentation.
+- [ ] Implement PlaybackChoices, named clip config and backward-compatible migration.
+- [ ] Implement independent recorder target sends without changing live voice routing.
+- [ ] Implement verified load-and-play and observed transport state in shared actor.
+- [ ] Add TUI groups, named clip actions and deck soundboard row/bindings.
+- [ ] Add deterministic failure/transition tests, run full tests/vet/spec validation/build and TUI smoke.
+- [ ] Complete physical capture/playback and unchanged-live-voice acceptance.
