@@ -11,6 +11,7 @@ const (
 )
 
 func (s *State) SetNotice(text string, kind NoticeKind, now time.Time) {
+	s.noticeRevision++
 	s.Notice = text
 	s.NoticeKind = kind
 	s.NoticeUntil = time.Time{}

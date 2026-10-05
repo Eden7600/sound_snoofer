@@ -6,9 +6,10 @@ import (
 	"image"
 	"image/color"
 	"image/jpeg"
+	"strings"
+
 	"sound-snoofer/internal/control"
 	"sound-snoofer/internal/controller"
-	"strings"
 )
 
 // Five-column glyphs keep the device display independent of installed fonts.
@@ -73,39 +74,31 @@ func render(lines []string, w, h int, on bool) []byte {
 var bindings = []string{"record-start", "record-stop", "record-computer", "record-mic", "record-tap", "snippet-play", "snippet-stop", "record-loop", "record-vst", "mic-mute", "speaker-mute", "monitor", "mode", "media-prev", "media-play", "media-next", "media-stop", "open-controls"}
 var labels = []string{"RECORD", "STOP REC", "PC RECORD", "MIC REC", "MIC STAGE", "PLAY TAPE", "STOP TAPE", "LOOP", "TO VST", "MIC MUTE", "SPKR MUTE", "MONITOR", "VST MODE", "PREVIOUS", "PLAY/PAUSE", "NEXT", "STOP MEDIA", "CONTROLS"}
 
-func display(s control.State, layout []string) ([][]byte, []byte) {
-	tiles := make([][]byte, Keys)
-	for n := 0; n < Keys; n++ {
-		if n >= len(layout) || layout[n] == "" {
-			tiles[n] = render(nil, 112, 112, false)
+type keyPresentation struct{ Label, Value string }
+type knobPresentation struct{ Target, Value, Name string }
+type presentation struct {
+	Keys  [Keys]keyPresentation
+	Knobs [3]knobPresentation
+}
+
+func present(s control.State, layout []string) presentation {
+	view := presentation{}
+	for n, key := range layout {
+		if n >= Keys {
+			break
+		}
+		if key == "" {
 			continue
 		}
-		value := Value(s, layout[n])
-		if !s.Connected {
-			value = "UNAVAIL"
-		}
-		if layout[n] == "record-start" {
-			value = s.Recorder.State()
-		}
-		if !s.Live {
-			value = "PREVIEW"
-		}
-		label := strings.ToUpper(strings.ReplaceAll(layout[n], "-", " "))
-		for j, key := range bindings {
-			if layout[n] == key {
+		label := strings.ToUpper(strings.ReplaceAll(key, "-", " "))
+		for j, binding := range bindings {
+			if binding == key {
 				label = labels[j]
 				break
 			}
 		}
-		if s.NoticeKind == control.NoticeError && s.Notice != "" {
-			value = "ERROR"
-		}
-		if s.Plan != nil && s.Plan.HasChanges() {
-			value = "PENDING"
-		}
-		tiles[n] = render([]string{label, value}, 112, 112, value == "On" || value == "Recording")
+		view.Keys[n] = keyPresentation{Label: label, Value: keyValue(s, key)}
 	}
-	touchImage := image.NewRGBA(image.Rect(0, 0, 1200, 100))
 	for n, target := range []string{"A1", "A2", "mic"} {
 		p := controller.GainTarget(s.Plan, target)
 		value := "?"
@@ -115,8 +108,14 @@ func display(s control.State, layout []string) ([][]byte, []byte) {
 		if s.Snapshot.Numbers[strings.TrimSuffix(p, "Gain")+"Mute"] == 1 {
 			value += " MUTE"
 		}
-		text(touchImage, n*200+8, 12, 2, target, color.RGBA{30, 200, 220, 255})
-		text(touchImage, n*200+8, 40, 2, value, color.RGBA{240, 240, 240, 255})
+		if feedback, ok := s.Feedback["gain:"+target]; ok {
+			if feedback.Kind == control.NoticeError {
+				value = "ERROR"
+			}
+			if feedback.Kind == control.NoticePending {
+				value = "PENDING"
+			}
+		}
 		name := s.Snapshot.Assignments[target]
 		if target == "mic" && s.Plan != nil && s.Plan.Topology != nil && s.Plan.Topology.Voice != nil {
 			name = s.Plan.Topology.Voice.Effective
@@ -124,7 +123,29 @@ func display(s control.State, layout []string) ([][]byte, []byte) {
 		if len(name) > 15 {
 			name = name[:15]
 		}
-		text(touchImage, n*200+8, 72, 2, name, color.RGBA{150, 160, 170, 255})
+		view.Knobs[n] = knobPresentation{Target: target, Value: value, Name: name}
+	}
+	return view
+}
+
+func display(s control.State, layout []string) ([][]byte, []byte) {
+	return renderPresentation(present(s, layout))
+}
+
+func renderPresentation(view presentation) ([][]byte, []byte) {
+	tiles := make([][]byte, Keys)
+	for n, key := range view.Keys {
+		var lines []string
+		if key.Label != "" {
+			lines = []string{key.Label, key.Value}
+		}
+		tiles[n] = render(lines, 112, 112, key.Value == "On" || key.Value == "Recording")
+	}
+	touchImage := image.NewRGBA(image.Rect(0, 0, 1200, 100))
+	for n, knob := range view.Knobs {
+		text(touchImage, n*200+8, 12, 2, knob.Target, color.RGBA{30, 200, 220, 255})
+		text(touchImage, n*200+8, 40, 2, knob.Value, color.RGBA{240, 240, 240, 255})
+		text(touchImage, n*200+8, 72, 2, knob.Name, color.RGBA{150, 160, 170, 255})
 	}
 	rotated := image.NewRGBA(image.Rect(0, 0, 100, 1200))
 	for y := 0; y < 100; y++ {

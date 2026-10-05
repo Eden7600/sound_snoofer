@@ -5,7 +5,6 @@ package streamdeck
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"golang.org/x/sys/windows"
@@ -119,26 +118,21 @@ func serve(ctx context.Context, d *device, layout []string, states <-chan contro
 	}()
 	go func() {
 		defer wg.Done()
-		last := ""
+		var last presentation
+		havePresentation := false
 		var previous [][]byte
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case state := <-frames:
-				key, _ := json.Marshal(struct {
-					Status          string
-					Pending         bool
-					Intent          any
-					Numbers         any
-					Recorder        any
-					Live, Connected bool
-				}{state.Notice, state.Plan != nil && state.Plan.HasChanges(), state.Intent, state.Snapshot.Numbers, state.Recorder, state.Live, state.Connected})
-				if string(key) == last {
+				view := present(state, layout)
+				if havePresentation && view == last {
 					continue
 				}
-				last = string(key)
-				tiles, touch := display(state, layout)
+				last = view
+				havePresentation = true
+				tiles, touch := renderPresentation(view)
 				all := append(tiles, touch)
 				for n, tile := range all {
 					if len(previous) == len(all) && bytes.Equal(previous[n], tile) {

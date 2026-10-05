@@ -26,6 +26,8 @@ type Dependencies struct {
 	Load    func(string) (config.Config, error)
 }
 type State struct {
+	Feedback            map[string]Feedback
+	noticeRevision      uint64
 	ObservedAt          time.Time
 	VRMic               string
 	VRPlayback          string
@@ -206,6 +208,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		}}
 	}
 	publish := func() {
+		state.pruneFeedback(time.Now())
 		state.ObservedAt = time.Now()
 		if i := cfg.VoiceIntent(); i != nil {
 			r := windowsaudio.Request{Enabled: i.ProtectDefaults, Live: state.Live}
@@ -297,6 +300,8 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 			if action.Origin != "" {
 				state.EditError = ""
 			}
+			noticeRevision := state.noticeRevision
+			state.actionFeedback(action, NoticePending, time.Now())
 			switch action.Kind {
 			case restartEngine:
 				if !state.Live {
@@ -462,6 +467,11 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				}
 			case refresh:
 			}
+			resultKind := NoticeSuccess
+			if state.noticeRevision != noticeRevision && state.NoticeKind == NoticeError {
+				resultKind = NoticeError
+			}
+			state.actionFeedback(action, resultKind, time.Now())
 			if action.Origin != "" {
 				next := map[string]Ack{}
 				for k, v := range state.Acks {

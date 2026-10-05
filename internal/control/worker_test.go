@@ -39,8 +39,14 @@ func TestHardwareAckCannotOverwriteControls(t *testing.T) {
 	if s.EditAck != 10 || s.EditError != "" || s.Acks["deck"].Error == "" {
 		t.Fatal("ack cross-talk", s.Acks, s.EditAck, s.EditError)
 	}
+	if len(s.Feedback) != 1 || s.Feedback["mic-mute"].Kind != NoticeError {
+		t.Fatal("action error was not scoped", s.Feedback)
+	}
 	actions <- Action{Kind: Edit, Origin: "deck", ID: 2, Revision: s.Revision, Row: "mic-mute", Value: "false"}
 	s = next()
+	if len(s.Feedback) != 0 {
+		t.Fatal("successful retry retained error", s.Feedback)
+	}
 	if s.Acks["deck"].Error != "" || s.Intent.MicMuted {
 		t.Fatal(s.Acks)
 	}
