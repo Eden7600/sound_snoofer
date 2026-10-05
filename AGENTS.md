@@ -134,6 +134,7 @@ repository's Snoofer for builds without asking again. Prefer graceful exit when
 available; terminate Snoofer if needed, then restore its prior launch configuration
 after validation. Do not stop Voicemeeter, Element or unrelated apps. The build
 script itself refuses locked outputs; scripts/check.ps1 delegates builds to it.
+For development launches, do not leak automation-only NO_COLOR into Snoofer. If NO_COLOR is absent from both user and machine environment settings, temporarily clear the automation process value when starting Snoofer, then restore it. Preserve explicitly configured user color preferences.
 Report what changed, what was verified and any remaining limitations concisely.
 
 # Behavioural guidelines
