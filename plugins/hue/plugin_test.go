@@ -404,3 +404,43 @@ func TestCertificateChangeStopsConnection(t *testing.T) {
 		t.Fatalf("status %+v", c)
 	}
 }
+
+func TestRoomSceneSlots(t *testing.T) {
+	bridge := newFakeBridge(t, "b1", studio()...)
+	h := startHarness(t, bridge, paired(bridge, "room-1"), true)
+	first := h.waitControl("hue.room-scene-1", func(c snoofer.Control) bool { return c.Label == "Bright" })
+	if !first.Available || first.Icon != "hue-scene" || first.Value != "Ready" {
+		t.Fatalf("slot 1 %+v", first)
+	}
+	for _, id := range []string{"hue.room-scene-2", "hue.room-scene-12"} {
+		if c, ok := h.find(id); !ok || c.Available || c.Label != "" || c.ShortLabel != "" || c.Icon != "" {
+			t.Fatalf("%s should be blank: %+v", id, c)
+		}
+	}
+	if _, ok := h.find("hue.room-scene-13"); ok {
+		t.Fatal("more than twelve slots")
+	}
+
+	h.mustDispatch("hue.group", "set", 0, "zone-1")
+	h.waitControl("hue.room-scene-1", func(c snoofer.Control) bool { return c.Label == "Focus" })
+	stale := snoofer.Request{ID: first.ID, Revision: first.Revision, Operation: "press"}
+	if err := h.controls.Dispatch(context.Background(), stale); err == nil {
+		t.Fatal("press for the previous room's scene accepted")
+	}
+	bridge.update(resource{ID: "8b7e0d21-aaaa-bbbb-cccc-000000000002", Status: &sceneStatus{Active: "inactive"}})
+	h.value("hue.room-scene-1", "Ready")
+	h.mustDispatch("hue.room-scene-1", "press", 0, "")
+	h.value("hue.room-scene-1", "Active")
+	if puts := bridge.putLog(); len(puts) != 1 || !strings.HasPrefix(puts[0], "scene/8b7e0d21-aaaa-bbbb-cccc-000000000002:") {
+		t.Fatalf("writes %v", puts)
+	}
+}
+
+func TestRoomSceneSlotsBlankWithoutRoom(t *testing.T) {
+	bridge := newFakeBridge(t, "b1", studio()...)
+	h := startHarness(t, bridge, paired(bridge, ""), true)
+	h.value("hue.status", "Connected")
+	if c, _ := h.find("hue.room-scene-1"); c.Available || c.Label != "" {
+		t.Fatalf("slot without room %+v", c)
+	}
+}

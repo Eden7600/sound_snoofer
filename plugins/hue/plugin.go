@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -418,6 +419,8 @@ func (w *worker) handle(ctx context.Context, r snoofer.Request) {
 		w.handleSync(r)
 	case strings.HasPrefix(r.ID, "hue.scene-"):
 		w.recallScene(ctx, w.sceneForControl(r.ID))
+	case strings.HasPrefix(r.ID, "hue.room-scene-"):
+		w.recallScene(ctx, w.sceneForSlot(r.ID))
 	}
 }
 
@@ -817,18 +820,63 @@ func (w *worker) controls() []snoofer.Control {
 			continue // A colliding ID prefix would invalidate the whole snapshot.
 		}
 		seen[scene.ControlID] = true
-		value := "Ready"
-		if scene.Active {
-			value = "Active"
+		controls = append(controls, w.sceneControl(scene.ControlID, scene.Label, scene))
+	}
+	return append(controls, w.slotControls()...)
+}
+
+// roomSlots is the number of stable slots mirroring the selected room's scenes.
+const roomSlots = 12
+
+func (w *worker) sceneControl(id, label string, scene sceneInfo) snoofer.Control {
+	value := "Ready"
+	if scene.Active {
+		value = "Active"
+	}
+	status := w.sceneErr[scene.SceneID]
+	if _, waiting := w.scenePending[scene.SceneID]; waiting || w.sceneWriting == scene.SceneID || w.sync.sceneAfterStop == scene.SceneID {
+		status = "Pending"
+	}
+	return snoofer.Control{ID: id, Label: label, ShortLabel: scene.ShortLabel, Group: "Hue scenes", Kind: "command", Icon: "hue-scene",
+		Value: value, Status: status, Operations: []string{"press"}, Available: w.services.Live && w.connected}
+}
+
+// slotControls maps hue.room-scene-1..12 to the selected room's scenes. The
+// scene ID in ViewData changes the slot's revision whenever its mapping
+// changes, so input generated for a previous scene is rejected as stale.
+// Unused slots have no label or icon, which the deck renders as a blank key.
+func (w *worker) slotControls() []snoofer.Control {
+	var scenes []sceneInfo
+	if w.connected && w.settings.Group != "" {
+		scenes = w.model.roomScenes(w.settings.Group)
+	}
+	controls := make([]snoofer.Control, 0, roomSlots)
+	for n := 1; n <= roomSlots; n++ {
+		id := "hue.room-scene-" + strconv.Itoa(n)
+		if n > len(scenes) {
+			controls = append(controls, snoofer.Control{ID: id, Group: "Hue room scenes", Kind: "command", Operations: []string{"press"}})
+			continue
 		}
-		status := w.sceneErr[scene.SceneID]
-		if _, waiting := w.scenePending[scene.SceneID]; waiting || w.sceneWriting == scene.SceneID || w.sync.sceneAfterStop == scene.SceneID {
-			status = "Pending"
-		}
-		controls = append(controls, snoofer.Control{ID: scene.ControlID, Label: scene.Label, ShortLabel: scene.ShortLabel, Group: "Hue scenes", Kind: "command", Icon: "hue-scene",
-			Value: value, Status: status, Operations: []string{"press"}, Available: live && w.connected})
+		scene := scenes[n-1]
+		control := w.sceneControl(id, scene.ShortLabel, scene)
+		control.Group = "Hue room scenes"
+		control.ViewData = json.RawMessage(strconv.Quote(scene.SceneID))
+		controls = append(controls, control)
 	}
 	return controls
+}
+
+// sceneForSlot resolves a slot control to the scene it currently mirrors.
+func (w *worker) sceneForSlot(controlID string) string {
+	n, err := strconv.Atoi(strings.TrimPrefix(controlID, "hue.room-scene-"))
+	if err != nil || !w.connected || w.settings.Group == "" {
+		return ""
+	}
+	scenes := w.model.roomScenes(w.settings.Group)
+	if n < 1 || n > len(scenes) || n > roomSlots {
+		return ""
+	}
+	return scenes[n-1].SceneID
 }
 
 func (w *worker) brightnessValue(view groupView) string {

@@ -305,6 +305,23 @@ const kelvinStep = 100.0
 
 func mirekToKelvin(mirek int) float64 { return 1e6 / float64(mirek) }
 
+// roomScenes lists the scenes of one group sorted by name, as mapped to room slots.
+func (m model) roomScenes(groupID string) []sceneInfo {
+	var out []sceneInfo
+	for _, scene := range m.scenes() {
+		if group := m.resources[scene.SceneID].Group; group != nil && group.RID == groupID {
+			out = append(out, scene)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].ShortLabel != out[j].ShortLabel {
+			return out[i].ShortLabel < out[j].ShortLabel
+		}
+		return out[i].SceneID < out[j].SceneID
+	})
+	return out
+}
+
 // slug lowercases a name into control-ID characters.
 func slug(name string) string {
 	var b strings.Builder
