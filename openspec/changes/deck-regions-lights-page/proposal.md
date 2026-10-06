@@ -7,13 +7,14 @@ The Hue block takes 16 of the Home page's 36 keys, mostly room-scene slots that 
   - Hue controls move to their own page.
   - Home keeps Brightness (press toggles the room), the Brightness dial, Sync, Mode, Intensity and the new Motion key.
   - The Lights page adds the Room key and a region of the selected room's scenes.
+- **Room scope:** Snoofer controls only the rooms chosen on the Lights screen, in the GUI and on the deck. The Room key shows room names.
 - **Page regions:**
   - **Placement:** a page holds any number of rectangular regions, each filled from a named control collection (Soundboard clips, Room scenes, Scenes in a given room).
   - **Precedence:** manual and shared bindings win.
   - **Overflow:** it adds pages that repeat the fixed controls.
   - **Migration:** the legacy `auto_controls` prefix keeps working as a whole-page region.
 - **Control collections:** controls carry an optional `Collection` and `CollectionLabel`, so the editor can offer named sources instead of prefixes.
-- **Go-to page keys:** bindable `streamdeck.goto-<page>` keys jump straight to a page.
+- **Go-to page keys:** bindable `streamdeck.goto-<page>` keys on Home jump straight to a content page. There is no go-to key for Home; the page dial's press returns there.
 - **Editor:**
   - **Selection:** Shift+click or Shift+arrows select a rectangle of keys.
   - **Regions list:** the page panel lists regions, each with a source picker and Remove.

@@ -88,13 +88,13 @@ The personal layout is owned by the user, who asked for this change. It is edite
 - **Unchanged:** everything else, and the dials (Playback, Mic, —, —, Brightness).
 
 **Lights** (new page after Soundboard):
-- **r1:** Room, Brightness, Motion, Sync, Mode, Intensity, —, —, Home (go-to).
+- **r1:** Room, Brightness, Motion, Sync, Mode, Intensity; c7–c9 empty. The Room key is blank while only one room is chosen (§9).
 - **r2–r4:** region `hue.room-scenes` (27 cells).
 - **Dials:** Playback, Mic, —, —, Brightness. These match Home, so Brightness never moves.
 
 **Soundboard** (existing page, converted):
 - **r1–r4 c1–c8:** region `soundboard.clips` (32 cells).
-- **Column 9:** Overlap at r1, Home (go-to) at r3, Stop at r4 (where it is today).
+- **Column 9:** Overlap at r1 and Stop at r4 (where it is today).
 - **Dial 1:** Volume.
 
 ## 5. UX review
@@ -108,7 +108,7 @@ The personal layout is owned by the user, who asked for this change. It is edite
 4. **Blank versus N/A:**
    - Blank means not applicable now: a hidden control, an empty region cell or a room without sensors.
    - N/A means expected but unknown or unreachable.
-5. **One-step reach:** anything used mid-session is at most one press away from Home, through a go-to key or the page dial. Page cycling is for browsing, not reaching.
+5. **One-step reach from Home:** Home has go-to keys for the content pages, and the page dial's press returns Home. Content pages carry no Home key, so their keys stay for actions.
 6. **State words and the semantic palette are unchanged.** New icons use the existing primitives:
    - `hue-motion`: a dot with emanating arcs, slashed when Off.
    - `deck-page`: a folder tab with the page name as the label.
@@ -120,8 +120,8 @@ The personal layout is owned by the user, who asked for this change. It is edite
 | 2 | Film or game with Hue Sync | Motion sensors switch lights on mid-scene | Adopt: Motion key on Home |
 | 3 | Late night dimming or lights off | None: Brightness dial and press already work | Keep |
 | 4 | Long soundboard session | Prefix-only auto page; Stop position depends on free keys | Adopt: clips region inside a fixed frame (Stop, Overlap, Home, Volume) |
-| 5 | Switching rooms to set a scene elsewhere | The Room control is GUI-only | Adopt: Room key on Lights; scenes and Motion follow the room |
-| 6 | Reaching Lights from page 3 of the soundboard | Several dial detents | Adopt: go-to keys; dial press still returns Home |
+| 5 | Switching rooms to set a scene elsewhere | The Room control is GUI-only | Adopt: Room key on Lights, limited to the rooms Snoofer controls (§9); scenes and Motion follow the room |
+| 6 | Reaching Lights from page 3 of the soundboard | Several dial detents | Adopt: go-to keys on Home; the dial press returns Home, so there is no Home key |
 | 7 | Building a page in the editor | Must know and type `soundboard.clip-`; whole page only | Adopt: rectangle selection with a named source picker |
 | 8 | Reading key positions | Grid badges are zero-based; slot names and inspector are one-based | Adopt: one-based everywhere in the UI |
 | 9 | First launch for a new user | The default layout has Home only | Adopt: default Soundboard and Lights pages |
@@ -140,6 +140,7 @@ Candidates are recorded for later changes and are not implemented here.
   - The value is `Here` while that page (or one of its overflow pages) is shown.
 - **Press:** switches the device to that page. It is not persisted and doesn't change Home.
 - **Binding:** these are the only `streamdeck.` controls offered as bindings. A binding to a deleted page is unavailable, like any missing control.
+- **No Home key:** no go-to control is published for the Home page; the page dial's press already returns Home. A saved binding to it shows N/A.
 
 ## 7. Editor
 - **Range selection:**
@@ -157,3 +158,16 @@ Candidates are recorded for later changes and are not implemented here.
 
 ## 8. Default layout
 New installs get Home (as today) plus the Soundboard and Lights pages from §4, without the personal Hue block on Home. Existing saved layouts are never rewritten.
+
+## 9. Room scope
+Snoofer controls only the rooms the user chooses, everywhere.
+- **Setting:** Hue `rooms` lists room and zone IDs. Empty means unrestricted (a fresh install before any choice); the personal setting is Cody Office.
+- **Selection:** `hue.group` offers only chosen groups that exist. If the selected group is not chosen, the selection moves to the first chosen group by name and is saved.
+- **Scenes:** `hue.scene-*` controls are published only for chosen groups, so the Lights screen's Other rooms and per-room collections cover only those.
+- **Room key:** blank (Hidden) while fewer than two groups are chosen.
+- **Control `hue.rooms`:** Kind `text`, Operation `set`. The value is the comma-joined IDs; ViewData lists every room and zone with its name, kind and whether it is chosen. Setting it saves the list. An empty list is rejected: at least one room stays chosen.
+- **Not bindable:** text controls need text entry, so the deck never offers them as bindings and layout validation rejects them on keys.
+- **GUI:** the Lights screen has a Rooms card listing every room and zone with a checkbox. The last checked box is disabled.
+
+## 10. Option labels on keys
+Selection controls show their option label on keys, never the raw value. This fixes the Room key showing a room ID.

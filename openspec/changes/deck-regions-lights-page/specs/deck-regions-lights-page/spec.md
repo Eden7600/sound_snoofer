@@ -56,9 +56,35 @@ The Stream Deck SHALL offer a bindable key for each saved page. Pressing it SHAL
 - **WHEN** the Lights go-to key on Home is pressed
 - **THEN** the deck shows the Lights page, and the dial's press still returns Home
 
+#### Scenario: No Home key
+- **WHEN** the editor lists bindable controls
+- **THEN** no go-to key is offered for the Home page, because the page dial's press returns Home
+
 #### Scenario: Deleted page
 - **WHEN** a go-to key refers to a page that no longer exists
 - **THEN** the key is unavailable and pressing it does nothing
+
+### Requirement: Room scope
+Snoofer SHALL control only the Hue rooms and zones the user chooses. The choice SHALL be editable in the GUI and SHALL apply to both the GUI and the deck.
+
+#### Scenario: One room chosen
+- **WHEN** only Cody Office is chosen
+- **THEN** the GUI room picker offers only Cody Office, the deck Room key is blank, and only Cody Office scenes are offered
+
+#### Scenario: Selected room removed from the list
+- **WHEN** the selected room is unchecked while another room stays chosen
+- **THEN** the selection moves to the first chosen room by name and is saved
+
+#### Scenario: Last room
+- **WHEN** only one room is chosen
+- **THEN** it cannot be unchecked
+
+### Requirement: Option labels on keys
+Deck keys for selection controls SHALL show the option's label rather than its raw value.
+
+#### Scenario: Room key
+- **WHEN** two or more rooms are chosen and the Room key is shown
+- **THEN** it shows the room's name, never its ID
 
 ### Requirement: Region editor
 The GUI deck editor SHALL let the user select a rectangle of keys, create a region from it with a named source, change its source and remove it as a draft edit. It SHALL number keys from one throughout.

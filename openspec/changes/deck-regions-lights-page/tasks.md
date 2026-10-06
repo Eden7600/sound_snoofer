@@ -41,9 +41,27 @@ Each numbered block is one reviewable commit.
   - Migrate the personal layout (§4) with the editor or an equivalent stopped-host edit.
   - Relaunch and record the results.
 
+## Revisions after review
+- [x] 10. `docs(deck)`: revise the design: room scope, option labels on keys, and go-to keys on Home only. Update the contract.
+- [ ] 11. `fix(streamdeck)`: show option labels on selection keys. Includes a test.
+- [ ] 12. `refactor(streamdeck)`: no go-to key for the Home page; drop Home keys from the default content pages. Includes tests.
+- [ ] 13. `feat(hue)`: limit Snoofer to chosen rooms. Covers:
+  - the `rooms` setting and the `hue.rooms` control;
+  - filtered group options, scenes and fallback selection;
+  - the Room key blank with one room;
+  - text controls not bindable;
+  - the Lights Rooms card.
+
+  Fake-bridge tests and the GUI check cover it.
+- [ ] 14. Validate:
+  - the canonical build and checks;
+  - remove the Home keys from the personal Lights and Soundboard pages, and set rooms to Cody Office;
+  - relaunch and record.
+
 ## Hardware acceptance
 - [ ] 9. On the Stream Deck + XL and the bridge:
   - Home shows the slimmer Hue block with Motion, and the go-to keys reach Lights and Soundboard;
   - Motion pauses and restores the room's sensors (as confirmed in the Hue app);
-  - the Room key changes scenes and Motion together;
-  - soundboard overflow keeps Stop, Overlap and Home fixed.
+  - with only Cody Office chosen, the Room key is blank and only Cody Office appears in the GUI;
+  - with two rooms chosen, the Room key shows names and changes scenes and Motion together;
+  - soundboard overflow keeps Stop and Overlap fixed.
