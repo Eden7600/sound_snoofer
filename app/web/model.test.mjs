@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {compatible,tone,meterValue,gridMove} from "./model.mjs";
+import {compatible,tone,meterValue,gridMove,progressAt} from "./model.mjs";
 test("binding compatibility, semantic states and meter expiry",()=>{
  assert.equal(compatible({Operations:["press"]},true),false);
  assert.equal(compatible({Operations:["set"]},false),true);
@@ -64,4 +64,12 @@ test("meter ballistics and gain position",async()=>{
  assert.deepEqual(gainPosition("-6.0 dB"),{position:54/72,zero:60/72});
  assert.deepEqual(gainPosition("62%"),{position:0.62,zero:null});
  assert.equal(gainPosition("Off"),null);
+});
+test("media progress interpolates between samples",()=>{
+ const s={Status:"Playing",PositionMs:60000,DurationMs:62000,AtMs:1000,Rate:1};
+ assert.equal(progressAt(s,1500),60500);
+ assert.equal(progressAt(s,99999),62000,"clamped to the length");
+ assert.equal(progressAt({...s,Status:"Paused"},99999),60000,"paused does not advance");
+ assert.equal(progressAt({...s,Rate:2},1500),61000);
+ assert.equal(progressAt(undefined),0);
 });

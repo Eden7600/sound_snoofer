@@ -108,3 +108,12 @@ export function gainPosition(value) {
  if (pct) return {position:Math.min(1,Math.max(0,Number(pct[1])/100)),zero:null};
  return null;
 }
+
+// progressAt interpolates a session's position (ms) at now from its sample:
+// PositionMs at AtMs, advancing at Rate while playing, clamped to the length.
+export function progressAt(s, now=Date.now()) {
+ let position=s?.PositionMs||0;
+ if(s?.Status==="Playing"&&s.AtMs)position+=(now-s.AtMs)*(s.Rate>0?s.Rate:1);
+ if(s?.DurationMs>0)position=Math.min(position,s.DurationMs);
+ return Math.max(0,Math.round(position));
+}

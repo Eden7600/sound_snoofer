@@ -74,7 +74,7 @@ for(const [id,label] of [["prev","Previous track"],["next","Next track"],["toggl
 add("nowplaying.dial","Now playing","numeric","1:05 / 4:45",{Operations:["adjust","press"]});
 add("nowplaying.status","Now playing","status","2 sessions",{ViewData:{Windows:"Connected",Bridge:{Port:47815,Error:"",Refused:"Update the Snoofer Media extension in Firefox"},
  Browsers:[{Name:"Brave",Version:"1.0.0",Sessions:1}],
- Sessions:[{ID:"nowplaying.s-tab",Source:"Brave",App:"Brave · youtube.com",Title:"Video A",Artist:"Channel",Status:"Playing",PositionMs:65000,DurationMs:285000,Focused:true,CanToggle:true,CanNext:true,CanSeek:true,CanMute:true},
+ Sessions:[{ID:"nowplaying.s-tab",Source:"Brave",App:"Brave · youtube.com",Title:"Video A",Artist:"Channel",Status:"Playing",PositionMs:65000,AtMs:Date.now(),Rate:1,DurationMs:285000,Focused:true,CanToggle:true,CanNext:true,CanSeek:true,CanMute:true},
   {ID:"nowplaying.s-spotify",Source:"windows",App:"Spotify",Title:"Song",Artist:"Band",Album:"Album",Status:"Paused",PositionMs:0,DurationMs:200000,CanToggle:true,CanNext:true,CanPrev:true,CanSeek:true}]}});
 const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",streamdeck:"Running",vr:"Running",media:"Disabled",hue:"Running",appaudio:"Running",nowplaying:"Running"},Enabled:{audio:true,soundboard:true,streamdeck:true,vr:true,media:false,hue:true,appaudio:true,nowplaying:true}};
 (async()=>{
@@ -311,6 +311,13 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.waitForTimeout(300);
   await song.locator("[data-part=seek]").fill("90000");
   assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Operation,r.Value];}),["nowplaying.s-spotify","set","90000"]);
+  // After a seek the slider follows the session again, even while focused.
+  await page.evaluate(()=>{const s=window.fixture.Controls.find(c=>c.ID==="nowplaying.status").ViewData.Sessions[1];s.PositionMs=120000;});
+  await page.waitForFunction(()=>document.querySelectorAll("[data-part=seek]")[1].value==="120000",null,{polling:50});
+  // A playing session advances between polls.
+  const first=Number(await tab.locator("[data-part=seek]").inputValue());
+  await page.waitForTimeout(1200);
+  assert.ok(Number(await tab.locator("[data-part=seek]").inputValue())>=first+1000,"playing progress did not advance");
   await page.waitForTimeout(300);
   await song.locator("[data-part=focus]").click();
   assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Value];}),["nowplaying.focus","nowplaying.s-spotify"]);

@@ -1,4 +1,4 @@
-import {controlsByID,compatible,tone,meterValue,meterBallistics,gainPosition,display,gridMove,numericValue,sceneRoom,relativeTime,timeValue,stale,connectionTone,connectionText} from "./model.mjs";
+import {progressAt,controlsByID,compatible,tone,meterValue,meterBallistics,gainPosition,display,gridMove,numericValue,sceneRoom,relativeTime,timeValue,stale,connectionTone,connectionText} from "./model.mjs";
 import {icon} from "./icons.mjs";
 
 const $=s=>document.querySelector(s);
@@ -485,7 +485,12 @@ function mediaCard(id,parent){
  card.dataset.part="media-session";text.append(title,artist,source);head.append(art,text);
  const seek=el("input","w-full accent-active");seek.type="range";seek.min="0";seek.step="1000";seek.dataset.part="seek";
  const times=el("div","flex justify-between text-[11px] text-muted tabular-nums"),elapsed=el("span"),length=el("span");times.append(elapsed,length);
- seek.onchange=()=>request(c(id),"set",seek.value);
+ // While dragged the slider keeps the pointer's position; afterwards it follows
+ // the session again (focus alone would freeze it after one drag).
+ let dragging=false;
+ seek.onpointerdown=()=>{dragging=true;};
+ seek.onpointerup=seek.onpointercancel=()=>{dragging=false;};
+ seek.onchange=()=>{dragging=false;request(c(id),"set",seek.value);};
  const actions=el("div",ui.actions),status=el("small","text-[11px]");
  const prev=iconButton("skip-back","Previous",()=>press("nowplaying.prev")),play=iconButton("play","Play or pause",()=>press(id)),next=iconButton("skip-forward","Next",()=>press("nowplaying.next"));
  const mute=button("Mute",()=>press("nowplaying.mute"),ui.toggle+" "+ui.small),focus=button("Focus",()=>request(c("nowplaying.focus"),"set",id),ui.small);
@@ -499,8 +504,9 @@ function mediaCard(id,parent){
   source.textContent=s.App||"";card.dataset.focused=String(!!s.Focused);
   play.replaceChildren(icon(s.Status==="Playing"?"pause":"play","size-4 shrink-0"));play.setAttribute("aria-label",(s.Status==="Playing"?"Pause ":"Play ")+(s.Title||s.App||""));
   seek.hidden=times.hidden=!s.DurationMs;seek.max=String(s.DurationMs||0);seek.setAttribute("aria-label","Seek "+(s.Title||s.App||""));
-  if(document.activeElement!==seek)seek.value=String(s.PositionMs||0);
-  elapsed.textContent=clock(s.PositionMs);length.textContent=clock(s.DurationMs);
+  const position=dragging?Number(seek.value):progressAt(s);
+  if(!dragging)seek.value=String(position);
+  elapsed.textContent=clock(position);length.textContent=clock(s.DurationMs);
   prev.hidden=!s.Focused||!s.CanPrev;next.hidden=!s.Focused||!s.CanNext;mute.hidden=!s.Focused||!s.CanMute;focus.hidden=!!s.Focused;
   mute.textContent=s.Muted?"Muted":"Mute";mute.setAttribute("aria-pressed",String(!!s.Muted));mute.dataset.tone=s.Muted?"critical":"";
   status.textContent=s.Pending?"Wait":s.Failure||"";status.className="text-[11px] "+(s.Failure?"text-critical":"text-attention");
