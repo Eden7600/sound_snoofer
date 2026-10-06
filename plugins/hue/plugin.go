@@ -14,8 +14,9 @@ import (
 	"sound-snoofer/snoofer"
 )
 
-// Settings configures the Hue plugin. Pairing writes the bridge identity, key
-// and certificate pin; the GUI writes Group. Empty strings mean not configured.
+// Settings configures both halves of the Hue plugin. Pairing writes the bridge
+// identity, key and certificate pin; the Lights screen writes Group. Empty
+// strings mean not configured.
 type Settings struct {
 	Address           string `json:"address"`
 	BridgeID          string `json:"bridge_id"`
@@ -23,6 +24,7 @@ type Settings struct {
 	CertificateSHA256 string `json:"certificate_sha256"`
 	Group             string `json:"group"`
 	NeutralKelvin     int    `json:"neutral_kelvin"`
+	SyncPort          *int   `json:"sync_port,omitempty"` // Hue Sync third-party control port; nil means 24851.
 }
 
 // Plugin returns inert metadata; no network activity occurs until Start.
@@ -46,6 +48,9 @@ func decode(raw json.RawMessage) (Settings, error) {
 	}
 	if s.NeutralKelvin < 2000 || s.NeutralKelvin > 6500 {
 		return s, fmt.Errorf("hue neutral_kelvin must be 2000-6500")
+	}
+	if s.SyncPort != nil && (*s.SyncPort < 1 || *s.SyncPort > 65535) {
+		return s, fmt.Errorf("hue sync_port must be 1-65535")
 	}
 	if strings.ContainsAny(s.Address, " /\\\x00") {
 		return s, fmt.Errorf("hue address must be a host name or IP address")
@@ -95,7 +100,7 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, discove
 	return i, nil
 }
 
-// worker owns all bridge state. Child goroutines perform network I/O and
+// worker owns all bridge and Hue Sync state. Child goroutines perform network I/O and
 // return their results as functions executed on the worker goroutine.
 type worker struct {
 	services   snoofer.Services
@@ -132,6 +137,8 @@ type worker struct {
 	sceneWriting string               // Scene ID with a recall request in flight.
 	scenePending map[string]time.Time // Recalled scenes awaiting an active status.
 	sceneErr     map[string]string
+
+	sync syncLink // Hue Sync PC app half.
 }
 
 func newWorker(s snoofer.Services, settings Settings, raw json.RawMessage, discover discoverFunc, t timing) *worker {
@@ -155,6 +162,7 @@ func newWorker(s snoofer.Services, settings Settings, raw json.RawMessage, disco
 		status:       "Disconnected",
 		scenePending: map[string]time.Time{},
 		sceneErr:     map[string]string{},
+		sync:         syncLink{url: syncURL(settings)},
 	}
 }
 
@@ -162,9 +170,11 @@ func (w *worker) run(ctx context.Context) {
 	defer w.services.Controls.Remove("hue")
 	defer w.closeClient()
 	defer w.children.Wait() // Children observe ctx, which Stop has canceled.
+	defer w.syncClose()     // Runs first, unblocking the sync reader before Wait.
 	ticker := time.NewTicker(50 * time.Millisecond)
 	defer ticker.Stop()
 	w.connect(ctx)
+	w.syncConnect(ctx)
 	w.publish()
 	for {
 		select {
@@ -365,6 +375,9 @@ func (w *worker) tick(ctx context.Context, now time.Time) bool {
 			changed = true
 		}
 	}
+	if w.syncTick(ctx, now) {
+		changed = true
+	}
 	return changed
 }
 
@@ -401,8 +414,10 @@ func (w *worker) handle(ctx context.Context, r snoofer.Request) {
 		w.adjustBrightness(r)
 	case r.ID == "hue.temperature":
 		w.adjustTemperature(r)
+	case strings.HasPrefix(r.ID, "hue.sync"):
+		w.handleSync(r)
 	case strings.HasPrefix(r.ID, "hue.scene-"):
-		w.recallScene(ctx, r.ID)
+		w.recallScene(ctx, w.sceneForControl(r.ID))
 	}
 }
 
@@ -448,6 +463,10 @@ func (w *worker) effectiveOn(view groupView) (on, known bool) {
 }
 
 func (w *worker) adjustBrightness(r snoofer.Request) {
+	if r.Operation == "adjust" && w.syncing() {
+		w.sync.stepsDue += r.Delta * syncBrightnessStep // The sync stream owns the lights.
+		return
+	}
 	view := w.view()
 	if view.GroupedLight == "" {
 		return
@@ -491,6 +510,9 @@ func (w *worker) adjustBrightness(r snoofer.Request) {
 }
 
 func (w *worker) adjustTemperature(r snoofer.Request) {
+	if w.syncing() {
+		return // The sync stream overrides temperature.
+	}
 	view := w.view()
 	if view.GroupedLight == "" || !view.CTCapable {
 		return
@@ -604,26 +626,44 @@ func observedTemperature(view groupView) string {
 	return "N/A"
 }
 
-func (w *worker) recallScene(ctx context.Context, controlID string) {
-	if !w.connected || w.sceneWriting != "" {
-		return
-	}
-	var scene sceneInfo
+func (w *worker) sceneForControl(controlID string) string {
 	for _, s := range w.model.scenes() {
 		if s.ControlID == controlID {
-			scene = s
+			return s.SceneID
 		}
 	}
-	if scene.SceneID == "" {
+	return ""
+}
+
+// recallScene recalls a scene. While Hue Sync is syncing, the stream would
+// override the scene, so sync is stopped first and the recall waits for the
+// app to confirm.
+func (w *worker) recallScene(ctx context.Context, sceneID string) {
+	if !w.connected || sceneID == "" || w.sceneWriting != "" || w.sync.sceneAfterStop != "" {
 		return
 	}
-	w.sceneWriting = scene.SceneID
-	delete(w.sceneErr, scene.SceneID)
-	delete(w.scenePending, scene.SceneID)
+	delete(w.sceneErr, sceneID)
+	delete(w.scenePending, sceneID)
+	if w.syncing() {
+		if w.syncSet(false) {
+			w.sync.sceneAfterStop = sceneID
+			w.sync.sceneStopAt = time.Now()
+		}
+		return
+	}
+	w.sendRecall(ctx, sceneID)
+}
+
+func (w *worker) sendRecall(ctx context.Context, sceneID string) {
+	if !w.connected {
+		w.sceneErr[sceneID] = "Bridge disconnected"
+		return
+	}
+	w.sceneWriting = sceneID
 	client, generation := w.client, w.generation
 	w.spawn(ctx, func(ctx context.Context) func(context.Context) {
-		err := client.Put(ctx, "scene", scene.SceneID, map[string]any{"recall": map[string]string{"action": "active"}})
-		return func(context.Context) { w.sceneRecalled(generation, scene.SceneID, err) }
+		err := client.Put(ctx, "scene", sceneID, map[string]any{"recall": map[string]string{"action": "active"}})
+		return func(context.Context) { w.sceneRecalled(generation, sceneID, err) }
 	})
 }
 
@@ -748,17 +788,29 @@ func (w *worker) controls() []snoofer.Control {
 		knobNote = "Room missing"
 	}
 	ready := live && w.connected && view.GroupedLight != ""
+	syncing := w.syncing()
 	brightness := snoofer.Control{ID: "hue.brightness", Label: "Hue brightness", ShortLabel: "Brightness", Group: "Hue", Kind: "numeric", Icon: "hue-brightness",
 		Value: w.brightnessValue(view), Status: firstNonEmpty(knobNote, w.brightErr), Subdued: w.group.on != nil || w.group.brightness != nil,
 		Operations: []string{"adjust", "press"}, Available: ready}
+	if syncing {
+		// While syncing the dial adjusts the stream; a press still toggles the room.
+		brightness.Value = w.syncBrightnessLabel()
+		brightness.Status = ""
+		brightness.Subdued = w.sync.stepsDue != 0
+		brightness.Available = live
+	}
 	temperatureNote := firstNonEmpty(knobNote, w.tempErr)
 	if knobNote == "" && w.connected && view.GroupedLight != "" && !view.CTCapable {
 		temperatureNote = "No white ambiance lights"
 	}
 	temperature := snoofer.Control{ID: "hue.temperature", Label: "Hue temperature", ShortLabel: "Temp", Group: "Hue", Kind: "numeric", Icon: "hue-temperature",
 		Value: w.temperatureValue(view), Status: temperatureNote, Subdued: w.group.mirek != nil,
-		Operations: []string{"adjust", "press"}, Available: ready && view.CTCapable}
+		Operations: []string{"adjust", "press"}, Available: ready && view.CTCapable && !syncing}
+	if syncing {
+		temperature.Status = "Sync active"
+	}
 	controls = append(controls, brightness, temperature)
+	controls = append(controls, w.syncControls()...)
 	seen := map[string]bool{}
 	for _, scene := range w.model.scenes() {
 		if seen[scene.ControlID] {
@@ -770,7 +822,7 @@ func (w *worker) controls() []snoofer.Control {
 			value = "Active"
 		}
 		status := w.sceneErr[scene.SceneID]
-		if _, waiting := w.scenePending[scene.SceneID]; waiting || w.sceneWriting == scene.SceneID {
+		if _, waiting := w.scenePending[scene.SceneID]; waiting || w.sceneWriting == scene.SceneID || w.sync.sceneAfterStop == scene.SceneID {
 			status = "Pending"
 		}
 		controls = append(controls, snoofer.Control{ID: scene.ControlID, Label: scene.Label, ShortLabel: scene.ShortLabel, Group: "Hue scenes", Kind: "command", Icon: "hue-scene",

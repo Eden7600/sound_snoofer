@@ -13,7 +13,7 @@ Each numbered block is one reviewable commit.
 ## Revision 2 (after first use)
 - [x] 12. `docs(hue)`: respecify: merged plugin, multi-interface discovery, Lights screen, enable-only Plugins page, scene slots, blank slots, personal Home layout, and the contract correction for Home dial index 2.
 - [x] 13. `fix(hue)`: query mDNS on every multicast IPv4 interface. Unit-test the interface filter and report the found bridge while unpaired.
-- [ ] 14. `refactor(hue)!`: merge Hue Sync into the hue plugin with `sync_port` and `hue.sync*` controls; remove `plugins/huesync` and `no_huesync`. Tests cover the brightness dial while syncing, scene-stops-sync with confirmation and timeout, temperature while syncing, and the existing sync scenarios.
+- [x] 14. `refactor(hue)!`: merge Hue Sync into the hue plugin with `sync_port` and `hue.sync*` controls; remove `plugins/huesync` and `no_huesync`. Tests cover the brightness dial while syncing, scene-stops-sync with confirmation and timeout, temperature while syncing, and the existing sync scenarios.
 - [ ] 15. `feat(hue)`: room scene slots, with tests for room change, blanks and stale slot presses.
 - [ ] 16. `feat(streamdeck)`: blank empty-slot keys, with presentation tests; correct the contract wording for the Home dials.
 - [ ] 17. `feat(gui)`: Lights screen and enable-only Plugins page. Update check-gui fixtures and screenshots, the UI contract and docs/plugins.md.

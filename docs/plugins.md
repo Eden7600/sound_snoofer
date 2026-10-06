@@ -1,6 +1,6 @@
 # Snoofer plugins
 
-Snoofer is a Windows host with optional compiled audio, VR, Stream Deck, Windows media, Hue and Hue Sync plugins. The repository directory remains sound_snoofer and the Go module remains sound-snoofer. No runtime loader, sandbox or process isolation is provided: plugins are trusted Go code.
+Snoofer is a Windows host with optional compiled audio, VR, Stream Deck, Windows media and Hue plugins. The repository directory remains sound_snoofer and the Go module remains sound-snoofer. No runtime loader, sandbox or process isolation is provided: plugins are trusted Go code.
 
 Build from the repository:
 
@@ -10,7 +10,7 @@ Build from the repository:
 ./scripts/build.ps1 -Tags no_audio
 ```
 
-Available exclusions: no_audio (also excludes VR and soundboard), no_vr, no_streamdeck, no_soundboard, no_media, no_hue and no_huesync. Core excludes all built-ins and does not build or load the audio companion. The default build includes snoofer-audio-monitor.dll; the Voicemeeter vendor DLL is never distributed.
+Available exclusions: no_audio (also excludes VR and soundboard), no_vr, no_streamdeck, no_soundboard, no_media and no_hue. Core excludes all built-ins and does not build or load the audio companion. The default build includes snoofer-audio-monitor.dll; the Voicemeeter vendor DLL is never distributed.
 
 Launch bin/snoofer.exe. Its adjacent configuration is snoofer.json. A new installation creates disabled plugin entries with inert defaults. Existing personal configurations are converted manually; the application does not attempt migration. --config selects another envelope, --dry-run prevents audio writes, and --check validates the envelope, enabled plugin settings and dependencies without starting devices.
 

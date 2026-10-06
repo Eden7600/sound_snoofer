@@ -19,6 +19,10 @@ var testTiming = timing{
 	retryBase:   50 * time.Millisecond,
 	retryMax:    200 * time.Millisecond,
 	rediscover:  time.Hour,
+
+	syncDial:          time.Second,
+	syncWrite:         time.Second,
+	syncBrightnessGap: 60 * time.Millisecond,
 }
 
 type harness struct {
@@ -37,6 +41,11 @@ func paired(b *fakeBridge, group string) Settings {
 
 func startHarness(t *testing.T, bridge *fakeBridge, settings Settings, live bool) *harness {
 	t.Helper()
+	if settings.SyncPort == nil {
+		// Never reach a real Hue Sync app installed on the test machine.
+		port := closedPort(t)
+		settings.SyncPort = &port
+	}
 	h := &harness{t: t, controls: snoofer.NewControls(), bridge: bridge, saved: settings}
 	raw, err := json.Marshal(settings)
 	if err != nil {

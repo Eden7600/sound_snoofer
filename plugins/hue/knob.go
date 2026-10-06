@@ -21,6 +21,10 @@ type timing struct {
 	retryBase   time.Duration // First reconnect delay; doubles to retryMax.
 	retryMax    time.Duration
 	rediscover  time.Duration // Delay after no or ambiguous discovery.
+
+	syncDial          time.Duration
+	syncWrite         time.Duration
+	syncBrightnessGap time.Duration // Minimum interval between coalesced inc_bri commands.
 }
 
 var defaultTiming = timing{
@@ -31,6 +35,10 @@ var defaultTiming = timing{
 	retryBase:   time.Second,
 	retryMax:    30 * time.Second,
 	rediscover:  60 * time.Second,
+
+	syncDial:          3 * time.Second,
+	syncWrite:         time.Second,
+	syncBrightnessGap: 100 * time.Millisecond,
 }
 
 func nextBrightness(base float64, ticks int) float64 {
