@@ -1,6 +1,6 @@
 # Snoofer plugins
 
-Snoofer is a Windows host with optional compiled audio, VR, Stream Deck and Windows media plugins. The repository directory remains sound_snoofer and the Go module remains sound-snoofer. No runtime loader, sandbox or process isolation is provided: plugins are trusted Go code.
+Snoofer is a Windows host with optional compiled audio, VR, Stream Deck, Windows media, Hue and Hue Sync plugins. The repository directory remains sound_snoofer and the Go module remains sound-snoofer. No runtime loader, sandbox or process isolation is provided: plugins are trusted Go code.
 
 Build from the repository:
 
@@ -10,7 +10,7 @@ Build from the repository:
 ./scripts/build.ps1 -Tags no_audio
 ```
 
-Available exclusions: no_audio (also excludes VR and soundboard), no_vr, no_streamdeck, no_soundboard and no_media. Core excludes all built-ins and does not build or load the audio companion. The default build includes snoofer-audio-monitor.dll; the Voicemeeter vendor DLL is never distributed.
+Available exclusions: no_audio (also excludes VR and soundboard), no_vr, no_streamdeck, no_soundboard, no_media, no_hue and no_huesync. Core excludes all built-ins and does not build or load the audio companion. The default build includes snoofer-audio-monitor.dll; the Voicemeeter vendor DLL is never distributed.
 
 Launch bin/snoofer.exe. Its adjacent configuration is snoofer.json. A new installation creates disabled plugin entries with inert defaults. Existing personal configurations are converted manually; the application does not attempt migration. --config selects another envelope, --dry-run prevents audio writes, and --check validates the envelope, enabled plugin settings and dependencies without starting devices.
 
@@ -50,6 +50,22 @@ Soundboard depends on Audio, not Stream Deck. Enable audio.settings.soundboard_i
 MP3 files directly in the folder become semantic clip controls and refresh every five seconds. Playback matches sample peaks to -1 dBFS using one constant gain per clip. Intentional perceived-loudness differences and dynamics remain; there is no loudness leveling or compression. Original MP3s are untouched. The first press prepares a cached WAV (Wait); later presses reuse it. Stop/replacement cancels pending work. Copies live under soundboard-cache/peak-v1 beside the config; changed/deleted sources invalidate obsolete copies. Normalization supports mono/stereo PCM up to 64 MiB decoded; preparation failures do not fall back to raw playback. Matching artwork is optional: clip.mp3 uses clip.png, clip.jpg, clip.jpeg, clip.webp or clip.gif (in that priority, case-insensitive). The decoder recognizes PNG/JPEG/WebP/GIF content even when the extension is misleading. Images must be at most 4096px per dimension and 8 MiB; rectangles fit proportionally without cropping or stretching. GIFs use the first frame as a static icon. They replace the central icon while the name and state remain visible; missing/invalid images use the play icon. Artwork additions, replacements and removals refresh with the catalogue. Pressing any clip replaces the current one; Stop ends playback. soundboard.volume adjusts VAIO3 gain (-60 to +12 dB) for both destinations; pressing resets to 0 dB without muting. The personal Soundboard page binds it to the first dial. Errors appear in Soundboard controls; there is no automatic retry or default-device fallback. Preview never loads the player. Quitting stops clips and releases playback resources. If soundboard is disabled, keep the audio input reservation so audio clears its sends after restart.
 
 Set a Stream Deck page's auto_controls to soundboard.clip- (Auto controls prefix in the configurator), and bind soundboard.stop to a key. Empty keys fill alphabetically; manual/shared bindings win, and overflow pages repeat the template through the existing page dial. Clear the prefix to use a fully manual page. Home is not altered. Disabling Stream Deck does not disable soundboard's GUI controls.
+
+## Hue
+
+Hue talks to a Hue Bridge on the local network through the CLIP v2 API; no cloud account or Hue app connection is used. Enable Hue in Plugins, then press Pair (Hue group) and press the bridge's link button within 30 seconds. Pairing saves bridge_id, app_key and certificate_sha256 to hue settings in snoofer.json. The key is a local credential: keep snoofer.json private (it is ignored by git) and never paste it into issues. Choose the room or zone for the dials with Hue room.
+
+Discovery uses mDNS (`_hue._tcp`). If no bridge is found (for example, a firewall blocks multicast replies) or several are found, set hue.address to the bridge IP or host name and pair again. A paired bridge is followed across DHCP address changes by its bridge ID. The bridge certificate is pinned at pairing; if the bridge is replaced or reset, status shows Error and you must pair again.
+
+Each scene is a press control with ID `hue.scene-<room>-<id>`, labelled with room and scene and shown on keys by scene name. Set a page's Auto controls prefix to `hue.scene-` for every scene, or `hue.scene-<room>-` (for example `hue.scene-studio-`) for one room. Renaming a room changes its scene IDs: automatic pages refill, and manual bindings show Unavailable until rebound. Recalling uses the scene's static colors; dynamic scene animation is not started.
+
+Bind hue.brightness and hue.temperature to dials. Brightness moves 2% per tick (1–100%); turning up while the room is off turns it on, and turning down while off does nothing. Pressing toggles on/off. Temp moves 100 K per tick within the range the room's white ambiance lights support, and pressing sets hue.neutral_kelvin (default 4000, range 2000–6500). Temp shows Mixed when lights disagree and does nothing while the room is off. Fast turns send only the newest value at most every 250 ms (slower if the bridge reports it is busy). A value the bridge does not report within 3 seconds shows Error and is not retried. While Hue Sync streams to a room, the sync overrides these dials.
+
+## Hue Sync
+
+Hue Sync controls the Hue Sync PC app. In Hue Sync, open Settings and turn on Third-party control; the app then accepts commands from programs on this PC at ws://127.0.0.1:24851 (huesync.port). Snoofer shows N/A while Hue Sync is closed or third-party control is off, and reconnects automatically without resending commands.
+
+huesync.sync starts or stops syncing with the app's current mode and intensity. huesync.brightness sends relative brightness steps (2 per tick) and pressing it toggles sync, matching Elgato's Hue Sync dial. huesync.mode (Video, Games, Music) and huesync.intensity (Subtle to Extreme) apply only while syncing; Hue Sync ignores them otherwise. When Hue Sync loses its bridge, only status remains available.
 
 ## Stream Deck layout
 
