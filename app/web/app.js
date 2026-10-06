@@ -433,16 +433,34 @@ function buildAppAudio(){
  const apps=[...controls.values()].filter(v=>v.Collection==="appaudio.apps").sort((a,b)=>(a.Order||0)-(b.Order||0));
  if(!apps.length)empty(root,"No app has played sound recently. Play something, or pin an app to keep it here.");
  else{const grid=el("div","grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-[18px]");root.append(grid);for(const item of apps)appStrip(item.ID,grid);}
- const hidden=(c("appaudio.status")?.ViewData?.Apps||[]).filter(a=>a.Hidden&&a.Open);
- if(hidden.length){
-  const card=panel("Hidden",root,"mt-[18px]");card.dataset.part="hidden-apps";
-  for(const a of hidden){
-   const row=el("div","flex items-center justify-between gap-3 border-t border-[#25323e] py-2.5 first:border-t-0"),text=el("div","min-w-0");
-   text.append(el("div","",a.Name),el("small","block break-all text-[11px] text-muted",a.Rule||""));
-   const unhide=button("Unhide",()=>appEdit("unhide",a.Name),ui.small);row.append(text,unhide);card.append(row);
-   updaters.push(()=>{unhide.disabled=!!pending||!c("appaudio.edit")?.Available;});
-  }
+ excludedCard(c("appaudio.status")?.ViewData||{});
+}
+// excludedCard lists excluded program patterns with the running apps each
+// hides, adds patterns by file name, and lists apps hidden by JSON rules.
+function excludedCard(view){
+ const card=panel("Excluded",root,"mt-[18px]");card.dataset.part="excluded";
+ card.append(el("p","-mt-2 mb-3 text-[13px] text-muted","Programs never shown here or on the deck. Use the file name; * matches anything."));
+ const apps=view.Apps||[],editable=()=>!pending&&!!c("appaudio.edit")?.Available,buttons=[];
+ const row=(title,detail,action,label,aria)=>{
+  const node=el("div","flex items-center justify-between gap-3 border-t border-[#25323e] py-2.5"),text=el("div","min-w-0");
+  text.append(el("div","break-all",title));if(detail)text.append(el("small","block break-all text-[11px] text-muted",detail));
+  const b=button(label,action,ui.small);b.setAttribute("aria-label",aria);buttons.push(b);node.append(text,b);card.append(node);
+ };
+ for(const pattern of view.Exclude||[]){
+  const hiding=apps.filter(a=>a.Hidden&&a.Open&&a.Rule==="Excluded ("+pattern+")").map(a=>a.Name);
+  row(pattern,hiding.length?"Hiding "+hiding.join(", "):"",()=>appEdit("include",pattern,pattern),"Remove","Remove "+pattern);
  }
+ if(!(view.Exclude||[]).length)card.append(el("p","text-[13px] text-muted","Nothing is excluded."));
+ for(const a of apps.filter(a=>a.Hidden&&a.Open&&!(a.Rule||"").startsWith("Excluded"))){
+  row(a.Name,a.Rule,()=>appEdit("unhide",a.Name),"Unhide","Unhide "+a.Name);
+ }
+ const add=el("div","mt-3 flex gap-2 border-t border-[#25323e] pt-3"),input=el("input","min-w-0 flex-1");
+ input.type="text";input.placeholder="game.exe";input.setAttribute("aria-label","Program to exclude");
+ const apply=button("Exclude",()=>{const v=input.value.trim();if(v){appEdit("exclude",v,v);input.value="";}},ui.small);apply.dataset.part="exclude";
+ input.onkeydown=e=>{if(e.key==="Enter")apply.click();};
+ add.append(input,apply);card.append(add);
+ updaters.push(()=>{for(const b of buttons)b.disabled=!editable();apply.disabled=!editable()||!input.value.trim();});
+ input.addEventListener("input",update);
 }
 // deckRange is the GUI-local key rectangle, or dial span (dials: true, slot
 // indexes from 36), for creating regions; selecting it never dispatches
@@ -693,7 +711,7 @@ function buildDiagnostics(){
 function layoutKey(){
  // Values and telemetry are updated in place. Only structure/context rebuilds a screen.
  const list=[...controls.values()].map(v=>[v.ID,v.Label,v.Kind,v.Group,v.Options,v.OptionLabels]);
- return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="lights"?[state.Enabled?.hue,c("hue.group")?.Value,c("hue.rooms")?.ViewData]:null,screen==="appaudio"?[state.Enabled?.appaudio,(c("appaudio.status")?.ViewData?.Apps||[]).map(a=>[a.ID,a.Name,a.Hidden,a.Picked,a.Open])]:null,screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value,c("streamdeck.preview")?.ViewData?.Regions,c("streamdeck.preview")?.ViewData?.Collections]:null]);
+ return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="lights"?[state.Enabled?.hue,c("hue.group")?.Value,c("hue.rooms")?.ViewData]:null,screen==="appaudio"?[state.Enabled?.appaudio,(c("appaudio.status")?.ViewData?.Apps||[]).map(a=>[a.ID,a.Name,a.Hidden,a.Picked,a.Open,a.Rule]),c("appaudio.status")?.ViewData?.Exclude]:null,screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value,c("streamdeck.preview")?.ViewData?.Regions,c("streamdeck.preview")?.ViewData?.Collections]:null]);
 }
 function build(){
  widgets.length=0;updaters.length=0;root.replaceChildren();

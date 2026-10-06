@@ -10,37 +10,29 @@ import (
 	"sound-snoofer/internal/windowsaudio"
 )
 
-// Rule hides, renames or explicitly shows sessions whose executable path
-// matches. The first matching rule decides; a rule with neither Hide nor Name
-// shows the app as Windows reports it and stops later rules.
+// Rule hides or renames sessions whose executable path matches. The first
+// matching rule decides; a rule with neither Hide nor Name keeps the app as
+// Windows reports it and stops later rules. Exclusions apply before rules.
 type Rule struct {
 	Match string `json:"match"` // Case-insensitive regexp on the executable path, or "system".
 	Name  string `json:"name,omitempty"`
 	Hide  bool   `json:"hide,omitempty"`
 }
 
-// defaultRules follow the user's rules and hide audio plumbing.
-var defaultRules = []Rule{
-	{Match: `(^|\\)snoofer\.exe$`, Hide: true},
-	{Match: `(^|\\)voicemeeter[^\\]*\.exe$`, Hide: true},
-	{Match: `(^|\\)audiodg\.exe$`, Hide: true},
-}
-
 type compiledRule struct {
 	Rule
 	pattern *regexp.Regexp
-	builtIn bool
 }
 
-// compileRules prepares the user's rules followed by the defaults.
+// compileRules prepares the user's rules.
 func compileRules(user []Rule) ([]compiledRule, error) {
 	var out []compiledRule
-	for n, r := range append(slices.Clone(user), defaultRules...) {
+	for n, r := range user {
 		pattern, err := regexp.Compile("(?i)" + r.Match)
 		if err != nil || r.Match == "" {
 			return nil, fmt.Errorf("rule %d: invalid match %q", n+1, r.Match)
 		}
-		out = append(out, compiledRule{Rule: r, pattern: pattern, builtIn: n >= len(user)})
+		out = append(out, compiledRule{Rule: r, pattern: pattern})
 	}
 	return out, nil
 }
@@ -63,8 +55,6 @@ func (r compiledRule) describe() string {
 	switch {
 	case r.Rule == (Rule{}):
 		return ""
-	case r.Hide && r.builtIn:
-		return "Hidden by default (" + r.Match + ")"
 	case r.Hide:
 		return "Hidden (" + r.Match + ")"
 	case r.Name != "":

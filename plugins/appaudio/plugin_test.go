@@ -82,8 +82,9 @@ func studio() *fakeSessions {
 			session("g1", `C:\Games\game.exe`, "Game", 1, false),
 			session("l1", `C:\Games\launcher.exe`, "Launcher", 1, false),
 			session("x1", `C:\Tools\stubborn.exe`, "Stubborn", 0.5, false),
+			session("h1", `C:\Program Files\Hue Sync\HueSync.exe`, "Hue Sync", 1, false),
 		},
-		peaks:    map[string]float64{"c1": 0.5, "d1": 0.2, "v1": 0.3, "x1": 0.1},
+		peaks:    map[string]float64{"c1": 0.5, "d1": 0.2, "v1": 0.3, "x1": 0.1, "h1": 0.4},
 		stubborn: map[string]bool{`C:\Tools\stubborn.exe`: true},
 	}
 }
@@ -230,8 +231,12 @@ func TestVisibilityGroupingAndDefaults(t *testing.T) {
 			t.Fatalf("chrome view %+v", a)
 		}
 	}
-	if !strings.HasPrefix(hidden["snoofer"], "Hidden by default") || hidden["VB-AUDIO Mixing Console"] == "" {
+	// Excluded by default, even while heard.
+	if hidden["snoofer"] != "Excluded (snoofer.exe)" || hidden["VB-AUDIO Mixing Console"] != "Excluded (voicemeeter*.exe)" || hidden["Hue Sync"] != "Excluded (huesync.exe)" {
 		t.Fatal("hidden", hidden)
+	}
+	if !slices.Equal(view.Exclude, defaultExclude) {
+		t.Fatal("exclusions in view", view.Exclude)
 	}
 }
 
@@ -292,16 +297,27 @@ func TestEdits(t *testing.T) {
 	h.edit("hide", "Discord", "")
 	h.wait("discord hidden", func(l []snoofer.Control) bool { return find(l, "Discord").ID == "" })
 	h.mu.Lock()
-	if len(h.saved.Picked) != 0 || len(h.saved.Rules) != 1 || !h.saved.Rules[0].Hide || h.saved.Rules[0].Match != `(^|\\)discord\.exe$` {
+	if len(h.saved.Picked) != 0 || len(h.saved.Rules) != 0 || !slices.Equal(h.saved.Exclude, append(slices.Clone(defaultExclude), "discord.exe")) {
 		t.Fatalf("hide saved %+v", h.saved)
 	}
 	h.mu.Unlock()
 	h.edit("unhide", "Discord", "")
 	h.wait("discord back", func(l []snoofer.Control) bool { return find(l, "Discord").ID != "" })
 
-	// Unhiding a default needs an explicit show rule ahead of the defaults.
+	// Unhiding removes the wildcard default that hid it.
 	h.edit("unhide", "VB-AUDIO Mixing Console", "")
 	h.wait("voicemeeter shown", func(l []snoofer.Control) bool { return find(l, "VB-AUDIO Mixing Console").ID != "" })
+	h.mu.Lock()
+	if slices.Contains(h.saved.Exclude, "voicemeeter*.exe") || slices.Contains(h.saved.Exclude, "discord.exe") {
+		t.Errorf("unhide left patterns %v", h.saved.Exclude)
+	}
+	h.mu.Unlock()
+
+	// Programs can be excluded before they run, and included again.
+	h.edit("exclude", "Stubborn", " Stubborn.EXE ")
+	h.wait("stubborn excluded", func(l []snoofer.Control) bool { return find(l, "Stubborn").ID == "" })
+	h.edit("include", "huesync.exe", "huesync.exe")
+	h.wait("hue sync included", func(l []snoofer.Control) bool { return find(l, "Hue Sync").ID != "" })
 
 	// Combining the launcher into the game makes one app; picking keeps it
 	// visible while silent, and its controls cover both programs.
@@ -362,5 +378,33 @@ func TestExeMatch(t *testing.T) {
 	}
 	if _, ok := matchRule(rules, `C:\notgame.exe`); ok {
 		t.Error("partial name matched")
+	}
+}
+
+func TestExcludePatterns(t *testing.T) {
+	for _, bad := range []string{"", `C:\Games\game.exe`, "[", "a/b.exe"} {
+		data, _ := json.Marshal(Settings{Exclude: []string{bad}})
+		if err := validate(data); err == nil {
+			t.Errorf("accepted %q", bad)
+		}
+	}
+	var none, defaults Settings
+	if err := json.Unmarshal([]byte(`{"exclude":[]}`), &none); err != nil || none.Exclude == nil || len(none.excluded()) != 0 {
+		t.Fatal("empty list should exclude nothing", none.excluded())
+	}
+	if err := json.Unmarshal([]byte(`{}`), &defaults); err != nil || !slices.Equal(defaults.excluded(), defaultExclude) {
+		t.Fatal("absent list should use defaults")
+	}
+	// An empty list survives a save; nil does not become empty.
+	if data, _ := json.Marshal(none); !strings.Contains(string(data), `"exclude":[]`) {
+		t.Fatal("empty list lost", string(data))
+	}
+	for path, want := range map[string]string{`C:\VB\VoiceMeeter8x64.EXE`: "voicemeeter*.exe", windowsaudio.SystemSounds: "", `C:\x\huesync.exe`: "huesync.exe"} {
+		if got, _ := excludedBy(defaultExclude, path); got != want {
+			t.Errorf("%s: %q, want %q", path, got, want)
+		}
+	}
+	if got, ok := excludedBy([]string{"system"}, windowsaudio.SystemSounds); !ok || got != "system" {
+		t.Error("system sounds not excludable")
 	}
 }

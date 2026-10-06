@@ -34,7 +34,8 @@ func (w *worker) edit(raw string) {
 }
 
 func (w *worker) applyEdit(e edit) (Settings, error) {
-	next := Settings{Picked: slices.Clone(w.settings.Picked), Rules: slices.Clone(w.settings.Rules), RecentMinutes: w.settings.RecentMinutes}
+	// The first edit materializes the default exclusions so they can be removed.
+	next := Settings{Picked: slices.Clone(w.settings.Picked), Exclude: w.settings.excluded(), Rules: slices.Clone(w.settings.Rules), RecentMinutes: w.settings.RecentMinutes}
 	pickIndex := slices.IndexFunc(next.Picked, func(p string) bool { return key(p) == key(e.App) })
 	switch e.Op {
 	case "pick":
@@ -46,6 +47,22 @@ func (w *worker) applyEdit(e edit) (Settings, error) {
 		if pickIndex >= 0 {
 			next.Picked = slices.Delete(next.Picked, pickIndex, pickIndex+1)
 		}
+		return next, nil
+	case "exclude":
+		pattern, err := normalizePattern(e.Value)
+		if err != nil {
+			return next, err
+		}
+		if !slices.Contains(next.Exclude, pattern) {
+			next.Exclude = append(next.Exclude, pattern)
+		}
+		return next, nil
+	case "include":
+		pattern := strings.ToLower(strings.TrimSpace(e.Value))
+		if !slices.Contains(next.Exclude, pattern) {
+			return next, fmt.Errorf("%s is not excluded", e.Value)
+		}
+		next.Exclude = slices.DeleteFunc(next.Exclude, func(p string) bool { return p == pattern })
 		return next, nil
 	case "move":
 		to := pickIndex - 1
@@ -77,20 +94,22 @@ func (w *worker) applyEdit(e edit) (Settings, error) {
 	next.Rules = slices.DeleteFunc(next.Rules, func(r Rule) bool { return r.Match == match })
 	switch e.Op {
 	case "hide":
-		next.Rules = slices.Insert(next.Rules, 0, Rule{Match: match, Hide: true})
+		for _, p := range target.paths() {
+			if file := programFile(p); file != "" && !slices.Contains(next.Exclude, file) {
+				next.Exclude = append(next.Exclude, file)
+			}
+		}
 		if pickIndex >= 0 {
 			next.Picked = slices.Delete(next.Picked, pickIndex, pickIndex+1)
 		}
 	case "unhide":
-		// Without its own rule, a default still hides it: show explicitly.
-		if rules, err := compileRules(next.Rules); err == nil {
-			for _, p := range target.paths() {
-				if r, ok := matchRule(rules, p); ok && r.Hide {
-					next.Rules = slices.Insert(next.Rules, 0, Rule{Match: match})
-					break
-				}
-			}
-		}
+		// Every pattern hiding one of its programs goes, wildcards included.
+		next.Exclude = slices.DeleteFunc(next.Exclude, func(pattern string) bool {
+			return slices.ContainsFunc(target.paths(), func(p string) bool {
+				_, hit := excludedBy([]string{pattern}, p)
+				return hit
+			})
+		})
 	case "rename", "combine":
 		name := strings.TrimSpace(e.Value)
 		if name == "" {

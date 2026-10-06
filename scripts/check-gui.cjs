@@ -61,7 +61,10 @@ add("appaudio.status","App audio","status","3 apps",{ViewData:{RecentMinutes:5,A
  {ID:"appaudio.app-discord",Name:"Discord",Picked:true,Open:true,Sessions:2,Executables:["C:\\Discord\\Discord.exe"],Devices:["Voicemeeter Input"],PIDs:[11,12]},
  {ID:"appaudio.app-chrome",Name:"Google Chrome",Open:true,Sessions:3,Executables:["C:\\Chrome\\chrome.exe"],Devices:["Voicemeeter Input"],PIDs:[21],LastHeard:new Date().toISOString()},
  {ID:"appaudio.app-spotify",Name:"Spotify",Picked:true,Open:false},
- {ID:"appaudio.app-vm",Name:"Voicemeeter",Hidden:true,Open:true,Sessions:1,Rule:"Hidden by default ((^|\\\\)voicemeeter[^\\\\]*\\.exe$)"}]}});
+ {ID:"appaudio.app-vm",Name:"Voicemeeter",Hidden:true,Open:true,Sessions:1,Rule:"Excluded (voicemeeter*.exe)"},
+ {ID:"appaudio.app-hue",Name:"Hue Sync",Hidden:true,Open:true,Sessions:1,Rule:"Excluded (huesync.exe)"},
+ {ID:"appaudio.app-rule",Name:"Launcher",Hidden:true,Open:true,Sessions:1,Rule:"Hidden (launcher)"}],
+ Exclude:["snoofer.exe","voicemeeter*.exe","audiodg.exe","huesync.exe"]}});
 add("appaudio.edit","App audio edit","text","abc");
 const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",streamdeck:"Running",vr:"Running",media:"Disabled",hue:"Running",appaudio:"Running"},Enabled:{audio:true,soundboard:true,streamdeck:true,vr:true,media:false,hue:true,appaudio:true}};
 (async()=>{
@@ -259,8 +262,19 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   assert.deepEqual(await page.evaluate(()=>JSON.parse(window.sent.at(-1).Request.Value)),{op:"hide",app:"Google Chrome",value:""});
   await page.evaluate(()=>{const e=window.fixture.Controls.find(c=>c.ID==="appaudio.edit");e.Revision++;});
   await page.waitForTimeout(300);
-  await page.locator("[data-part=hidden-apps]").getByRole("button",{name:"Unhide"}).click();
-  assert.deepEqual(await page.evaluate(()=>JSON.parse(window.sent.at(-1).Request.Value)),{op:"unhide",app:"Voicemeeter",value:""});
+  const excluded=page.locator("[data-part=excluded]");
+  assert.match(await excluded.textContent(),/huesync\.exeHiding Hue Sync/);
+  await excluded.getByRole("button",{name:"Remove huesync.exe",exact:true}).click();
+  assert.deepEqual(await page.evaluate(()=>JSON.parse(window.sent.at(-1).Request.Value)),{op:"include",app:"huesync.exe",value:"huesync.exe"});
+  await page.evaluate(()=>{const e=window.fixture.Controls.find(c=>c.ID==="appaudio.edit");e.Revision++;});
+  await page.waitForTimeout(300);
+  await excluded.getByRole("textbox",{name:"Program to exclude"}).fill("steam.exe");
+  await excluded.locator("[data-part=exclude]").click();
+  assert.deepEqual(await page.evaluate(()=>JSON.parse(window.sent.at(-1).Request.Value)),{op:"exclude",app:"steam.exe",value:"steam.exe"});
+  await page.evaluate(()=>{const e=window.fixture.Controls.find(c=>c.ID==="appaudio.edit");e.Revision++;});
+  await page.waitForTimeout(300);
+  await excluded.getByRole("button",{name:"Unhide Launcher",exact:true}).click();
+  assert.deepEqual(await page.evaluate(()=>JSON.parse(window.sent.at(-1).Request.Value)),{op:"unhide",app:"Launcher",value:""});
   await page.screenshot({path:path.join(root,".local/gui-appaudio.png"),fullPage:true});
   await page.getByRole("button",{name:"Third-party apps",exact:false}).click();
   await page.getByRole("heading",{name:"Hue",exact:true}).waitFor();

@@ -18,10 +18,13 @@ import (
 	"sound-snoofer/snoofer"
 )
 
-// Settings are the user's picks and rules. Volumes are never stored; Windows
-// remembers them per app.
+// Settings are the user's picks, exclusions and rules. Volumes are never
+// stored; Windows remembers them per app.
 type Settings struct {
-	Picked        []string `json:"picked,omitempty"`
+	Picked []string `json:"picked,omitempty"`
+	// Exclude lists program file names to hide (wildcards allowed). Null
+	// means the defaults; an empty list excludes nothing.
+	Exclude       []string `json:"exclude"`
 	Rules         []Rule   `json:"rules,omitempty"`
 	RecentMinutes int      `json:"recent_minutes,omitempty"` // Zero means 5.
 }
@@ -60,6 +63,11 @@ func validate(raw json.RawMessage) error {
 	}
 	if s.RecentMinutes < 0 || s.RecentMinutes > 24*60 {
 		return fmt.Errorf("recent_minutes must be 0–1440")
+	}
+	for _, p := range s.Exclude {
+		if _, err := normalizePattern(p); err != nil {
+			return err
+		}
 	}
 	_, err := compileRules(s.Rules)
 	return err
@@ -183,7 +191,7 @@ func (w *worker) step(now time.Time) {
 			return
 		}
 		w.backendErr = ""
-		w.apps = group(sessions, w.rules)
+		w.apps = group(sessions, w.rules, w.settings.excluded())
 		w.listAt = now.Add(w.timing.list)
 		w.observe(now)
 	}
@@ -346,6 +354,7 @@ type appView struct {
 
 type statusView struct {
 	Apps          []appView
+	Exclude       []string // The exclusion list in effect.
 	RecentMinutes int
 }
 
@@ -367,7 +376,7 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 			Collection: "appaudio.apps", CollectionLabel: "Apps", Order: n + 1, Kind: "numeric", Icon: "app-audio", Artwork: a.Icon,
 			Value: value, Status: status, Meter: meter, Operations: []string{"press", "adjust", "set"}, Available: true})
 	}
-	view := statusView{RecentMinutes: int(w.settings.window() / time.Minute)}
+	view := statusView{Exclude: w.settings.excluded(), RecentMinutes: int(w.settings.window() / time.Minute)}
 	listed := map[string]bool{}
 	for _, a := range append(append([]*app{}, w.apps...), shown...) {
 		k := key(a.Name)

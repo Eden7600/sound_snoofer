@@ -27,9 +27,9 @@ func controlID(name string) string {
 	return fmt.Sprintf("appaudio.app-%x", sha256.Sum256([]byte(key(name))))[:len("appaudio.app-")+12]
 }
 
-// group applies rules and merges sessions into apps in first-seen order.
-// Sessions without a known program keep their own name.
-func group(sessions []windowsaudio.Session, rules []compiledRule) []*app {
+// group applies exclusions, then rules, and merges sessions into apps in
+// first-seen order. Sessions without a known program keep their own name.
+func group(sessions []windowsaudio.Session, rules []compiledRule, exclude []string) []*app {
 	var out []*app
 	byKey := map[string]*app{}
 	for _, s := range sessions {
@@ -38,16 +38,20 @@ func group(sessions []windowsaudio.Session, rules []compiledRule) []*app {
 		if matched && rule.Name != "" {
 			name = rule.Name
 		}
+		hidden, reason := matched && rule.Hide, ""
+		if matched {
+			reason = rule.describe()
+		}
+		if pattern, ok := excludedBy(exclude, s.Path); ok {
+			hidden, reason = true, "Excluded ("+pattern+")"
+		}
 		k := key(name)
-		if matched && rule.Hide {
+		if hidden {
 			k = "hidden\x00" + k
 		}
 		a, ok := byKey[k]
 		if !ok {
-			a = &app{Name: name, Hidden: matched && rule.Hide}
-			if matched {
-				a.Rule = rule.describe()
-			}
+			a = &app{Name: name, Hidden: hidden, Rule: reason}
 			byKey[k] = a
 			out = append(out, a)
 		}
