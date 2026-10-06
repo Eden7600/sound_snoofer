@@ -18,9 +18,11 @@ type Binding struct {
 	Label   string `json:"label"`
 }
 
-// Page covers keys and the five user-assignable dials.
+// Page covers keys and the five user-assignable dials. Regions fill keys from
+// control collections; AutoControls is the legacy whole-page prefix.
 type Page struct {
 	AutoControls string         `json:"auto_controls,omitempty"`
+	Regions      []Region       `json:"regions,omitempty"`
 	ID           string         `json:"id"`
 	Name         string         `json:"name"`
 	Keys         [Keys]Binding  `json:"keys"`
@@ -127,6 +129,9 @@ func (l Layout) Validate(controls []snoofer.Control) error {
 		seen[p.ID] = true
 		if strings.Contains(p.ID, "~auto~") {
 			return fmt.Errorf("page ID uses reserved automatic suffix")
+		}
+		if err := l.validateRegions(p); err != nil {
+			return err
 		}
 		if p.AutoControls != "" {
 			if !strings.Contains(p.AutoControls, ".") {

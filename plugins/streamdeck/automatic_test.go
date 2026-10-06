@@ -2,6 +2,7 @@ package streamdeck
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	"sound-snoofer/snoofer"
@@ -17,7 +18,7 @@ func TestAutomaticPagesPreserveBindingsAndOverflow(t *testing.T) {
 		controls = append(controls, snoofer.Control{ID: fmt.Sprintf("soundboard.clip-%02d", n), Label: fmt.Sprintf("Clip %02d", n), Operations: []string{"press"}})
 	}
 	expanded := l.expanded(controls)
-	if len(expanded.Pages) != 4 || expanded.Pages[0] != l.Pages[0] {
+	if len(expanded.Pages) != 4 || !reflect.DeepEqual(expanded.Pages[0], l.Pages[0]) {
 		t.Fatal("overflow or Home changed")
 	}
 	for _, p := range expanded.Pages[1:] {

@@ -18,7 +18,7 @@ Each numbered block is one reviewable commit.
   - room-scene slots sized to the room, with unused slots Hidden.
 
   Tests cover the published metadata.
-- [ ] 4. `feat(streamdeck)`: page regions. Covers:
+- [x] 4. `feat(streamdeck)`: page regions. Covers:
   - the model;
   - validation;
   - expansion with sequential same-source fill and parallel overflow;
