@@ -47,6 +47,18 @@ The Hue plugin SHALL publish one press control per bridge scene, with stable roo
 - **WHEN** a scene is activated by another app
 - **THEN** its key shows Active from observed bridge state
 
+### Requirement: Scene artwork
+The Hue plugin SHALL give scene and slot controls a thumbnail drawn from the colors the scene sets.
+#### Scenario: Colored scene
+- **WHEN** a scene sets lights to colors or white temperatures
+- **THEN** its thumbnail shows its dominant colors as wedges sized by how many lights use them
+#### Scenario: Dimming-only scene
+- **WHEN** a scene's actions carry no color data
+- **THEN** its palette colors are used, and without a palette the bulb icon remains
+#### Scenario: Scene edited
+- **WHEN** a scene's colors change on the bridge
+- **THEN** its thumbnail refreshes
+
 ### Requirement: Room scene slots
 The Hue plugin SHALL publish twelve stable slot controls that mirror the selected room's scenes in name order.
 #### Scenario: Room changes

@@ -2,6 +2,8 @@
 
 One compiled plugin, `hue`, with no dependency on other plugins. It has two halves: the room (Hue Bridge, CLIP v2) and sync (the Hue Sync PC app's third-party control socket). A single worker goroutine owns both connections and all their state, which lets the two halves coordinate directly. It serializes writes, publishes control snapshots and joins its child goroutines in Stop. Control handlers only enqueue into a bounded queue (capacity 16) and reject when full. Preview (`Services.Live == false`) reads and observes but publishes every write control unavailable. Nothing is replayed on reconnect and no uncertain command is retried.
 
+Revision 4: scene artwork from scene colors, Home brightness on dial 5 (index 4), and a core `Hidden` control flag so sync-only keys disappear when unusable.
+
 Revision 3 (after use): the color-temperature dial is removed entirely, by user decision. That covers `hue.temperature`, the `neutral_kelvin` setting, color-temperature observation, the GUI Temperature readout, the `hue-temperature` icon and the Home dial 4 binding. Saved settings containing `neutral_kelvin` are converted manually, with no migration code (the plugin was never released); the personal config is edited while Snoofer is stopped.
 
 Revision 2 (after first use): Hue Sync merged into `hue`, mDNS fixed for multi-adapter hosts, a dedicated Lights GUI screen, a Plugins page reduced to enable/disable, room scene slots, and Hue bindings on the personal Home page. The separate `huesync` plugin and its `no_huesync` tag are removed; it was never released beyond this change.
@@ -48,6 +50,23 @@ Each knob keeps one requested target, so ticks never queue. At most one `PUT gro
 `hue.scene-<group-slug>-<id8>` (press) exists for every scene. Label is `<Room> <Scene>`, ShortLabel is the scene name, Value is `Active`/`Ready`. A press recalls with `{"recall":{"action":"active"}}` and shows `Wait` until the bridge reports the scene active, or `Error` after 3 s.
 
 `hue.room-scene-1` … `hue.room-scene-12` are stable slots for the selected group's scenes, sorted by name. Slot *n* mirrors the *n*th scene's label, state and recall, so deck bindings survive room changes and renames. Slots beyond the scene count, or without a room, publish as unavailable with empty Label, ShortLabel and Icon. The deck renders such a slot as a blank key (see Presentation). Recalling through a slot targets the scene shown when the input was generated: the request carries the slot's revision, which changes whenever the mapped scene changes, so a stale press is rejected.
+
+### Scene artwork
+Scene and slot controls carry a generated `Artwork` thumbnail: a square transparent PNG at most 64 px (the existing artwork contract) showing a disc split into wedges, one per dominant scene color.
+- **Color source.** Per-light `actions` of lights the scene turns on. `color.xy` uses the Hue wide-gamut conversion to sRGB, normalized to full brightness. `color_temperature.mirek` uses a blackbody approximation. Each `gradient` point counts as an equal share of that light.
+- **Fallback.** If no lit action has color data (for example, a dimming-only scene), the scene `palette` colors and temperatures are used. Without either, no artwork is generated and the bulb icon remains.
+- **Brightness.** Wedge brightness follows the action dimming, scaled to 55–100% so dim scenes stay visible.
+- **Merging.** Colors closer than a small RGB distance merge. At most five wedges are drawn, largest first, sized by light count.
+- **Caching.** Rendering is deterministic, and results are cached by scene ID and color content, so publishing does not re-encode. Scene data changes refresh the image.
+- **Surfaces.** On the deck, artwork replaces only the central symbol; label and state badge keep semantic colors. The Lights screen scene cards show the same thumbnail.
+- **Model.** The resource model reads scene `actions` (target, on, dimming, color, color_temperature, gradient) and `palette` for this purpose only. No color-temperature control returns.
+
+### Hidden controls
+`snoofer.Control` gains `Hidden bool`: a provider-owned signal that the control currently has no useful place on surfaces. The Stream Deck renders a bound hidden control as a blank key, ignores input on it, and keeps the binding. GUIs omit it. Hidden controls also publish `Available: false`, so dispatch is already rejected. Hue sets it as follows:
+- `hue.sync-mode` and `hue.sync-intensity` while Hue Sync is not syncing.
+- `hue.sync` while the Hue Sync app is not connected (closed, third-party control off, or no state yet).
+
+Status and the Lights screen still explain how to start sync. The configurator still lists hidden controls by label, so bindings can be made at any time. Empty room scene slots keep the existing blank rule.
 
 ## Sync half (Hue Sync PC app)
 
@@ -106,7 +125,7 @@ Home keeps every existing binding.
 - **Rightmost four columns** (zero-based keys 5–8, 14–17, 23–26, 32–35), left open for Hue:
   - Row 0: `hue.sync`, `hue.sync-mode`, `hue.sync-intensity`, `hue.brightness` (press = lights on/off).
   - Rows 1–3: `hue.room-scene-1` … `-12`.
-- **Dials:** index 2 is `hue.brightness`; indexes 3 and 4 stay free; dial 6 remains pagination.
+- **Dials:** index 4 (dial 5, beside pagination) is `hue.brightness`; indexes 2 and 3 stay free; dial 6 remains pagination.
 - **Contract wording:** "index 2 is empty" only described the result of moving Mic in `e4ea932`; it was never a reservation, and the contract is corrected.
 - **Config cleanup:** the obsolete `huesync` config entry is removed. No Lights deck page is added.
 

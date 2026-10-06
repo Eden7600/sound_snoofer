@@ -24,7 +24,10 @@ The Hue plugin SHALL send explicit one-shot sync commands and confirm them from 
 - **THEN** the key shows Error and the command is not retried
 #### Scenario: Mode or intensity while not syncing
 - **WHEN** sync is not running
-- **THEN** mode and intensity selections are unavailable
+- **THEN** mode and intensity selections are unavailable and hidden, rendering as blank keys and omitted from the Lights screen
+#### Scenario: Hue Sync app not connected
+- **WHEN** the Hue Sync socket is not connected
+- **THEN** the Sync control is hidden on the deck while the Lights screen explains how to enable it
 #### Scenario: Dry run
 - **WHEN** Snoofer runs with --dry-run
 - **THEN** sync state is observed but no command is sent

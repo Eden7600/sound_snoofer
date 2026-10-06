@@ -24,6 +24,12 @@ Each numbered block is one reviewable commit.
 ## Revision 3
 - [x] 20. `feat(hue)!`: remove color-temperature control (plugin, settings, model, GUI, icon, docs, contract, tests); remove `neutral_kelvin` and the Home dial 4 binding from the personal config while Snoofer is stopped; rebuild and relaunch.
 
+## Revision 4
+- [x] 21. `docs(hue)`: specify scene artwork, hidden controls and the dial 5 brightness binding.
+- [ ] 22. `feat(hue)`: scene artwork from scene colors, on deck and Lights cards. Tests cover xy/mirek/gradient conversion, palette fallback, merging, caching and refresh; inspect native-size output with real-bridge-like scenes.
+- [ ] 23. `feat(snoofer)`: `Control.Hidden`; the deck blanks hidden keys and Hue hides sync-only controls. Update GUI, contract and docs.
+- [ ] 24. Validate, build, move Home brightness to dial index 4 while Snoofer is stopped, relaunch and record.
+
 ## Hardware acceptance
 - [ ] 8. Pair the real bridge through the link button (revision 1 discovery failed with "No bridge" on this multi-adapter host); confirm discovery, restart persistence and that the key stays out of diagnostics.
 - [ ] 9. Recall scenes from the Home slots; confirm Active state and changes made in the Hue app.

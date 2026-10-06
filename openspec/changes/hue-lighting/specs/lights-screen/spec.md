@@ -28,6 +28,9 @@ The Stream Deck SHALL render an unavailable control with no label and no icon as
 #### Scenario: Empty scene slot
 - **WHEN** a key is bound to a scene slot with no scene
 - **THEN** the key is blank rather than showing N/A
+#### Scenario: Hidden control
+- **WHEN** a bound control is published hidden
+- **THEN** the key is blank, input is ignored and the binding is kept
 #### Scenario: Ordinary unavailable control
 - **WHEN** a labelled control is unavailable
 - **THEN** it still shows N/A
