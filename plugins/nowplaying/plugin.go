@@ -103,8 +103,12 @@ type pendingCommand struct {
 }
 
 type worker struct {
-	services snoofer.Services
-	timing   timing
+	services  snoofer.Services
+	timing    timing
+	raw       json.RawMessage
+	settings  Settings
+	bridge    *bridge // Nil when the port could not be opened.
+	bridgeErr string
 
 	openWindows func() (windowsSource, error)
 	win         windowsSource
@@ -131,12 +135,31 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, open fu
 	if err := validate(raw); err != nil {
 		return nil, err
 	}
+	var settings Settings
+	if err := snoofer.DecodeSettings(raw, &settings); err != nil {
+		return nil, err
+	}
+	w := newWorker(s, open, t)
+	w.raw, w.settings = raw, settings
+	if settings.Token == "" {
+		if err := w.resetToken(); err != nil {
+			return nil, fmt.Errorf("create browser bridge token: %w", err)
+		}
+	}
 	runCtx, cancel := context.WithCancel(ctx)
 	i := &instance{cancel: cancel, done: make(chan struct{})}
-	w := newWorker(s, open, t)
 	updates := make(chan browserUpdate, 16)
 	commands := make(chan snoofer.Request, 8)
+	// A busy port leaves Windows sessions working; the GUI shows why tabs are missing.
+	if b, err := listen(runCtx, w.settings.port(), w.settings.Token, updates); err != nil {
+		w.bridgeErr = err.Error()
+	} else {
+		w.bridge, w.send = b, b.send
+	}
 	go func() {
+		if w.bridge != nil {
+			defer w.bridge.close()
+		}
 		// The Windows companion belongs to this OS thread for its whole life.
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
@@ -345,6 +368,12 @@ func (w *worker) find(key string) (session, bool) {
 func (w *worker) handle(r snoofer.Request, now time.Time) {
 	focused, ok := w.find(w.focus)
 	switch r.ID {
+	case "nowplaying.token-reset":
+		w.bridgeErr = ""
+		if err := w.resetToken(); err != nil {
+			w.bridgeErr = err.Error()
+		}
+		return
 	case "nowplaying.focus":
 		for _, s := range w.sessions {
 			if controlID(s.Key) == r.Value {
@@ -381,6 +410,31 @@ func (w *worker) handle(r snoofer.Request, now time.Time) {
 			return
 		}
 	}
+}
+
+// resetToken saves a new bridge token and drops connections that used the
+// old one; the extension must be saved and reloaded to reconnect.
+func (w *worker) resetToken() error {
+	token, err := newToken()
+	if err != nil {
+		return err
+	}
+	next := w.settings
+	next.Token = token
+	raw, err := json.Marshal(next)
+	if err != nil {
+		return err
+	}
+	if w.services.SaveSettings != nil {
+		if err := w.services.SaveSettings("nowplaying", w.raw, raw); err != nil {
+			return err
+		}
+	}
+	w.raw, w.settings = raw, next
+	if w.bridge != nil {
+		w.bridge.setToken(token)
+	}
+	return nil
 }
 
 // command sends op to a session's source and records what to observe.

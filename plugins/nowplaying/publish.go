@@ -25,7 +25,15 @@ type browserView struct {
 	Sessions      int
 }
 
+// bridgeView reports the browser bridge for the GUI.
+type bridgeView struct {
+	Port    int
+	Error   string // Why the bridge is not listening.
+	Refused string // Why the last connection was refused.
+}
+
 type statusView struct {
+	Bridge   bridgeView
 	Windows  string // Connected, or why not.
 	Browsers []browserView
 	Sessions []viewSession
@@ -35,7 +43,10 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 	var controls []snoofer.Control
 	var options []string
 	labels := map[string]string{}
-	view := statusView{Windows: "Connected"}
+	view := statusView{Windows: "Connected", Bridge: bridgeView{Port: w.settings.port(), Error: w.bridgeErr}}
+	if w.bridge != nil {
+		view.Bridge.Refused = w.bridge.lastRefusal()
+	}
 	if w.winErr != "" {
 		view.Windows = w.winErr
 	}
@@ -109,6 +120,8 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 	if !w.services.Live {
 		summary = "Preview"
 	}
+	controls = append(controls, snoofer.Control{ID: "nowplaying.token-reset", Label: "Reset browser token", Group: "Now playing", Kind: "command",
+		Operations: []string{"press"}, Available: true})
 	controls = append(controls, snoofer.Control{ID: "nowplaying.status", Label: "Now playing", Group: "Now playing", Kind: "status", Value: summary, ViewData: data, Available: true})
 	_ = w.services.Controls.Publish("nowplaying", controls, func(ctx context.Context, r snoofer.Request) error {
 		select {
