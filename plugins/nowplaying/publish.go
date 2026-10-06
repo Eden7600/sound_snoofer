@@ -23,6 +23,14 @@ type viewSession struct {
 type browserView struct {
 	Name, Version string
 	Sessions      int
+	Outdated      bool // Older than the bundled extension.
+}
+
+// extensionView reports the bundled extension and its saved copy.
+type extensionView struct {
+	Path, Version string
+	Saved         bool // The saved files match this version, port and token.
+	Error         string
 }
 
 // bridgeView reports the browser bridge for the GUI.
@@ -33,17 +41,19 @@ type bridgeView struct {
 }
 
 type statusView struct {
-	Bridge   bridgeView
-	Windows  string // Connected, or why not.
-	Browsers []browserView
-	Sessions []viewSession
+	Bridge    bridgeView
+	Extension extensionView
+	Windows   string // Connected, or why not.
+	Browsers  []browserView
+	Sessions  []viewSession
 }
 
 func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 	var controls []snoofer.Control
 	var options []string
 	labels := map[string]string{}
-	view := statusView{Windows: "Connected", Bridge: bridgeView{Port: w.settings.port(), Error: w.bridgeErr}}
+	view := statusView{Windows: "Connected", Bridge: bridgeView{Port: w.settings.port(), Error: w.bridgeErr},
+		Extension: extensionView{Path: w.extensionDir(), Version: extensionVersion, Saved: w.saved, Error: w.saveErr}}
 	if w.bridge != nil {
 		view.Bridge.Refused = w.bridge.lastRefusal()
 	}
@@ -75,7 +85,8 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 	}
 	slices.Sort(names)
 	for _, name := range names {
-		view.Browsers = append(view.Browsers, browserView{Name: name, Version: w.browsers[name].Version, Sessions: len(w.browsers[name].Sessions)})
+		version := w.browsers[name].Version
+		view.Browsers = append(view.Browsers, browserView{Name: name, Version: version, Sessions: len(w.browsers[name].Sessions), Outdated: version != extensionVersion})
 	}
 
 	focused, ok := w.find(w.focus)
@@ -120,6 +131,8 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 	if !w.services.Live {
 		summary = "Preview"
 	}
+	controls = append(controls, snoofer.Control{ID: "nowplaying.extension-save", Label: "Save extension files", Group: "Now playing", Kind: "command",
+		Operations: []string{"press"}, Available: w.extensionDir() != ""})
 	controls = append(controls, snoofer.Control{ID: "nowplaying.token-reset", Label: "Reset browser token", Group: "Now playing", Kind: "command",
 		Operations: []string{"press"}, Available: true})
 	controls = append(controls, snoofer.Control{ID: "nowplaying.status", Label: "Now playing", Group: "Now playing", Kind: "status", Value: summary, ViewData: data, Available: true})

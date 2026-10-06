@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Snoofer media",
+  "version": "1.0.0",
+  "description": "Lets Snoofer show and control media playing in each tab.",
+  "permissions": ["tabs"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [
+    { "matches": ["<all_urls>"], "js": ["page.js"], "run_at": "document_start", "all_frames": true, "world": "MAIN" },
+    { "matches": ["<all_urls>"], "js": ["bridge.js"], "run_at": "document_start", "all_frames": true }
+  ]
+}

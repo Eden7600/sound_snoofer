@@ -18,6 +18,6 @@ Today the deck's media keys send blind key presses. Windows routes them to one "
   - **Media page:** the default layout gains a Media page; Home gains a go-to key and the media dial.
 - **GUI:** a Media screen with session cards (artwork, title, artist, source, progress, transport, seek and focus) and a Browser extension card (status, Save extension files, instructions).
 ## Impact
-- **Code:** new `internal/mediasessions` (Go wrapper plus C++ companion), `plugins/nowplaying`, `extension/` (embedded), the Stream Deck dial renderer and defaults, the GUI and the build script.
+- **Code:** new `internal/mediasessions` (Go wrapper plus C++ companion), `plugins/nowplaying`, `plugins/nowplaying/extension/` (embedded), the Stream Deck dial renderer and defaults, the GUI and the build script.
 - **Native code:** the companion follows the soundboard DLL pattern (C ABI, owned thread). It sits outside the Voicemeeter adapter, as the Windows audio session code already does.
 - **Unchanged:** the `media` plugin's key presses, which remain available.

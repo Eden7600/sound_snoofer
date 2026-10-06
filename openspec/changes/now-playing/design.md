@@ -18,7 +18,8 @@ C++/WinRT in a companion DLL, `bin/snoofer-media.dll`, built by `scripts/build-m
 - **Status:** command success means the request was accepted. Pending lasts until a snapshot shows the change.
 
 ## 2. Browser bridge
-### Extension (`extension/`, embedded in `snoofer.exe`)
+### Extension (`plugins/nowplaying/extension/`, embedded in `snoofer.exe`)
+The files sit under the plugin package because Go can only embed files at or below a package. `logic.js` holds the worker's pure helpers and is tested with Node. `scripts/check-extension.cjs` runs `page.js` in Chrome as a page-world init script, as the extension does. Recent Chrome stable cannot load unpacked extensions under automation, so the service worker's wiring is covered by hardware acceptance.
 The extension is Manifest V3 with permissions `tabs` and host access to `<all_urls>` (for content scripts and artwork fetches).
 - **`page.js`** runs in the page's main world, in all frames, from `document_start`:
   - It wraps `navigator.mediaSession.setActionHandler` to remember page handlers such as YouTube's `nexttrack`.

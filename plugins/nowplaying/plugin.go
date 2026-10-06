@@ -109,6 +109,8 @@ type worker struct {
 	settings  Settings
 	bridge    *bridge // Nil when the port could not be opened.
 	bridgeErr string
+	saved     bool // The saved extension matches this version, port and token.
+	saveErr   string
 
 	openWindows func() (windowsSource, error)
 	win         windowsSource
@@ -146,6 +148,7 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, open fu
 			return nil, fmt.Errorf("create browser bridge token: %w", err)
 		}
 	}
+	w.saved = w.extensionSaved()
 	runCtx, cancel := context.WithCancel(ctx)
 	i := &instance{cancel: cancel, done: make(chan struct{})}
 	updates := make(chan browserUpdate, 16)
@@ -373,6 +376,14 @@ func (w *worker) handle(r snoofer.Request, now time.Time) {
 		if err := w.resetToken(); err != nil {
 			w.bridgeErr = err.Error()
 		}
+		w.saved = w.extensionSaved()
+		return
+	case "nowplaying.extension-save":
+		w.saveErr = ""
+		if err := w.saveExtension(); err != nil {
+			w.saveErr = err.Error()
+		}
+		w.saved = w.extensionSaved()
 		return
 	case "nowplaying.focus":
 		for _, s := range w.sessions {
