@@ -199,6 +199,7 @@ function sceneCard(id,parent){
   b.disabled=!!pending||!item.Available;
   b.className="clip scene"+(item.Value==="Active"?" playing":item.Status==="Pending"?" wait":tone(item)==="critical"?" error":"");
   status.textContent=item.Status==="Pending"?"Wait":item.Status||display(item);status.className=tone(item);
+  if(art.dataset.art!==item.Artwork){art.dataset.art=item.Artwork||"";art.replaceChildren();if(item.Artwork){const image=el("img");image.src="data:image/png;base64,"+item.Artwork;image.alt="";art.append(image);}else art.textContent="◍";}
  });
 }
 function buildLights(){

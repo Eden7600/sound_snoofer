@@ -2,6 +2,7 @@ package streamdeck
 
 import (
 	"bytes"
+	"encoding/base64"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -34,20 +35,28 @@ func TestHuePresentation(t *testing.T) {
 		}
 		previous = append(previous, append([]byte(nil), canvas.Pix...))
 	}
-	examples := []struct{ label, value, icon string }{
-		{"Bright", "Ready", "hue-scene"},
-		{"Focus", "Active", "hue-scene"},
-		{"Relax", "Wait", "hue-scene"},
-		{"Brightness", "62%", "hue-brightness"},
-		{"Pair", "Press button", "hue-pair"},
-		{"Sync", "On", "huesync-sync"},
-		{"Sync", "Off", "huesync-sync"},
-		{"Mode", "games", "huesync-mode"},
-		{"Intensity", "extreme", "huesync-intensity"},
+	// Real generated scene artwork from plugins/hue (see SNOOFER_HUE_ART_SAMPLE).
+	sceneArt, err := os.ReadFile("../../docs/design/hue-scene-art.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	art := base64.StdEncoding.EncodeToString(sceneArt)
+	examples := []struct{ label, value, icon, artwork string }{
+		{"Bright", "Ready", "hue-scene", ""},
+		{"Focus", "Active", "hue-scene", ""},
+		{"Relax", "Wait", "hue-scene", ""},
+		{"Storybook", "Ready", "hue-scene", art},
+		{"Storybook", "Active", "hue-scene", art},
+		{"Brightness", "62%", "hue-brightness", ""},
+		{"Pair", "Press button", "hue-pair", ""},
+		{"Sync", "On", "huesync-sync", ""},
+		{"Sync", "Off", "huesync-sync", ""},
+		{"Mode", "games", "huesync-mode", ""},
+		{"Intensity", "extreme", "huesync-intensity", ""},
 	}
 	sheet := image.NewRGBA(image.Rect(0, 0, 112*len(examples), 112))
 	for n, e := range examples {
-		raw := render([]string{e.label, e.value}, 112, 112, false, e.icon, false)
+		raw := renderArtwork([]string{e.label, e.value}, 112, 112, false, e.icon, false, e.artwork)
 		im, err := jpeg.Decode(bytes.NewReader(raw))
 		if err != nil {
 			t.Fatal(err)

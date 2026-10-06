@@ -26,7 +26,8 @@ add("hue.status","Hue","status","Not paired",{ViewData:{bridge:"172.16.102.3"}})
 add("hue.pair","Pair Hue bridge","command","Ready",{ShortLabel:"Pair"});
 add("hue.group","Hue room","selection","room-1",{Options:["zone-1","room-1"],OptionLabels:{"zone-1":"Desk (zone)","room-1":"Studio"}});
 add("hue.brightness","Hue brightness","numeric","62%",{ShortLabel:"Brightness"});
-for(const [room,name,value] of [["Studio","Bright","Ready"],["Studio","Relax","Active"],["Studio","Concentrate","Ready"],["Desk","Focus","Ready"],["Kitchen","Cook","Ready"]])add("hue.scene-"+room.toLowerCase()+"-"+name.toLowerCase(),room+" "+name,"command",value,{ShortLabel:name,Group:"Hue scenes"});
+const sceneArt=fs.readFileSync(path.join(root,"docs/design/hue-scene-art.png")).toString("base64");
+for(const [room,name,value] of [["Studio","Bright","Ready"],["Studio","Relax","Active"],["Studio","Concentrate","Ready"],["Desk","Focus","Ready"],["Kitchen","Cook","Ready"]])add("hue.scene-"+room.toLowerCase()+"-"+name.toLowerCase(),room+" "+name,"command",value,{ShortLabel:name,Group:"Hue scenes",Artwork:name==="Relax"?sceneArt:""});
 add("hue.sync-status","Hue Sync","status","Ready");
 add("hue.sync","Hue Sync","toggle","Off",{ShortLabel:"Sync"});
 add("hue.sync-mode","Hue Sync mode","selection","video",{Options:["video","games","music"],OptionLabels:{video:"Video",games:"Games",music:"Music"},Available:false});
@@ -109,6 +110,7 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.waitForFunction(()=>document.querySelector(".setup").hidden);
   assert.deepEqual(await page.locator(".lights-grid > .panel:first-child > .scene-grid .clip strong").allTextContents(),["Bright","Concentrate","Relax"]);
   assert.equal(await page.locator(".clip.scene.playing").count(),1);
+  assert.equal(await page.locator(".clip.scene .clip-art img").count(),1,"scene artwork not shown");
   assert.equal(await page.locator("details .room-heading").allTextContents().then(t=>t.join(",")),"Desk,Kitchen");
   await page.screenshot({path:path.join(root,".local/gui-lights.png"),fullPage:true});
   await page.getByRole("button",{name:"BRIGHTNESS up",exact:true}).click();

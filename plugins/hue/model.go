@@ -24,6 +24,49 @@ type dimming struct {
 	Brightness float64 `json:"brightness"`
 }
 
+type xyPoint struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+}
+
+type xyColor struct {
+	XY xyPoint `json:"xy"`
+}
+
+// mirekValue is a white temperature in a scene action or palette; the plugin
+// only uses it to draw scene artwork.
+type mirekValue struct {
+	Mirek *int `json:"mirek"`
+}
+
+// sceneAction is what a scene sets on one light.
+type sceneAction struct {
+	Target reference `json:"target"`
+	Action struct {
+		On               *onState    `json:"on,omitempty"`
+		Dimming          *dimming    `json:"dimming,omitempty"`
+		Color            *xyColor    `json:"color,omitempty"`
+		ColorTemperature *mirekValue `json:"color_temperature,omitempty"`
+		Gradient         *struct {
+			Points []struct {
+				Color xyColor `json:"color"`
+			} `json:"points"`
+		} `json:"gradient,omitempty"`
+	} `json:"action"`
+}
+
+// scenePalette is the color set dynamic and dimming-only scenes are built from.
+type scenePalette struct {
+	Color []struct {
+		Color   xyColor  `json:"color"`
+		Dimming *dimming `json:"dimming,omitempty"`
+	} `json:"color"`
+	ColorTemperature []struct {
+		ColorTemperature mirekValue `json:"color_temperature"`
+		Dimming          *dimming   `json:"dimming,omitempty"`
+	} `json:"color_temperature"`
+}
+
 type sceneStatus struct {
 	Active string `json:"active"`
 }
@@ -70,15 +113,17 @@ func decodeResources(items []json.RawMessage) ([]resource, error) {
 // resource is the subset of CLIP v2 resources this plugin reads. Event updates
 // contain only changed fields, so every field is optional.
 type resource struct {
-	ID       string       `json:"id"`
-	Type     string       `json:"type"`
-	Metadata *metadata    `json:"metadata,omitempty"`
-	Children []reference  `json:"children,omitempty"`
-	Services []reference  `json:"services,omitempty"`
-	Group    *reference   `json:"group,omitempty"`
-	On       *onState     `json:"on,omitempty"`
-	Dimming  *dimming     `json:"dimming,omitempty"`
-	Status   *sceneStatus `json:"status,omitempty"`
+	ID       string        `json:"id"`
+	Type     string        `json:"type"`
+	Metadata *metadata     `json:"metadata,omitempty"`
+	Children []reference   `json:"children,omitempty"`
+	Services []reference   `json:"services,omitempty"`
+	Group    *reference    `json:"group,omitempty"`
+	On       *onState      `json:"on,omitempty"`
+	Dimming  *dimming      `json:"dimming,omitempty"`
+	Status   *sceneStatus  `json:"status,omitempty"`
+	Actions  []sceneAction `json:"actions,omitempty"` // Scenes only; used for artwork.
+	Palette  *scenePalette `json:"palette,omitempty"` // Scenes only; used for artwork.
 }
 
 // merge applies the fields present in an update.
@@ -103,6 +148,12 @@ func (r *resource) merge(update resource) {
 	}
 	if update.Status != nil {
 		r.Status = update.Status
+	}
+	if update.Actions != nil {
+		r.Actions = update.Actions
+	}
+	if update.Palette != nil {
+		r.Palette = update.Palette
 	}
 }
 

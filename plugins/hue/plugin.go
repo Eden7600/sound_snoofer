@@ -135,6 +135,8 @@ type worker struct {
 	sceneErr     map[string]string
 
 	sync syncLink // Hue Sync PC app half.
+
+	artwork map[string]cachedArtwork // Scene thumbnails by scene ID.
 }
 
 func newWorker(s snoofer.Services, settings Settings, raw json.RawMessage, discover discoverFunc, t timing) *worker {
@@ -159,6 +161,7 @@ func newWorker(s snoofer.Services, settings Settings, raw json.RawMessage, disco
 		scenePending: map[string]time.Time{},
 		sceneErr:     map[string]string{},
 		sync:         syncLink{url: syncURL(settings)},
+		artwork:      map[string]cachedArtwork{},
 	}
 }
 
@@ -764,7 +767,7 @@ func (w *worker) sceneControl(id, label string, scene sceneInfo) snoofer.Control
 	if _, waiting := w.scenePending[scene.SceneID]; waiting || w.sceneWriting == scene.SceneID || w.sync.sceneAfterStop == scene.SceneID {
 		status = "Pending"
 	}
-	return snoofer.Control{ID: id, Label: label, ShortLabel: scene.ShortLabel, Group: "Hue scenes", Kind: "command", Icon: "hue-scene",
+	return snoofer.Control{ID: id, Label: label, ShortLabel: scene.ShortLabel, Group: "Hue scenes", Kind: "command", Icon: "hue-scene", Artwork: w.sceneArtwork(scene.SceneID),
 		Value: value, Status: status, Operations: []string{"press"}, Available: w.services.Live && w.connected}
 }
 
