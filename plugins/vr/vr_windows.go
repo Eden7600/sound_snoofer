@@ -47,11 +47,17 @@ func Plugin() snoofer.Plugin {
 		target := deps["audio"].(*audio.Instance)
 		runCtx, cancel := context.WithCancel(ctx)
 		i := &instance{cancel: cancel, done: make(chan struct{})}
+		// link is used by Start and then only by the polling goroutine, never concurrently.
+		var link snoofer.ConnectionTracker
 		observe := func() error {
 			if runCtx.Err() != nil {
 				return runCtx.Err()
 			}
 			names, err := process.Names()
+			now := time.Now()
+			if err != nil {
+				link.Fail(err.Error(), now)
+			}
 			policy.Known = err == nil
 			if err == nil {
 				policy.Running = process.Contains(names, "vrserver.exe")
@@ -69,7 +75,10 @@ func Plugin() snoofer.Plugin {
 			if !policy.Known {
 				value = "Unknown — retaining last profile"
 			}
-			_ = s.Controls.Publish("vr", []snoofer.Control{{ID: "vr.status", Label: "SteamVR", Group: "VR", Kind: "status", Value: value, Available: true}}, nil)
+			_ = s.Controls.Publish("vr", []snoofer.Control{
+				{ID: "vr.status", Label: "SteamVR", Group: "VR", Kind: "status", Value: value, Available: true},
+				steamVRReport(&link, policy, now),
+			}, nil)
 			return nil
 		}
 		if err := observe(); err != nil {
@@ -87,11 +96,37 @@ func Plugin() snoofer.Plugin {
 					return
 				case <-ticker.C:
 					if err := observe(); err != nil {
-						_ = s.Controls.Publish("vr", []snoofer.Control{{ID: "vr.status", Label: "SteamVR", Group: "VR", Kind: "status", Value: err.Error()}}, nil)
+						now := time.Now()
+						link.Fail(err.Error(), now)
+						_ = s.Controls.Publish("vr", []snoofer.Control{
+							{ID: "vr.status", Label: "SteamVR", Group: "VR", Kind: "status", Value: err.Error()},
+							steamVRReport(&link, audio.VRPolicy{}, now),
+						}, nil)
 					}
 				}
 			}
 		}()
 		return i, nil
 	}}
+}
+
+// steamVRReport describes vrserver.exe detection for the Third-party apps screen.
+// An unknown observation keeps the previous headset profile but reports Unknown.
+func steamVRReport(link *snoofer.ConnectionTracker, policy audio.VRPolicy, now time.Time) snoofer.Control {
+	state, value, profile := snoofer.ConnectionUnknown, "Unknown", ""
+	switch {
+	case policy.Known && policy.Running:
+		state, value, profile = snoofer.ConnectionConnected, "Running", "VR"
+		link.Activity(now)
+	case policy.Known:
+		state, value, profile = snoofer.ConnectionDisconnected, "Not running", "Normal"
+		link.Activity(now)
+	}
+	link.Observe(state, now)
+	details := []snoofer.ConnectionDetail{{Label: "Interval", Value: "1s"}}
+	if profile != "" {
+		details = append(details, snoofer.ConnectionDetail{Label: "Audio profile", Value: profile})
+	}
+	return snoofer.Control{ID: "vr.app-steamvr", Label: "SteamVR", Group: "VR", Kind: "connection", Value: value,
+		SurfaceOnly: true, Available: true, Connection: link.Report("vrserver.exe (this session)", details...)}
 }
