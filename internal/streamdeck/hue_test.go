@@ -20,7 +20,7 @@ func TestHuePresentation(t *testing.T) {
 	if keyAccent("ON", "huesync-sync", false, false) != activeColor || keyAccent("OFF", "huesync-sync", false, false) != neutralColor {
 		t.Fatal("sync state colors")
 	}
-	icons := []string{"hue-scene", "hue-brightness", "hue-temperature", "hue-pair", "huesync-sync", "huesync-mode", "huesync-intensity"}
+	icons := []string{"hue-scene", "hue-brightness", "hue-pair", "huesync-sync", "huesync-mode", "huesync-intensity"}
 	var previous [][]byte
 	for _, icon := range icons {
 		canvas := image.NewRGBA(image.Rect(0, 0, 448, 448))
@@ -39,7 +39,6 @@ func TestHuePresentation(t *testing.T) {
 		{"Focus", "Active", "hue-scene"},
 		{"Relax", "Wait", "hue-scene"},
 		{"Brightness", "62%", "hue-brightness"},
-		{"Temp", "4000K", "hue-temperature"},
 		{"Pair", "Press button", "hue-pair"},
 		{"Sync", "On", "huesync-sync"},
 		{"Sync", "Off", "huesync-sync"},
@@ -64,9 +63,7 @@ func TestHuePresentation(t *testing.T) {
 
 	frame := Frame{}
 	frame.Dials[0] = Tile{Label: "Brightness", Value: "62%", Icon: "hue-brightness"}
-	frame.Dials[1] = Tile{Label: "Temp", Value: "4000K", Icon: "hue-temperature"}
-	frame.Dials[2] = Tile{Label: "Temp", Value: "Mixed", Icon: "hue-temperature"}
-	frame.Dials[3] = Tile{Label: "Sync bright", Value: "50%", Icon: "hue-brightness"}
+	frame.Dials[1] = Tile{Label: "Brightness", Value: "Sync 50%", Icon: "hue-brightness"}
 	_, raw := renderFrame(frame)
 	rotated, err := jpeg.Decode(bytes.NewReader(raw))
 	if err != nil {

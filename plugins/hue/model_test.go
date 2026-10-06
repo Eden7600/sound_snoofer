@@ -2,7 +2,6 @@ package hue
 
 import (
 	"encoding/json"
-	"math"
 	"strings"
 	"testing"
 )
@@ -13,14 +12,8 @@ func TestGroupViewRoomAndZone(t *testing.T) {
 	if !room.Found || room.GroupedLight != "gl-1" || !room.OnKnown || !room.On || room.Brightness != 50 {
 		t.Fatalf("room %+v", room)
 	}
-	if !room.CTCapable || room.MirekMin != 153 || room.MirekMax != 454 {
-		t.Fatalf("range %+v", room)
-	}
-	if room.Temperature != temperatureKnown || math.Round(room.Kelvin) != 4000 {
-		t.Fatalf("temperature %+v", room)
-	}
 	zone := m.group("zone-1")
-	if !zone.Found || zone.GroupedLight != "gl-2" || zone.Temperature != temperatureKnown {
+	if !zone.Found || zone.GroupedLight != "gl-2" || !zone.OnKnown {
 		t.Fatalf("zone %+v", zone)
 	}
 	if missing := m.group("gone"); missing.Found {
@@ -31,39 +24,12 @@ func TestGroupViewRoomAndZone(t *testing.T) {
 	}
 }
 
-func TestGroupTemperatureMixedAndUnknown(t *testing.T) {
-	m := newModel(studio())
-	m.apply([]event{{Type: "update", Data: []resource{{ID: "light-2", ColorTemperature: &colorTemperature{Mirek: intPtr(400)}}}}})
-	if view := m.group("room-1"); view.Temperature != temperatureMixed {
-		t.Fatalf("expected mixed, got %+v", view)
-	}
-	m.apply([]event{{Type: "update", Data: []resource{
-		{ID: "light-1", ColorTemperature: &colorTemperature{Valid: boolPtr(false)}},
-		{ID: "light-2", On: &onState{On: false}},
-	}}})
-	view := m.group("room-1")
-	if view.Temperature != temperatureUnknown || !view.CTCapable {
-		t.Fatalf("expected unknown, got %+v", view)
-	}
-}
-
-func TestGroupRangeFallsBackToUnion(t *testing.T) {
-	m := newModel(studio())
-	m.apply([]event{{Type: "update", Data: []resource{
-		{ID: "light-2", ColorTemperature: &colorTemperature{Schema: &mirekSchema{Minimum: 460, Maximum: 500}}},
-	}}})
-	view := m.group("room-1")
-	if view.MirekMin != 153 || view.MirekMax != 500 {
-		t.Fatalf("range %d-%d", view.MirekMin, view.MirekMax)
-	}
-}
-
 func TestPartialUpdateKeepsMissingFields(t *testing.T) {
 	m := newModel(studio())
-	m.apply([]event{{Type: "update", Data: []resource{{ID: "light-1", On: &onState{On: false}}}}})
-	ct := m.resources["light-1"].ColorTemperature
-	if ct == nil || ct.Mirek == nil || *ct.Mirek != 250 || ct.Schema == nil {
-		t.Fatalf("color temperature lost: %+v", ct)
+	m.apply([]event{{Type: "update", Data: []resource{{ID: "gl-1", On: &onState{On: false}}}}})
+	grouped := m.resources["gl-1"]
+	if grouped.Dimming == nil || grouped.Dimming.Brightness != 50 || grouped.On.On {
+		t.Fatalf("partial update lost fields: %+v", grouped)
 	}
 	m.apply([]event{{Type: "update", Data: []resource{{ID: "unknown", On: &onState{}}}}})
 	if _, ok := m.resources["unknown"]; ok {

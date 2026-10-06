@@ -29,8 +29,8 @@ func TestEmptyProviderSlotRendersBlank(t *testing.T) {
 	if tile := bindingTile(binding, snoofer.Control{ID: binding.Control}, true, now); tile != (device.Tile{}) {
 		t.Fatalf("empty slot rendered %+v", tile)
 	}
-	unavailable := snoofer.Control{ID: "hue.temperature", ShortLabel: "Temp", Icon: "hue-temperature"}
-	if tile := bindingTile(Binding{Control: unavailable.ID}, unavailable, true, now); tile.Value != "N/A" || tile.Label != "Temp" {
+	unavailable := snoofer.Control{ID: "hue.sync", ShortLabel: "Sync", Icon: "huesync-sync"}
+	if tile := bindingTile(Binding{Control: unavailable.ID}, unavailable, true, now); tile.Value != "N/A" || tile.Label != "Sync" {
 		t.Fatalf("labelled unavailable control rendered %+v", tile)
 	}
 	if tile := bindingTile(binding, snoofer.Control{}, false, now); tile.Value != "N/A" || tile.Label != "Relax" {

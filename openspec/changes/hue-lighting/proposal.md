@@ -9,6 +9,6 @@ Control Philips Hue scenes, room lighting and the Hue Sync PC app from Snoofer's
 - Stable room scene slots for deck bindings, and scene controls usable with `auto_controls` prefixes.
 - A dedicated Lights GUI screen. The Plugins page becomes enable/disable only.
 - New code-drawn deck icons, blank rendering for empty slots, and UI contract vocabulary. The contract no longer implies Home dial index 2 is reserved.
-- Hue bindings in the user's Home page block (rightmost four columns, dials 3–4).
+- Hue bindings in the user's Home page block (rightmost four columns, dial 3).
 ## Impact
 One plugin, disabled by default, with a `no_hue` build exclusion. `github.com/gorilla/websocket` and `golang.org/x/net` (`dns/dnsmessage`, `ipv4`) become direct dependencies; both already exist in go.sum through Wails, so nothing new is downloaded. The bridge application key is stored in the ignored snoofer.json. Third-party plugin fallback forms leave the Plugins page. No audio routing or recorder changes.

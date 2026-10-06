@@ -177,19 +177,6 @@ func drawIcon(im *image.RGBA, icon string, ink color.RGBA) bool {
 			c, s := math.Cos(r), math.Sin(r)
 			line(56+int(17*c), 39+int(17*s), 56+int(25*c), 39+int(25*s))
 		}
-	case "hue-temperature":
-		// Thermometer: tube, filled bulb and scale ticks.
-		for a := 180; a <= 360; a++ {
-			r := float64(a) * math.Pi / 180
-			dot(54+int(6*math.Cos(r)), 18+int(6*math.Sin(r)), 2)
-		}
-		line(48, 18, 48, 48)
-		line(60, 18, 60, 48)
-		dot(54, 56, 10)
-		line(54, 30, 54, 50)
-		for _, y := range []int{20, 29, 38} {
-			line(68, y, 75, y)
-		}
 	case "hue-pair":
 		// Link: two interlocking rings.
 		for a := 0; a < 360; a++ {

@@ -33,3 +33,4 @@ main{flex:1;min-width:0;padding:28px 32px 36px}header{display:flex;align-items:c
 .room-card .panel-head .control-row{border:0;padding:0;flex:0 1 auto}
 .room-card .panel-head .control-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
 .room-card .panel-head select{max-width:none;min-width:160px}
+.strip-grid.single{grid-template-columns:1fr}

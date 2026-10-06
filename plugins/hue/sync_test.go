@@ -150,12 +150,12 @@ func startJoined(t *testing.T, syncState string, live bool) (*harness, *fakeBrid
 }
 
 func TestSyncPortValidation(t *testing.T) {
-	for _, raw := range []string{`{"neutral_kelvin":4000,"sync_port":0}`, `{"neutral_kelvin":4000,"sync_port":70000}`} {
+	for _, raw := range []string{`{"sync_port":0}`, `{"sync_port":70000}`} {
 		if validate(json.RawMessage(raw)) == nil {
 			t.Errorf("accepted %s", raw)
 		}
 	}
-	if err := validate(json.RawMessage(`{"neutral_kelvin":4000,"sync_port":24851}`)); err != nil {
+	if err := validate(json.RawMessage(`{"sync_port":24851}`)); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -208,10 +208,6 @@ func TestBrightnessDialFollowsSync(t *testing.T) {
 	waitFor(t, func() bool { return len(bridge.putLog()) == 1 })
 	if puts := bridge.putLog(); puts[0] != `grouped_light/gl-1:{"on":{"on":false}}` {
 		t.Fatalf("press while syncing wrote %v", puts)
-	}
-	temperature := h.waitControl("hue.temperature", func(c snoofer.Control) bool { return c.Status == "Sync active" })
-	if temperature.Available {
-		t.Fatal("temperature adjustable while syncing")
 	}
 	h.mustDispatch("hue.sync", "press", 0, "")
 	h.value("hue.brightness", "Off")

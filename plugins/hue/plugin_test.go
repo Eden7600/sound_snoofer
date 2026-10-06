@@ -37,7 +37,7 @@ type harness struct {
 }
 
 func paired(b *fakeBridge, group string) Settings {
-	return Settings{Address: b.address(), BridgeID: b.id, AppKey: b.key, CertificateSHA256: b.fingerprint(), Group: group, NeutralKelvin: 4000}
+	return Settings{Address: b.address(), BridgeID: b.id, AppKey: b.key, CertificateSHA256: b.fingerprint(), Group: group}
 }
 
 func startHarness(t *testing.T, bridge *fakeBridge, settings Settings, live bool) *harness {
@@ -128,7 +128,7 @@ func (h *harness) settled(id string) snoofer.Control {
 }
 
 func TestValidateSettings(t *testing.T) {
-	good := `{"address":"","bridge_id":"","app_key":"","certificate_sha256":"","group":"","neutral_kelvin":4000}`
+	good := `{"address":"","bridge_id":"","app_key":"","certificate_sha256":"","group":""}`
 	if err := validate(json.RawMessage(good)); err != nil {
 		t.Fatal(err)
 	}
@@ -136,10 +136,10 @@ func TestValidateSettings(t *testing.T) {
 		t.Fatalf("defaults: %v", err)
 	}
 	bad := []string{
-		strings.Replace(good, "4000", "9000", 1),
+		`{"neutral_kelvin":4000}`, // Removed setting; personal configs are converted manually.
 		strings.Replace(good, `"app_key":""`, `"app_key":"k"`, 1),
 		strings.Replace(good, `"address":""`, `"address":"a/b"`, 1),
-		`{"neutral_kelvin":4000,"extra":1}`,
+		`{"extra":1}`,
 	}
 	for _, raw := range bad {
 		if err := validate(json.RawMessage(raw)); err == nil {
@@ -153,7 +153,6 @@ func TestConnectedControls(t *testing.T) {
 	h := startHarness(t, bridge, paired(bridge, "room-1"), true)
 	h.value("hue.status", "Connected")
 	h.value("hue.brightness", "50%")
-	h.value("hue.temperature", "4000K")
 	h.value("hue.pair", "Paired")
 	group := h.value("hue.group", "room-1")
 	if len(group.Options) != 2 || group.OptionLabels["zone-1"] != "Desk (zone)" {
@@ -172,7 +171,7 @@ func TestConnectedControls(t *testing.T) {
 
 func TestPairingSavesIdentityAndConnects(t *testing.T) {
 	bridge := newFakeBridge(t, "b1", studio()...)
-	h := startHarness(t, bridge, Settings{NeutralKelvin: 4000, Group: "stale"}, true)
+	h := startHarness(t, bridge, Settings{Group: "stale"}, true)
 	unpaired := h.value("hue.status", "Not paired")
 	if !strings.Contains(string(unpaired.ViewData), `"bridge":"`+bridge.address()+`"`) {
 		t.Fatalf("found bridge not reported: %s", unpaired.ViewData)
@@ -202,7 +201,7 @@ func TestPairingSavesIdentityAndConnects(t *testing.T) {
 
 func TestPairingTimeoutKeepsSettings(t *testing.T) {
 	bridge := newFakeBridge(t, "b1")
-	h := startHarness(t, bridge, Settings{NeutralKelvin: 4000}, true)
+	h := startHarness(t, bridge, Settings{}, true)
 	h.value("hue.status", "Not paired")
 	h.mustDispatch("hue.pair", "press", 0, "")
 	c := h.waitControl("hue.pair", func(c snoofer.Control) bool { return strings.Contains(c.Status, "not pressed") })
@@ -246,11 +245,10 @@ func TestBrightnessOffRules(t *testing.T) {
 	if puts := bridge.putLog(); len(puts) != 1 || puts[0] != `grouped_light/gl-1:{"on":{"on":false}}` {
 		t.Fatalf("press wrote %v", puts)
 	}
-	h.mustDispatch("hue.temperature", "adjust", 1, "")
 	h.mustDispatch("hue.brightness", "adjust", -1, "")
 	time.Sleep(3 * testTiming.writeGap)
 	if puts := bridge.putLog(); len(puts) != 1 {
-		t.Fatalf("rotation down or temperature while off wrote %v", puts)
+		t.Fatalf("rotation down while off wrote %v", puts)
 	}
 	h.mustDispatch("hue.brightness", "adjust", 1, "")
 	h.value("hue.brightness", "52%")
@@ -259,26 +257,6 @@ func TestBrightnessOffRules(t *testing.T) {
 	if last := puts[len(puts)-1]; last != `grouped_light/gl-1:{"dimming":{"brightness":52},"on":{"on":true}}` {
 		t.Fatalf("turn up while off wrote %s", last)
 	}
-}
-
-func TestTemperatureKnob(t *testing.T) {
-	bridge := newFakeBridge(t, "b1", studio()...)
-	settings := paired(bridge, "room-1")
-	settings.NeutralKelvin = 2700
-	h := startHarness(t, bridge, settings, true)
-	h.value("hue.temperature", "4000K")
-	h.mustDispatch("hue.temperature", "adjust", 3, "")
-	h.value("hue.temperature", "4300K")
-	h.settled("hue.temperature")
-	h.mustDispatch("hue.temperature", "press", 0, "")
-	h.value("hue.temperature", "2700K")
-	h.settled("hue.temperature")
-	puts := bridge.putLog()
-	if puts[0] != `grouped_light/gl-1:{"color_temperature":{"mirek":233}}` || puts[len(puts)-1] != `grouped_light/gl-1:{"color_temperature":{"mirek":370}}` {
-		t.Fatalf("writes %v", puts)
-	}
-	h.mustDispatch("hue.temperature", "adjust", -40, "")
-	h.value("hue.temperature", "2200K") // Clamped to the room's common 454 mirek limit.
 }
 
 func TestThrottledWriteIsRetriedWithLatestValue(t *testing.T) {
@@ -373,7 +351,7 @@ func TestRoomMissingAndPreview(t *testing.T) {
 
 	preview := startHarness(t, bridge, paired(bridge, "room-1"), false)
 	preview.value("hue.brightness", "50%")
-	for _, id := range []string{"hue.brightness", "hue.temperature", "hue.pair", "hue.group", "hue.scene-studio-3f2a9c10"} {
+	for _, id := range []string{"hue.brightness", "hue.pair", "hue.group", "hue.scene-studio-3f2a9c10"} {
 		if err := preview.dispatch(id, "press", 0, ""); err == nil {
 			t.Errorf("preview accepted %s", id)
 		}
@@ -504,4 +482,13 @@ func TestLiveResources(t *testing.T) {
 	}
 	m := newModel(items)
 	t.Logf("bridge %s: %v; rooms/zones %d; scenes %d", target.Address, counts, len(m.groups()), len(m.scenes()))
+}
+
+func TestNoTemperatureControl(t *testing.T) {
+	bridge := newFakeBridge(t, "b1", studio()...)
+	h := startHarness(t, bridge, paired(bridge, "room-1"), true)
+	h.value("hue.brightness", "50%")
+	if _, ok := h.find("hue.temperature"); ok {
+		t.Fatal("temperature control published")
+	}
 }

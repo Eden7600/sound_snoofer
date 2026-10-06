@@ -22,7 +22,7 @@ Each numbered block is one reviewable commit.
 - [x] 19. `fix(hue)`: tolerate type-specific `status` shapes and skip malformed unused resource types in loads and events. Test with real-bridge payload shapes, and verify with a gated live load against the paired bridge.
 
 ## Revision 3
-- [ ] 20. `feat(hue)!`: remove color-temperature control (plugin, settings, model, GUI, icon, docs, contract, tests); remove `neutral_kelvin` and the Home dial 4 binding from the personal config while Snoofer is stopped; rebuild and relaunch.
+- [x] 20. `feat(hue)!`: remove color-temperature control (plugin, settings, model, GUI, icon, docs, contract, tests); remove `neutral_kelvin` and the Home dial 4 binding from the personal config while Snoofer is stopped; rebuild and relaunch.
 
 ## Hardware acceptance
 - [ ] 8. Pair the real bridge through the link button (revision 1 discovery failed with "No bridge" on this multi-adapter host); confirm discovery, restart persistence and that the key stays out of diagnostics.

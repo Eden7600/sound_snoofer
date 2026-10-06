@@ -3,7 +3,6 @@ package hue
 import (
 	"encoding/json"
 	"fmt"
-	"math"
 	"sort"
 	"strings"
 )
@@ -23,19 +22,6 @@ type onState struct {
 
 type dimming struct {
 	Brightness float64 `json:"brightness"`
-}
-
-type mirekSchema struct {
-	Minimum int `json:"mirek_minimum"`
-	Maximum int `json:"mirek_maximum"`
-}
-
-// colorTemperature keeps optional fields as pointers so partial events merge
-// without turning missing values into valid zeros.
-type colorTemperature struct {
-	Mirek  *int         `json:"mirek"`
-	Valid  *bool        `json:"mirek_valid"`
-	Schema *mirekSchema `json:"mirek_schema"`
 }
 
 type sceneStatus struct {
@@ -84,16 +70,15 @@ func decodeResources(items []json.RawMessage) ([]resource, error) {
 // resource is the subset of CLIP v2 resources this plugin reads. Event updates
 // contain only changed fields, so every field is optional.
 type resource struct {
-	ID               string            `json:"id"`
-	Type             string            `json:"type"`
-	Metadata         *metadata         `json:"metadata,omitempty"`
-	Children         []reference       `json:"children,omitempty"`
-	Services         []reference       `json:"services,omitempty"`
-	Group            *reference        `json:"group,omitempty"`
-	On               *onState          `json:"on,omitempty"`
-	Dimming          *dimming          `json:"dimming,omitempty"`
-	ColorTemperature *colorTemperature `json:"color_temperature,omitempty"`
-	Status           *sceneStatus      `json:"status,omitempty"`
+	ID       string       `json:"id"`
+	Type     string       `json:"type"`
+	Metadata *metadata    `json:"metadata,omitempty"`
+	Children []reference  `json:"children,omitempty"`
+	Services []reference  `json:"services,omitempty"`
+	Group    *reference   `json:"group,omitempty"`
+	On       *onState     `json:"on,omitempty"`
+	Dimming  *dimming     `json:"dimming,omitempty"`
+	Status   *sceneStatus `json:"status,omitempty"`
 }
 
 // merge applies the fields present in an update.
@@ -118,22 +103,6 @@ func (r *resource) merge(update resource) {
 	}
 	if update.Status != nil {
 		r.Status = update.Status
-	}
-	if update.ColorTemperature != nil {
-		if r.ColorTemperature == nil {
-			r.ColorTemperature = &colorTemperature{}
-		}
-		next := *r.ColorTemperature
-		if update.ColorTemperature.Mirek != nil {
-			next.Mirek = update.ColorTemperature.Mirek
-		}
-		if update.ColorTemperature.Valid != nil {
-			next.Valid = update.ColorTemperature.Valid
-		}
-		if update.ColorTemperature.Schema != nil {
-			next.Schema = update.ColorTemperature.Schema
-		}
-		r.ColorTemperature = &next
 	}
 }
 
@@ -200,14 +169,6 @@ func (m model) groups() []groupInfo {
 	return out
 }
 
-type temperatureState int
-
-const (
-	temperatureUnknown temperatureState = iota
-	temperatureMixed
-	temperatureKnown
-)
-
 // groupView is the observed state of one room or zone.
 type groupView struct {
 	Found        bool
@@ -216,11 +177,6 @@ type groupView struct {
 	On           bool
 	BrightKnown  bool
 	Brightness   float64
-	CTCapable    bool
-	MirekMin     int
-	MirekMax     int
-	Temperature  temperatureState
-	Kelvin       float64 // Mean of valid on-light temperatures; meaningful unless unknown.
 }
 
 // group derives the observed state of a room or zone.
@@ -244,41 +200,6 @@ func (m model) group(id string) groupView {
 		if grouped.Dimming != nil {
 			view.BrightKnown = true
 			view.Brightness = grouped.Dimming.Brightness
-		}
-	}
-	lowest, highest := 0, math.MaxInt
-	unionLow, unionHigh := math.MaxInt, 0
-	var kelvins []float64
-	for _, light := range m.lights(g) {
-		ct := light.ColorTemperature
-		if ct == nil || ct.Schema == nil {
-			continue
-		}
-		view.CTCapable = true
-		lowest = max(lowest, ct.Schema.Minimum)
-		highest = min(highest, ct.Schema.Maximum)
-		unionLow = min(unionLow, ct.Schema.Minimum)
-		unionHigh = max(unionHigh, ct.Schema.Maximum)
-		lit := light.On != nil && light.On.On
-		if lit && ct.Valid != nil && *ct.Valid && ct.Mirek != nil && *ct.Mirek > 0 {
-			kelvins = append(kelvins, mirekToKelvin(*ct.Mirek))
-		}
-	}
-	if view.CTCapable {
-		view.MirekMin, view.MirekMax = lowest, highest
-		if lowest > highest {
-			view.MirekMin, view.MirekMax = unionLow, unionHigh
-		}
-	}
-	if len(kelvins) > 0 {
-		low, high, sum := kelvins[0], kelvins[0], 0.0
-		for _, k := range kelvins {
-			low, high, sum = min(low, k), max(high, k), sum+k
-		}
-		view.Kelvin = sum / float64(len(kelvins))
-		view.Temperature = temperatureMixed
-		if high-low <= kelvinStep {
-			view.Temperature = temperatureKnown
 		}
 	}
 	return view
@@ -340,11 +261,6 @@ func (m model) scenes() []sceneInfo {
 	})
 	return out
 }
-
-// kelvinStep is one temperature dial tick and the agreement tolerance between lights.
-const kelvinStep = 100.0
-
-func mirekToKelvin(mirek int) float64 { return 1e6 / float64(mirek) }
 
 // roomScenes lists the scenes of one group sorted by name, as mapped to room slots.
 func (m model) roomScenes(groupID string) []sceneInfo {

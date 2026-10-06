@@ -204,7 +204,7 @@ function sceneCard(id,parent){
 function buildLights(){
  if(!(state.Plugins||{}).hue){empty(root,"Hue is not part of this build.");return;}
  if(!state.Enabled?.hue){
-  const card=panel("Hue is off",root,"setup");card.append(el("p","","Control Hue scenes, room brightness and temperature, and Hue Sync."));
+  const card=panel("Hue is off",root,"setup");card.append(el("p","","Control Hue scenes, room brightness and Hue Sync."));
   const actions=el("div","actions");actions.append(button("Enable Hue",()=>send({Kind:"selection",Plugin:"hue",Enable:true}),"primary"));card.append(actions);return;
  }
  if(!c("hue.status")){empty(root,"Hue: "+(state.Plugins.hue||"Starting"));return;}
@@ -212,9 +212,8 @@ function buildLights(){
  const grid=el("div","lights-grid");root.append(grid);
  const room=panel("Room",grid,"room-card"),roomNote=el("p","section-note");room.append(roomNote);
  control("hue.group",room.querySelector(".panel-head"),"Room");
- const dials=el("div","strip-grid");room.append(dials);
+ const dials=el("div","strip-grid single");room.append(dials);
  lightDial("hue.brightness",dials,"BRIGHTNESS","On/Off",2,1,100);
- lightDial("hue.temperature",dials,"TEMPERATURE","Neutral",100,2000,6500);
  updaters.push(()=>{roomNote.textContent=c("hue.sync")?.Value==="On"?"Hue Sync is driving the lights · Brightness adjusts the sync":"";roomNote.hidden=!roomNote.textContent;});
  const groupControl=c("hue.group"),roomName=(groupControl?.OptionLabels?.[groupControl.Value]||"").replace(/ \(zone\)$/,"");
  const scenes=[...controls.values()].filter(v=>v.ID.startsWith("hue.scene-"));

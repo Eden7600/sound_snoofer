@@ -26,7 +26,6 @@ add("hue.status","Hue","status","Not paired",{ViewData:{bridge:"172.16.102.3"}})
 add("hue.pair","Pair Hue bridge","command","Ready",{ShortLabel:"Pair"});
 add("hue.group","Hue room","selection","room-1",{Options:["zone-1","room-1"],OptionLabels:{"zone-1":"Desk (zone)","room-1":"Studio"}});
 add("hue.brightness","Hue brightness","numeric","62%",{ShortLabel:"Brightness"});
-add("hue.temperature","Hue temperature","numeric","4000K",{ShortLabel:"Temp"});
 for(const [room,name,value] of [["Studio","Bright","Ready"],["Studio","Relax","Active"],["Studio","Concentrate","Ready"],["Desk","Focus","Ready"],["Kitchen","Cook","Ready"]])add("hue.scene-"+room.toLowerCase()+"-"+name.toLowerCase(),room+" "+name,"command",value,{ShortLabel:name,Group:"Hue scenes"});
 add("hue.sync-status","Hue Sync","status","Ready");
 add("hue.sync","Hue Sync","toggle","Off",{ShortLabel:"Sync"});

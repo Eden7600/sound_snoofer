@@ -127,9 +127,6 @@ func canonical(body map[string]json.RawMessage) string {
 func (b *fakeBridge) applyGroup(id string, body map[string]json.RawMessage) {
 	var on *onState
 	var dim *dimming
-	var ct *struct {
-		Mirek int `json:"mirek"`
-	}
 	if raw, ok := body["on"]; ok {
 		on = &onState{}
 		_ = json.Unmarshal(raw, on)
@@ -137,9 +134,6 @@ func (b *fakeBridge) applyGroup(id string, body map[string]json.RawMessage) {
 	if raw, ok := body["dimming"]; ok {
 		dim = &dimming{}
 		_ = json.Unmarshal(raw, dim)
-	}
-	if raw, ok := body["color_temperature"]; ok {
-		_ = json.Unmarshal(raw, &ct)
 	}
 	b.mu.Lock()
 	m := model{resources: b.resources}
@@ -157,12 +151,7 @@ func (b *fakeBridge) applyGroup(id string, body map[string]json.RawMessage) {
 	b.mu.Unlock()
 	updates := []resource{{ID: id, Type: "grouped_light", On: on, Dimming: dim}}
 	for _, light := range lights {
-		update := resource{ID: light.ID, Type: "light", On: on, Dimming: dim}
-		if ct != nil && light.ColorTemperature != nil {
-			mirek, valid := ct.Mirek, true
-			update.ColorTemperature = &colorTemperature{Mirek: &mirek, Valid: &valid}
-		}
-		updates = append(updates, update)
+		updates = append(updates, resource{ID: light.ID, Type: "light", On: on, Dimming: dim})
 	}
 	b.update(updates...)
 }
@@ -250,12 +239,8 @@ func (b *fakeBridge) set(change func(*fakeBridge)) {
 	change(b)
 }
 
-func intPtr(v int) *int    { return &v }
-func boolPtr(v bool) *bool { return &v }
-
-// studio returns a room with two CT lights and a color-only light, plus a zone and scenes.
+// studio returns a room with three lights, a zone and scenes.
 func studio() []resource {
-	schema := &mirekSchema{Minimum: 153, Maximum: 454}
 	return []resource{
 		{ID: "room-1", Type: "room", Metadata: &metadata{Name: "Studio"},
 			Children: []reference{{RID: "dev-1", RType: "device"}, {RID: "dev-2", RType: "device"}, {RID: "dev-3", RType: "device"}},
@@ -268,10 +253,8 @@ func studio() []resource {
 		{ID: "dev-3", Type: "device", Services: []reference{{RID: "light-3", RType: "light"}}},
 		{ID: "gl-1", Type: "grouped_light", On: &onState{On: true}, Dimming: &dimming{Brightness: 50}},
 		{ID: "gl-2", Type: "grouped_light", On: &onState{On: true}, Dimming: &dimming{Brightness: 50}},
-		{ID: "light-1", Type: "light", On: &onState{On: true},
-			ColorTemperature: &colorTemperature{Mirek: intPtr(250), Valid: boolPtr(true), Schema: schema}},
-		{ID: "light-2", Type: "light", On: &onState{On: true},
-			ColorTemperature: &colorTemperature{Mirek: intPtr(250), Valid: boolPtr(true), Schema: &mirekSchema{Minimum: 153, Maximum: 500}}},
+		{ID: "light-1", Type: "light", On: &onState{On: true}},
+		{ID: "light-2", Type: "light", On: &onState{On: true}},
 		{ID: "light-3", Type: "light", On: &onState{On: true}},
 		{ID: "3f2a9c10-aaaa-bbbb-cccc-000000000001", Type: "scene", Metadata: &metadata{Name: "Bright"},
 			Group: &reference{RID: "room-1", RType: "room"}, Status: &sceneStatus{Active: "inactive"}},

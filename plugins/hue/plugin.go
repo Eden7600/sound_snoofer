@@ -24,7 +24,6 @@ type Settings struct {
 	AppKey            string `json:"app_key"`
 	CertificateSHA256 string `json:"certificate_sha256"`
 	Group             string `json:"group"`
-	NeutralKelvin     int    `json:"neutral_kelvin"`
 	SyncPort          *int   `json:"sync_port,omitempty"` // Hue Sync third-party control port; nil means 24851.
 }
 
@@ -34,7 +33,7 @@ func Plugin() snoofer.Plugin {
 		ID:       "hue",
 		Label:    "Hue",
 		Validate: validate,
-		Defaults: snoofer.MarshalSettings(Settings{NeutralKelvin: 4000}),
+		Defaults: snoofer.MarshalSettings(Settings{}),
 		Start: func(ctx context.Context, s snoofer.Services, raw json.RawMessage, _ map[string]snoofer.Instance) (snoofer.Instance, error) {
 			discover := func(ctx context.Context) ([]string, error) { return discoverMDNS(ctx, 3*time.Second) }
 			return start(ctx, s, raw, discover, defaultTiming)
@@ -46,9 +45,6 @@ func decode(raw json.RawMessage) (Settings, error) {
 	var s Settings
 	if err := snoofer.DecodeSettings(raw, &s); err != nil {
 		return s, err
-	}
-	if s.NeutralKelvin < 2000 || s.NeutralKelvin > 6500 {
-		return s, fmt.Errorf("hue neutral_kelvin must be 2000-6500")
 	}
 	if s.SyncPort != nil && (*s.SyncPort < 1 || *s.SyncPort > 65535) {
 		return s, fmt.Errorf("hue sync_port must be 1-65535")
@@ -132,7 +128,6 @@ type worker struct {
 
 	group     groupRequest
 	brightErr string
-	tempErr   string
 	groupErr  string
 
 	sceneWriting string               // Scene ID with a recall request in flight.
@@ -413,8 +408,6 @@ func (w *worker) handle(ctx context.Context, r snoofer.Request) {
 		w.selectGroup(r.Value)
 	case r.ID == "hue.brightness":
 		w.adjustBrightness(r)
-	case r.ID == "hue.temperature":
-		w.adjustTemperature(r)
 	case strings.HasPrefix(r.ID, "hue.sync"):
 		w.handleSync(r)
 	case strings.HasPrefix(r.ID, "hue.scene-"):
@@ -447,7 +440,6 @@ func (w *worker) selectGroup(id string) {
 	w.groupErr = ""
 	w.group = groupRequest{}
 	w.brightErr = ""
-	w.tempErr = ""
 }
 
 // retarget starts a fresh request when the configured group's light service changes.
@@ -512,39 +504,6 @@ func (w *worker) adjustBrightness(r snoofer.Request) {
 	w.group.dirty = true
 }
 
-func (w *worker) adjustTemperature(r snoofer.Request) {
-	if w.syncing() {
-		return // The sync stream overrides temperature.
-	}
-	view := w.view()
-	if view.GroupedLight == "" || !view.CTCapable {
-		return
-	}
-	on, known := w.effectiveOn(view)
-	if !known || !on {
-		return
-	}
-	w.retarget(view.GroupedLight)
-	w.tempErr = ""
-	var next int
-	switch {
-	case r.Operation == "press":
-		next = clampMirek(kelvinToMirek(float64(w.settings.NeutralKelvin)), view.MirekMin, view.MirekMax)
-	case r.Operation == "adjust" && r.Delta != 0:
-		base := view.Kelvin
-		if w.group.mirek != nil {
-			base = mirekToKelvin(*w.group.mirek)
-		} else if view.Temperature == temperatureUnknown {
-			return
-		}
-		next = nextMirek(base, r.Delta, view.MirekMin, view.MirekMax)
-	default:
-		return
-	}
-	w.group.mirek = &next
-	w.group.dirty = true
-}
-
 // sendGroup writes the latest targets; at most one write is outstanding.
 func (w *worker) sendGroup(ctx context.Context) {
 	client, target, generation := w.client, w.group.target, w.generation
@@ -569,12 +528,7 @@ func (w *worker) groupWritten(generation int, target string, err error) {
 		w.group.dirty = true // Resend the latest targets after the longer gap.
 		return
 	case err != nil:
-		if w.group.on != nil || w.group.brightness != nil {
-			w.brightErr = err.Error()
-		}
-		if w.group.mirek != nil {
-			w.tempErr = err.Error()
-		}
+		w.brightErr = err.Error()
 		w.group = groupRequest{target: target, gap: w.timing.writeGap}
 		return
 	}
@@ -586,12 +540,7 @@ func (w *worker) groupWritten(generation int, target string, err error) {
 // later ticks start from observed values.
 func (w *worker) expireGroup() {
 	view := w.view()
-	if w.group.on != nil || w.group.brightness != nil {
-		w.brightErr = fmt.Sprintf("Not applied: requested %s, observed %s", w.requestedBrightness(), observedBrightness(view))
-	}
-	if w.group.mirek != nil {
-		w.tempErr = fmt.Sprintf("Not applied: requested %s, observed %s", kelvinLabel(mirekToKelvin(*w.group.mirek)), observedTemperature(view))
-	}
+	w.brightErr = fmt.Sprintf("Not applied: requested %s, observed %s", w.requestedBrightness(), observedBrightness(view))
 	w.group = groupRequest{target: w.group.target, gap: w.timing.writeGap}
 }
 
@@ -613,18 +562,6 @@ func observedBrightness(view groupView) string {
 		return "Off"
 	case view.BrightKnown:
 		return percentLabel(view.Brightness)
-	}
-	return "N/A"
-}
-
-func observedTemperature(view groupView) string {
-	switch {
-	case view.OnKnown && !view.On:
-		return "Off"
-	case view.Temperature == temperatureKnown:
-		return kelvinLabel(view.Kelvin)
-	case view.Temperature == temperatureMixed:
-		return "Mixed"
 	}
 	return "N/A"
 }
@@ -802,17 +739,7 @@ func (w *worker) controls() []snoofer.Control {
 		brightness.Subdued = w.sync.stepsDue != 0
 		brightness.Available = live
 	}
-	temperatureNote := firstNonEmpty(knobNote, w.tempErr)
-	if knobNote == "" && w.connected && view.GroupedLight != "" && !view.CTCapable {
-		temperatureNote = "No white ambiance lights"
-	}
-	temperature := snoofer.Control{ID: "hue.temperature", Label: "Hue temperature", ShortLabel: "Temp", Group: "Hue", Kind: "numeric", Icon: "hue-temperature",
-		Value: w.temperatureValue(view), Status: temperatureNote, Subdued: w.group.mirek != nil,
-		Operations: []string{"adjust", "press"}, Available: ready && view.CTCapable && !syncing}
-	if syncing {
-		temperature.Status = "Sync active"
-	}
-	controls = append(controls, brightness, temperature)
+	controls = append(controls, brightness)
 	controls = append(controls, w.syncControls()...)
 	seen := map[string]bool{}
 	for _, scene := range w.model.scenes() {
@@ -893,16 +820,6 @@ func (w *worker) brightnessValue(view groupView) string {
 		return percentLabel(view.Brightness)
 	}
 	return observedBrightness(view)
-}
-
-func (w *worker) temperatureValue(view groupView) string {
-	if !w.connected || view.GroupedLight == "" || !view.CTCapable {
-		return "N/A"
-	}
-	if w.group.mirek != nil {
-		return kelvinLabel(mirekToKelvin(*w.group.mirek))
-	}
-	return observedTemperature(view)
 }
 
 func firstNonEmpty(values ...string) string {
