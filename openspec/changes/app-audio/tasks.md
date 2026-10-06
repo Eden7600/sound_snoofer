@@ -12,7 +12,7 @@ Each numbered block is one reviewable commit.
 ## Revisions after review
 - [x] 8. `docs(apps)`: an editable exclusion list with Hue Sync excluded by default (§6); update the contract.
 - [x] 9. `feat(appaudio)`: the exclusion list. Covers the setting, its defaults, wildcard matching, exclude/include/hide/unhide edits and the GUI Excluded card. Fake-backend tests and the GUI check cover it.
-- [ ] 10. Validate: the canonical build and checks; relaunch.
+- [x] 10. Validate: the canonical build and checks; relaunch.
 
 ## Hardware acceptance
 - [ ] 7. With real apps:

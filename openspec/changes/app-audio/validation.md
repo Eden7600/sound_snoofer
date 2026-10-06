@@ -27,3 +27,14 @@
 - `snoofer.exe --check` passes. The backup is `snoofer.json.before-apps` in the session scratchpad.
 
 Snoofer was relaunched with automation `NO_COLOR` cleared. Hardware acceptance (task 7) is pending.
+
+## Revision: exclusion list (commits 33b2fcd, 8cd6ccb)
+- `go vet ./...` and `go test ./...`: pass. The appaudio tests were run 5 times in a row without failure. They cover:
+  - default exclusions, including a heard Hue Sync session;
+  - wildcard and System sounds matching;
+  - Hide adding file names, and Unhide removing a wildcard default;
+  - exclude/include for programs that are not running;
+  - pattern validation, and absent versus empty lists.
+- `scripts/check-gui.cjs` covers the Excluded card: patterns with "Hiding …", Remove (`include`), Exclude by file name, and Unhide for apps hidden by a rule.
+- `scripts/check-desktop.cjs` and OpenSpec validation pass. Built with `scripts/build.ps1`; `snoofer.exe --check` passes. Snoofer was relaunched.
+- **Personal config:** `appaudio` settings have no `exclude` key, so the defaults apply and Hue Sync is excluded. The first edit in the GUI saves the explicit list.
