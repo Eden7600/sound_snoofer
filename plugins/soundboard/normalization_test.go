@@ -129,3 +129,28 @@ func TestPreparationReplacesAndStopsWithoutLatePlayback(t *testing.T) {
 		t.Fatal("work retained")
 	}
 }
+
+func TestWAVLength(t *testing.T) {
+	// 1.5 s of 16-bit stereo at 8 kHz.
+	data := make([]byte, 44+8000*2*2*3/2)
+	copy(data, "RIFF")
+	copy(data[8:], "WAVEfmt ")
+	binary.LittleEndian.PutUint32(data[4:], uint32(len(data)-8))
+	binary.LittleEndian.PutUint32(data[16:], 16)
+	binary.LittleEndian.PutUint16(data[20:], 1)
+	binary.LittleEndian.PutUint16(data[22:], 2)
+	binary.LittleEndian.PutUint32(data[24:], 8000)
+	binary.LittleEndian.PutUint16(data[34:], 16)
+	copy(data[36:], "data")
+	binary.LittleEndian.PutUint32(data[40:], uint32(len(data)-44))
+	path := filepath.Join(t.TempDir(), "clip.wav")
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if length, ok := wavLength(path); !ok || length != 1500*time.Millisecond {
+		t.Fatal("length", length, ok)
+	}
+	if _, ok := wavLength(filepath.Join(t.TempDir(), "missing.wav")); ok {
+		t.Fatal("missing file has a length")
+	}
+}

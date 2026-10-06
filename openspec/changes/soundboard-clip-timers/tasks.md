@@ -3,7 +3,7 @@ Each numbered block is one reviewable commit.
 
 ## Implementation
 - [x] 1. `docs(deck)`: specify clip timers on the touch strip; update the UI contract.
-- [ ] 2. `feat(soundboard)`: publish clip timers. Covers `snoofer.Timer`, WAV length, voice end times and `soundboard.status` timers. Tests cover the length calculation and timers following voices.
+- [x] 2. `feat(soundboard)`: publish clip timers. Covers `snoofer.Timer`, WAV length, voice end times and `soundboard.status` timers. Tests cover the length calculation and timers following voices.
 - [ ] 3. `feat(streamdeck)`: show timers above unbound dials. Covers provider matching, panel distribution, the `:` glyph and panel rendering. Tests cover placement and capacity, plus a native-size preview.
 - [ ] 4. Validate: Go tests and vet, GUI and desktop checks, OpenSpec, the canonical build; relaunch.
 

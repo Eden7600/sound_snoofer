@@ -22,6 +22,7 @@ type Control struct {
 	Collection                                  string          // Optional stable ID of a set of similar controls, which deck regions fill.
 	CollectionLabel                             string          // Optional editor name for Collection.
 	Meter                                       Meter
+	Timers                                      []Timer     `json:",omitempty"` // Optional running countdowns, such as playing clips.
 	Connection                                  *Connection `json:",omitempty"` // Optional external integration report (Kind "connection").
 	SurfaceOnly                                 bool
 	Hidden                                      bool // Optional: no useful place on surfaces right now; the deck renders a blank key and GUIs omit it. Publish it unavailable.
@@ -41,6 +42,14 @@ type Control struct {
 type ArtworkFrame struct {
 	Artwork string
 	Delay   time.Duration
+}
+
+// Timer is a running countdown identified by a control, such as a playing
+// clip. Ends is an estimate; the provider removes the timer when the activity
+// actually stops.
+type Timer struct {
+	Control string
+	Ends    time.Time
 }
 
 // Meter is optional display-only telemetry in dBFS; it never changes command identity.

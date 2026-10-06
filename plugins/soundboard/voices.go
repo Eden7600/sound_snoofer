@@ -1,6 +1,11 @@
 package soundboard
 
-import "errors"
+import (
+	"errors"
+	"time"
+
+	"sound-snoofer/snoofer"
+)
 
 // maxVoices bounds simultaneous clips when overlap is on; a further clip
 // stops the oldest voice.
@@ -19,6 +24,7 @@ type voice struct {
 	player clipPlayer
 	clip   string
 	path   string
+	ends   time.Time // Estimated; zero when the length is unknown.
 }
 
 // voicePool manages concurrent clips. Without overlap it behaves as a single
@@ -35,9 +41,10 @@ func newVoicePool(open func() (clipPlayer, error)) *voicePool {
 	return &voicePool{open: open, max: maxVoices}
 }
 
-// play starts a clip as a new voice. On failure the player returns to the
+// play starts a clip as a new voice, expected to end at ends (zero when
+// unknown). On failure the player returns to the
 // idle set and no voice is added.
-func (p *voicePool) play(clip, path string, overlap bool) error {
+func (p *voicePool) play(clip, path string, ends time.Time, overlap bool) error {
 	if !overlap {
 		if err := p.stopAll(); err != nil {
 			return err
@@ -65,7 +72,7 @@ func (p *voicePool) play(clip, path string, overlap bool) error {
 		p.idle = append(p.idle, player)
 		return err
 	}
-	p.voices = append(p.voices, voice{player: player, clip: clip, path: path})
+	p.voices = append(p.voices, voice{player: player, clip: clip, path: path, ends: ends})
 	return nil
 }
 
@@ -116,6 +123,17 @@ func (p *voicePool) playing(clip string) bool {
 		}
 	}
 	return false
+}
+
+// timers lists playing clips with a known length, oldest first.
+func (p *voicePool) timers() []snoofer.Timer {
+	var out []snoofer.Timer
+	for _, v := range p.voices {
+		if !v.ends.IsZero() {
+			out = append(out, snoofer.Timer{Control: v.clip, Ends: v.ends})
+		}
+	}
+	return out
 }
 
 func (p *voicePool) active() bool { return len(p.voices) > 0 }

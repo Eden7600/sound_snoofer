@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 func normalizedName(c clip) string {
@@ -83,6 +84,28 @@ func validNormalized(path string) bool {
 		binary.LittleEndian.Uint32(header[16:]) == 16 && binary.LittleEndian.Uint16(header[20:]) == 1 &&
 		(channels == 1 || channels == 2) && binary.LittleEndian.Uint16(header[34:]) == 16 &&
 		rate >= 8000 && rate <= 192000 && (stat.Size()-44)%int64(channels*2) == 0
+}
+
+// wavLength is the play time of a normalized 16-bit PCM WAV, or false when the
+// file is not one.
+func wavLength(path string) (time.Duration, bool) {
+	if !validNormalized(path) {
+		return 0, false
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return 0, false
+	}
+	header := make([]byte, 44)
+	_, readErr := io.ReadFull(file, header)
+	closeErr := file.Close()
+	if readErr != nil || closeErr != nil {
+		return 0, false
+	}
+	channels := int64(binary.LittleEndian.Uint16(header[22:]))
+	rate := int64(binary.LittleEndian.Uint32(header[24:]))
+	samples := int64(binary.LittleEndian.Uint32(header[40:])) / (channels * 2)
+	return time.Duration(samples) * time.Second / time.Duration(rate), true
 }
 
 // Prune only our hash-named generated WAVs; never source files or arbitrary contents.

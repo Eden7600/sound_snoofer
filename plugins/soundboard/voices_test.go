@@ -3,6 +3,7 @@ package soundboard
 import (
 	"errors"
 	"testing"
+	"time"
 )
 
 type fakePlayer struct {
@@ -31,10 +32,10 @@ func newFakePool() (*voicePool, *[]*fakePlayer) {
 
 func TestReplaceWithoutOverlap(t *testing.T) {
 	pool, made := newFakePool()
-	if err := pool.play("a", "a.wav", false); err != nil {
+	if err := pool.play("a", "a.wav", time.Time{}, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := pool.play("b", "b.wav", false); err != nil {
+	if err := pool.play("b", "b.wav", time.Time{}, false); err != nil {
 		t.Fatal(err)
 	}
 	if len(pool.voices) != 1 || !pool.playing("b") || pool.playing("a") {
@@ -48,7 +49,7 @@ func TestReplaceWithoutOverlap(t *testing.T) {
 func TestOverlapCapsAtEightAndCutsOldest(t *testing.T) {
 	pool, made := newFakePool()
 	for n := range 9 {
-		if err := pool.play(string(rune('a'+n)), "clip.wav", true); err != nil {
+		if err := pool.play(string(rune('a'+n)), "clip.wav", time.Time{}, true); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -62,8 +63,8 @@ func TestOverlapCapsAtEightAndCutsOldest(t *testing.T) {
 
 func TestPollFreesFinishedVoices(t *testing.T) {
 	pool, made := newFakePool()
-	_ = pool.play("a", "a.wav", true)
-	_ = pool.play("b", "b.wav", true)
+	_ = pool.play("a", "a.wav", time.Time{}, true)
+	_ = pool.play("b", "b.wav", time.Time{}, true)
 	(*made)[0].active = false // Clip a finished.
 	if err := pool.poll(); err != nil {
 		t.Fatal(err)
@@ -71,7 +72,7 @@ func TestPollFreesFinishedVoices(t *testing.T) {
 	if pool.playing("a") || !pool.playing("b") || len(pool.idle) != 1 {
 		t.Fatalf("voices %+v idle %d", pool.voices, len(pool.idle))
 	}
-	_ = pool.play("c", "c.wav", true)
+	_ = pool.play("c", "c.wav", time.Time{}, true)
 	if len(*made) != 2 {
 		t.Fatal("finished player not reused")
 	}
@@ -83,8 +84,8 @@ func TestPollFreesFinishedVoices(t *testing.T) {
 
 func TestStopAllAndClose(t *testing.T) {
 	pool, made := newFakePool()
-	_ = pool.play("a", "a.wav", true)
-	_ = pool.play("b", "b.wav", true)
+	_ = pool.play("a", "a.wav", time.Time{}, true)
+	_ = pool.play("b", "b.wav", time.Time{}, true)
 	if got := pool.paths(); len(got) != 2 {
 		t.Fatalf("paths %v", got)
 	}
@@ -106,7 +107,28 @@ func TestStopAllAndClose(t *testing.T) {
 
 func TestOpenFailureAddsNoVoice(t *testing.T) {
 	pool := newVoicePool(func() (clipPlayer, error) { return nil, errors.New("companion missing") })
-	if err := pool.play("a", "a.wav", true); err == nil || pool.active() || pool.loaded() {
+	if err := pool.play("a", "a.wav", time.Time{}, true); err == nil || pool.active() || pool.loaded() {
 		t.Fatal("failed open created a voice")
+	}
+}
+
+func TestTimersFollowVoices(t *testing.T) {
+	pool, made := newFakePool()
+	end := time.Unix(100, 0)
+	_ = pool.play("a", "a.wav", end, true)
+	_ = pool.play("b", "b.wav", time.Time{}, true) // Unknown length: no timer.
+	_ = pool.play("c", "c.wav", end.Add(time.Second), true)
+	if got := pool.timers(); len(got) != 2 || got[0].Control != "a" || got[1].Control != "c" || !got[1].Ends.Equal(end.Add(time.Second)) {
+		t.Fatalf("timers %+v", got)
+	}
+	(*made)[0].active = false // a finished.
+	if err := pool.poll(); err != nil {
+		t.Fatal(err)
+	}
+	if got := pool.timers(); len(got) != 1 || got[0].Control != "c" {
+		t.Fatalf("finished clip kept its timer %+v", got)
+	}
+	if err := pool.stopAll(); err != nil || pool.timers() != nil {
+		t.Fatal("Stop kept timers", err)
 	}
 }

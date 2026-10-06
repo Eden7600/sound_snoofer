@@ -131,7 +131,7 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 				note = "Preview"
 			}
 			controls := []snoofer.Control{
-				{ID: "soundboard.status", Label: "Soundboard", Group: "Soundboard", Kind: "status", Value: note, Available: true},
+				{ID: "soundboard.status", Label: "Soundboard", Group: "Soundboard", Kind: "status", Value: note, Timers: voices.timers(), Available: true},
 				{ID: "soundboard.stop", Label: "Stop soundboard", ShortLabel: "Stop", Group: "Soundboard", Kind: "command", Icon: "soundboard-stop", Operations: []string{"press"}, Available: s.Live},
 				{ID: "soundboard.overlap", Label: "Overlap clips", ShortLabel: "Overlap", Group: "Soundboard", Kind: "toggle", Icon: "soundboard-overlap", Value: onOff(settings.Overlap), Operations: []string{"press"}, Available: true},
 			}
@@ -217,7 +217,11 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 					}
 					if err == nil {
 						// Opening or starting a native graph failed: a playback fault.
-						if err = voices.play(result.clip.ID, result.path, settings.Overlap); err != nil {
+						var ends time.Time
+						if length, ok := wavLength(result.path); ok {
+							ends = time.Now().Add(length)
+						}
+						if err = voices.play(result.clip.ID, result.path, ends, settings.Overlap); err != nil {
 							link.Fail(err.Error(), time.Now())
 						} else {
 							link.Activity(time.Now())
