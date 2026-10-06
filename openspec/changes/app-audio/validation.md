@@ -38,3 +38,10 @@ Snoofer was relaunched with automation `NO_COLOR` cleared. Hardware acceptance (
 - `scripts/check-gui.cjs` covers the Excluded card: patterns with "Hiding …", Remove (`include`), Exclude by file name, and Unhide for apps hidden by a rule.
 - `scripts/check-desktop.cjs` and OpenSpec validation pass. Built with `scripts/build.ps1`; `snoofer.exe --check` passes. Snoofer was relaunched.
 - **Personal config:** `appaudio` settings have no `exclude` key, so the defaults apply and Hue Sync is excluded. The first edit in the GUI saves the explicit list.
+
+## Revision: configurable recent window (commits a2d7c2a, cb0ba50)
+- `go test ./...`: pass.
+  - **appaudio tests (run 3×):** they reject 0, 1441 and non-numbers with a status message, and save 30.
+- `scripts/check-gui.cjs`: pass. The minutes field shows 5 and sends `recent` 30 on Enter. An invalid 0 is not sent and is reverted to the saved value.
+- **Build and relaunch:** built with `scripts/build.ps1`; `snoofer.exe --check` passes; Snoofer relaunched.
+- **Not rerun:** `scripts/check-desktop.cjs`, since this revision only changes a GUI field and a plugin edit.
