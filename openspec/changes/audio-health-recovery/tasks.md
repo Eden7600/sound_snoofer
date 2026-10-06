@@ -18,7 +18,7 @@
 ## 5. Generalized A1 detection (2026-10-06)
 - [x] Capture the SteelSeries A1 stall and post-restart baseline with the callback probe (incident-2026-10-06.md).
 - [x] `fix(audio)`: monitor whenever live; target any present A1 device (ASIO presence rules kept); explicit Stalled state; health/report/tone updates. Tests cover WDM/ASIO targets, absent/ambiguous hardware, alert-only versus Auto-recover dispatch and preview.
-- [ ] `feat(gui)`: Restart audio engine (and Confirm) on Audio and Diagnostics; stall badge tone. Update the GUI check.
+- [x] `feat(gui)`: Restart audio engine (and Confirm) on Audio and Diagnostics; stall badge tone. Update the GUI check.
 - [ ] Validate, build, enable Auto-recover through the GUI, relaunch and record. Hardware: the next real stall auto-recovers (left unchecked until observed).
 
 ## 4. Hardware acceptance

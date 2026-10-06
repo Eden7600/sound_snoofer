@@ -44,3 +44,7 @@ test("connection report helpers",async()=>{
  const text=m.connectionText({Label:"Hue Bridge",Group:"Hue",Value:"Connected",Connection:{State:"connected",Endpoint:"172.16.102.3",Since:"2026-10-05T11:00:00Z",LastError:"timeout",LastErrorAt:"2026-10-05T10:00:00Z",Details:[{Label:"Bridge ID",Value:"abc"}]}});
  assert.equal(text,"Hue Bridge (Hue)\nState: Connected\nEndpoint: 172.16.102.3\nSince: 2026-10-05T11:00:00.000Z\nLast error: timeout (2026-10-05T10:00:00.000Z)\nBridge ID: abc");
 });
+test("stalled engine health is critical",()=>{
+ assert.equal(tone({ID:"audio.health",Available:true,Value:"Audio engine stalled: no callback buffers · restart required"}),"critical");
+ assert.equal(tone({ID:"audio.health",Available:true,Value:"Audio processing active; audible output unverified"}),"");
+});

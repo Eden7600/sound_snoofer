@@ -175,7 +175,10 @@ function buildAudio() {
  const recording=[...controls.values()].filter(v=>v.Group==="Recording"&&!v.SurfaceOnly);
  if(recording.length){const card=panel("Recording",grid);for(const item of recording){control(item.ID,card);used.add(item.ID);}}
  const other=[...controls.values()].filter(v=>v.ID.startsWith("audio.")&&!v.SurfaceOnly&&!used.has(v.ID));
- if(other.length){const card=panel("Routing & recovery",grid);for(const item of other)control(item.ID,card);}
+ if(other.length||c("audio.engine-restart")){
+  const card=panel("Routing & recovery",grid);for(const item of other)control(item.ID,card);
+  const engine=el("div",ui.actions+" mt-3");card.append(engine);command("audio.engine-restart","Restart audio engine",engine,"","refresh-cw");
+ }
 }
 function setArt(art,artwork,fallback,size){
  if(art.dataset.art===(artwork||""))return;
@@ -467,7 +470,8 @@ function buildApps(){
 }
 function buildDiagnostics(){
  const toolbar=el("div",ui.toolbar);toolbar.append(withIcon(button("Retry plugins",()=>send({Kind:"retry"})),"refresh-cw"));root.append(toolbar);
- const card=panel("Audio engine",root);control("audio.health",card);control("audio.interface",card);control("audio.asio-unavailable",card);
+ const card=panel("Audio engine",root);control("audio.health",card);control("audio.interface",card);control("audio.asio-unavailable",card);control("audio.auto-recover",card,"Automatic recovery");
+ const engine=el("div",ui.actions+" mt-3");card.append(engine);command("audio.engine-restart","Restart audio engine",engine,"","refresh-cw");command("audio.engine-confirm","Confirm restart",engine,ui.danger);
  const details=el("section",ui.panel+" mt-[18px] text-[13px] break-words whitespace-pre-wrap");root.append(details);
  updaters.push(()=>{
   details.replaceChildren(el("h2",ui.h2,"Current notices"));

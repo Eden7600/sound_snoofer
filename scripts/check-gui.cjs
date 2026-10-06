@@ -18,6 +18,7 @@ for(const prefix of ["normal-","vr-profile-"]){
 }
 add("audio.record-mic","Record microphone","toggle","On",{Group:"Recording"});
 add("audio.auto-recover","Automatic recovery","toggle","On",{Group:"Shared audio"});
+add("audio.engine-restart","Restart audio engine","command","",{Group:"Bindings",SurfaceOnly:true});
 add("soundboard.volume","Volume","numeric","0.0 dB");
 add("soundboard.stop","Stop","command","");
 add("soundboard.status","Soundboard","status","Ready");
@@ -169,7 +170,11 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,"lights horizontal overflow");
   await page.getByRole("button",{name:"Third-party apps",exact:false}).click();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,"apps horizontal overflow");
-  await page.getByRole("button",{name:"Plugins",exact:false}).click();
+  await page.getByRole("button",{name:"Diagnostics",exact:false}).click();
+  await page.getByRole("button",{name:"Restart audio engine",exact:true}).click();
+  assert.equal(await page.evaluate(()=>window.sent.at(-1).Request.ID),"audio.engine-restart");
+  await page.waitForTimeout(300);
+  await page.getByRole("button",{name:"Plugins",exact:true}).click();
   assert.equal(await page.locator("[data-part=row]").count(),0,"Plugins page shows configuration");
   assert.equal(await page.getByText("Hue brightness").count(),0,"Plugins page shows plugin controls");
   await page.getByRole("button",{name:"Enable",exact:true}).click();
