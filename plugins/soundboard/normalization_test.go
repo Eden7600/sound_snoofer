@@ -70,13 +70,13 @@ func TestNormalizationCacheAndInvalidation(t *testing.T) {
 	if err != nil || len(entries) != 1 {
 		t.Fatal("partial output retained", entries, err)
 	}
-	if err := pruneNormalized(folder, []clip{c}, first); err != nil {
+	if err := pruneNormalized(folder, []clip{c}, []string{first}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(first); err != nil {
 		t.Fatal("playing cache deleted")
 	}
-	if err := pruneNormalized(folder, []clip{c}, ""); err != nil {
+	if err := pruneNormalized(folder, []clip{c}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(first); !errors.Is(err, os.ErrNotExist) {

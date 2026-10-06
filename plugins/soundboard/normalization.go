@@ -86,7 +86,7 @@ func validNormalized(path string) bool {
 }
 
 // Prune only our hash-named generated WAVs; never source files or arbitrary contents.
-func pruneNormalized(folder string, clips []clip, playing string) error {
+func pruneNormalized(folder string, clips []clip, playing []string) error {
 	entries, err := os.ReadDir(folder)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
@@ -94,7 +94,10 @@ func pruneNormalized(folder string, clips []clip, playing string) error {
 	if err != nil {
 		return err
 	}
-	keep := map[string]bool{filepath.Base(playing): true}
+	keep := map[string]bool{}
+	for _, path := range playing {
+		keep[filepath.Base(path)] = true
+	}
 	for _, c := range clips {
 		keep[normalizedName(c)] = true
 	}

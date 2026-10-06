@@ -192,7 +192,7 @@ function buildSoundboard(){
  const clips=[...controls.values()].filter(v=>v.ID.startsWith("soundboard.clip-"));
  const toolbar=el("div",ui.toolbar),search=el("input","min-w-[170px] flex-1");search.type="search";search.placeholder="Search clips";search.setAttribute("aria-label","Search clips");toolbar.append(icon("search","size-5 shrink-0 text-muted"),search);
  command("soundboard.stop","Stop",toolbar,"","square");root.append(toolbar);
- if(c("soundboard.volume")){const card=panel("Playback",root,"mb-[18px]");control("soundboard.status",card,"Library");mixer("soundboard.volume",card,"VOLUME");}
+ if(c("soundboard.volume")){const card=panel("Playback",root,"mb-[18px]");control("soundboard.status",card,"Library");control("soundboard.overlap",card,"Overlap clips");mixer("soundboard.volume",card,"VOLUME");}
  if(!clips.length){empty(root,"No clips available. Check the soundboard plugin and library folder.");return;}
  const grid=el("div",ui.clipGrid);root.append(grid);
  for(const initial of clips){
@@ -398,7 +398,7 @@ function buildDeck(){
  });
 }
 // Deck key previews map a control's deck icon to the closest Lucide icon.
-const deckIcons={"mic-mute":"mic","record-mic":"mic","vr-mic":"mic","speaker-mute":"volume-2","vr-playback":"volume-2","record-computer":"monitor","monitor":"headphones","mic-stack":"power","mode-direct":"audio-lines","mode-element":"audio-lines","tap-pre":"audio-lines","tap-post":"audio-lines","record-toggle":"circle-dot","record-start":"circle-dot","record-stop":"square","soundboard-play":"play","soundboard-stop":"square","media-prev":"skip-back","media-next":"skip-forward","media-play":"play","open-controls":"sliders-horizontal","defaults":"sliders-horizontal","engine-restart":"refresh-cw","hue-scene":"lightbulb","hue-brightness":"sun","hue-pair":"link","huesync-sync":"monitor","huesync-mode":"layers","huesync-intensity":"waves"};
+const deckIcons={"mic-mute":"mic","record-mic":"mic","vr-mic":"mic","speaker-mute":"volume-2","vr-playback":"volume-2","record-computer":"monitor","monitor":"headphones","mic-stack":"power","mode-direct":"audio-lines","mode-element":"audio-lines","tap-pre":"audio-lines","tap-post":"audio-lines","record-toggle":"circle-dot","record-start":"circle-dot","record-stop":"square","soundboard-play":"play","soundboard-stop":"square","soundboard-overlap":"layers","media-prev":"skip-back","media-next":"skip-forward","media-play":"play","open-controls":"sliders-horizontal","defaults":"sliders-horizontal","engine-restart":"refresh-cw","hue-scene":"lightbulb","hue-brightness":"sun","hue-pair":"link","huesync-sync":"monitor","huesync-mode":"layers","huesync-intensity":"waves"};
 function symbolIcon(id){
  const mapped=deckIcons[c(id)?.Icon];
  const name=mapped||(/mute/.test(id)?"volume-2":/mic|source|mode/.test(id)?"mic":/play|clip/.test(id)?"play":/stop/.test(id)?"square":/record/.test(id)?"circle-dot":/prev/.test(id)?"skip-back":/next/.test(id)?"skip-forward":/scene/.test(id)?"lightbulb":"circle");

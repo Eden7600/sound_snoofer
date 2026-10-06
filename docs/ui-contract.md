@@ -34,6 +34,7 @@ Provider Label identifies an action without an icon. Optional ShortLabel is for 
 | Soundboard | Filename / Stop; Ready / Playing (cyan), Wait during normalization; failures stay local to the clip |
 | Gain | Playback / Mic; numeric dB and meter |
 | Soundboard gain | Volume; numeric dB; press resets to 0 dB |
+| Soundboard overlap | Overlap; On / Off (stacked play symbol). On: up to 8 clips play together, the oldest is cut; Stop silences all |
 | Hue scene | Scene name; Ready / Active (cyan); Wait until the bridge confirms |
 | Hue room dial | Brightness: percent or Off, press toggles on/off; no color-temperature control |
 | Hue pairing | Pair; Ready / Press button / Paired |

@@ -53,6 +53,10 @@ func drawIcon(im *image.RGBA, icon string, ink color.RGBA) bool {
 		}
 	case "soundboard-play":
 		triangle(40, 38, 36, 1)
+	case "soundboard-overlap":
+		// Two offset play triangles: clips layered over each other.
+		triangle(26, 30, 28, 1)
+		triangle(50, 46, 28, 1)
 	case "record-stop", "soundboard-stop":
 		rect(36, 18, 40, 40)
 	case "media-prev":

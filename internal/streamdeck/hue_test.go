@@ -21,7 +21,7 @@ func TestHuePresentation(t *testing.T) {
 	if keyAccent("ON", "huesync-sync", false, false) != activeColor || keyAccent("OFF", "huesync-sync", false, false) != neutralColor {
 		t.Fatal("sync state colors")
 	}
-	icons := []string{"hue-scene", "hue-brightness", "hue-pair", "huesync-sync", "huesync-mode", "huesync-intensity"}
+	icons := []string{"hue-scene", "hue-brightness", "hue-pair", "huesync-sync", "huesync-mode", "huesync-intensity", "soundboard-overlap", "soundboard-play"}
 	var previous [][]byte
 	for _, icon := range icons {
 		canvas := image.NewRGBA(image.Rect(0, 0, 448, 448))
@@ -53,6 +53,7 @@ func TestHuePresentation(t *testing.T) {
 		{"Sync", "Off", "huesync-sync", ""},
 		{"Mode", "games", "huesync-mode", ""},
 		{"Intensity", "extreme", "huesync-intensity", ""},
+		{"Overlap", "On", "soundboard-overlap", ""},
 	}
 	sheet := image.NewRGBA(image.Rect(0, 0, 112*len(examples), 112))
 	for n, e := range examples {
