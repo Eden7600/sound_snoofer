@@ -9,7 +9,7 @@ Each numbered block is one reviewable commit.
 - [x] 5. `feat(audio)`: Voicemeeter, callback monitor, recorder, ASIO, Element and Windows defaults reports. Track the DLL path, login code, version (optional export), connected since and last error; extend `windowsaudio.Result`. Tests use the existing fakes.
 - [x] 6. `feat(vr)`: SteamVR report with check timestamps.
 - [x] 7. `feat(streamdeck)`: separate device state from layout status, plus a device report. Tests use the surface fake.
-- [ ] 8. `feat(soundboard)`: playback companion/renderer report.
+- [x] 8. `feat(soundboard)`: playback companion/renderer report.
 - [ ] 9. `feat(media)`: media keys report.
 - [ ] 10. Validate (gofmt, vet, test, GUI checks, OpenSpec, canonical build), relaunch, inspect the live screen against the real integrations and record the results.
 

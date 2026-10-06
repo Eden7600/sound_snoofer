@@ -105,6 +105,8 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 		scan := time.NewTicker(5 * time.Second)
 		defer scan.Stop()
 		current, failed, diagnostic := "", "", ""
+		var link snoofer.ConnectionTracker // Native playback health, apart from clip feedback.
+		lastClip := ""
 		stop := func() error {
 			current = ""
 			playingPath = ""
@@ -137,7 +139,7 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 				{ID: "soundboard.stop", Label: "Stop soundboard", ShortLabel: "Stop", Group: "Soundboard", Kind: "command", Icon: "soundboard-stop", Operations: []string{"press"}, Available: s.Live},
 			}
 			volume, volumeHandler := audioPlugin.SoundboardVolume()
-			controls = append(controls, volume)
+			controls = append(controls, volume, playbackReport(&link, s.Live, ready, player != nil, settings.Renderer, lastClip, time.Now()))
 			byID := map[string]clip{}
 			for _, c := range clips {
 				byID[c.ID] = c
@@ -192,6 +194,11 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 			case <-ticker.C:
 				if current != "" {
 					active, err := player.Poll()
+					if err != nil {
+						link.Fail(err.Error(), time.Now())
+					} else if active {
+						link.Activity(time.Now())
+					}
 					if err == nil {
 						err = audioPlugin.SoundboardReady()
 					}
@@ -216,9 +223,18 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 					}
 					if err == nil && player == nil {
 						player, err = voicemeeter.OpenClipPlayer(library, settings.Renderer)
+						if err != nil {
+							link.Fail(err.Error(), time.Now())
+						}
 					}
 					if err == nil {
 						err = player.Play(result.path, false)
+						if err != nil {
+							link.Fail(err.Error(), time.Now())
+						} else {
+							link.Activity(time.Now())
+							lastClip = result.clip.Label
+						}
 					}
 					if err != nil {
 						failed = result.clip.ID
