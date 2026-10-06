@@ -208,6 +208,15 @@ func drawIcon(im *image.RGBA, icon string, ink color.RGBA) bool {
 		if off {
 			line(25, 14, 87, 67)
 		}
+	case "deck-page":
+		// Folder: a tab over an open body, for jumping to a page.
+		line(26, 22, 48, 22)
+		line(48, 22, 54, 29)
+		line(54, 29, 86, 29)
+		line(26, 22, 26, 58)
+		line(86, 29, 86, 58)
+		line(26, 58, 86, 58)
+		line(26, 36, 86, 36)
 	case "huesync-sync":
 		// Screen casting light to both sides.
 		line(38, 22, 74, 22)

@@ -182,3 +182,22 @@ func (l Layout) pageNames(id string) [3]string {
 	current := l.effective(id).ID
 	return [3]string{l.effective(l.next(current, -1)).Name, l.effective(current).Name, l.effective(l.next(current, 1)).Name}
 }
+
+// gotoPrefix identifies go-to page controls; the page ID follows it.
+const gotoPrefix = "streamdeck.goto-"
+
+// gotoControls offers a key per saved page. Here marks the shown page,
+// including its automatic overflow pages.
+func gotoControls(l Layout, shown string) []snoofer.Control {
+	base, _, _ := strings.Cut(shown, "~auto~")
+	out := make([]snoofer.Control, 0, len(l.Pages))
+	for _, p := range l.Pages {
+		value := ""
+		if p.ID == base {
+			value = "Here"
+		}
+		out = append(out, snoofer.Control{ID: gotoPrefix + p.ID, Label: "Go to " + p.Name, ShortLabel: p.Name, Group: "Stream Deck pages",
+			Kind: "command", Icon: "deck-page", Value: value, Operations: []string{"press"}, Available: true})
+	}
+	return out
+}

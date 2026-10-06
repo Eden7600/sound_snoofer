@@ -104,6 +104,11 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			p := l.effective(page)
 			displayed, displayedPage = l, p
 			page = p.ID
+			// This plugin's go-to keys describe the page being drawn now rather than
+			// the previous snapshot; deck presses on them are handled locally.
+			for _, g := range gotoControls(active(), p.ID) {
+				shown[g.ID] = g
+			}
 			var signature strings.Builder
 			for _, b := range p.Keys {
 				fmt.Fprintf(&signature, "%s:%d;", b.Control, shown[b.Control].Revision)
@@ -166,7 +171,8 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			}
 			ids := []string{""}
 			for _, c := range all {
-				if strings.HasPrefix(c.ID, "streamdeck.") {
+				// Go-to keys are the only Stream Deck controls offered as bindings.
+				if strings.HasPrefix(c.ID, "streamdeck.") && !strings.HasPrefix(c.ID, gotoPrefix) {
 					continue
 				}
 				if (slot < Keys && (slices.Contains(c.Operations, "press") || slices.Contains(c.Operations, "set"))) || (slot >= Keys && slices.Contains(c.Operations, "adjust")) {
@@ -253,6 +259,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					}
 				}
 			}
+			list = append(list, gotoControls(active(), displayedPage.ID)...)
 			list = append(list, hardware.report(time.Now()))
 			_ = s.Controls.Publish("streamdeck", list, func(ctx context.Context, r snoofer.Request) error {
 				select {
@@ -327,6 +334,12 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 				if !ok || !c.Available || c.Hidden { // Hidden bindings are blank and inert.
 					continue
 				}
+				if target, ok := strings.CutPrefix(c.ID, gotoPrefix); ok {
+					page = target
+					generation++
+					publish()
+					continue
+				}
 				r := snoofer.Request{ID: c.ID, Revision: c.Revision, Operation: "press"}
 				if event.Delta != 0 {
 					r.Operation = "adjust"
@@ -353,6 +366,15 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 				}
 				if !current {
 					status = "Editor changed; try again"
+					continue
+				}
+				if target, ok := strings.CutPrefix(r.ID, gotoPrefix); ok {
+					// Switches the device only; the layout and Home are unchanged.
+					if active().index(target) >= 0 {
+						page = target
+						generation++
+						publish()
+					}
 					continue
 				}
 				editorEpoch++

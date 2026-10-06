@@ -7,7 +7,7 @@ const ICONS = [
   "audio-waveform", "music", "lightbulb", "layout-grid", "puzzle", "plug", "activity",
   "mic", "mic-off", "volume-2", "volume-x", "play", "square", "circle-dot", "skip-back", "skip-forward",
   "power", "headphones", "audio-lines", "sun", "link", "monitor", "layers", "waves", "sliders-horizontal",
-  "circle", "minus", "plus", "chevron-left", "chevron-right", "copy", "check", "search", "house", "refresh-cw", "radar",
+  "circle", "minus", "plus", "chevron-left", "chevron-right", "copy", "check", "search", "house", "refresh-cw", "radar", "folder",
 ];
 
 const root = path.resolve(__dirname, "..");

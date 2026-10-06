@@ -24,7 +24,7 @@ func TestHuePresentation(t *testing.T) {
 	if keyAccent("OFF", "hue-motion-off", false, false) != neutralColor {
 		t.Fatal("motion Off must stay neutral")
 	}
-	icons := []string{"hue-scene", "hue-brightness", "hue-pair", "huesync-sync", "huesync-mode", "huesync-intensity", "soundboard-overlap", "soundboard-play", "hue-motion", "hue-motion-off"}
+	icons := []string{"hue-scene", "hue-brightness", "hue-pair", "huesync-sync", "huesync-mode", "huesync-intensity", "soundboard-overlap", "soundboard-play", "hue-motion", "hue-motion-off", "deck-page"}
 	var previous [][]byte
 	for _, icon := range icons {
 		canvas := image.NewRGBA(image.Rect(0, 0, 448, 448))
