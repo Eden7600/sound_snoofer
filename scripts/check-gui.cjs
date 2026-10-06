@@ -22,13 +22,24 @@ add("soundboard.status","Soundboard","status","Ready");
 for(const name of ["fah","sadge","instinct","airhorn","ping"])add("soundboard.clip-"+name,name,"command","Ready");
 for(const [id,label,kind,value,options]of [["profile","Device","selection","Default",["Default"]],["page","Page","selection","home",["home","soundboard"]],["slot","Position","selection","Key 1",Array.from({length:36},(_,i)=>"Key "+(i+1))],["shared","Shared","toggle","Off"],["binding","Binding","selection","audio.mic-stack",["","audio.mic-stack","audio.mic-mute"]],["name","Name","text","Home"],["add","New page","text",""],["auto-controls","Automatic prefix","text",""],["preview","Preview","status",""],["status","Layout status","status","Connected"]])add("streamdeck."+id,label,kind,value,{Options:options});
 for(const id of ["save","cancel","delete","earlier","later","home"])add("streamdeck."+id,id,"command","");
+add("hue.status","Hue","status","Not paired",{ViewData:{bridge:"172.16.102.3"}});
+add("hue.pair","Pair Hue bridge","command","Ready",{ShortLabel:"Pair"});
+add("hue.group","Hue room","selection","room-1",{Options:["zone-1","room-1"],OptionLabels:{"zone-1":"Desk (zone)","room-1":"Studio"}});
+add("hue.brightness","Hue brightness","numeric","62%",{ShortLabel:"Brightness"});
+add("hue.temperature","Hue temperature","numeric","4000K",{ShortLabel:"Temp"});
+for(const [room,name,value] of [["Studio","Bright","Ready"],["Studio","Relax","Active"],["Studio","Concentrate","Ready"],["Desk","Focus","Ready"],["Kitchen","Cook","Ready"]])add("hue.scene-"+room.toLowerCase()+"-"+name.toLowerCase(),room+" "+name,"command",value,{ShortLabel:name,Group:"Hue scenes"});
+add("hue.sync-status","Hue Sync","status","Ready");
+add("hue.sync","Hue Sync","toggle","Off",{ShortLabel:"Sync"});
+add("hue.sync-mode","Hue Sync mode","selection","video",{Options:["video","games","music"],OptionLabels:{video:"Video",games:"Games",music:"Music"},Available:false});
+add("hue.sync-intensity","Hue Sync intensity","selection","moderate",{Options:["subtle","moderate","high","extreme"],OptionLabels:{subtle:"Subtle",moderate:"Moderate",high:"High",extreme:"Extreme"},Available:false});
+for(let n=1;n<=12;n++)add("hue.room-scene-"+n,"","command","",{Available:false,Group:"Hue room scenes"});
 const view={Selected:0,Dirty:false,Home:true,Keys:Array.from({length:36},()=>({Control:"",Label:"",Source:""})),Dials:Array.from({length:5},()=>({Control:"",Label:"",Source:""}))};
 ["audio.mic-stack","audio.mic-mute","audio.speaker-mute","audio.normal-monitor","audio.normal-mode"].forEach((Control,i)=>view.Keys[i]={Control,Label:"",Source:""});
 view.Keys[9]={Control:"soundboard.clip-fah",Label:"fah",Source:"Auto"};
 view.Keys[31]={Control:"core.open-controls",Label:"Controls",Source:"Shared"};
 ["audio.gain-playback","audio.gain-mic",""].forEach((Control,i)=>view.Dials[i]={Control,Label:"",Source:""});
 controls.find(c=>c.ID==="streamdeck.preview").ViewData=view;
-const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",streamdeck:"Running",vr:"Running",media:"Disabled"},Enabled:{audio:true,soundboard:true,streamdeck:true,vr:true,media:false}};
+const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",streamdeck:"Running",vr:"Running",media:"Disabled",hue:"Running"},Enabled:{audio:true,soundboard:true,streamdeck:true,vr:true,media:false,hue:true}};
 (async()=>{
  const server=http.createServer((req,res)=>{
   if(req.url==="/logo.ico"){res.setHeader("Content-Type","image/x-icon");res.end(fs.readFileSync(path.join(root,"app/tray.ico")));return;}
@@ -91,13 +102,40 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.waitForTimeout(600);
   assert.equal(await page.locator(".clip:visible").count(),1);
   await page.screenshot({path:path.join(root,".local/gui-soundboard.png"),fullPage:true});
+  await page.getByRole("button",{name:"Lights",exact:false}).click();
+  await page.getByRole("heading",{name:"Bridge found at 172.16.102.3"}).waitFor();
+  await page.getByRole("button",{name:"Pair",exact:true}).click();
+  assert.equal(await page.evaluate(()=>window.sent.at(-1).Request.ID),"hue.pair");
+  await page.evaluate(()=>{const s=window.fixture.Controls.find(c=>c.ID==="hue.status");s.Value="Connected";s.ViewData=null;s.Revision++;});
+  await page.waitForFunction(()=>document.querySelector(".setup").hidden);
+  assert.deepEqual(await page.locator(".lights-grid > .panel:first-child > .scene-grid .clip strong").allTextContents(),["Bright","Concentrate","Relax"]);
+  assert.equal(await page.locator(".clip.scene.playing").count(),1);
+  assert.equal(await page.locator("details .room-heading").allTextContents().then(t=>t.join(",")),"Desk,Kitchen");
+  await page.screenshot({path:path.join(root,".local/gui-lights.png"),fullPage:true});
+  await page.getByRole("button",{name:"BRIGHTNESS up",exact:true}).click();
+  assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Operation,r.Delta];}),["hue.brightness","adjust",1]);
+  await page.waitForTimeout(300);
+  await page.getByRole("slider",{name:"BRIGHTNESS"}).fill("80");
+  assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Delta];}),["hue.brightness",9]);
+  await page.waitForTimeout(300);
+  await page.getByRole("button",{name:"Relax",exact:false}).click();
+  assert.equal(await page.evaluate(()=>window.sent.at(-1).Request.ID),"hue.scene-studio-relax");
+  assert.equal(await page.getByRole("button",{name:"Games",exact:true}).isDisabled(),true,"mode enabled while not syncing");
+  await page.getByText("Start sync to change mode and intensity.").waitFor();
+  await page.waitForTimeout(300);
+  await page.getByRole("button",{name:"Start sync",exact:true}).click();
+  assert.equal(await page.evaluate(()=>window.sent.at(-1).Request.ID),"hue.sync");
   await page.getByRole("button",{name:"Audio",exact:false}).click();
   await page.setViewportSize({width:800,height:600});
   await page.screenshot({path:path.join(root,".local/gui-narrow.png"),fullPage:true});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,"horizontal overflow");
   await page.getByRole("button",{name:"Stream Deck",exact:false}).click();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,"deck horizontal overflow");
+  await page.getByRole("button",{name:"Lights",exact:false}).click();
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,"lights horizontal overflow");
   await page.getByRole("button",{name:"Plugins",exact:false}).click();
+  assert.equal(await page.locator(".control-row").count(),0,"Plugins page shows configuration");
+  assert.equal(await page.getByText("Hue brightness").count(),0,"Plugins page shows plugin controls");
   await page.getByRole("button",{name:"Enable",exact:true}).click();
   assert.equal(await page.evaluate(()=>window.sent.at(-1).Plugin),"media");
   await page.evaluate(()=>window.fixture.Confirmation="Enable media and restart Snoofer?");
@@ -105,7 +143,7 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.getByRole("button",{name:"Cancel",exact:true}).click();
   assert.equal(await page.evaluate(()=>window.sent.at(-1).Kind),"cancel");
   assert.deepEqual(errors,[]);
-  console.log("PASS: GUI screens, deck selection, draft text, search, responsive bounds and plugin dispatch");
+  console.log("PASS: GUI screens, deck selection, draft text, search, lights, responsive bounds and enable-only plugins");
  }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(e=>{console.error(e);process.exitCode=1;});
 

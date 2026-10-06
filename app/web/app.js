@@ -1,11 +1,11 @@
-import {controlsByID,compatible,tone,meterValue,display,gridMove} from "./model.mjs";
+import {controlsByID,compatible,tone,meterValue,display,gridMove,numericValue,sceneRoom} from "./model.mjs";
 
 const $=s=>document.querySelector(s);
 const root=$("#content");
 let state={Controls:[],Plugins:{},Enabled:{}}, controls=new Map(), screen="audio", signature="", pending=null;
 let localError="", dismissedNotice="", connected=false;
 const widgets=[], updaters=[];
-const titles={audio:["AUDIO","Audio"],soundboard:["LIBRARY","Soundboard"],deck:["CONTROL SURFACE","Stream Deck"],plugins:["SYSTEM","Plugins"],diagnostics:["SYSTEM","Diagnostics"]};
+const titles={audio:["AUDIO","Audio"],soundboard:["LIBRARY","Soundboard"],lights:["LIGHTING","Lights"],deck:["CONTROL SURFACE","Stream Deck"],plugins:["SYSTEM","Plugins"],diagnostics:["SYSTEM","Diagnostics"]};
 function el(tag,className="",text="") {
  const node=document.createElement(tag);
  if(className) node.className=className;
@@ -146,6 +146,101 @@ function buildSoundboard(){
  }
  search.oninput=update;
 }
+function lightsSetup(parent){
+ const card=el("section","panel setup"),title=el("h2"),text=el("p"),actions=el("div","actions");
+ const pair=button("Pair",()=>press("hue.pair"),"primary");actions.append(pair);card.append(title,text,actions);parent.append(card);
+ updaters.push(()=>{
+  const status=c("hue.status"),p=c("hue.pair"),info=status?.ViewData||{},value=status?.Value||"";
+  let heading="",body="",accent="",canPair=false;
+  if(p?.Value==="Press button"){heading="Press the link button";body="Press the round button on top of the Hue Bridge"+(info.bridge?" at "+info.bridge:"")+" within 30 seconds.";accent="attention";}
+  else if(p?.Status){heading="Pairing failed";body=p.Status;accent="critical";canPair=true;}
+  else if(value==="Not paired"){heading=info.bridge?"Bridge found at "+info.bridge:"Bridge found";body="Pair once so Snoofer can control your lights.";canPair=true;}
+  else if(value==="No bridge"){heading="Searching for the Hue Bridge";body="No bridge has answered yet. If it is on another network, set hue.address in snoofer.json to its IP address.";}
+  else if(value==="Multiple bridges"){heading="Multiple bridges found";body=status.Status||"";}
+  else if(value==="Error"){heading="Bridge needs pairing";body=status.Status||"";accent="critical";canPair=true;}
+  else if(value==="Disconnected"){heading="Connecting to the Hue Bridge";body=status.Status||"";}
+  card.hidden=!heading;title.textContent=heading;title.className=accent;text.textContent=body;
+  pair.hidden=!canPair;pair.textContent=value==="Error"?"Pair again":"Pair";pair.disabled=!!pending||!p?.Available;
+ });
+}
+function lightDial(id,parent,title,pressLabel,step,min,max){
+ if(!c(id))return;
+ const node=el("div","strip light-strip"),value=el("div","gain-readout"),slider=el("input"),note=el("div","meter-label"),actions=el("div","gain-buttons");
+ slider.type="range";slider.min=min;slider.max=max;slider.step="any";slider.setAttribute("aria-label",title);
+ node.append(el("h3","",title),value,slider,note,actions);parent.append(node);
+ actions.append(button("−",()=>request(c(id),"adjust","",-1)),button(pressLabel,()=>press(id)),button("+",()=>request(c(id),"adjust","",1)));
+ actions.children[0].setAttribute("aria-label",title+" down");actions.children[2].setAttribute("aria-label",title+" up");
+ // The plugin owns absolute values; the slider sends the equivalent relative ticks on release.
+ slider.onchange=()=>{const current=numericValue(c(id)?.Value);if(current===null)return;const ticks=Math.round((Number(slider.value)-current)/step);if(ticks)request(c(id),"adjust","",ticks);};
+ updaters.push(()=>{
+  const control=c(id),number=numericValue(control?.Value);
+  value.textContent=control?display(control):"Unavailable";value.classList.toggle("attention",!!control?.Subdued);
+  if(document.activeElement!==slider&&number!==null)slider.value=number;
+  slider.disabled=!!pending||!control?.Available||number===null;
+  note.textContent=control?.Status||"";note.className="meter-label "+tone(control);
+  for(const b of actions.children)b.disabled=!!pending||!control?.Available;
+ });
+}
+function segmented(id,title,parent){
+ const initial=c(id);if(!initial)return;
+ const row=el("div","segmented-row"),group=el("div","segmented");group.setAttribute("role","group");group.setAttribute("aria-label",title);
+ row.append(el("h3","",title),group);parent.append(row);
+ for(const option of initial.Options||[]){
+  const b=button(initial.OptionLabels?.[option]??option,()=>request(c(id),"set",option));group.append(b);
+  updaters.push(()=>{const item=c(id);b.setAttribute("aria-pressed",String(item?.Value===option));b.disabled=!!pending||!item?.Available;});
+ }
+}
+function sceneCard(id,parent){
+ const b=button("",()=>press(id),"clip scene"),art=el("div","clip-art","◍"),name=el("strong"),status=el("small");
+ b.append(art,name,status);parent.append(b);
+ updaters.push(()=>{
+  const item=c(id);if(!item)return;
+  name.textContent=item.ShortLabel||item.Label;b.title=item.Label;
+  b.disabled=!!pending||!item.Available;
+  b.className="clip scene"+(item.Value==="Active"?" playing":item.Status==="Pending"?" wait":tone(item)==="critical"?" error":"");
+  status.textContent=item.Status==="Pending"?"Wait":item.Status||display(item);status.className=tone(item);
+ });
+}
+function buildLights(){
+ if(!(state.Plugins||{}).hue){empty(root,"Hue is not part of this build.");return;}
+ if(!state.Enabled?.hue){
+  const card=panel("Hue is off",root,"setup");card.append(el("p","","Control Hue scenes, room brightness and temperature, and Hue Sync."));
+  const actions=el("div","actions");actions.append(button("Enable Hue",()=>send({Kind:"selection",Plugin:"hue",Enable:true}),"primary"));card.append(actions);return;
+ }
+ if(!c("hue.status")){empty(root,"Hue: "+(state.Plugins.hue||"Starting"));return;}
+ lightsSetup(root);
+ const grid=el("div","lights-grid");root.append(grid);
+ const room=panel("Room",grid,"room-card"),roomNote=el("p","section-note");room.append(roomNote);
+ control("hue.group",room.querySelector(".panel-head"),"Room");
+ const dials=el("div","strip-grid");room.append(dials);
+ lightDial("hue.brightness",dials,"BRIGHTNESS","On/Off",2,1,100);
+ lightDial("hue.temperature",dials,"TEMPERATURE","Neutral",100,2000,6500);
+ updaters.push(()=>{roomNote.textContent=c("hue.sync")?.Value==="On"?"Hue Sync is driving the lights · Brightness adjusts the sync":"";roomNote.hidden=!roomNote.textContent;});
+ const groupControl=c("hue.group"),roomName=(groupControl?.OptionLabels?.[groupControl.Value]||"").replace(/ \(zone\)$/,"");
+ const scenes=[...controls.values()].filter(v=>v.ID.startsWith("hue.scene-"));
+ const own=scenes.filter(v=>roomName&&sceneRoom(v)===roomName).sort((a,b)=>a.ShortLabel.localeCompare(b.ShortLabel));
+ const sceneGrid=el("div","clip-grid scene-grid");room.append(sceneGrid);
+ if(own.length)for(const scene of own)sceneCard(scene.ID,sceneGrid);
+ else sceneGrid.append(el("p","muted",roomName?"No scenes in this room.":"Choose a room to see its scenes."));
+ const others=scenes.filter(v=>!own.includes(v));
+ if(others.length){
+  const details=el("details"),summary=el("summary","","Other rooms");details.append(summary);room.append(details);
+  for(const name of [...new Set(others.map(sceneRoom))].sort()){
+   details.append(el("h3","room-heading",name||"Other"));const g=el("div","clip-grid scene-grid");details.append(g);
+   for(const scene of others.filter(v=>sceneRoom(v)===name).sort((a,b)=>a.ShortLabel.localeCompare(b.ShortLabel)))sceneCard(scene.ID,g);
+  }
+ }
+ const sync=panel("Hue Sync",grid),syncState=el("p","sync-state"),toggle=button("",()=>press("hue.sync"),"toggle sync-toggle"),help=el("p","muted");
+ sync.append(syncState,toggle);segmented("hue.sync-mode","Mode",sync);segmented("hue.sync-intensity","Intensity",sync);sync.append(help);
+ updaters.push(()=>{
+  const status=c("hue.sync-status"),item=c("hue.sync"),on=item?.Value==="On";
+  syncState.textContent=status?.Value==="N/A"?"Not connected":status?.Value||"";syncState.className="sync-state "+(on?"active":tone(status));
+  toggle.textContent=item?.Status==="Pending"?"Wait":on?"Stop sync":"Start sync";toggle.setAttribute("aria-pressed",String(on));
+  toggle.className="toggle sync-toggle "+(item?.Status&&item.Status!=="Pending"?"critical":"");toggle.disabled=!!pending||!item?.Available;
+  help.textContent=status?.Value==="N/A"?"Open Hue Sync and turn on Settings → Third-party control.":status?.Value==="No bridge"?"Hue Sync has no bridge connection.":!on?"Start sync to change mode and intensity.":item?.Status&&item.Status!=="Pending"?item.Status:"";
+  help.className=item?.Status&&item.Status!=="Pending"?"critical":"muted";help.hidden=!help.textContent;
+ });
+}
 function buildDeck(){
  const preview=c("streamdeck.preview");
  if(!preview?.ViewData){empty(root,"Stream Deck is disabled or its editor is not ready.");return;}
@@ -236,11 +331,6 @@ function buildPlugins(){
   text.append(el("h2","",id),status);card.append(text,toggle);root.append(card);
   updaters.push(()=>{status.textContent=state.Plugins[id];status.className=state.Plugins[id]==="Running"?"active":state.Plugins[id]==="Disabled"?"muted":"critical";toggle.textContent=state.Enabled[id]?"Disable":"Enable";toggle.disabled=!!pending;});
  }
- commandFallback(root);
-}
-function commandFallback(parent){
- const other=[...controls.values()].filter(v=>!v.SurfaceOnly&&!/^(audio|soundboard|streamdeck|core)\./.test(v.ID));
- for(const group of [...new Set(other.map(v=>v.Group))]){const card=panel(group||"Controls",parent);card.style.marginTop="18px";for(const item of other.filter(v=>v.Group===group))control(item.ID,card);}
 }
 function buildDiagnostics(){
  const toolbar=el("div","toolbar");toolbar.append(button("Retry plugins",()=>send({Kind:"retry"})));root.append(toolbar);
@@ -256,13 +346,13 @@ function buildDiagnostics(){
 function layoutKey(){
  // Values and telemetry are updated in place. Only structure/context rebuilds a screen.
  const list=[...controls.values()].map(v=>[v.ID,v.Label,v.Kind,v.Group,v.Options,v.OptionLabels]);
- return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value]:null]);
+ return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="lights"?[state.Enabled?.hue,c("hue.group")?.Value]:null,screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value]:null]);
 }
 function build(){
  widgets.length=0;updaters.length=0;root.replaceChildren();
  for(const b of document.querySelectorAll("[data-screen]")){if(b.dataset.screen===screen)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current");}
  $("#eyebrow").textContent=titles[screen][0];$("#title").textContent=titles[screen][1];
- ({audio:buildAudio,soundboard:buildSoundboard,deck:buildDeck,plugins:buildPlugins,diagnostics:buildDiagnostics})[screen]();
+ ({audio:buildAudio,soundboard:buildSoundboard,lights:buildLights,deck:buildDeck,plugins:buildPlugins,diagnostics:buildDiagnostics})[screen]();
 }
 function update(){
  if(pending&&(Date.now()>pending.until || state.Notice!==pending.notice || (pending.id&&c(pending.id)?.Revision!==pending.revision) || (!pending.id&&state.Confirmation)))pending=null;

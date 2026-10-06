@@ -14,3 +14,12 @@ test("binding compatibility, semantic states and meter expiry",()=>{
  assert.equal(gridMove(0,"ArrowLeft",9,36),0);
 });
 
+test("light values and scene rooms",async()=>{
+ const {numericValue,sceneRoom}=await import("./model.mjs");
+ assert.equal(numericValue("62%"),62);
+ assert.equal(numericValue("Sync 62%"),62);
+ assert.equal(numericValue("4000K"),4000);
+ assert.equal(numericValue("Off"),null);
+ assert.equal(sceneRoom({Label:"Living Room Bright",ShortLabel:"Bright"}),"Living Room");
+ assert.equal(sceneRoom({Label:"Bright",ShortLabel:"Bright"}),"");
+});

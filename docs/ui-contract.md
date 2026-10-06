@@ -13,7 +13,7 @@ Fast recognition, truthful state, predictable actions. Users know Snoofer. Use s
 | --- | --- |
 | Deck key | Short label, recognizable icon, current state or local status. One or two words where possible; max 16 ASCII characters for built-ins. No explanatory sentences, action IDs or profile suffix on active-profile controls. |
 | Deck dial | Target, gain, live meter; page dial shows previous/current/next page names on three lines, with the current name larger and cyan; neighboring names are smaller and neutral. Press still returns Home. No repeated gain label when dB is visible. |
-| GUI | Task-oriented Audio, Soundboard, Stream Deck, Plugins and Diagnostics screens. Native controls, keyboard focus, spatial deck editor and persistent local feedback. |
+| GUI | Task-oriented Audio, Soundboard, Lights, Stream Deck, Plugins and Diagnostics screens. Plugins only enables, disables and retries; no settings or plugin controls appear there. Native controls, keyboard focus, spatial deck editor and persistent local feedback. |
 | Tray | Open controls, lifecycle actions, concise state. No tutorials. |
 
 Provider Label identifies an action without an icon. Optional ShortLabel is for compact icon-bearing surfaces. Shortening presentation must never change IDs, layout bindings, command semantics or saved settings. Fixed-profile bindings retain Normal/VR qualifiers. Custom plugin labels remain intact.
@@ -93,6 +93,10 @@ Page dial reference:
 Scene keys use the bulb symbol and work with `auto_controls` prefixes (`hue.scene-` or `hue.scene-<room>-`). Brightness and Temp are dial controls without meters: the strip shows target and value only, and while a write is pending it shows the requested value (GUI marks it pending) rather than Wait. A control's Icon is an identifier and never appears as dial text; only the page dial uses that field for page names. Hue Sync uses the screen-with-rays symbol; mode and intensity show the app's value. While syncing, Brightness shows `Sync 62%` and adjusts the sync stream; Temp shows N/A. Room scene slots (`hue.room-scene-1`…`12`) mirror the selected room's scenes by name; an unused slot (unavailable, no label or icon) is a blank key, never N/A.
 
 ![Hue keys](design/hue.png)
+
+Lights screen: setup banner only while something needs doing (Enable, Pair with the found bridge, link-button instruction, errors). Room card with the room picker in its header, Brightness (On/Off) and Temperature (Neutral) readouts with sliders and −/+, the room's scene cards and Other rooms. Hue Sync card with Start/Stop sync, segmented Mode and Intensity (disabled with a reason while not syncing) and the Third-party control instruction when unreachable.
+
+![Lights screen](design/gui-lights.png)
 
 ## Personal Home layout
 Open controls occupies key 31 (zero-based; bottom row, fifth column). The rightmost four columns (zero-based keys 5–8, 14–17, 23–26, 32–35) hold the Hue block: Sync, Mode, Intensity and Brightness (press toggles the room) on the top row, then room scene slots 1–12. Dials: Playback (index 0), Mic (1), Brightness (2), Temp (3); index 4 is unassigned and dial 6 is pagination. This is a user-owned layout choice; do not relocate it during builds or overwrite other users' layouts.

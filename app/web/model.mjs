@@ -11,7 +11,7 @@ export function tone(control) {
  if (/failed|error/i.test(status)) return "critical";
  if (/pending|wait|fallback|override/i.test(status) || control.Value==="Wait") return "attention";
  if (control.Value==="On" && /mute/.test(control.ID)) return "critical";
- if (control.Value==="On" || control.Value==="Playing") return "active";
+ if (control.Value==="On" || control.Value==="Playing" || control.Value==="Active") return "active";
  return "";
 }
 export function meterValue(meter, now=Date.now()) {
@@ -28,3 +28,13 @@ export function gridMove(index,key,columns,count) {
  return Math.max(0,Math.min(count-1,index+step));
 }
 
+// numericValue reads the number in a dial value such as "62%", "Sync 62%" or "4000K".
+export function numericValue(text) {
+ const match=/(-?\d+(?:\.\d+)?)/.exec(text||"");
+ return match ? Number(match[1]) : null;
+}
+// sceneRoom recovers the room from a scene Label of the form "<Room> <Scene>".
+export function sceneRoom(control) {
+ const label=control?.Label||"", name=control?.ShortLabel||"";
+ return label.endsWith(name) ? label.slice(0,label.length-name.length).trim() : "";
+}
