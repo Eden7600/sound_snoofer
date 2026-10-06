@@ -3,9 +3,10 @@ package voicemeeter
 import (
 	"fmt"
 	"math"
+	"sound-snoofer/internal/model"
 )
 
-// GainLevels observes A1/A2 and the active hardware mic on the caller's native
+// GainLevels observes physical playback buses and the active hardware mic on the caller's native
 // worker thread. Missing entries are unknown, never a fabricated zero reading.
 func (c *Client) GainLevels(micStrip int) map[string]float32 {
 	c.mu.Lock()
@@ -35,7 +36,8 @@ func (c *Client) GainLevels(micStrip int) map[string]float32 {
 		}
 		levels[parameter] = peak
 	}
-	for bus := 0; bus < 2; bus++ {
+	buses, _ := model.Limits(int(edition))
+	for bus := 0; bus < buses; bus++ {
 		read(fmt.Sprintf("Bus[%d].Gain", bus), 3, bus*8, 8)
 	}
 	physical := 3

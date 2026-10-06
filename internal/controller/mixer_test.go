@@ -27,7 +27,7 @@ func (f *mixerFake) SetMixer(p string, v float32) error {
 	f.s.Numbers[p] = v
 	return nil
 }
-func TestMuteOwnershipTransferAndComposition(t *testing.T) {
+func TestMuteOwnershipTransfer(t *testing.T) {
 	c := config.Config{Studio: &config.Studio{Voice: &config.Voice{}}, Intent: &config.Intent{Enabled: true, Source: "desk", MicMuted: true, PlaybackMuted: true}}
 	f := &mixerFake{s: model.Snapshot{Numbers: map[string]float32{"Strip[0].Mute": 0, "Strip[1].Mute": 0, "Strip[6].Mute": 1, "Bus[0].Mute": 0, "Bus[1].Mute": 0}}}
 	m := &Mixer{Path: filepath.Join(t.TempDir(), "mute.json")}
@@ -40,7 +40,6 @@ func TestMuteOwnershipTransferAndComposition(t *testing.T) {
 	}
 	p.Topology.Voice.Strip = 1
 	p.Topology.PlaybackTarget = "A1"
-	c.Intent.BusMuted[1] = true
 	if e := m.Reconcile(f, c, p, f.s, false); e != nil {
 		t.Fatal(e)
 	}
@@ -50,12 +49,11 @@ func TestMuteOwnershipTransferAndComposition(t *testing.T) {
 	if e := m.Reconcile(f, c, p, f.s, true); e != nil {
 		t.Fatal(e)
 	}
-	if f.s.Numbers["Strip[0].Mute"] != 0 || f.s.Numbers["Bus[1].Mute"] != 1 {
-		t.Fatal("ownership transfer/composition")
+	if f.s.Numbers["Strip[0].Mute"] != 0 || f.s.Numbers["Bus[1].Mute"] != 0 {
+		t.Fatal("ownership transfer")
 	}
 	c.Intent.MicMuted = false
 	c.Intent.PlaybackMuted = false
-	c.Intent.BusMuted[1] = false
 	// A new owner restores the durable baseline after restart.
 	m = &Mixer{Path: m.Path}
 	if e := m.Reconcile(f, c, p, f.s, true); e != nil {

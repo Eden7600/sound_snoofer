@@ -85,7 +85,7 @@ func drawIcon(im *image.RGBA, icon string, ink color.RGBA) bool {
 		line(73, 48, 73, 38)
 		line(56, 57, 56, 66)
 		line(45, 66, 67, 66)
-	case "speaker-mute", "a1-mute", "a2-mute", "vr-playback":
+	case "speaker-mute", "vr-playback":
 		line(29, 29, 42, 29)
 		line(29, 29, 29, 52)
 		line(29, 52, 42, 52)

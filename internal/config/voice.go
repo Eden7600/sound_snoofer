@@ -15,7 +15,6 @@ type Intent struct {
 	VRProfile        *ProfileChoices `json:"vr_profile,omitempty"`
 	MicMuted         bool            `json:"mic_muted,omitempty"`
 	PlaybackMuted    bool            `json:"playback_muted,omitempty"`
-	BusMuted         [2]bool         `json:"bus_muted,omitempty"`
 	PreferVRMic      bool            `json:"prefer_vr_mic,omitempty"`
 	PreferVRPlayback bool            `json:"prefer_vr_playback,omitempty"`
 	ProtectDefaults  bool            `json:"protect_defaults,omitempty"`

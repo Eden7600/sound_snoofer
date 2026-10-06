@@ -70,6 +70,7 @@ func (c *ruleClient) Snapshot() (model.Snapshot, error) {
 	}
 	for strip := 0; strip < 8; strip++ {
 		for bus := 1; bus <= 5; bus++ {
+			s.Numbers[fmt.Sprintf("Bus[%d].Mute", bus-1)] = 0
 			s.Numbers[fmt.Sprintf("Strip[%d].A%d", strip, bus)] = 0
 		}
 		for bus := 1; bus <= 3; bus++ {

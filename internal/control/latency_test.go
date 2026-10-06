@@ -33,6 +33,7 @@ func (b *measuredClient) SetNumber(p string, v int) error {
 	b.snapshot.Numbers[p] = float32(v)
 	return nil
 }
+func (b *measuredClient) SetMixer(p string, v float32) error { b.snapshot.Numbers[p] = v; return nil }
 func TestChoiceAckAndVerifiedReadbackLatency(t *testing.T) {
 	c, e := config.Decode([]byte(ruleConfig))
 	if e != nil {

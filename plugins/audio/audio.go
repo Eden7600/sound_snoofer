@@ -224,7 +224,6 @@ func controls(s control.State) []snoofer.Control {
 		value     bool
 	}{
 		{"mic-stack", "Mic stack", s.Intent.Enabled}, {"mic-mute", "Mic mute", i.MicMuted}, {"speaker-mute", "Playback mute", i.PlaybackMuted},
-		{"a1-mute", "A1 mute", i.BusMuted[0]}, {"a2-mute", "A2 mute", i.BusMuted[1]},
 		{"defaults", "Protect Windows defaults", i.ProtectDefaults}, {"auto-recover", "Automatic recovery", i.AutoRecover},
 	} {
 		value := "Off"
@@ -260,13 +259,13 @@ func controls(s control.State) []snoofer.Control {
 		}
 		add("record-toggle", "Record", "Transport", "command", s.Recorder.State(), nil, "press")
 	}
-	for _, target := range []string{"A1", "A2", "mic"} {
+	for _, target := range []string{"playback", "mic"} {
 		parameter := controller.GainTarget(s.Plan, target)
 		value := "Unknown"
 		if gain, ok := s.Snapshot.Numbers[parameter]; ok {
 			value = fmt.Sprintf("%.1f dB", gain)
 		}
-		add("gain-"+target, target+" gain", "Shared audio", "numeric", value, nil, "adjust", "press")
+		add("gain-"+target, map[string]string{"playback": "Playback", "mic": "Mic"}[target], "Shared audio", "numeric", value, nil, "adjust", "press")
 		level, known := s.Levels[parameter]
 		known = known && level >= 0 && !math.IsNaN(float64(level)) && !math.IsInf(float64(level), 0)
 		db := -60.0
@@ -353,6 +352,9 @@ func controls(s control.State) []snoofer.Control {
 		}
 		if out[n].Kind == "numeric" || out[n].Group == "Transport" {
 			out[n].Available = s.Connected && s.Live
+			if strings.HasPrefix(key, "gain-") {
+				out[n].Available = out[n].Available && controller.GainIdentity(s.Plan, s.Snapshot, strings.TrimPrefix(key, "gain-")) != ""
+			}
 		}
 	}
 	return out
@@ -378,7 +380,7 @@ func action(s control.State, r snoofer.Request) (control.Action, error) {
 			a.Delta = float32(r.Delta)
 			return a, nil
 		}
-		key = map[string]string{"A1": "a1-mute", "A2": "a2-mute", "mic": "mic-mute"}[target]
+		key = map[string]string{"playback": "speaker-mute", "mic": "mic-mute"}[target]
 		a.Row = key
 		activeKey = key
 	}
@@ -406,7 +408,7 @@ func action(s control.State, r snoofer.Request) (control.Action, error) {
 			return a, fmt.Errorf("recorder state is not actionable")
 		}
 		return a, nil
-	case "speaker-mute", "a1-mute", "a2-mute":
+	case "speaker-mute":
 		return control.ToggleMute(s, key), nil
 	}
 	if r.Operation == "press" {

@@ -16,11 +16,11 @@ func shortLabel(key string) string {
 	label := map[string]string{
 		"source": "Mic target", "mode": "Mic processing", "monitor": "Monitor", "output": "Playback",
 		"mic-stack": "Mic stack", "mic-mute": "Mute", "speaker-mute": "Mute",
-		"a1-mute": "A1 mute", "a2-mute": "A2 mute", "defaults": "Defaults", "auto-recover": "Recovery",
+		"defaults": "Defaults", "auto-recover": "Recovery",
 		"record-mic": "Record mic", "record-computer": "Record PC", "record-loop": "Loop",
 		"record-vst": "To VST", "record-tap": "Mic stage", "record-start": "Record",
 		"record-stop": "Stop rec", "record-toggle": "Record", "snippet-play": "Play", "snippet-stop": "Stop",
-		"gain-A1": "A1", "gain-A2": "A2", "gain-mic": "Mic", "engine-restart": "Restart", "engine-confirm": "Confirm restart",
+		"gain-playback": "Playback", "gain-mic": "Mic", "engine-restart": "Restart", "engine-confirm": "Confirm restart",
 	}[key]
 	if label == "" {
 		return ""

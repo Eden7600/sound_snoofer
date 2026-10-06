@@ -31,29 +31,15 @@ func ObserveMute(s State, key string) (MuteStatus, bool) {
 		v, ok := s.Snapshot.Numbers[p]
 		result.Known = result.Known && ok
 		result.Muted = result.Muted || v == 1
-		result.Pending = result.Pending || (requested && v != 1)
+		result.Pending = result.Pending || (requested && v != 1) || (key == "speaker-mute" && !requested && v != 0)
 	}
 	return result, handled
 }
 
-// ToggleMute creates identical composed mute edits for all surfaces.
+// ToggleMute changes requested state; native readback never becomes preference.
 func ToggleMute(s State, key string) Action {
-	a := Action{Kind: Edit, Revision: s.Revision, Row: key}
 	_, requested, _ := routing.MuteTargets(s.Intent, s.Plan, key)
-	target := ""
-	if s.Plan != nil && s.Plan.Topology != nil {
-		target = s.Plan.Topology.PlaybackTarget
-	}
-	if key == "speaker-mute" || (key == "a1-mute" && target == "A1") || (key == "a2-mute" && target == "A2") {
-		a.Row = ""
-		a.Edits = []SettingEdit{{Row: "speaker-mute", Value: strconv.FormatBool(!requested)}}
-		if target == "A1" || target == "A2" {
-			a.Edits = append(a.Edits, SettingEdit{Row: fmt.Sprintf("a%c-mute", target[1]), Value: "false"})
-		}
-	} else {
-		a.Value = strconv.FormatBool(!requested)
-	}
-	return a
+	return Action{Kind: Edit, Revision: s.Revision, Row: key, Value: strconv.FormatBool(!requested)}
 }
 
 // DependsOn identifies which control is affected by a planned write.

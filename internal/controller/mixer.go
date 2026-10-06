@@ -84,11 +84,11 @@ func (m *Mixer) Reconcile(b Backend, c config.Config, p routing.Plan, s model.Sn
 		return nil
 	}
 	wanted := map[string]bool{}
-	for _, key := range []string{"mic-mute", "speaker-mute", "a1-mute", "a2-mute"} {
+	for _, key := range []string{"mic-mute", "speaker-mute"} {
 		parameters, requested, _ := routing.MuteTargets(i, &p, key)
-		if requested {
+		if requested || key == "speaker-mute" {
 			for _, parameter := range parameters {
-				wanted[parameter] = true
+				wanted[parameter] = requested
 			}
 		}
 	}
@@ -98,7 +98,7 @@ func (m *Mixer) Reconcile(b Backend, c config.Config, p routing.Plan, s model.Sn
 	}
 	if release {
 		for p := range m.Owned {
-			if !wanted[p] {
+			if _, active := wanted[p]; !active {
 				keys = append(keys, p)
 			}
 		}
@@ -117,7 +117,8 @@ func (m *Mixer) Reconcile(b Backend, c config.Config, p routing.Plan, s model.Sn
 			return fmt.Errorf("mute observation unavailable: %s", param)
 		}
 		owner, owned := m.Owned[param]
-		if wanted[param] && !owned {
+		requested, active := wanted[param]
+		if active && !owned {
 			owner = MuteOwnership{Baseline: current}
 			m.Owned[param] = owner
 			if err := m.save(); err != nil {
@@ -125,10 +126,13 @@ func (m *Mixer) Reconcile(b Backend, c config.Config, p routing.Plan, s model.Sn
 				return err
 			}
 		}
-		value := float32(1)
-		if !wanted[param] {
+		value := float32(0)
+		if requested {
+			value = 1
+		}
+		if !active {
 			value = owner.Baseline
-			if current != 1 {
+			if !strings.HasPrefix(param, "Bus[") && current != 1 {
 				value = current
 			}
 		}
@@ -151,7 +155,7 @@ func (m *Mixer) Reconcile(b Backend, c config.Config, p routing.Plan, s model.Sn
 				return fmt.Errorf("%w: %s", ErrMixerPending, param)
 			}
 		}
-		if !wanted[param] {
+		if !active {
 			delete(m.Owned, param)
 			if err := m.save(); err != nil {
 				m.Owned[param] = owner
@@ -167,10 +171,13 @@ func GainTarget(p *routing.Plan, target string) string {
 		if p != nil && p.Edition == 3 {
 			return "Strip[7].Gain"
 		}
-	case "A1":
-		return "Bus[0].Gain"
-	case "A2":
-		return "Bus[1].Gain"
+	case "playback":
+		if p != nil && p.Topology != nil {
+			bus := p.Topology.PlaybackTarget
+			if len(bus) == 2 && bus[0] == 'A' && bus[1] >= '1' && bus[1] <= '5' {
+				return fmt.Sprintf("Bus[%d].Gain", bus[1]-'1')
+			}
+		}
 	case "mic":
 		if p != nil && p.Topology != nil && p.Topology.Voice != nil && p.Topology.Voice.Strip >= 0 {
 			return fmt.Sprintf("Strip[%d].Gain", p.Topology.Voice.Strip)
@@ -190,6 +197,17 @@ func GainIdentity(p *routing.Plan, s model.Snapshot, target string) string {
 			name = s.Assignments["A1"]
 		}
 		return param + "|" + v.Effective + "|" + name
+	}
+	if target == "playback" {
+		target = p.Topology.PlaybackTarget
+		for _, op := range p.Topology.Operations {
+			if op.Target == target && op.Device != nil && op.Device.Name != s.Assignments[target] {
+				return ""
+			}
+		}
+		if s.Assignments[target] == "" {
+			return ""
+		}
 	}
 	return param + "|" + s.Assignments[target]
 }

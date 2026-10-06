@@ -17,6 +17,7 @@ func (c *testClient) SetNumber(p string, v int) error {
 	c.s.Numbers[p] = float32(v)
 	return nil
 }
+func (c *testClient) SetMixer(p string, v float32) error { c.writes++; c.s.Numbers[p] = v; return nil }
 func TestCommandsShareSavedIntent(t *testing.T) {
 	for _, cmd := range []string{"plan", "apply", "watch"} {
 		t.Run(cmd, func(t *testing.T) {
@@ -48,6 +49,7 @@ func TestCommandsShareSavedIntent(t *testing.T) {
 					s.Numbers[fmt.Sprintf("Strip[%d].B%d", strip, bus)] = 0
 				}
 			}
+			s.Numbers["Bus[1].Mute"] = 0
 			s.Numbers["Strip[5].A2"] = 1
 			s.Numbers["Strip[1].B3"] = 1
 			client := &testClient{s: s}
