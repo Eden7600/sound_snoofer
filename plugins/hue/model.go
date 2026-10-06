@@ -1,6 +1,8 @@
 package hue
 
 import (
+	"encoding/json"
+	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -38,6 +40,45 @@ type colorTemperature struct {
 
 type sceneStatus struct {
 	Active string `json:"active"`
+}
+
+// UnmarshalJSON reads the scene status object. Other resource types use
+// "status" for unrelated values, such as zigbee_connectivity's "connected"
+// string, which carry nothing this plugin reads.
+func (s *sceneStatus) UnmarshalJSON(data []byte) error {
+	if len(data) == 0 || data[0] != '{' {
+		*s = sceneStatus{}
+		return nil
+	}
+	type plain sceneStatus
+	return json.Unmarshal(data, (*plain)(s))
+}
+
+// usedTypes are the resource types the model reads. Malformed resources of
+// other types are skipped so unrelated bridge data cannot block loading.
+var usedTypes = map[string]bool{"room": true, "zone": true, "device": true, "light": true, "grouped_light": true, "scene": true}
+
+// decodeResources decodes each resource separately, skipping malformed
+// resources of unused types and rejecting malformed used ones.
+func decodeResources(items []json.RawMessage) ([]resource, error) {
+	out := make([]resource, 0, len(items))
+	for _, item := range items {
+		var r resource
+		err := json.Unmarshal(item, &r)
+		if err == nil {
+			out = append(out, r)
+			continue
+		}
+		var header struct {
+			ID   string `json:"id"`
+			Type string `json:"type"`
+		}
+		if json.Unmarshal(item, &header) == nil && !usedTypes[header.Type] {
+			continue
+		}
+		return nil, fmt.Errorf("%s %s: %w", header.Type, header.ID, err)
+	}
+	return out, nil
 }
 
 // resource is the subset of CLIP v2 resources this plugin reads. Event updates

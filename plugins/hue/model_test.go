@@ -1,7 +1,9 @@
 package hue
 
 import (
+	"encoding/json"
 	"math"
+	"strings"
 	"testing"
 )
 
@@ -93,5 +95,35 @@ func TestSlug(t *testing.T) {
 		if got := slug(input); got != want {
 			t.Errorf("slug(%q) = %q, want %q", input, got, want)
 		}
+	}
+}
+
+// Shapes observed from a real bridge: several types use a string status.
+const realShapes = `[
+ {"id":"zc-1","type":"zigbee_connectivity","status":"connected","owner":{"rid":"dev-1","rtype":"device"}},
+ {"id":"ec-1","type":"entertainment_configuration","status":"inactive","metadata":{"name":"TV area"}},
+ {"id":"odd-1","type":"future_thing","metadata":"not an object"},
+ {"id":"scene-1","type":"scene","status":{"active":"static"},"metadata":{"name":"Bright"}}
+]`
+
+func TestDecodeResourcesToleratesUnrelatedShapes(t *testing.T) {
+	var items []json.RawMessage
+	if err := json.Unmarshal([]byte(realShapes), &items); err != nil {
+		t.Fatal(err)
+	}
+	resources, err := decodeResources(items)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resources) != 3 {
+		t.Fatalf("%d resources, want the three decodable ones", len(resources))
+	}
+	scenes := newModel(resources).scenes()
+	if len(scenes) != 1 || !scenes[0].Active {
+		t.Fatalf("scene status lost: %+v", scenes)
+	}
+	bad := []json.RawMessage{json.RawMessage(`{"id":"light-9","type":"light","on":"yes"}`)}
+	if _, err := decodeResources(bad); err == nil || !strings.Contains(err.Error(), "light light-9") {
+		t.Fatalf("malformed light accepted: %v", err)
 	}
 }

@@ -3,6 +3,7 @@ package hue
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -443,4 +444,64 @@ func TestRoomSceneSlotsBlankWithoutRoom(t *testing.T) {
 	if c, _ := h.find("hue.room-scene-1"); c.Available || c.Label != "" {
 		t.Fatalf("slot without room %+v", c)
 	}
+}
+
+func TestRealBridgeShapesLoadAndStream(t *testing.T) {
+	bridge := newFakeBridge(t, "b1", studio()...)
+	bridge.set(func(b *fakeBridge) {
+		b.extra = []json.RawMessage{
+			json.RawMessage(`{"id":"zc-1","type":"zigbee_connectivity","status":"connected"}`),
+			json.RawMessage(`{"id":"ec-1","type":"entertainment_configuration","status":"inactive"}`),
+		}
+	})
+	h := startHarness(t, bridge, paired(bridge, "room-1"), true)
+	h.value("hue.status", "Connected")
+	waitFor(t, func() bool { return bridge.streamCount() == 1 })
+	bridge.pushRaw(`[{"type":"update","data":[{"id":"zc-1","type":"zigbee_connectivity","status":"connectivity_issue"}]}]`)
+	bridge.update(resource{ID: "gl-1", Type: "grouped_light", Dimming: &dimming{Brightness: 30}})
+	h.value("hue.brightness", "30%")
+	if c, _ := h.find("hue.status"); c.Value != "Connected" || bridge.streamCount() != 1 {
+		t.Fatalf("stream did not survive an unrelated status update: %+v", c)
+	}
+}
+
+// TestLiveResources loads the paired bridge named by a Snoofer config file
+// (SNOOFER_HUE_CONFIG). It prints resource type counts only, never settings.
+func TestLiveResources(t *testing.T) {
+	path := os.Getenv("SNOOFER_HUE_CONFIG")
+	if path == "" {
+		t.Skip("set SNOOFER_HUE_CONFIG to a paired snoofer.json")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var envelope struct {
+		Plugins map[string]struct {
+			Settings Settings `json:"settings"`
+		} `json:"plugins"`
+	}
+	if err := json.Unmarshal(data, &envelope); err != nil {
+		t.Fatal(err)
+	}
+	settings := envelope.Plugins["hue"].Settings
+	if settings.AppKey == "" {
+		t.Skip("hue is not paired in that config")
+	}
+	target, err := resolve(context.Background(), settings.Address, settings.BridgeID, func(ctx context.Context) ([]string, error) { return discoverMDNS(ctx, 3*time.Second) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := newClient(target.Address, settings.CertificateSHA256, settings.AppKey)
+	defer client.close()
+	items, err := client.Resources(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	counts := map[string]int{}
+	for _, item := range items {
+		counts[item.Type]++
+	}
+	m := newModel(items)
+	t.Logf("bridge %s: %v; rooms/zones %d; scenes %d", target.Address, counts, len(m.groups()), len(m.scenes()))
 }

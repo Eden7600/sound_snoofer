@@ -24,6 +24,7 @@ type fakeBridge struct {
 	throttle    int // Number of upcoming PUTs answered with 429.
 	ignorePuts  bool
 	resources   map[string]resource
+	extra       []json.RawMessage // Raw resources in shapes the typed model cannot express.
 	puts        []string
 	streams     []chan string
 }
@@ -70,8 +71,15 @@ func (b *fakeBridge) serve(w http.ResponseWriter, r *http.Request) {
 		for _, item := range b.resources {
 			items = append(items, item)
 		}
+		data := make([]any, 0, len(items)+len(b.extra))
+		for _, item := range items {
+			data = append(data, item)
+		}
+		for _, raw := range b.extra {
+			data = append(data, raw)
+		}
 		b.mu.Unlock()
-		_ = json.NewEncoder(w).Encode(map[string]any{"errors": []any{}, "data": items})
+		_ = json.NewEncoder(w).Encode(map[string]any{"errors": []any{}, "data": data})
 	case r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, "/clip/v2/resource/"):
 		b.put(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == "/eventstream/clip/v2":
@@ -202,6 +210,15 @@ func (b *fakeBridge) stream(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "id: 1:0\ndata: %s\n\n", message)
 			w.(http.Flusher).Flush()
 		}
+	}
+}
+
+// pushRaw sends a raw event-stream message.
+func (b *fakeBridge) pushRaw(message string) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	for _, s := range b.streams {
+		s <- message
 	}
 }
 

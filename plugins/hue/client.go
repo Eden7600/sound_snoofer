@@ -202,8 +202,8 @@ func (c *Client) Resources(ctx context.Context) ([]resource, error) {
 	}
 	defer response.Body.Close()
 	var payload struct {
-		Errors apiErrors  `json:"errors"`
-		Data   []resource `json:"data"`
+		Errors apiErrors         `json:"errors"`
+		Data   []json.RawMessage `json:"data"`
 	}
 	if response.StatusCode == http.StatusForbidden || response.StatusCode == http.StatusUnauthorized {
 		return nil, fmt.Errorf("load resources: application key rejected; pair again")
@@ -217,7 +217,11 @@ func (c *Client) Resources(ctx context.Context) ([]resource, error) {
 	if response.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("load resources: HTTP %d", response.StatusCode)
 	}
-	return payload.Data, nil
+	items, err := decodeResources(payload.Data)
+	if err != nil {
+		return nil, fmt.Errorf("load resources: %w", err)
+	}
+	return items, nil
 }
 
 // Put sends a partial resource update. A rate-limit response wraps ErrThrottled.
@@ -272,6 +276,26 @@ func (c *Client) Events(ctx context.Context, handle func([]event) error) error {
 	return readEvents(response.Body, handle)
 }
 
+// decodeEvents decodes one event-stream message with tolerant resource decoding.
+func decodeEvents(data []byte) ([]event, error) {
+	var raw []struct {
+		Type string            `json:"type"`
+		Data []json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, err
+	}
+	events := make([]event, 0, len(raw))
+	for _, item := range raw {
+		resources, err := decodeResources(item.Data)
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, event{Type: item.Type, Data: resources})
+	}
+	return events, nil
+}
+
 // readEvents parses server-sent events whose data fields carry JSON event arrays.
 func readEvents(body io.Reader, handle func([]event) error) error {
 	scanner := bufio.NewScanner(body)
@@ -283,8 +307,8 @@ func readEvents(body io.Reader, handle func([]event) error) error {
 			if data.Len() == 0 {
 				continue
 			}
-			var events []event
-			if err := json.Unmarshal([]byte(data.String()), &events); err != nil {
+			events, err := decodeEvents([]byte(data.String()))
+			if err != nil {
 				return fmt.Errorf("event stream: %w", err)
 			}
 			data.Reset()

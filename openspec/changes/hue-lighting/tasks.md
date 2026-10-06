@@ -19,6 +19,8 @@ Each numbered block is one reviewable commit.
 - [x] 17. `feat(gui)`: Lights screen and enable-only Plugins page. Update check-gui fixtures and screenshots, the UI contract and docs/plugins.md.
 - [x] 18. Validate (gofmt, test, vet, OpenSpec, GUI check, canonical build). Apply the personal Home layout and remove the stale `huesync` entry while Snoofer is stopped, then relaunch. Record the results.
 
+- [x] 19. `fix(hue)`: tolerate type-specific `status` shapes and skip malformed unused resource types in loads and events. Test with real-bridge payload shapes, and verify with a gated live load against the paired bridge.
+
 ## Hardware acceptance
 - [ ] 8. Pair the real bridge through the link button (revision 1 discovery failed with "No bridge" on this multi-adapter host); confirm discovery, restart persistence and that the key stays out of diagnostics.
 - [ ] 9. Recall scenes from the Home slots; confirm Active state and changes made in the Hue app.
