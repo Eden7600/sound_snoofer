@@ -94,3 +94,14 @@ This builds on the existing pure-Go COM approach (`defaults_windows.go`): vtable
 | Plumbing (audiodg, Voicemeeter, Snoofer's soundboard) | Hidden by default; Unhide is available. |
 | Exclusive-mode or ASIO app | Has no shared session, so it never appears. The GUI notes this. |
 | Many apps | Overflow pages with Up/Down; pick the important ones to pin their positions. |
+
+## 6. Revision: exclusion list
+Review asked for a visible exclusion list, with Hue Sync excluded by default. Hue Sync listens to system audio and reacts to it, so its session behaves erratically.
+- **Setting:** `Settings.Exclude []string` holds program file names, case-insensitive, with `*` wildcards (for example `voicemeeter*.exe`). The entry `system` covers System sounds.
+- **Defaults:** when `exclude` is absent (JSON null), the defaults apply: `snoofer.exe`, `voicemeeter*.exe`, `audiodg.exe` and `huesync.exe`. The first edit stores the explicit list, so you can remove any default. An empty list means nothing is excluded.
+- **Precedence:** exclusion is checked before rules, so an excluded program stays hidden even if a rule names it. The built-in hide rules are removed. `Rule.Hide` remains for regex rules written in JSON.
+- **Edits:**
+  - `exclude` adds a pattern and `include` removes one; neither needs the program to be running.
+  - **Hide** adds the app's program file names.
+  - **Unhide** removes every pattern matching the app's programs, plus any exact-match hide rule for them.
+- **GUI:** an **Excluded** card lists the patterns. Each shows the running apps it currently hides and has a Remove button. An Add field takes a file name. Apps hidden by JSON regex rules are listed under the card with their rule.

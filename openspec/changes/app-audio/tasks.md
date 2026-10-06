@@ -9,10 +9,16 @@ Each numbered block is one reviewable commit.
 - [x] 5. `feat(gui)`: App audio screen. Covers strips, pin and order, Rename/Combine/Hide, the hidden list, details and dial-region editing. The GUI check covers each action.
 - [x] 6. Validate: Go tests and vet, GUI and desktop checks, OpenSpec, the canonical build; add the Apps page to the personal layout; relaunch.
 
+## Revisions after review
+- [x] 8. `docs(apps)`: an editable exclusion list with Hue Sync excluded by default (§6); update the contract.
+- [ ] 9. `feat(appaudio)`: the exclusion list. Covers the setting, its defaults, wildcard matching, exclude/include/hide/unhide edits and the GUI Excluded card. Fake-backend tests and the GUI check cover it.
+- [ ] 10. Validate: the canonical build and checks; relaunch.
+
 ## Hardware acceptance
 - [ ] 7. With real apps:
   - Discord, a browser and a game group correctly;
   - the dials and keys change volume and mute, and the Windows mixer agrees;
   - silent apps drop off after 5 minutes;
   - Hide, Rename and Combine behave;
+  - Hue Sync is excluded, and excluded programs can be added and removed;
   - Up/Down pages dials and keys together.
