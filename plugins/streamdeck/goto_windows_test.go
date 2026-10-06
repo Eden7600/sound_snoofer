@@ -18,7 +18,6 @@ func TestGotoPageKeys(t *testing.T) {
 	layout := Layout{Home: "home", Pages: []Page{{ID: "home", Name: "Home"}, {ID: "sounds", Name: "Soundboard"}, {ID: "lights", Name: "Lights"}}}
 	layout.Pages[0].Keys[0] = Binding{Control: gotoPrefix + "lights", Label: "Go to Lights"}
 	layout.Pages[0].Keys[1] = Binding{Control: gotoPrefix + "gone", Label: "Go to Gone"}
-	layout.Pages[2].Keys[8] = Binding{Control: gotoPrefix + "home", Label: "Go to Home"}
 	frames := make(chan device.Frame, 1)
 	events := make(chan device.Event, 16)
 	done := make(chan struct{})
@@ -61,12 +60,12 @@ func TestGotoPageKeys(t *testing.T) {
 	events <- device.Event{Encoder: -1, Key: 1, Press: true, Generation: home.Generation} // Deleted page: inert.
 	events <- device.Event{Encoder: -1, Key: 0, Press: true, Generation: home.Generation}
 	lights := frame("Lights", nil)
-	if lights.Keys[8].Label != "Home" || lights.Keys[8].Value != "" {
-		t.Fatalf("home key %+v", lights.Keys[8])
-	}
 	// The registry is published just after the frame is sent.
 	marked := func() bool {
 		for _, c := range registry.Snapshot() {
+			if c.ID == gotoPrefix+"home" {
+				t.Fatal("go-to key offered for Home")
+			}
 			if c.ID == gotoPrefix+"lights" {
 				return c.Value == "Here"
 			}
@@ -78,6 +77,7 @@ func TestGotoPageKeys(t *testing.T) {
 			t.Fatal("shown page not marked Here")
 		}
 	}
-	events <- device.Event{Encoder: -1, Key: 8, Press: true, Generation: lights.Generation}
+	// The page dial's press returns Home.
+	events <- device.Event{Encoder: 5, Press: true, Generation: lights.Generation}
 	frame("Home", nil)
 }

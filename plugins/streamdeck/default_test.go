@@ -32,7 +32,7 @@ func TestDefaultLayoutPages(t *testing.T) {
 		t.Fatal("expanded pages", len(expanded.Pages))
 	}
 	for _, p := range expanded.Pages[1:3] {
-		if p.Keys[35].Control != "soundboard.stop" || p.Keys[8].Control != "soundboard.overlap" || p.Keys[26].Control != gotoPrefix+"home" {
+		if p.Keys[35].Control != "soundboard.stop" || p.Keys[8].Control != "soundboard.overlap" || p.Keys[26].Control != "" {
 			t.Fatal("soundboard frame moved on", p.ID)
 		}
 	}

@@ -193,12 +193,16 @@ func (l Layout) pageNames(id string) [3]string {
 // gotoPrefix identifies go-to page controls; the page ID follows it.
 const gotoPrefix = "streamdeck.goto-"
 
-// gotoControls offers a key per saved page. Here marks the shown page,
-// including its automatic overflow pages.
+// gotoControls offers a key per saved page except Home, which the page
+// dial's press already reaches. Here marks the shown page, including its
+// automatic overflow pages.
 func gotoControls(l Layout, shown string) []snoofer.Control {
 	base, _, _ := strings.Cut(shown, "~auto~")
 	out := make([]snoofer.Control, 0, len(l.Pages))
 	for _, p := range l.Pages {
+		if p.ID == l.Home {
+			continue
+		}
 		value := ""
 		if p.ID == base {
 			value = "Here"

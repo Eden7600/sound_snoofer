@@ -44,7 +44,7 @@ Each numbered block is one reviewable commit.
 ## Revisions after review
 - [x] 10. `docs(deck)`: revise the design: room scope, option labels on keys, and go-to keys on Home only. Update the contract.
 - [x] 11. `fix(streamdeck)`: show option labels on selection keys. Includes a test.
-- [ ] 12. `refactor(streamdeck)`: no go-to key for the Home page; drop Home keys from the default content pages. Includes tests.
+- [x] 12. `refactor(streamdeck)`: no go-to key for the Home page; drop Home keys from the default content pages. Includes tests.
 - [ ] 13. `feat(hue)`: limit Snoofer to chosen rooms. Covers:
   - the `rooms` setting and the `hue.rooms` control;
   - filtered group options, scenes and fallback selection;
