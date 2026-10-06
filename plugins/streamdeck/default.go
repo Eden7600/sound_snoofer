@@ -36,10 +36,10 @@ func DefaultLayout() Layout {
 	apps := Page{ID: "apps", Name: "Apps", Regions: []Region{{Source: "appaudio.apps", First: 0, Last: 4}}, DialRegions: []Region{{Source: "appaudio.apps", First: 0, Last: 4}}}
 	apps.Keys[17] = Binding{Control: scrollPrefix + "up", Label: scrollPrefix + "up"}
 	apps.Keys[26] = Binding{Control: scrollPrefix + "down", Label: scrollPrefix + "down"}
-	// Media sessions fill r1 c1–c8; transport for the focused session is on r2,
-	// and the media dial sits beside Playback.
-	media := Page{ID: "media", Name: "Media", Regions: []Region{{Source: "nowplaying.sessions", First: 0, Last: 7}}}
-	for n, id := range map[int]string{9: "nowplaying.prev", 10: "nowplaying.toggle", 11: "nowplaying.next", 12: "nowplaying.mute", 13: "nowplaying.focus", 17: scrollPrefix + "up", 26: scrollPrefix + "down"} {
+	// Media sessions fill r1–r3 c1–c8; transport for the focused session is on
+	// the bottom row, and the media dial sits beside Playback.
+	media := Page{ID: "media", Name: "Media", Regions: []Region{{Source: "nowplaying.sessions", First: 0, Last: 25}}}
+	for n, id := range map[int]string{27: "nowplaying.prev", 28: "nowplaying.toggle", 29: "nowplaying.next", 30: "nowplaying.mute", 31: "nowplaying.focus", 17: scrollPrefix + "up", 26: scrollPrefix + "down"} {
 		media.Keys[n] = Binding{Control: id, Label: id}
 	}
 	for n, id := range map[int]string{0: "nowplaying.dial", 1: "audio.gain-playback"} {

@@ -46,6 +46,23 @@ func TestDefaultLayoutPages(t *testing.T) {
 	}
 }
 
+func TestDefaultMediaPage(t *testing.T) {
+	media := DefaultLayout().Pages[4]
+	for n, id := range []string{"nowplaying.prev", "nowplaying.toggle", "nowplaying.next", "nowplaying.mute", "nowplaying.focus"} {
+		if media.Keys[27+n].Control != id {
+			t.Fatalf("bottom row key %d is %q, want %q", 28+n, media.Keys[27+n].Control, id)
+		}
+	}
+	var controls []snoofer.Control
+	for n := 0; n < 30; n++ {
+		controls = append(controls, snoofer.Control{ID: fmt.Sprintf("nowplaying.s-%02d", n), Label: "S", Collection: "nowplaying.sessions", Order: n + 1, Operations: []string{"press", "set"}})
+	}
+	page := DefaultLayout().expanded(controls).effective("media")
+	if page.Keys[0].Control != "nowplaying.s-00" || page.Keys[25].Control == "" || page.Keys[8].Control != "" || page.Keys[27].Control != "nowplaying.prev" {
+		t.Fatal("sessions do not fill r1–r3 c1–c8 around the frame", page.Keys)
+	}
+}
+
 func TestLayoutJSONRoundTrip(t *testing.T) {
 	saved := snoofer.MarshalSettings(Settings{Layout: DefaultLayout()})
 	var decoded Settings
