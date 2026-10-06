@@ -91,7 +91,7 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 			return p, fmt.Errorf("snapshot missing %s", slot)
 		}
 	}
-	asio, err := SelectASIO(profile, s)
+	asio, selectedInterface, err := selectInterface(profile, s)
 	if err != nil {
 		return p, err
 	}
@@ -107,20 +107,17 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 		}
 		return false
 	}
-	ownsASIO := func(name string) bool { return name != "" && profile.ASIORegex.MatchString(name) }
+	ownsASIO := profile.OwnsASIO
 	if t.ASIOActive && s.Assignments["A1"] != "" && !ownsASIO(s.Assignments["A1"]) && !ownsPlayback(s.Assignments["A1"]) {
 		return p, fmt.Errorf("A1 is occupied by unmanaged device %q; cannot reserve it for ASIO", s.Assignments["A1"])
 	}
-	playback, reasons := selectDevice(profile.Playback, "output", s.Devices)
-	if playback == nil && profile.ASIOPlayback && asio != nil {
-		playback = asio
-	}
+	playback, reasons := selectDevice(profile.Playback, "output", playbackDevices(profile, s))
 	if intent := c.VoiceIntent(); intent != nil && intent.PlaybackDevice != "" {
 		for _, name := range PlaybackOptions(c, s) {
 			if name != intent.PlaybackDevice {
 				continue
 			}
-			if profile.ASIOPlayback && asio != nil && asio.Name == name {
+			if asio != nil && asio.Name == name {
 				playback = asio
 				break
 			}
@@ -154,7 +151,7 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 	for i := 1; i <= n; i++ {
 		target := fmt.Sprintf("A%d", i)
 		current := s.Assignments[target]
-		if ownsPlayback(current) || (i == 1 && profile.ASIOPlayback && ownsASIO(current)) {
+		if ownsPlayback(current) || (i == 1 && ownsASIO(current)) {
 			oldBuses = append(oldBuses, target)
 		}
 		if t.PlaybackTarget == "" && !(t.ASIOActive && i == 1) && (current == "" || ownsPlayback(current) || (i == 1 && ownsASIO(current))) {
@@ -229,7 +226,7 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 		deviceOp(t.PlaybackTarget, *playback)
 	}
 	if t.ASIOActive && micActive {
-		for i, v := range []int{1, 1, 2, 2} {
+		for i, v := range []int{selectedInterface.Inputs[0], selectedInterface.Inputs[0], selectedInterface.Inputs[1], selectedInterface.Inputs[1]} {
 			if e := numberOp(fmt.Sprintf("Patch.asio[%d]", i), v); e != nil {
 				return p, e
 			}

@@ -4,9 +4,6 @@
   "debounce_ms": 1000,
   "verify_ms": 5000,
   "studio": {
-    "asio_playback": true,
-    "asio_pattern": "(?i)^Universal Audio Volt$",
-    "presence_pattern": "(?i)^INPUT 1/2 \\(Volt 2\\)$",
     "playback": [
       {
         "driver": "wdm",
@@ -15,6 +12,10 @@
       {
         "driver": "wdm",
         "pattern": "(?i)steelseries.*arena"
+      },
+      {
+        "driver": "asio",
+        "pattern": "(?i)^Universal Audio Volt$"
       }
     ],
     "fallback_mic": [
@@ -28,13 +29,25 @@
       "virtual:1"
     ],
     "recording": {
-      "computer_sources": ["virtual:1"]
+      "computer_sources": [
+        "virtual:1"
+      ]
     },
     "voice": {
       "enabled": true,
       "source": "desk",
       "mode": "element",
       "monitor": "off"
-    }
+    },
+    "asio": [
+      {
+        "asio_pattern": "(?i)^Universal Audio Volt$",
+        "presence_pattern": "(?i)^INPUT 1/2 \\(Volt 2\\)$",
+        "inputs": [
+          1,
+          2
+        ]
+      }
+    ]
   }
 }

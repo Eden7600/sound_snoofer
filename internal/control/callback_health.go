@@ -21,7 +21,7 @@ type callbackHealth struct {
 }
 
 func callbackTarget(cfg config.Config, s model.Snapshot) (string, string) {
-	if cfg.Studio == nil || cfg.Studio.ASIORegex == nil || cfg.Studio.PresenceRegex == nil ||
+	if cfg.Studio == nil ||
 		s.Edition != 3 || !strings.EqualFold(s.Assignments["A1"], "Universal Audio Volt") {
 		return "", "Automatic recovery supports managed Volt A1 on Potato"
 	}
@@ -38,11 +38,15 @@ func callbackTarget(cfg config.Config, s model.Snapshot) (string, string) {
 	// Include physical identity, all assignments and matcher changes in transition grace.
 	ids := []string{}
 	for _, d := range s.Devices {
-		if d.Available && d.Driver == "wdm" && d.Direction == "input" && cfg.Studio.PresenceRegex.MatchString(d.Name) {
-			ids = append(ids, d.ID, d.Name)
+		if d.Available && d.Driver == "wdm" && d.Direction == "input" {
+			for _, a := range cfg.Studio.ASIO {
+				if a.ASIORegex != nil && a.PresenceRegex != nil && a.ASIORegex.MatchString(dev.Name) && a.PresenceRegex.MatchString(d.Name) {
+					ids = append(ids, d.ID, d.Name)
+				}
+			}
 		}
 	}
-	key, _ := json.Marshal([]any{s.Assignments, ids, cfg.Studio.ASIOPattern, cfg.Studio.PresencePattern})
+	key, _ := json.Marshal([]any{s.Assignments, ids, cfg.Studio.ASIO})
 	return string(key), ""
 }
 

@@ -53,7 +53,7 @@ func TestResetCorruptSavedState(t *testing.T) {
 	<-done
 }
 
-const ruleConfig = `{"version":1,"poll_ms":60000,"studio":{"asio_pattern":"Volt ASIO","presence_pattern":"Volt input","playback":[{"driver":"wdm","pattern":"speakers"}],"fallback_mic":[{"driver":"wdm","pattern":"webcam"}],"playback_sources":["virtual:1"],"voice":{}}}`
+const ruleConfig = `{"version":1,"poll_ms":60000,"studio":{"asio":[{"asio_pattern":"Volt ASIO","presence_pattern":"Volt input","inputs":[1,2]}],"playback":[{"driver":"wdm","pattern":"speakers"}],"fallback_mic":[{"driver":"wdm","pattern":"webcam"}],"playback_sources":["virtual:1"],"voice":{}}}`
 
 type ruleClient struct{ *fakeClient }
 

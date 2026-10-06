@@ -2,12 +2,13 @@ package controller
 
 import (
 	"context"
+	"sound-snoofer/internal/config"
 	"testing"
 )
 
 func TestVoltPlaybackControllerConverges(t *testing.T) {
 	c, b := recorderController(t)
-	c.Config.Studio.ASIOPlayback = true
+	c.Config.Studio.Playback = append(c.Config.Studio.Playback, config.Candidate{Driver: "asio", Pattern: c.Config.Studio.ASIO[0].ASIOPattern, Regex: c.Config.Studio.ASIO[0].ASIORegex})
 	c.Config.Intent.PlaybackDevice = "Volt ASIO"
 	for _, choice := range []string{"Volt ASIO", "", "Volt ASIO"} {
 		c.Config.Intent.PlaybackDevice = choice

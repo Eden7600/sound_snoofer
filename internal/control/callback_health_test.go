@@ -14,7 +14,7 @@ import (
 )
 
 func callbackFixture() (config.Config, model.Snapshot) {
-	c := config.Config{Studio: &config.Studio{ASIORegex: regexp.MustCompile("^Universal Audio Volt$"), PresenceRegex: regexp.MustCompile("Volt")}}
+	c := config.Config{Studio: &config.Studio{ASIO: []config.ASIOInterface{{ASIORegex: regexp.MustCompile("^Universal Audio Volt$"), PresenceRegex: regexp.MustCompile("Volt"), Inputs: [2]int{1, 2}}}}}
 	s := model.Snapshot{Edition: 3, Assignments: map[string]string{"A1": "Universal Audio Volt"},
 		Devices:  []model.Device{{Name: "Universal Audio Volt", Driver: "asio", Direction: "output"}, {Name: "Volt input", ID: "physical", Driver: "wdm", Direction: "input", Available: true}},
 		Callback: &model.CallbackStatus{Active: true, Starting: 1, Buffers: 100, Synced: 100}}
@@ -152,7 +152,7 @@ func TestAutomaticDispatchFreshGuards(t *testing.T) {
 	c, s := callbackFixture()
 	// A stable off voice profile with Volt playback makes a complete routing plan.
 	c.Studio.Voice = &config.Voice{}
-	c.Studio.ASIOPlayback = true
+	c.Studio.Playback = append(c.Studio.Playback, config.Candidate{Driver: "asio", Pattern: c.Studio.ASIO[0].ASIOPattern, Regex: c.Studio.ASIO[0].ASIORegex})
 	c.Intent = &config.Intent{Version: 1, Source: "off", Mode: "direct", Monitor: "off", AutoRecover: true}
 	s.Numbers = map[string]float32{}
 	for i := 0; i < 4; i++ {

@@ -10,6 +10,25 @@ import (
 
 // SelectASIO requires one physical WDM presence match and one ASIO driver.
 func SelectASIO(profile *config.Studio, s model.Snapshot) (*model.Device, error) {
+	d, _, err := selectInterface(profile, s)
+	return d, err
+}
+
+func selectInterface(profile *config.Studio, s model.Snapshot) (*model.Device, *config.ASIOInterface, error) {
+	for n := range profile.ASIO {
+		a := &profile.ASIO[n]
+		d, err := matchInterface(a, s)
+		if err != nil {
+			return nil, nil, fmt.Errorf("ASIO priority %d: %w", n+1, err)
+		}
+		if d != nil {
+			return d, a, nil
+		}
+	}
+	return nil, nil, nil
+}
+
+func matchInterface(profile *config.ASIOInterface, s model.Snapshot) (*model.Device, error) {
 	present := 0
 	for _, d := range s.Devices {
 		if d.Available && d.Direction == "input" && d.Driver == "wdm" && profile.PresenceRegex.MatchString(d.Name) {
@@ -44,8 +63,13 @@ func MicrophoneOptions(c config.Config, s model.Snapshot) []string {
 	s = VRDevices(c, s)
 	options := []string{}
 	if c.Studio != nil && c.Studio.Voice != nil {
-		if asio, err := SelectASIO(c.Studio, s); err == nil && asio != nil {
-			options = append(options, "desk", "lav")
+		if asio, a, err := selectInterface(c.Studio, s); err == nil && asio != nil {
+			if a.Inputs[0] > 0 {
+				options = append(options, "desk")
+			}
+			if a.Inputs[1] > 0 {
+				options = append(options, "lav")
+			}
 		}
 		if webcam, _ := selectDevice(c.Studio.FallbackMic, "input", s.Devices); webcam != nil {
 			options = append(options, "webcam")
@@ -65,23 +89,19 @@ func MicrophoneOptions(c config.Config, s model.Snapshot) []string {
 // ownership. The empty choice means automatic priority selection.
 func PlaybackOptions(c config.Config, s model.Snapshot) []string {
 	s = VRDevices(c, s)
+	s.Devices = playbackDevices(c.Studio, s)
 	names := map[string]int{}
 	if c.Studio != nil {
 		for _, d := range model.InventoryDevices(s.Devices) {
-			if !d.Available || d.Direction != "output" || d.Driver != "wdm" {
+			if !d.Available || d.Direction != "output" || (d.Driver != "wdm" && d.Driver != "asio") {
 				continue
 			}
 			for _, candidate := range c.PlaybackCandidates() {
-				if candidate.Regex.MatchString(d.Name) {
+				if candidate.Driver == d.Driver && candidate.Regex.MatchString(d.Name) {
 					names[d.Name]++
 					break
 				}
 			}
-		}
-	}
-	if c.Studio != nil && c.Studio.ASIOPlayback {
-		if asio, err := SelectASIO(c.Studio, s); err == nil && asio != nil {
-			names[asio.Name]++
 		}
 	}
 	options := []string{""}
@@ -92,4 +112,20 @@ func PlaybackOptions(c config.Config, s model.Snapshot) []string {
 	}
 	sort.Strings(options[1:])
 	return options
+}
+
+// playbackDevices makes installed but unselected ASIO drivers unavailable to
+// every playback priority and manual picker.
+func playbackDevices(profile *config.Studio, s model.Snapshot) []model.Device {
+	devices := append([]model.Device(nil), s.Devices...)
+	var selected *model.Device
+	if profile != nil {
+		selected, _ = SelectASIO(profile, s)
+	}
+	for n := range devices {
+		if devices[n].Driver == "asio" {
+			devices[n].Available = selected != nil && devices[n].Direction == "output" && devices[n].Name == selected.Name
+		}
+	}
+	return devices
 }

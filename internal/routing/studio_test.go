@@ -9,7 +9,7 @@ import (
 
 func studioFixture(t *testing.T) (config.Config, model.Snapshot) {
 	t.Helper()
-	c, e := config.Decode([]byte(`{"version":1,"studio":{"asio_pattern":"^Volt ASIO$","presence_pattern":"^Volt input$","playback":[{"driver":"wdm","pattern":"AirPods"},{"driver":"wdm","pattern":"speakers"}],"fallback_mic":[{"driver":"wdm","pattern":"webcam"}],"move_playback_routing":true,"playback_sources":["virtual:1"]}}`))
+	c, e := config.Decode([]byte(`{"version":1,"studio":{"asio":[{"asio_pattern":"^Volt ASIO$","presence_pattern":"^Volt input$","inputs":[1,2]}],"playback":[{"driver":"wdm","pattern":"AirPods"},{"driver":"wdm","pattern":"speakers"}],"fallback_mic":[{"driver":"wdm","pattern":"webcam"}],"move_playback_routing":true,"playback_sources":["virtual:1"]}}`))
 	if e != nil {
 		t.Fatal(e)
 	}

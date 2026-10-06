@@ -2,13 +2,14 @@ package routing
 
 import (
 	"slices"
+	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/model"
 	"testing"
 )
 
 func TestVoltPlaybackPriorityAndMigration(t *testing.T) {
 	c, s := voiceFixture(t)
-	c.Studio.ASIOPlayback = true
+	c.Studio.Playback = append(c.Studio.Playback, config.Candidate{Driver: "asio", Pattern: c.Studio.ASIO[0].ASIOPattern, Regex: c.Studio.ASIO[0].ASIORegex})
 	c.Intent = c.VoiceIntent()
 	s.Devices = append(s.Devices, model.Device{Name: "AirPods", Driver: "wdm", Direction: "output", Available: true})
 	apply := func(want string) {

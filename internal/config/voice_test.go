@@ -9,7 +9,7 @@ import (
 	"sound-snoofer/internal/ownership"
 )
 
-const voiceJSON = `{"version":1,"studio":{"asio_pattern":"Volt ASIO","presence_pattern":"Volt input","playback":[{"driver":"wdm","pattern":"speakers"}],"fallback_mic":[{"driver":"wdm","pattern":"webcam"}],"playback_sources":["virtual:1"],"voice":{}}}`
+const voiceJSON = `{"version":1,"studio":{"asio":[{"asio_pattern":"Volt ASIO","presence_pattern":"Volt input","inputs":[1,2]}],"playback":[{"driver":"wdm","pattern":"speakers"}],"fallback_mic":[{"driver":"wdm","pattern":"webcam"}],"playback_sources":["virtual:1"],"voice":{}}}`
 
 func TestVoiceConfig(t *testing.T) {
 	c, e := Decode([]byte(voiceJSON))

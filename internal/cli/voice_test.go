@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
-	"testing"
 	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/model"
+	"strings"
+	"testing"
 )
 
 func (c *testClient) SetNumber(p string, v int) error {
@@ -21,7 +21,7 @@ func TestCommandsShareSavedIntent(t *testing.T) {
 	for _, cmd := range []string{"plan", "apply", "watch"} {
 		t.Run(cmd, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "voice.json")
-			data := []byte(`{"version":1,"studio":{"asio_pattern":"Volt ASIO","presence_pattern":"Volt input","playback":[{"driver":"wdm","pattern":"speakers"}],"fallback_mic":[{"driver":"wdm","pattern":"webcam"}],"playback_sources":["virtual:1"],"voice":{}}}`)
+			data := []byte(`{"version":1,"studio":{"asio":[{"asio_pattern":"Volt ASIO","presence_pattern":"Volt input","inputs":[1,2]}],"playback":[{"driver":"wdm","pattern":"speakers"}],"fallback_mic":[{"driver":"wdm","pattern":"webcam"}],"playback_sources":["virtual:1"],"voice":{}}}`)
 			os.WriteFile(path, data, 0600)
 			c, _ := config.LoadEffective(path)
 			i := c.VoiceIntent()
@@ -65,7 +65,7 @@ func TestCommandsShareSavedIntent(t *testing.T) {
 func TestCorruptStateRejectedBeforeMixer(t *testing.T) {
 	for _, cmd := range []string{"plan", "apply", "watch"} {
 		_, deps, path, _ := setup(t)
-		os.WriteFile(path, []byte(`{"version":1,"studio":{"asio_pattern":"Volt","presence_pattern":"Volt","playback":[{"driver":"wdm","pattern":"speaker"}],"fallback_mic":[{"driver":"wdm","pattern":"webcam"}],"voice":{}}}`), 0600)
+		os.WriteFile(path, []byte(`{"version":1,"studio":{"asio":[{"asio_pattern":"Volt","presence_pattern":"Volt","inputs":[1,2]}],"playback":[{"driver":"wdm","pattern":"speaker"}],"fallback_mic":[{"driver":"wdm","pattern":"webcam"}],"voice":{}}}`), 0600)
 		os.WriteFile(path+".state.json", []byte("invalid"), 0600)
 		deps.Open = func(string) (Client, error) { t.Fatal("opened mixer"); return nil, nil }
 		var out bytes.Buffer

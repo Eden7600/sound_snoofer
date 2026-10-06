@@ -38,7 +38,7 @@ func ProfileConfig(c config.Config, s model.Snapshot) config.Config {
 	options := MicrophoneOptions(c, available)
 	normalSource := i.Source
 	normalMissing := false
-	if normalSource == "auto" {
+	if normalSource == "auto" || !slices.Contains(options, normalSource) {
 		normalSource = "off"
 		normalMissing = true
 		for _, id := range c.Profiles.Microphones {
@@ -49,16 +49,13 @@ func ProfileConfig(c config.Config, s model.Snapshot) config.Config {
 			}
 		}
 	}
-	normalPlayback, _ := selectDevice(profile.Playback, "output", available.Devices)
+	normalPlayback, _ := selectDevice(profile.Playback, "output", playbackDevices(&profile, available))
 	asio, _ := SelectASIO(&profile, available)
-	if normalPlayback == nil && profile.ASIOPlayback {
-		normalPlayback = asio
-	}
 	chooseOverride := func(name string, current *model.Device, choices config.Config) *model.Device {
 		if name == "" || !slices.Contains(PlaybackOptions(choices, available), name) {
 			return current
 		}
-		if profile.ASIOPlayback && asio != nil && asio.Name == name {
+		if asio != nil && asio.Name == name {
 			return asio
 		}
 		matches := []model.Device{}
@@ -118,7 +115,7 @@ func ProfileConfig(c config.Config, s model.Snapshot) config.Config {
 				c.ProfilePlayback = normalPlayback
 				break
 			}
-			d, _ := selectDevice([]config.Candidate{candidate}, "output", available.Devices)
+			d, _ := selectDevice([]config.Candidate{candidate}, "output", playbackDevices(&profile, available))
 			if d != nil {
 				c.ProfilePlayback = d
 				break

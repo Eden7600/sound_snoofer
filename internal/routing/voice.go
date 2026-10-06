@@ -2,6 +2,7 @@ package routing
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"sound-snoofer/internal/config"
@@ -57,11 +58,11 @@ func addVoice(c config.Config, s model.Snapshot, p Plan) (Plan, error) {
 	if i.Source == "lav" {
 		source = 1
 	}
-	if i.MicActive() && (i.Source == "webcam" || strings.HasPrefix(i.Source, "vr:") || !t.ASIOActive) {
+	if i.MicActive() && (i.Source == "webcam" || strings.HasPrefix(i.Source, "vr:") || !slices.Contains(MicrophoneOptions(c, s), i.Source)) {
 		source = 2
 		v.Effective = "webcam"
 		if i.Source != "webcam" {
-			v.Reason = "Volt unavailable; using webcam fallback"
+			v.Reason = "ASIO microphone unavailable; using webcam fallback"
 		}
 		if webcam == nil {
 			source = -1

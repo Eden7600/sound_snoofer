@@ -64,8 +64,8 @@ func (p *ProfilePolicy) Validate() error {
 			}
 			continue
 		}
-		if c.Driver != "wdm" || c.Pattern == "" {
-			return fmt.Errorf("playback requires wdm and pattern")
+		if (c.Driver != "wdm" && c.Driver != "asio") || c.Pattern == "" {
+			return fmt.Errorf("playback requires wdm/asio and pattern")
 		}
 		re, err := regexp.Compile(c.Pattern)
 		if err != nil {

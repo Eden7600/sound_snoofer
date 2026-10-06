@@ -3,9 +3,9 @@ package controller
 import (
 	"context"
 	"fmt"
-	"testing"
 	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/model"
+	"testing"
 )
 
 type topologyBackend struct {
@@ -25,7 +25,7 @@ func (b *topologyBackend) SetNumber(param string, value int) error {
 func topologyFixture(t *testing.T) (*Controller, *topologyBackend) {
 	t.Helper()
 	c, b, _ := fixture(t)
-	cfg, e := config.Decode([]byte(`{"version":1,"studio":{"asio_pattern":"^Volt ASIO$","presence_pattern":"^Volt$","playback":[{"driver":"wdm","pattern":"AirPods"},{"driver":"wdm","pattern":"speakers"}],"fallback_mic":[{"driver":"wdm","pattern":"webcam"}],"move_playback_routing":true,"playback_sources":["virtual:1"]}}`))
+	cfg, e := config.Decode([]byte(`{"version":1,"studio":{"asio":[{"asio_pattern":"^Volt ASIO$","presence_pattern":"^Volt$","inputs":[1,2]}],"playback":[{"driver":"wdm","pattern":"AirPods"},{"driver":"wdm","pattern":"speakers"}],"fallback_mic":[{"driver":"wdm","pattern":"webcam"}],"move_playback_routing":true,"playback_sources":["virtual:1"]}}`))
 	if e != nil {
 		t.Fatal(e)
 	}

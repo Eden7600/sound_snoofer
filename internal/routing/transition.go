@@ -26,7 +26,7 @@ func buildVoiceTransition(c config.Config, s model.Snapshot, t *Topology) {
 				inputs[slot.Index] = true
 			} else {
 				outputs[op.Target] = true
-				if op.Target == "A1" && (t.ASIOActive || c.Studio.ASIORegex.MatchString(op.BeforeName)) {
+				if op.Target == "A1" && (t.ASIOActive || c.Studio.OwnsASIO(op.BeforeName)) {
 					inputs[0], inputs[1] = true, true
 				}
 			}
