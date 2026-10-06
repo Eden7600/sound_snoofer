@@ -35,7 +35,7 @@ Each numbered block is one reviewable commit.
   - removal of the prefix field.
 
   The GUI check covers creation, source change, removal and selection never dispatching.
-- [ ] 7. `feat(streamdeck)`: default layout with Soundboard and Lights pages. Includes tests.
+- [x] 7. `feat(streamdeck)`: default layout with Soundboard and Lights pages. Includes tests.
 - [ ] 8. Validate:
   - Go tests and vet; GUI and desktop checks; OpenSpec; the canonical build.
   - Migrate the personal layout (§4) with the editor or an equivalent stopped-host edit.
