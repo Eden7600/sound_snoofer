@@ -28,6 +28,9 @@ func bindingTile(b Binding, c snoofer.Control, ok bool, now time.Time) device.Ti
 		return controlTile(c, "N/A", now)
 	}
 	value := c.Value
+	if label := c.OptionLabels[c.Value]; label != "" {
+		value = label // Selections show their option label, never a raw ID.
+	}
 	if c.Status != "" {
 		value = c.Status
 	}

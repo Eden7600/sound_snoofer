@@ -23,3 +23,15 @@ func TestMeterExpiresWithoutNewPublication(t *testing.T) {
 		t.Fatal("navigation has meter")
 	}
 }
+
+func TestSelectionKeyShowsOptionLabel(t *testing.T) {
+	room := snoofer.Control{ID: "hue.group", Label: "Hue room", ShortLabel: "Room", Value: "bc32966d-3aaa", Options: []string{"bc32966d-3aaa"},
+		OptionLabels: map[string]string{"bc32966d-3aaa": "Cody Office"}, Operations: []string{"set"}, Available: true}
+	if tile := bindingTile(Binding{Control: room.ID}, room, true, time.Now()); tile.Value != "Cody Office" {
+		t.Fatal(tile)
+	}
+	room.Value = "unknown-id"
+	if tile := bindingTile(Binding{Control: room.ID}, room, true, time.Now()); tile.Value != "unknown-id" {
+		t.Fatal("unlabelled value", tile)
+	}
+}
