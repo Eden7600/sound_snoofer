@@ -53,7 +53,7 @@ func (b *fakeBridge) fingerprint() string {
 func (b *fakeBridge) serve(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.Method == http.MethodGet && r.URL.Path == "/api/0/config":
-		fmt.Fprintf(w, `{"name":"Fake","bridgeid":%q}`, strings.ToUpper(b.id))
+		fmt.Fprintf(w, `{"name":"Fake","bridgeid":%q,"swversion":"1978293000","apiversion":"1.78.0"}`, strings.ToUpper(b.id))
 	case r.Method == http.MethodPost && r.URL.Path == "/api":
 		b.mu.Lock()
 		pressed := b.linkPressed

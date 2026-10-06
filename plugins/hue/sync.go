@@ -68,7 +68,10 @@ type syncLink struct {
 	stepSent time.Time
 
 	sceneAfterStop string // Scene ID to recall once the app confirms sync stopped.
-	sceneStopAt    time.Time
+
+	link        snoofer.ConnectionTracker // Connection report timing.
+	connects    int                       // Successful connections this session.
+	sceneStopAt time.Time
 }
 
 func syncURL(settings Settings) string {
@@ -121,6 +124,7 @@ func (w *worker) syncConnected(ctx context.Context, generation int, conn *websoc
 		return
 	}
 	w.sync.conn = conn
+	w.sync.connects++
 	w.sync.diagnostic = ""
 	w.sync.retryDelay = 0
 	w.syncRead(ctx, generation, conn)
@@ -181,11 +185,13 @@ func (w *worker) syncLost(err error) {
 		w.sync.sceneAfterStop = ""
 	}
 	w.sync.diagnostic = err.Error()
+	w.sync.link.Fail(err.Error(), time.Now())
 	w.sync.retryDelay = min(w.timing.retryMax, max(w.timing.retryBase, 2*w.sync.retryDelay))
 	w.sync.retryAt = time.Now().Add(w.sync.retryDelay)
 }
 
 func (w *worker) syncObserve(ctx context.Context, update syncState) {
+	w.sync.link.Activity(time.Now())
 	w.sync.known = true
 	w.sync.state.State = update.State
 	if update.Mode != "" {
@@ -294,6 +300,7 @@ func (w *worker) syncSend(command string, data map[string]any) bool {
 		w.syncLost(fmt.Errorf("Hue Sync write failed: %w", err))
 		return false
 	}
+	w.sync.link.Activity(time.Now())
 	return true
 }
 

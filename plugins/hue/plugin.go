@@ -117,8 +117,11 @@ type worker struct {
 	client        *Client
 	model         model
 	status        string
-	bridgeAddress string // Bridge found while unpaired, shown by the pairing UI.
-	lastAddress   string // Address of the paired bridge last connected this session.
+	bridgeAddress string                    // Bridge found while unpaired, shown by the pairing UI.
+	lastAddress   string                    // Address of the paired bridge last connected this session.
+	bridgeInfo    identity                  // Identity of the connected bridge, for diagnostics.
+	bridgeLink    snoofer.ConnectionTracker // Bridge connection report timing.
+	connects      int                       // Successful bridge connections this session.
 	diagnostic    string
 	retryAt       time.Time
 	retryDelay    time.Duration
@@ -239,7 +242,7 @@ func (w *worker) connect(ctx context.Context) {
 	w.spawn(ctx, func(ctx context.Context) func(context.Context) {
 		target, err := resolveKnown(ctx, settings, hint, discover)
 		if err != nil || settings.AppKey == "" {
-			return func(ctx context.Context) { w.onConnected(ctx, generation, target.Address, nil, nil, err) }
+			return func(ctx context.Context) { w.onConnected(ctx, generation, target, nil, nil, err) }
 		}
 		client := newClient(target.Address, settings.CertificateSHA256, settings.AppKey)
 		items, err := client.Resources(ctx)
@@ -247,12 +250,12 @@ func (w *worker) connect(ctx context.Context) {
 			client.close()
 			client = nil
 		}
-		return func(ctx context.Context) { w.onConnected(ctx, generation, target.Address, client, items, err) }
+		return func(ctx context.Context) { w.onConnected(ctx, generation, target, client, items, err) }
 	})
 }
 
 // onConnected applies a connection attempt's result on the worker goroutine.
-func (w *worker) onConnected(ctx context.Context, generation int, address string, client *Client, items []resource, err error) {
+func (w *worker) onConnected(ctx context.Context, generation int, target bridgeTarget, client *Client, items []resource, err error) {
 	if generation != w.generation {
 		if client != nil {
 			client.close()
@@ -266,13 +269,17 @@ func (w *worker) onConnected(ctx context.Context, generation int, address string
 	}
 	if client == nil {
 		w.status = "Not paired"
-		w.bridgeAddress = address
+		w.bridgeAddress = target.Address
+		w.bridgeInfo = target.identity
 		w.diagnostic = ""
 		w.retryAt = time.Now().Add(w.timing.rediscover)
 		return
 	}
 	w.client = client
-	w.lastAddress = address
+	w.lastAddress = target.Address
+	w.bridgeInfo = target.identity
+	w.connects++
+	w.bridgeLink.Activity(time.Now())
 	w.connected = true
 	w.model = newModel(items)
 	w.status = "Connected"
@@ -289,6 +296,7 @@ func (w *worker) follow(ctx context.Context, generation int, client *Client) {
 			apply := func(context.Context) {
 				if generation == w.generation && w.connected {
 					w.model.apply(events)
+					w.bridgeLink.Activity(time.Now())
 					w.observe()
 				}
 			}
@@ -320,6 +328,7 @@ func (w *worker) disconnect(err error) {
 }
 
 func (w *worker) fail(err error) {
+	w.bridgeLink.Fail(err.Error(), time.Now())
 	var multiple *multipleBridgesError
 	var mismatch *bridgeMismatchError
 	now := time.Now()
@@ -544,6 +553,7 @@ func (w *worker) groupWritten(generation int, target string, err error) {
 		return
 	}
 	w.group.gap = w.timing.writeGap
+	w.bridgeLink.Activity(time.Now())
 	w.group.confirm(w.view())
 }
 
@@ -752,6 +762,8 @@ func (w *worker) controls() []snoofer.Control {
 	}
 	controls = append(controls, brightness)
 	controls = append(controls, w.syncControls()...)
+	now := time.Now()
+	controls = append(controls, w.bridgeReport(now), w.syncReport(now))
 	seen := map[string]bool{}
 	for _, scene := range w.model.scenes() {
 		if seen[scene.ControlID] {

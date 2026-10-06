@@ -33,6 +33,9 @@ var (
 type identity struct {
 	BridgeID    string
 	Fingerprint string
+	Name        string // Bridge name, software and API version are diagnostics only.
+	Software    string
+	APIVersion  string
 }
 
 // pinnedTLS trusts exactly the pinned leaf certificate. Bridges use either a
@@ -82,7 +85,10 @@ func probe(ctx context.Context, address string) (identity, error) {
 		return identity{}, fmt.Errorf("probe %s: HTTP %d", address, response.StatusCode)
 	}
 	var config struct {
-		BridgeID string `json:"bridgeid"`
+		BridgeID   string `json:"bridgeid"`
+		Name       string `json:"name"`
+		Software   string `json:"swversion"`
+		APIVersion string `json:"apiversion"`
 	}
 	if err := json.NewDecoder(io.LimitReader(response.Body, 1<<16)).Decode(&config); err != nil {
 		return identity{}, fmt.Errorf("probe %s: %w", address, err)
@@ -91,6 +97,7 @@ func probe(ctx context.Context, address string) (identity, error) {
 		return identity{}, fmt.Errorf("probe %s: not a Hue bridge", address)
 	}
 	result.BridgeID = strings.ToLower(config.BridgeID)
+	result.Name, result.Software, result.APIVersion = config.Name, config.Software, config.APIVersion
 	return result, nil
 }
 
