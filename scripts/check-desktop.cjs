@@ -27,6 +27,7 @@ async function checkTrayShutdown(){
  try{
   await delay(500);
   stop(process.pid); // An unrelated executable must not receive a close request.
+  await delay(100); // Deliver exit events after the synchronous helper returns.
   assert.equal(child.exitCode,null,"unrelated PID stopped the fixture");
   console.log(stop(child.pid).trim());
   assert.equal(await waitExit(exited,2000,"tray survived graceful stop"),0);
@@ -61,7 +62,7 @@ async function checkTrayShutdown(){
   try {
    second.stdin.write(JSON.stringify({State:state})+"\n");
    await delay(1500);
-   assert.throws(()=>execFileSync("powershell.exe",["-NoProfile","-File",path.join(root,"scripts/stop.ps1"),"-ProcessId",String(second.pid),"-TimeoutSeconds","1"],{windowsHide:true,encoding:"utf8",timeout:10000}),error=>error.status!==0&&String(error.stderr).includes("no process was killed"));
+   assert.throws(()=>execFileSync("powershell.exe",["-NoProfile","-File",path.join(root,"scripts/stop.ps1"),"-ProcessId",String(second.pid),"-TimeoutSeconds","1"],{windowsHide:true,stdio:"pipe",encoding:"utf8",timeout:10000}),error=>error.status!==0&&String(error.stderr).includes("no process was killed"));
    assert.equal(second.exitCode,null,"timeout killed the controls fixture");
    await closeGUI(second,secondExit);
    const code=await waitExit(secondExit,7000,"GUI survived host EOF");

@@ -2,8 +2,13 @@ param([int]$ProcessId = 0, [ValidateRange(1,60)][int]$TimeoutSeconds = 15)
 $ErrorActionPreference = 'Stop'
 $exe = [IO.Path]::GetFullPath((Join-Path (Split-Path $PSScriptRoot -Parent) 'bin/snoofer.exe'))
 $running = @(Get-CimInstance Win32_Process -Filter "Name='snoofer.exe'" | Where-Object {
-    $_.ExecutablePath -eq $exe -and ($ProcessId -eq 0 -or $_.ProcessId -eq $ProcessId -or $_.ParentProcessId -eq $ProcessId)
+    $_.ExecutablePath -eq $exe
 })
+if ($ProcessId -ne 0) {
+    # An unrelated parent PID must not authorize stopping its Snoofer child.
+    if (!($running | Where-Object { $_.ProcessId -eq $ProcessId })) { return }
+    $running = @($running | Where-Object { $_.ProcessId -eq $ProcessId -or $_.ParentProcessId -eq $ProcessId })
+}
 if (!$running.Count) { return }
 if (-not ('SnooferStopNative' -as [type])) {
     Add-Type -TypeDefinition @'
