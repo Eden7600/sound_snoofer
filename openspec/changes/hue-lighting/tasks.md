@@ -3,7 +3,7 @@ Each numbered block is one reviewable commit.
 
 ## Implementation
 - [x] 1. Specify Hue lighting (this change).
-- [ ] 2. `feat(hue)`: bridge client: mDNS discovery, `/api/0/config` identity, link-button pairing, certificate pinning, CLIP v2 resource model and SSE parsing. Tests against an `httptest` TLS fake bridge cover none/one/many bridges, ID mismatch, pin mismatch, error 101 and SSE gaps.
+- [x] 2. `feat(hue)`: bridge client: mDNS discovery, `/api/0/config` identity, link-button pairing, certificate pinning, CLIP v2 resource model and SSE parsing. Tests against an `httptest` TLS fake bridge cover none/one/many bridges, ID mismatch, pin mismatch, error 101 and SSE gaps.
 - [ ] 3. `feat(hue)`: plugin worker and controls: status, pair, group selection, scene recall with confirmation, brightness/temperature knob math, coalesced group writes, backoff, verification timeout and preview gating. Composition file with `no_hue`. Tests cover knob clamping and off-state rules, Mixed/N/A temperature, coalescing under fast ticks, 429 backoff, stale revisions, reconnect without replay, and Stop joining the worker.
 - [ ] 4. `feat(huesync)`: WebSocket client and plugin controls with `no_huesync`. Tests against a fake loopback server cover state events, refused connection, restart, bridge_disconnected, tick accumulation, confirmation timeout and preview.
 - [ ] 5. `feat(streamdeck)`: Hue icons, UI contract vocabulary and focused presentation tests; inspect native-size renderer output.
