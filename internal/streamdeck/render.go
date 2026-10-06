@@ -16,7 +16,7 @@ import (
 var glyphs = map[rune][5]byte{
 	'%': {35, 19, 8, 100, 98},
 	'A': {126, 9, 9, 9, 126}, 'B': {127, 73, 73, 73, 54}, 'C': {62, 65, 65, 65, 34}, 'D': {127, 65, 65, 34, 28}, 'E': {127, 73, 73, 73, 65}, 'F': {127, 9, 9, 9, 1}, 'G': {62, 65, 73, 73, 122}, 'H': {127, 8, 8, 8, 127}, 'I': {65, 65, 127, 65, 65}, 'J': {32, 64, 65, 63, 1}, 'K': {127, 8, 20, 34, 65}, 'L': {127, 64, 64, 64, 64}, 'M': {127, 2, 12, 2, 127}, 'N': {127, 4, 8, 16, 127}, 'O': {62, 65, 65, 65, 62}, 'P': {127, 9, 9, 9, 6}, 'Q': {62, 65, 81, 33, 94}, 'R': {127, 9, 25, 41, 70}, 'S': {38, 73, 73, 73, 50}, 'T': {1, 1, 127, 1, 1}, 'U': {63, 64, 64, 64, 63}, 'V': {31, 32, 64, 32, 31}, 'W': {63, 64, 56, 64, 63}, 'X': {99, 20, 8, 20, 99}, 'Y': {7, 8, 112, 8, 7}, 'Z': {97, 81, 73, 69, 67},
-	'0': {62, 81, 73, 69, 62}, '1': {0, 66, 127, 64, 0}, '2': {66, 97, 81, 73, 70}, '3': {33, 65, 69, 75, 49}, '4': {24, 20, 18, 127, 16}, '5': {39, 69, 69, 69, 57}, '6': {60, 74, 73, 73, 48}, '7': {1, 113, 9, 5, 3}, '8': {54, 73, 73, 73, 54}, '9': {6, 73, 73, 41, 30}, '-': {8, 8, 8, 8, 8}, '.': {0, 96, 96, 0, 0}, '/': {32, 16, 8, 4, 2}, '?': {2, 1, 81, 9, 6}, '+': {8, 8, 62, 8, 8}, '*': {20, 8, 62, 8, 20}}
+	'0': {62, 81, 73, 69, 62}, '1': {0, 66, 127, 64, 0}, '2': {66, 97, 81, 73, 70}, '3': {33, 65, 69, 75, 49}, '4': {24, 20, 18, 127, 16}, '5': {39, 69, 69, 69, 57}, '6': {60, 74, 73, 73, 48}, '7': {1, 113, 9, 5, 3}, '8': {54, 73, 73, 73, 54}, '9': {6, 73, 73, 41, 30}, '-': {8, 8, 8, 8, 8}, '.': {0, 96, 96, 0, 0}, '/': {32, 16, 8, 4, 2}, '?': {2, 1, 81, 9, 6}, '+': {8, 8, 62, 8, 8}, ':': {0, 54, 54, 0, 0}, '*': {20, 8, 62, 8, 20}}
 
 func text(im *image.RGBA, x, y, scale int, s string, c color.RGBA) {
 	for _, r := range strings.ToUpper(s) {
@@ -160,6 +160,7 @@ type knobPresentation struct {
 	LevelDB                     float64
 	PeakKnown, PositionKnown    bool
 	PeakDB, Position, ZeroMark  float64
+	Timers                      [2]TimerTile
 }
 type presentation struct {
 	Keys  [Keys]keyPresentation
@@ -202,6 +203,10 @@ func renderKnobs(knobs [Encoders]knobPresentation) []byte {
 				x := n*200 + (200-len(runes)*6*size+size)/2
 				text(panel, x, []int{12, 42, 76}[row], size, string(runes), ink)
 			}
+			continue
+		}
+		if knob.Timers[0] != (TimerTile{}) {
+			drawTimers(panel, n*200, knob.Timers)
 			continue
 		}
 		x := n*200 + dialInset
@@ -314,29 +319,89 @@ func drawMeter(im *image.RGBA, x int, k knobPresentation) {
 	}
 }
 
-// drawArtwork accepts only the bounded thumbnail contract, never source files.
-func drawArtwork(im *image.RGBA, artwork string) bool {
+// decodeArtwork accepts only the bounded thumbnail contract, never source files.
+func decodeArtwork(artwork string) (image.Image, bool) {
 	if artwork == "" || len(artwork) > 32768 {
-		return false
+		return nil, false
 	}
 	data, err := base64.StdEncoding.DecodeString(artwork)
 	if err != nil {
-		return false
+		return nil, false
 	}
 	cfg, err := png.DecodeConfig(bytes.NewReader(data))
 	if err != nil || cfg.Width < 1 || cfg.Width != cfg.Height || cfg.Width > 64 {
-		return false
+		return nil, false
 	}
 	source, err := png.Decode(bytes.NewReader(data))
 	if err != nil {
+		return nil, false
+	}
+	return source, true
+}
+
+func drawArtwork(im *image.RGBA, artwork string) bool {
+	source, ok := decodeArtwork(artwork)
+	if !ok {
 		return false
 	}
 	scale := im.Bounds().Dx() / 112
+	bounds := source.Bounds()
 	for y := 0; y < 64; y++ {
 		for x := 0; x < 64; x++ {
-			pixel := source.At(x*cfg.Width/64, y*cfg.Height/64)
+			pixel := source.At(bounds.Min.X+x*bounds.Dx()/64, bounds.Min.Y+y*bounds.Dy()/64)
 			draw.Draw(im, image.Rect((24+x)*scale, (20+y)*scale, (25+x)*scale, (21+y)*scale), &image.Uniform{pixel}, image.Point{}, draw.Over)
 		}
 	}
 	return true
+}
+
+// drawThumb draws artwork, or the icon when there is none, in a size-pixel
+// square at x, y.
+func drawThumb(im *image.RGBA, x, y, size int, artwork, icon string) {
+	source, ok := decodeArtwork(artwork)
+	if !ok {
+		glyph := image.NewRGBA(image.Rect(0, 0, 112, 112))
+		drawIcon(glyph, icon, textColor)
+		source = glyph.SubImage(image.Rect(16, 12, 96, 92)) // The icon area of a key.
+	}
+	bounds := source.Bounds()
+	for dy := 0; dy < size; dy++ {
+		for dx := 0; dx < size; dx++ {
+			pixel := source.At(bounds.Min.X+dx*bounds.Dx()/size, bounds.Min.Y+dy*bounds.Dy()/size)
+			draw.Draw(im, image.Rect(x+dx, y+dy, x+dx+1, y+dy+1), &image.Uniform{pixel}, image.Point{}, draw.Over)
+		}
+	}
+}
+
+// fit truncates s to at most chars glyphs, marking the cut.
+func fit(s string, chars int) string {
+	runes := []rune(s)
+	if len(runes) <= chars {
+		return s
+	}
+	if chars < 4 {
+		return string(runes[:max(0, chars)])
+	}
+	return string(runes[:chars-3]) + "..."
+}
+
+// drawTimers lays out one countdown across a dial panel, or two in rows.
+func drawTimers(im *image.RGBA, x int, timers [2]TimerTile) {
+	if timers[1] == (TimerTile{}) {
+		t := timers[0]
+		drawThumb(im, x+8, 18, 64, t.Artwork, t.Icon)
+		size := 4
+		if len(t.Time)*6*size > 200-84-dialInset {
+			size = 3
+		}
+		text(im, x+84, 26, size, t.Time, textColor)
+		text(im, x+84, 66, 1, fit(t.Label, (200-84-dialInset)/6), neutralColor)
+		return
+	}
+	for row, t := range timers {
+		y := 6 + row*48
+		drawThumb(im, x+8, y, 40, t.Artwork, t.Icon)
+		text(im, x+56, y+10, 3, t.Time, textColor)
+		text(im, x+56, y+34, 1, fit(t.Label, (200-56-dialInset)/6), neutralColor)
+	}
 }

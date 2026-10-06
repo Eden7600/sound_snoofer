@@ -8,9 +8,16 @@ type Tile struct {
 	LevelDB            float64
 	PeakKnown          bool // Dials: a held peak to mark on the meter.
 	PeakDB             float64
-	PositionKnown      bool    // Dials: the value's place within its range.
-	Position           float64 // 0…1.
-	ZeroMark           float64 // 0…1 position of a neutral mark; 0 for none.
+	PositionKnown      bool         // Dials: the value's place within its range.
+	Position           float64      // 0…1.
+	ZeroMark           float64      // 0…1 position of a neutral mark; 0 for none.
+	Timers             [2]TimerTile // Dials: countdowns shown instead of a control; the first is used first.
+}
+
+// TimerTile is one countdown on a dial panel: artwork (or icon), name and
+// remaining time.
+type TimerTile struct {
+	Artwork, Icon, Label, Time string
 }
 
 // Frame contains one complete layout generation. Dial 6 is navigation.
@@ -31,7 +38,7 @@ func renderChangedFrame(f, previous Frame, cached [][]byte) ([][]byte, []byte) {
 	}
 	for n, k := range f.Dials {
 		view.Knobs[n] = knobPresentation{Target: k.Label, Value: k.Value, Meter: k.Meter, LevelKnown: k.LevelKnown, LevelDB: k.LevelDB,
-			PeakKnown: k.PeakKnown, PeakDB: k.PeakDB, PositionKnown: k.PositionKnown, Position: k.Position, ZeroMark: k.ZeroMark}
+			PeakKnown: k.PeakKnown, PeakDB: k.PeakDB, PositionKnown: k.PositionKnown, Position: k.Position, ZeroMark: k.ZeroMark, Timers: k.Timers}
 		if n == Encoders-1 {
 			// Only the page dial carries text (the next page name) in Icon; a
 			// control's icon is an identifier, never strip text.

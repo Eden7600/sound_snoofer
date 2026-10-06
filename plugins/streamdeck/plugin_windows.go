@@ -144,6 +144,9 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 				refresh = want
 				ticker.Reset(refresh)
 			}
+			for n, timers := range timerPanels(p, shown, now) {
+				frame.Dials[n].Timers = timers
+			}
 			names := l.pageNames(p.ID)
 			frame.Dials[5] = device.Tile{Label: names[0], Value: names[1], Icon: names[2]}
 			select {
