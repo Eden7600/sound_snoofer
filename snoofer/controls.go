@@ -19,6 +19,7 @@ type Control struct {
 	Artwork                                     string          // Optional base64 PNG thumbnail, square and at most 64px; immutable across snapshots.
 	ShortLabel                                  string          // Optional label for icon-bearing compact surfaces.
 	Meter                                       Meter
+	Connection                                  *Connection `json:",omitempty"` // Optional external integration report (Kind "connection").
 	SurfaceOnly                                 bool
 	Hidden                                      bool // Optional: no useful place on surfaces right now; the deck renders a blank key and GUIs omit it. Publish it unavailable.
 	OptionLabels                                map[string]string
@@ -102,6 +103,7 @@ func (c *Controls) Publish(provider string, controls []Control, invoke func(cont
 		v.Options = append([]string(nil), v.Options...)
 		v.OptionLabels = maps.Clone(v.OptionLabels)
 		v.Operations = append([]string(nil), v.Operations...)
+		v.Connection = v.Connection.clone()
 		c.entries[v.ID] = entry{v, invoke}
 	}
 	return nil
@@ -118,6 +120,7 @@ func (c *Controls) Snapshot() []Control {
 		v.Options = append([]string(nil), v.Options...)
 		v.OptionLabels = maps.Clone(v.OptionLabels)
 		v.Operations = append([]string(nil), v.Operations...)
+		v.Connection = v.Connection.clone()
 		out = append(out, v)
 	}
 	sort.Slice(out, func(i, j int) bool {
