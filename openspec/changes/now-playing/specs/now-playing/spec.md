@@ -25,13 +25,17 @@ Snoofer SHALL control each session individually and SHALL direct the media dial 
 - **WHEN** a new session starts playing and no session was pressed in the last 30 seconds
 - **THEN** focus moves to the new session
 
-### Requirement: Secure browser bridge
-The bridge SHALL listen only on localhost, accept only extension origins presenting the install token, and bound message size and session count.
+### Requirement: Local browser bridge
+The bridge SHALL listen only on localhost, accept only browser-extension origins, require no pairing, and bound message size and session count.
 
 #### Scenario: Web page connection
 - **WHEN** a web page tries to open the bridge WebSocket
 - **THEN** the connection is refused for its origin
 
-#### Scenario: Wrong token
-- **WHEN** an extension connects with a stale token
-- **THEN** the connection is closed, and the GUI asks to save and reload the extension
+#### Scenario: Store extension connects
+- **WHEN** the published extension starts in Chrome or Firefox with Snoofer running
+- **THEN** it connects without setup, and its tabs appear as sessions
+
+#### Scenario: Protocol mismatch
+- **WHEN** an extension offers a protocol version Snoofer does not support
+- **THEN** the connection is refused, and Snoofer and the extension's popup say which side to update

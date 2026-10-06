@@ -4,7 +4,7 @@ Today the deck's media keys send blind key presses. Windows routes them to one "
 ## What Changes
 - **`nowplaying` plugin** with two sources:
   - **Windows media sessions:** every app's media session through a small C++/WinRT companion DLL, `snoofer-media.dll`. Each session has app, title, artist, album, cover art, play state, position, length and the controls it allows.
-  - **Browser bridge:** a bundled Manifest V3 extension for Brave, Chrome and Edge. It reports every tab and frame that is playing media and executes play, pause, next, previous, seek and tab mute. It connects to Snoofer over a local WebSocket with a per-install token. While a browser's extension is connected, that browser's single Windows session is replaced by its tabs.
+  - **Browser bridge:** a standalone Manifest V3 extension (`extension/`) for the Chrome Web Store and Firefox Add-ons. It reports every tab and frame that is playing media and executes play, pause, next, previous, seek and tab mute. It connects to Snoofer over a WebSocket on 127.0.0.1, which accepts only extension origins; no pairing is needed. While a browser's extension is connected, that browser's single Windows session is replaced by its tabs.
 - **Focus:** one session has focus.
   - **What sets it:** focus follows the session that most recently started playing, or the last one you pressed.
   - **What follows it:** the media dial and transport keys act on the focused session.
@@ -16,8 +16,8 @@ Today the deck's media keys send blind key presses. Windows routes them to one "
   - **Dial artwork:** dials can show artwork on the touch strip.
   - **Progress:** a `m:ss / m:ss` value draws a progress track.
   - **Media page:** the default layout gains a Media page; Home gains a go-to key and the media dial.
-- **GUI:** a Media screen with session cards (artwork, title, artist, source, progress, transport, seek and focus) and a Browser extension card (status, Save extension files, instructions).
+- **GUI:** a Media screen with session cards (artwork, title, artist, source, progress, transport, seek and focus) and a Browser extension card (connection status and install steps).
 ## Impact
-- **Code:** new `internal/mediasessions` (Go wrapper plus C++ companion), `plugins/nowplaying`, `plugins/nowplaying/extension/` (embedded), the Stream Deck dial renderer and defaults, the GUI and the build script.
+- **Code:** new `internal/mediasessions` (Go wrapper plus C++ companion), `plugins/nowplaying`, `extension/` (its own build and store packaging), the Stream Deck dial renderer and defaults, the GUI and the build script.
 - **Native code:** the companion follows the soundboard DLL pattern (C ABI, owned thread). It sits outside the Voicemeeter adapter, as the Windows audio session code already does.
 - **Unchanged:** the `media` plugin's key presses, which remain available.

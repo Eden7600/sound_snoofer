@@ -18,35 +18,57 @@ C++/WinRT in a companion DLL, `bin/snoofer-media.dll`, built by `scripts/build-m
 - **Status:** command success means the request was accepted. Pending lasts until a snapshot shows the change.
 
 ## 2. Browser bridge
-### Extension (`plugins/nowplaying/extension/`, embedded in `snoofer.exe`)
-The files sit under the plugin package because Go can only embed files at or below a package. `logic.js` holds the worker's pure helpers and is tested with Node. `scripts/check-extension.cjs` runs `page.js` in Chrome as a page-world init script, as the extension does. Recent Chrome stable cannot load unpacked extensions under automation, so the service worker's wiring is covered by hardware acceptance.
-The extension is Manifest V3 with permissions `tabs` and host access to `<all_urls>` (for content scripts and artwork fetches).
-- **`page.js`** runs in the page's main world, in all frames, from `document_start`:
+Revised after review: the extension is a standalone codebase published to the Chrome Web Store and Firefox Add-ons. Nothing is exported from Snoofer and no token or pairing is used.
+
+### Extension project (`extension/`)
+**Layout:** `src/` holds the shared code: `page.js`, `bridge.js`, `background.js`, `logic.js`, `popup.html`, `popup.js` and the icons. `manifest.json` is generated per browser by `build.mjs`.
+
+**Build:** `npm run build` writes `dist/chrome` and `dist/firefox` (load these unpacked while developing). `npm run package` zips each into `dist/snoofer-media-<browser>-<version>.zip` for store upload, using Windows `tar` with no new dependencies. `npm test` runs the Node tests.
+
+**Browsers:**
+
+| | Chrome, Brave, Edge | Firefox (≥ 128) |
+|---|---|---|
+| Background | Manifest V3 `background.service_worker` (module) | Manifest V3 `background.scripts` (module) |
+| Extension ID | — | `browser_specific_settings.gecko.id` |
+| Host permission | granted on install | optional; the popup asks with `permissions.request` |
+
+- **Page-world script:** both use `world: "MAIN"` content scripts.
+- **API namespace:** code uses `globalThis.browser ?? chrome` with promises.
+- **Policy:** `content_security_policy.extension_pages` is `script-src 'self'; object-src 'self'`, so the local `ws://` connection is never upgraded.
+
+**Permissions:** `tabs` (titles, mute), `storage` (the port setting) and host access to `<all_urls>` (content scripts and artwork fetches). There is no remote code, and data goes only to `127.0.0.1`.
+
+**Scripts:**
+- **`page.js`** (all frames, from `document_start`):
   - It wraps `navigator.mediaSession.setActionHandler` to remember page handlers such as YouTube's `nexttrack`.
-  - It tracks `<audio>` and `<video>` elements through captured `play`, `pause`, `timeupdate`, `durationchange` and `ended` events.
-  - It reads `navigator.mediaSession.metadata` and `playbackState`.
-  - It reports through a `CustomEvent` on state changes, and every second while playing.
-- **Commands in the page:** a page handler is used first (`play`, `pause`, `nexttrack`, `previoustrack`, `seekto`). Otherwise the playing element is controlled directly (`play()`, `pause()`, `currentTime`).
-- **`bridge.js`** runs in the isolated world and relays between page events and a `chrome.runtime` port.
-- **`background.js`** (service worker):
-  - It keeps one WebSocket to `ws://127.0.0.1:<port>/nowplaying`, reconnecting with backoff and pinging every 20 s, which also keeps the worker alive.
+  - It tracks `<audio>` and `<video>` elements through captured media events and reads `navigator.mediaSession` metadata and state.
+  - It reports through a `CustomEvent` on changes, and every second while playing.
+  - Commands use a page handler first, otherwise the element.
+- **`bridge.js`** (isolated world) relays to a runtime port, opened only once the frame has media.
+- **`background.js`:**
+  - It keeps one WebSocket to `ws://127.0.0.1:<port>/nowplaying`, reconnecting with backoff and pinging every 20 s.
   - It merges frame reports per tab and adds the tab title, site and mute state.
-  - It turns artwork URLs (or the favicon) into 64 px PNGs with `OffscreenCanvas`.
-  - It sends snapshots, executes commands and mutes tabs through `chrome.tabs.update`.
-- **`config.js`** holds `{port, token}` and is written when the files are saved.
+  - It turns artwork into 64 px PNGs with `OffscreenCanvas`.
+  - It runs commands and tab mute.
+  - It answers the popup's status requests.
+- **Popup:** shows "Connected to Snoofer" or "Snoofer is not running", the number of playing tabs and the port field (default 47815). On Firefox it also shows **Allow on all sites** while host access is missing.
 
 ### Server (in the plugin)
-- **Listener:** `127.0.0.1:<port>` (default 47815) serves only `/nowplaying`, using `gorilla/websocket`, which is already a dependency.
-- **Origin:** must start with `chrome-extension://`, so pages cannot connect.
-- **Handshake:** the first message is `hello{token, version, browser}`. A wrong token closes the connection. `Settings.Token` is 32 random bytes in hex, created on first start.
-- **Version:** an extension older than the embedded one is flagged "Update the extension" but still works.
+- **Listener and origin:** `127.0.0.1:<port>` (default 47815) serves only `/nowplaying`. The origin must start with `chrome-extension://` or `moz-extension://`, so web pages, which cannot forge an origin, are refused. Off-machine clients cannot reach a loopback listener.
+- **Remaining access:** local programs and other installed extensions can reach the bridge. Local programs already run as the user; another extension could at most read media titles or press play. No secret is needed.
+- **Handshake:** the first message is `hello{protocol, version, browser}`. Protocol 1 is supported; any other value is refused with "Update Snoofer" when newer, or "Update the extension" when older.
 - **Messages from the extension:** `sessions{[…]}`. Each session has `id` (`tab:frame`), `tab`, `site`, `title`, `artist`, `album`, `art` (base64 PNG, sent only when it changes, otherwise `artKey`), `state`, `positionMs`, `durationMs`, `updatedMs`, `rate`, `canNext`, `canPrev`, `canSeek`, `muted` and `audible`.
 - **Messages to the extension:** `command{id, op, value}`.
 - **Bounds:** messages are limited to 1 MiB and sessions to 64 per browser. One connection per browser name; a newer connection replaces the older one.
-- **Saving the extension:** **Save extension files** writes the embedded files and `config.js` to `<config folder>/browser-extension`, next to `snoofer.json` (like `soundboard-cache`). The GUI shows that path and the steps: open `brave://extensions`, enable Developer mode, Load unpacked, pick the folder; reload after saving again.
+- **Legacy setting:** `Settings.Token` from the first build is accepted and ignored, so saved configurations still load.
 
 ### De-duplication
-While a browser's extension is connected, Windows sessions from that browser are hidden. Matching is by AppUserModelID: Brave is `Brave` or `Brave.*`, Chrome is `Chrome` or `Chrome.*`, Edge is `MSEdge` or `MSEdge.*`. Without the extension, the browser's single Windows session appears as usual.
+While a browser's extension is connected, Windows sessions from that browser are hidden:
+- **By app ID:** Brave is `Brave` or `Brave.*`, Chrome is `Chrome` or `Chrome.*`, Edge is `MSEdge` or `MSEdge.*`.
+- **By title:** a Windows session whose non-empty title equals a connected browser tab's title is also hidden. This covers Firefox, whose app ID is an install-specific hash.
+
+Without the extension, the browser's single Windows session appears as usual.
 
 ## 3. Sessions and focus (`plugins/nowplaying`)
 - **Session control:** each session gets `nowplaying.s-<hash of source and id>`.
@@ -84,11 +106,9 @@ While a browser's extension is connected, Windows sessions from that browser are
 - **Media screen** (sidebar, after App audio):
   - **Session cards:** artwork, title, artist, source (app or browser · site), a progress bar with a seek slider, Previous/Play/Next, Mute for tabs and a Focus marker (click to focus).
   - **Browser extension card:**
-    - connection status per browser;
-    - an "update" warning;
-    - **Save extension files** with the saved path;
-    - the install steps;
-    - **Reset token**, which also requires saving and reloading again.
+    - connection status per browser, with "update" warnings from the handshake;
+    - bridge or Windows errors;
+    - install steps: the store listings, or for development `npm run build` in `extension/` and load `dist/chrome` unpacked or `dist/firefox` as a temporary add-on.
 - **Rebuilds:** the screen rebuilds when the session set changes. Progress updates in place at the 100 ms poll.
 
 ## 6. Scenarios
@@ -99,6 +119,6 @@ While a browser's extension is connected, Windows sessions from that browser are
 | YouTube Next | Uses the page's `nexttrack` handler, captured by `page.js`. |
 | Plain `<video>` page with no media session | The element is controlled directly; Next/Previous are hidden. |
 | Extension not installed | The Windows path still works. The GUI card explains how to install it. |
-| Wrong or old token | The connection is refused, and the card says "Reconnect: save and reload the extension". |
+| Extension or Snoofer out of date | The handshake is refused, and the card and popup say which side to update. |
 | Browser closed | The connection drops, its sessions disappear, and its Windows session (if any) returns. |
 | Long-running service worker | Kept alive by WebSocket traffic; it reconnects if Chrome restarts it. |

@@ -11,9 +11,16 @@ Each numbered block is one reviewable commit.
 - [x] 7. `feat(gui)`: the Media screen and Browser extension card. The GUI check covers both.
 - [x] 8. Validate: Go, JS and GUI checks; desktop check; OpenSpec; the canonical build. Add the personal Media page, Home go-to key and media dial; relaunch.
 
+## Revisions after review
+- [x] 10. `docs(media)`: standalone store extension, no token or pairing, title de-duplication (§2).
+- [ ] 11. `refactor(nowplaying)`: drop the token, export and embedding; accept `moz-extension` origins; add the protocol handshake and title de-duplication. Tests are updated.
+- [ ] 12. `feat(extension)`: `extension/` project. Covers shared sources, Chrome and Firefox manifests, the build and packaging script, the popup (status, port, Firefox permission) and icons from the Snoofer mascot. Node tests cover logic and the build output; the page-script check is moved.
+- [ ] 13. `feat(gui)`: the extension card without export. The GUI check is updated.
+- [ ] 14. Validate: all checks and the canonical build; remove the legacy token from the personal config; relaunch.
+
 ## Hardware acceptance
 - [ ] 9. With Brave and a Windows player:
-  - the extension installs and connects;
+  - the extension (loaded from `extension/dist`) connects without setup in Brave and Firefox;
   - two tabs appear separately and pause independently;
   - YouTube Next works;
   - the dial seeks and plays/pauses the focused session;
