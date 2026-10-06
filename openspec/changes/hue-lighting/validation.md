@@ -32,3 +32,9 @@ Hardware acceptance tasks 8–11: real bridge pairing and mDNS discovery through
 ## Revision 3: temperature removed (2026-10-05)
 - The user found the temperature dial worked once the lights were in color-temperature mode, but decided to remove it. `go vet ./...`, `go test ./...`, the GUI model tests, `check-gui.cjs` and strict OpenSpec validation pass. The reference images `docs/design/hue.png` and `docs/design/gui-lights.png` were regenerated.
 - Personal config, edited while Snoofer was stopped for the canonical build (backup in the session scratchpad): removed `hue.neutral_kelvin` and unbound Home dial 4 (`hue.temperature`). `snoofer.exe --check` passes; Snoofer was relaunched.
+
+## Revision 4 (2026-10-05)
+- Scene artwork: unit tests cover xy, mirek and gradient conversion, palette fallback, merging, render geometry, caching and refresh. A live preview of all 41 scenes on the paired bridge rendered 37 thumbnails (mostly warm whites and ambers). Four Sewing Room scenes carry no color data or palette and keep the bulb. Deck output was inspected at native size (`docs/design/hue.png`, Storybook sample); the Lights cards show the same art (`check-gui.cjs`).
+- Hidden controls: the deck renders hidden bindings blank, Hue hides Mode and Intensity unless syncing and Sync while the app is disconnected, and the Lights screen hides those rows. Unit, presentation and GUI checks pass.
+- `go vet ./...` and `go test ./...` pass. The hue package passed `-count=4` after the test helper started retrying stale-revision dispatches. A first live preview run missed the bridge once (a single lost mDNS reply); four discovery runs then all succeeded. Discovery retries are proposed separately.
+- Personal config (stopped for the canonical build; backup in the session scratchpad): Home brightness moved from dial index 2 to index 4, beside pagination. `snoofer.exe --check` passes and Snoofer was relaunched.
