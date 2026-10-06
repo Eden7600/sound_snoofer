@@ -171,7 +171,7 @@ func TestCommandsPendingAndObserved(t *testing.T) {
 
 func TestBrowserTabsReplaceItsWindowsSession(t *testing.T) {
 	r := newRig(t, true)
-	r.win.sessions = []mediasessions.Session{spotify("paused", 0, r.now), {ID: "Brave", App: "Brave", Title: "One tab", Status: "playing", CanPlay: true}}
+	r.win.sessions = []mediasessions.Session{spotify("paused", 0, r.now), {ID: "Brave", App: "Brave", Title: "Video A", Status: "playing", CanPlay: true}}
 	r.tick(0)
 	if len(r.members()) != 2 {
 		t.Fatal("without the extension Brave is one session")
@@ -187,8 +187,8 @@ func TestBrowserTabsReplaceItsWindowsSession(t *testing.T) {
 		t.Fatalf("members %d", len(members))
 	}
 	for _, m := range members {
-		if m.Label == "One tab" {
-			t.Fatal("Brave's Windows session shown alongside its tabs")
+		if m.Label == "Video A" && m.Artwork == "" {
+			t.Fatal("Brave's Windows session shown alongside the tab it repeats")
 		}
 	}
 	// Pressing a background tab toggles it and focuses it.
@@ -290,5 +290,47 @@ func TestSessionSeekFromGUI(t *testing.T) {
 	r.w.handle(snoofer.Request{ID: id, Operation: "set", Value: "999999"}, r.now) // Past the end: ignored.
 	if len(r.win.commands) != 1 || r.win.commands[0] != "Spotify.exe:seek:90µs" {
 		t.Fatal(r.win.commands)
+	}
+}
+
+func TestWindowsSessionKeptWhenTabUnseen(t *testing.T) {
+	r := newRig(t, true)
+	// The video was playing before the extension loaded, so the extension
+	// reports nothing for it: Brave's Windows session must stay.
+	r.win.sessions = []mediasessions.Session{{ID: "Brave", App: "Brave", Title: "Old video", Status: "playing", CanPlay: true}}
+	r.w.browser(browserUpdate{Browser: "Brave", Version: "1", Connected: true})
+	r.tick(0)
+	if m := r.members(); len(m) != 1 || m[0].Label != "Old video" {
+		t.Fatalf("members %+v", m)
+	}
+}
+
+func TestFocusMovesToTheOnlyPlayingSession(t *testing.T) {
+	r := newRig(t, true)
+	a := mediasessions.Session{ID: "A", App: "A.exe", Title: "A", Status: "playing", CanPlay: true}
+	b := mediasessions.Session{ID: "B", App: "B.exe", Title: "B", Status: "paused", CanPlay: true}
+	r.win.sessions = []mediasessions.Session{a, b}
+	r.tick(0)
+	// Choose B (paused) just now; A is the only one playing, so focus returns to A.
+	r.w.handle(snoofer.Request{ID: "nowplaying.focus", Operation: "set", Value: controlID("windows:B")}, r.now)
+	r.tick(time.Second)
+	if f := r.control("nowplaying.dial").ShortLabel; f != "A" {
+		t.Fatal("focus stayed on a paused session while only A plays", f)
+	}
+	// With both playing, the chosen session keeps focus within the hold.
+	b.Status = "playing"
+	r.win.sessions = []mediasessions.Session{a, b}
+	r.tick(time.Second)
+	r.w.handle(snoofer.Request{ID: "nowplaying.focus", Operation: "set", Value: controlID("windows:A")}, r.now)
+	r.tick(time.Second)
+	if f := r.control("nowplaying.dial").ShortLabel; f != "A" {
+		t.Fatal("chosen focus lost while two play", f)
+	}
+	// Nothing playing: focus stays where it is.
+	a.Status, b.Status = "paused", "paused"
+	r.win.sessions = []mediasessions.Session{a, b}
+	r.tick(time.Second)
+	if f := r.control("nowplaying.dial").ShortLabel; f != "A" {
+		t.Fatal("focus moved with nothing playing", f)
 	}
 }

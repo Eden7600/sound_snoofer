@@ -112,19 +112,3 @@ func fromWindows(s mediasessions.Session, art string) session {
 	}
 	return out
 }
-
-// browserApps maps a browser's name to the AppUserModelID its single Windows
-// session uses; that session is hidden while the browser's extension is
-// connected, because the extension reports each tab instead.
-var browserApps = map[string]string{"brave": "brave", "chrome": "chrome", "edge": "msedge"}
-
-// shadowed reports whether a Windows session belongs to a connected browser.
-func shadowed(app string, connected map[string]bool) bool {
-	app = strings.ToLower(app)
-	for browser := range connected {
-		if id, ok := browserApps[strings.ToLower(browser)]; ok && (app == id || strings.HasPrefix(app, id+".")) {
-			return true
-		}
-	}
-	return false
-}

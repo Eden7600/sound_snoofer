@@ -256,10 +256,6 @@ func (w *worker) browser(u browserUpdate) {
 }
 
 func (w *worker) merge(now time.Time) {
-	connected := map[string]bool{}
-	for name := range w.browsers {
-		connected[name] = true
-	}
 	tabTitles := map[string]bool{}
 	for _, u := range w.browsers {
 		for _, s := range u.Sessions {
@@ -270,8 +266,9 @@ func (w *worker) merge(now time.Time) {
 	}
 	var all []session
 	for _, s := range w.winSessions {
-		// A browser's own Windows session repeats one of its tabs.
-		if s.Status == "closed" || shadowed(s.App, connected) || (s.Title != "" && tabTitles[s.Title]) {
+		// A browser's own Windows session repeats one of its tabs. Hide it only
+		// when that tab is reported, so it never vanishes from both sources.
+		if s.Status == "closed" || (s.Title != "" && tabTitles[s.Title]) {
 			continue
 		}
 		all = append(all, fromWindows(s, w.winArt[s.ID+"\x00"+s.ArtKey]))
@@ -327,6 +324,19 @@ func (w *worker) merge(now time.Time) {
 			w.focus = all[0].Key
 		}
 	}
+	// With exactly one session playing, a focused session that is not playing
+	// gives way to it, even within the hold after a press.
+	var only []string
+	for _, s := range all {
+		if s.playing() {
+			only = append(only, s.Key)
+		}
+	}
+	if len(only) == 1 && only[0] != w.focus {
+		if focused, ok := sessionByKey(all, w.focus); !ok || !focused.playing() {
+			w.focus = only[0]
+		}
+	}
 	w.sessions = all
 	w.observe(now)
 }
@@ -361,7 +371,11 @@ func (w *worker) observe(now time.Time) {
 }
 
 func (w *worker) find(key string) (session, bool) {
-	for _, s := range w.sessions {
+	return sessionByKey(w.sessions, key)
+}
+
+func sessionByKey(sessions []session, key string) (session, bool) {
+	for _, s := range sessions {
 		if s.Key == key {
 			return s, true
 		}
