@@ -19,15 +19,17 @@ type Operation struct {
 	Change      bool          `json:"change"`
 }
 type Topology struct {
-	MicStrips      []int            `json:"mic_strips,omitempty"`
-	Recording      *RecordingStatus `json:"recording,omitempty"`
-	Voice          *VoiceStatus     `json:"voice,omitempty"`
-	Transition     []Operation      `json:"transition,omitempty"`
-	ASIOActive     bool             `json:"asio_active"`
-	PlaybackTarget string           `json:"playback_target,omitempty"`
-	Operations     []Operation      `json:"operations"`
-	Unresolved     []string         `json:"unresolved,omitempty"`
-	InventoryKey   string           `json:"-"`
+	ASIOName        string           `json:"asio_name,omitempty"`
+	ASIOUnavailable []string         `json:"asio_unavailable,omitempty"`
+	MicStrips       []int            `json:"mic_strips,omitempty"`
+	Recording       *RecordingStatus `json:"recording,omitempty"`
+	Voice           *VoiceStatus     `json:"voice,omitempty"`
+	Transition      []Operation      `json:"transition,omitempty"`
+	ASIOActive      bool             `json:"asio_active"`
+	PlaybackTarget  string           `json:"playback_target,omitempty"`
+	Operations      []Operation      `json:"operations"`
+	Unresolved      []string         `json:"unresolved,omitempty"`
+	InventoryKey    string           `json:"-"`
 }
 
 func (t *Topology) Key() string {
@@ -96,6 +98,15 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 		return p, err
 	}
 	t.ASIOActive = asio != nil
+	if asio != nil {
+		t.ASIOName = asio.Name
+		for n := range profile.ASIO {
+			other, err := matchInterface(&profile.ASIO[n], s)
+			if err == nil && other != nil && other.Name != asio.Name {
+				t.ASIOUnavailable = append(t.ASIOUnavailable, other.Name)
+			}
+		}
+	}
 	ownsPlayback := func(name string) bool {
 		if name == "" {
 			return false

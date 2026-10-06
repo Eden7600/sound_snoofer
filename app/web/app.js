@@ -87,17 +87,18 @@ function control(id,parent,label) {
 function mixer(id,parent,title) {
  if(!c(id))return;
  const node=el("div","strip"), value=el("div","gain-readout"),bar=el("div","level"),signal=el("div","level-signal"),text=el("div","meter-label"),actions=el("div","gain-buttons");
- node.append(el("h3","",title),value);bar.append(signal);node.append(bar,text,actions);
+ const device=el("div","meter-label");
+ node.append(el("h3","",title),device,value);bar.append(signal);node.append(bar,text,actions);
  actions.append(button("−",()=>request(c(id),"adjust","",-1)),button("0 dB",()=>press(id)),button("+",()=>request(c(id),"adjust","",1)));
  // Only soundboard's press means reset; audio gain press retains its existing mute behavior.
  if(id!=="soundboard.volume"){actions.children[1].textContent="Mute";actions.children[1].title="Toggle mute";}
  parent.append(node);
  updaters.push(()=>{
-  const control=c(id);value.textContent=control ? display(control) : "Unavailable";
+  const control=c(id);device.textContent=id==="audio.gain-playback"?(c("audio.playback-device")?.Value||""):id==="audio.gain-mic"?(c("audio.mic-device")?.Value||""):"";device.hidden=!device.textContent;value.textContent=control ? display(control) : "Unavailable";
   const db=meterValue(control?.Meter);
   signal.style.clipPath="inset(0 "+(db===null?100:-(db/60)*100)+"% 0 0)";
   text.textContent=db===null?"LEVEL N/A":db.toFixed(1)+" dBFS";
-  const muteID={"audio.gain-mic":"audio.mic-mute","audio.gain-A1":"audio.a1-mute","audio.gain-A2":"audio.a2-mute"}[id];
+  const muteID={"audio.gain-mic":"audio.mic-mute","audio.gain-playback":"audio.speaker-mute"}[id];
   if(muteID){
    const muted=c(muteID)?.Value==="On";
    actions.children[1].className=muted?"toggle critical":"toggle";
@@ -112,8 +113,8 @@ function buildAudio() {
  const live=panel("Live controls",grid,"wide"), top=el("div","quick-controls"), strips=el("div","strip-grid");
  live.append(top);control("audio.mic-stack",top,"Mic stack");control("audio.mic-mute",top,"Mic mute");control("audio.speaker-mute",top,"Playback mute");
  live.append(strips);
- mixer("audio.gain-mic",strips,"MICROPHONE");mixer("audio.gain-A1",strips,"A1 OUTPUT");mixer("audio.gain-A2",strips,"A2 OUTPUT");
- const used=new Set(["audio.health","audio.mic-stack","audio.mic-mute","audio.speaker-mute","audio.gain-mic","audio.gain-A1","audio.gain-A2"]);
+ mixer("audio.gain-mic",strips,"MICROPHONE");mixer("audio.gain-playback",strips,"PLAYBACK");control("audio.interface",live,"Interface");
+ const used=new Set(["audio.health","audio.mic-stack","audio.mic-mute","audio.speaker-mute","audio.gain-mic","audio.gain-playback","audio.interface","audio.playback-device"]);
  for(const [title,prefix] of [["Normal","audio.normal-"],["VR","audio.vr-profile-"]]){
   if(!c(prefix+"source"))continue;
   const card=panel(title,grid), note=el("p","section-note");card.append(note);
@@ -243,7 +244,7 @@ function commandFallback(parent){
 }
 function buildDiagnostics(){
  const toolbar=el("div","toolbar");toolbar.append(button("Retry plugins",()=>send({Kind:"retry"})));root.append(toolbar);
- const card=panel("Audio engine",root);control("audio.health",card);
+ const card=panel("Audio engine",root);control("audio.health",card);control("audio.interface",card);control("audio.asio-unavailable",card);
  const details=el("section","panel diagnostic");details.style.marginTop="18px";root.append(details);
  updaters.push(()=>{
   details.replaceChildren(el("h2","","Current notices"));

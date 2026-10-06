@@ -86,10 +86,9 @@ provides more specific guidance. Explicit user instructions take precedence.
 - Mic stack disabled disconnects all managed mic and Element-return sends while retaining Normal/VR targets. It must
   not disable computer playback/capture or operate recorder transport.
 - Disabling also clears managed microphone input assignments and ASIO input patches;
-  Volt remains assigned to A1 and playback retains its normal output.
-- Volt ASIO owns A1 when active. Physical channel 1 feeds stereo input 1 (L/R),
-  channel 2 feeds stereo input 2 (L/R). Playback takes the lowest free output and
-  its routing follows that output. Selecting Volt itself for playback reuses reserved
+  the selected ASIO interface remains assigned to A1 and playback retains its normal output.
+- ASIO priority selects one interface for A1 before microphone/playback selection. Only that interface supplies eligible ASIO inputs/outputs. Per-interface desk/lav channel mappings feed stereo inputs 1/2 (L/R); zero means unavailable. Playback takes the lowest free output and
+  its routing follows that output. Selecting the loaded ASIO interface for playback reuses reserved
   ASIO A1; other playback devices still use the lowest free output. Device matching
   uses Go regular expressions.
 - Treat presence, absence and ambiguous matches distinctly; installed ASIO
@@ -210,3 +209,5 @@ when an icon makes the full label redundant. See internal/streamdeck/AGENTS.md f
 the Stream Deck graphics and copy rules.
 
 Before changing any UI, read docs/ui-contract.md. It is the shared baseline for goals, tone, content, vocabulary, color semantics and stable interaction/layout rules. Routine builds must not alter that baseline. Update the contract and focused presentation tests for intentional UX changes; retain unrelated behavior and verify actual renderer output.
+
+Playback gain/meter follows the resolved listening destination. Never copy, persist or reset gains during routing. Playback mute is persisted application intent, imposed and verified in both directions; native mute must not overwrite that preference. Fixed A1/A2 controls are not user-facing controls.

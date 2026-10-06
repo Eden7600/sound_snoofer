@@ -5,8 +5,11 @@ const root=path.resolve(__dirname,"..");
 const controls=[];
 function add(ID,Label,Kind,Value,extra={}){controls.push({ID,Label,Kind,Value,Available:true,Revision:1,Operations:Kind==="selection"||Kind==="text"?["set"]:Kind==="numeric"?["adjust","press"]:Kind==="status"?[]:["press"],...extra});}
 add("audio.health","Audio health","status","Healthy");
+add("audio.interface","Interface","status","Universal Audio Volt");
+add("audio.mic-device","Microphone","status","Lavalier",{SurfaceOnly:true});
+add("audio.playback-device","Playback device","status","Arena",{SurfaceOnly:true});
 for(const [id,label] of [["mic-stack","Mic stack"],["mic-mute","Mic mute"],["speaker-mute","Playback mute"]])add("audio."+id,label,"toggle",id==="mic-stack"?"On":"Off");
-for(const id of ["mic","A1","A2"])add("audio.gain-"+id,id+" gain","numeric","-6.0 dB",{Meter:{Present:true,Known:true,DB:-15,At:new Date().toISOString()}});
+for(const id of ["mic","playback"])add("audio.gain-"+id,id+" gain","numeric","-6.0 dB",{Meter:{Present:true,Known:true,DB:-15,At:new Date().toISOString()}});
 for(const prefix of ["normal-","vr-profile-"]){
  for(const [id,label,value,opts] of [["source","Microphone","lav",["auto","lav","webcam"]],["mode","Processing","direct",["direct","element"]],["monitor","Monitor","off",["off","pre","post"]],["output","Playback","Arena",["Arena","Headset"]]])
  add("audio."+prefix+id,label,"selection",value,{Options:opts,OptionLabels:{lav:"Lavalier · Volt",auto:"Automatic"},Subdued:prefix==="normal-",Status:prefix==="normal-"?"VR override":""});
@@ -23,7 +26,7 @@ const view={Selected:0,Dirty:false,Home:true,Keys:Array.from({length:36},()=>({C
 ["audio.mic-stack","audio.mic-mute","audio.speaker-mute","audio.normal-monitor","audio.normal-mode"].forEach((Control,i)=>view.Keys[i]={Control,Label:"",Source:""});
 view.Keys[9]={Control:"soundboard.clip-fah",Label:"fah",Source:"Auto"};
 view.Keys[31]={Control:"core.open-controls",Label:"Controls",Source:"Shared"};
-["audio.gain-A1","audio.gain-A2","audio.gain-mic"].forEach((Control,i)=>view.Dials[i]={Control,Label:"",Source:""});
+["audio.gain-playback","","audio.gain-mic"].forEach((Control,i)=>view.Dials[i]={Control,Label:"",Source:""});
 controls.find(c=>c.ID==="streamdeck.preview").ViewData=view;
 const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",streamdeck:"Running",vr:"Running",media:"Disabled"},Enabled:{audio:true,soundboard:true,streamdeck:true,vr:true,media:false}};
 (async()=>{
@@ -52,6 +55,9 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.goto("http://127.0.0.1:"+server.address().port);
   await page.getByRole("heading",{name:"Live controls"}).waitFor();
   await page.waitForFunction(()=>document.querySelector(".brandmark").naturalWidth>0);
+  assert.equal(await page.locator(".strip").count(),2);
+  assert.equal(await page.getByRole("heading",{name:"PLAYBACK",exact:true}).count(),1);
+  assert.equal(await page.getByText("A1 OUTPUT",{exact:true}).count(),0);
   await page.screenshot({path:path.join(root,".local/gui-audio.png"),fullPage:true});
   await page.getByRole("button",{name:"Stream Deck",exact:false}).click();
   await page.getByRole("heading",{name:"Binding",exact:true}).waitFor();

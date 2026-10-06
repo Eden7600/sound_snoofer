@@ -209,6 +209,41 @@ func controls(s control.State) []snoofer.Control {
 	if i == nil {
 		i = s.Intent
 	}
+	interfaceName, playbackName, micName := "None", "Unavailable", "Unavailable"
+	interfaceStatus := ""
+	if s.Plan != nil && s.Plan.Topology != nil {
+		t := s.Plan.Topology
+		if t.Voice != nil {
+			micName = t.Voice.Effective
+			if label := s.ChoiceLabels[micName]; label != "" {
+				micName = label
+			}
+			if label := map[string]string{"desk": "Desk", "lav": "Lavalier", "webcam": "Webcam", "off": "Off"}[micName]; label != "" {
+				micName = label
+			}
+		}
+		if t.ASIOName != "" {
+			interfaceName = t.ASIOName
+			if s.Snapshot.Assignments["A1"] != interfaceName {
+				interfaceStatus = "Pending"
+			}
+		}
+		if t.PlaybackTarget != "" {
+			playbackName = s.Snapshot.Assignments[t.PlaybackTarget]
+		}
+		if len(t.ASIOUnavailable) > 0 {
+			add("asio-unavailable", "Unavailable interfaces", "Diagnostics", "status", strings.Join(t.ASIOUnavailable, ", ")+" · ASIO owned by "+t.ASIOName, nil)
+		}
+	}
+	if !s.Connected {
+		interfaceName, playbackName, micName = "Unknown", "Unknown", "Unknown"
+	}
+	add("interface", "Interface", "System", "status", interfaceName, nil)
+	if s.Connected {
+		out[len(out)-1].Status = interfaceStatus
+	}
+	add("playback-device", "Playback device", "System", "status", playbackName, nil)
+	add("mic-device", "Microphone", "System", "status", micName, nil)
 	activeTarget := s.Intent.Source
 	activeOptions := s.MicOptions
 	if s.Profile == "VR" && s.Intent.VRProfile != nil {
@@ -267,7 +302,7 @@ func controls(s control.State) []snoofer.Control {
 		}
 		add("gain-"+target, map[string]string{"playback": "Playback", "mic": "Mic"}[target], "Shared audio", "numeric", value, nil, "adjust", "press")
 		level, known := s.Levels[parameter]
-		known = known && level >= 0 && !math.IsNaN(float64(level)) && !math.IsInf(float64(level), 0)
+		known = known && controller.GainIdentity(s.Plan, s.Snapshot, target) != "" && level >= 0 && !math.IsNaN(float64(level)) && !math.IsInf(float64(level), 0)
 		db := -60.0
 		if known && level > 0 {
 			db = max(-60, 20*math.Log10(float64(level)))
@@ -293,7 +328,7 @@ func controls(s control.State) []snoofer.Control {
 	}
 	for n := range out {
 		out[n].Epoch = s.Revision
-		out[n].SurfaceOnly = out[n].Group == "Transport" || out[n].Group == "Bindings"
+		out[n].SurfaceOnly = out[n].Group == "Transport" || out[n].Group == "Bindings" || out[n].Group == "Diagnostics" || out[n].ID == "audio.playback-device" || out[n].ID == "audio.mic-device"
 		out[n].OptionLabels = map[string]string{"auto": "Automatic", "": "Automatic", "desk": "Desk microphone", "lav": "Lavalier", "webcam": "Webcam microphone"}
 		for id, label := range s.ChoiceLabels {
 			out[n].OptionLabels[id] = label

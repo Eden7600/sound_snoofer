@@ -31,7 +31,7 @@ Provider Label identifies an action without an icon. Optional ShortLabel is for 
 | Recorder transport | Record / Stop rec; Ready / Rec |
 | Media transport | Prev / Play / Next / Stop; no fictitious playback state |
 | Soundboard | Filename / Stop; Ready / Playing (cyan), Wait during normalization; failures stay local to the clip |
-| Gain | A1 / A2 / Mic; numeric dB and meter |
+| Gain | Playback / Mic; numeric dB and meter |
 | Soundboard gain | Volume; numeric dB; press resets to 0 dB |
 | Pending | Wait |
 | Unavailable or unknown | N/A; meter LEVEL N/A |
@@ -87,3 +87,6 @@ Page dial reference:
 
 ## Personal Home layout
 Open controls occupies key 31 (zero-based; bottom row, fifth column). The rightmost four columns are empty across all four rows. This is a user-owned layout choice; do not relocate it during builds or overwrite other users' layouts.
+
+## Playback and interface
+Interface is the global ASIO clock/input/output selection. Playback is the active listening destination; A1/A2 belong only in diagnostics. Use one Playback dial/mixer with destination name in the GUI. Preserve the mic dial position and leave the former second output dial empty. Gain changes only on explicit adjustment; routing never copies or resets gains. Playback mute is Snoofer-owned persisted desired state; native disagreement is pending, never a replacement preference.
