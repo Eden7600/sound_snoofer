@@ -8,7 +8,7 @@ Each numbered block is one reviewable commit.
 - [x] 4. `feat(huesync)`: WebSocket client and plugin controls with `no_huesync`. Tests against a fake loopback server cover state events, refused connection, restart, bridge_disconnected, tick accumulation, confirmation timeout and preview.
 - [x] 5. `feat(streamdeck)`: Hue icons, UI contract vocabulary and focused presentation tests; inspect native-size renderer output.
 - [x] 6. `docs(hue)`: plugins.md setup for pairing, room selection, `auto_controls` scene pages and Hue Sync third-party control.
-- [ ] 7. Run gofmt, `go test ./...`, `go vet ./...`, `go test -race ./...` (if supported), strict OpenSpec validation and `scripts/build.ps1`. Record results in validation.md.
+- [x] 7. Run gofmt, `go test ./...`, `go vet ./...`, `go test -race ./...` (if supported), strict OpenSpec validation and `scripts/build.ps1`. Record results in validation.md.
 
 ## Hardware acceptance
 - [ ] 8. Pair the real bridge through the link button; confirm discovery, restart persistence and that the key stays out of diagnostics.
