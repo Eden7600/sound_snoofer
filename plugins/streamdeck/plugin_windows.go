@@ -112,22 +112,8 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			}
 			frame := device.Frame{Generation: generation}
 			tile := func(b Binding) device.Tile {
-				if b.Control == "" {
-					return device.Tile{}
-				}
 				c, ok := shown[b.Control]
-				if ok && !c.Available {
-					c.Status = "Unavailable"
-					return controlTile(c, "N/A", time.Now())
-				}
-				if !ok {
-					return device.Tile{Label: b.Label, Value: "N/A"}
-				}
-				value := c.Value
-				if c.Status != "" {
-					value = c.Status
-				}
-				return controlTile(c, value, time.Now())
+				return bindingTile(b, c, ok, time.Now())
 			}
 			for n, b := range p.Keys {
 				frame.Keys[n] = tile(b)

@@ -15,7 +15,7 @@ Each numbered block is one reviewable commit.
 - [x] 13. `fix(hue)`: query mDNS on every multicast IPv4 interface. Unit-test the interface filter and report the found bridge while unpaired.
 - [x] 14. `refactor(hue)!`: merge Hue Sync into the hue plugin with `sync_port` and `hue.sync*` controls; remove `plugins/huesync` and `no_huesync`. Tests cover the brightness dial while syncing, scene-stops-sync with confirmation and timeout, temperature while syncing, and the existing sync scenarios.
 - [x] 15. `feat(hue)`: room scene slots, with tests for room change, blanks and stale slot presses.
-- [ ] 16. `feat(streamdeck)`: blank empty-slot keys, with presentation tests; correct the contract wording for the Home dials.
+- [x] 16. `feat(streamdeck)`: blank empty-slot keys, with presentation tests; correct the contract wording for the Home dials.
 - [ ] 17. `feat(gui)`: Lights screen and enable-only Plugins page. Update check-gui fixtures and screenshots, the UI contract and docs/plugins.md.
 - [ ] 18. Validate (gofmt, test, vet, OpenSpec, GUI check, canonical build). Apply the personal Home layout and remove the stale `huesync` entry while Snoofer is stopped, then relaunch. Record the results.
 

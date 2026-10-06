@@ -90,12 +90,12 @@ Page dial reference:
 ![Page dial](design/page-dial.png)
 
 ## Hue
-Scene keys use the bulb symbol and work with `auto_controls` prefixes (`hue.scene-` or `hue.scene-<room>-`). Brightness and Temp are dial controls without meters: the strip shows target and value only, and while a write is pending it shows the requested value (GUI marks it pending) rather than Wait. A control's Icon is an identifier and never appears as dial text; only the page dial uses that field for page names. Hue Sync uses the screen-with-rays symbol; mode and intensity show the app's value.
+Scene keys use the bulb symbol and work with `auto_controls` prefixes (`hue.scene-` or `hue.scene-<room>-`). Brightness and Temp are dial controls without meters: the strip shows target and value only, and while a write is pending it shows the requested value (GUI marks it pending) rather than Wait. A control's Icon is an identifier and never appears as dial text; only the page dial uses that field for page names. Hue Sync uses the screen-with-rays symbol; mode and intensity show the app's value. While syncing, Brightness shows `Sync 62%` and adjusts the sync stream; Temp shows N/A. Room scene slots (`hue.room-scene-1`…`12`) mirror the selected room's scenes by name; an unused slot (unavailable, no label or icon) is a blank key, never N/A.
 
 ![Hue keys](design/hue.png)
 
 ## Personal Home layout
-Open controls occupies key 31 (zero-based; bottom row, fifth column). The rightmost four columns are empty across all four rows. This is a user-owned layout choice; do not relocate it during builds or overwrite other users' layouts.
+Open controls occupies key 31 (zero-based; bottom row, fifth column). The rightmost four columns (zero-based keys 5–8, 14–17, 23–26, 32–35) hold the Hue block: Sync, Mode, Intensity and Brightness (press toggles the room) on the top row, then room scene slots 1–12. Dials: Playback (index 0), Mic (1), Brightness (2), Temp (3); index 4 is unassigned and dial 6 is pagination. This is a user-owned layout choice; do not relocate it during builds or overwrite other users' layouts.
 
 ## Playback and interface
-Interface is the global ASIO clock/input/output selection. Playback is the active listening destination; A1/A2 belong only in diagnostics. Use one Playback dial/mixer with destination name in the GUI. Home dials are Playback at index 0 and Mic at index 1; index 2 is empty. Gain changes only on explicit adjustment; routing never copies or resets gains. Playback mute is Snoofer-owned persisted desired state; native disagreement is pending, never a replacement preference.
+Interface is the global ASIO clock/input/output selection. Playback is the active listening destination; A1/A2 belong only in diagnostics. Use one Playback dial/mixer with destination name in the GUI. Home dials start with Playback at index 0 and Mic at index 1. Dials 1–5 are assignable; only dial 6 is reserved for pagination. Gain changes only on explicit adjustment; routing never copies or resets gains. Playback mute is Snoofer-owned persisted desired state; native disagreement is pending, never a replacement preference.

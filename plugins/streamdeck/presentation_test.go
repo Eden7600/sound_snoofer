@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	device "sound-snoofer/internal/streamdeck"
 	"sound-snoofer/snoofer"
 )
 
@@ -19,5 +20,23 @@ func TestCompactPresentationPreservesDiagnostics(t *testing.T) {
 	c.ShortLabel = ""
 	if controlTile(c, c.Value, time.Now()).Label != c.Label {
 		t.Fatal("lost custom label")
+	}
+}
+
+func TestEmptyProviderSlotRendersBlank(t *testing.T) {
+	now := time.Now()
+	binding := Binding{Control: "hue.room-scene-5", Label: "Relax"}
+	if tile := bindingTile(binding, snoofer.Control{ID: binding.Control}, true, now); tile != (device.Tile{}) {
+		t.Fatalf("empty slot rendered %+v", tile)
+	}
+	unavailable := snoofer.Control{ID: "hue.temperature", ShortLabel: "Temp", Icon: "hue-temperature"}
+	if tile := bindingTile(Binding{Control: unavailable.ID}, unavailable, true, now); tile.Value != "N/A" || tile.Label != "Temp" {
+		t.Fatalf("labelled unavailable control rendered %+v", tile)
+	}
+	if tile := bindingTile(binding, snoofer.Control{}, false, now); tile.Value != "N/A" || tile.Label != "Relax" {
+		t.Fatalf("missing provider rendered %+v", tile)
+	}
+	if tile := bindingTile(Binding{}, snoofer.Control{}, false, now); tile != (device.Tile{}) {
+		t.Fatalf("unbound position rendered %+v", tile)
 	}
 }
