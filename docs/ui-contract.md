@@ -13,7 +13,7 @@ Fast recognition, truthful state, predictable actions. Users know Snoofer. Use s
 | --- | --- |
 | Deck key | Short label, recognizable icon, current state or local status. One or two words where possible; max 16 ASCII characters for built-ins. No explanatory sentences, action IDs or profile suffix on active-profile controls. |
 | Deck dial | Target, gain, live meter; page dial shows previous/current/next page names on three lines, with the current name larger and cyan; neighboring names are smaller and neutral. Press still returns Home. No repeated gain label when dB is visible. |
-| GUI | Task-oriented Audio, Soundboard, Lights, Stream Deck, Plugins and Diagnostics screens. Plugins only enables, disables and retries; no settings or plugin controls appear there. Native controls, keyboard focus, spatial deck editor and persistent local feedback. |
+| GUI | Task-oriented Audio, Soundboard, Lights, Stream Deck, Plugins, Third-party apps and Diagnostics screens. Plugins only enables, disables and retries; no settings or plugin controls appear there. Native controls, keyboard focus, spatial deck editor and persistent local feedback. |
 | Tray | Open controls, lifecycle actions, concise state. No tutorials. |
 
 Provider Label identifies an action without an icon. Optional ShortLabel is for compact icon-bearing surfaces. Shortening presentation must never change IDs, layout bindings, command semantics or saved settings. Fixed-profile bindings retain Normal/VR qualifiers. Custom plugin labels remain intact.
@@ -97,6 +97,11 @@ Scene keys show generated artwork: a disc of wedges in the scene's dominant colo
 Lights screen: setup banner only while something needs doing (Enable, Pair with the found bridge, link-button instruction, errors). Room card with the room picker in its header, a Brightness (On/Off) readout with slider and −/+, the room's scene cards and Other rooms. Hue Sync card with Start/Stop sync, segmented Mode and Intensity (disabled with a reason while not syncing) and the Third-party control instruction when unreachable.
 
 ![Lights screen](design/gui-lights.png)
+
+## Third-party apps
+One card per connection report, grouped by plugin: app name, state badge, endpoint (monospace), "Since" and "Last activity" as relative times (amber "stale" when activity is older than three report intervals), the last error with its age (critical while it is the current state; muted "Last error:" after recovery), details and Copy details. A summary shows OK / Attention / Problems / Idle counts and Copy all. Tone: connected and ready are active; connecting and attention are attention; error, and disconnected when the peer is required, are critical; disconnected optional peers and off, unconfigured and unknown stay neutral. Plugins that are not running are listed as Not monitored. Reports are read-only and never appear on the deck. Copied text uses absolute ISO timestamps and never contains credentials.
+
+![Third-party apps](design/gui-apps.png)
 
 ## Personal Home layout
 Open controls occupies key 31 (zero-based; bottom row, fifth column). The rightmost four columns (zero-based keys 5–8, 14–17, 23–26, 32–35) hold the Hue block: Sync, Mode, Intensity and Brightness (press toggles the room) on the top row, then room scene slots 1–12. Dials: Playback (index 0), Mic (1), Brightness (4, beside pagination); indexes 2 and 3 are unassigned and dial 6 is pagination. This is a user-owned layout choice; do not relocate it during builds or overwrite other users' layouts.

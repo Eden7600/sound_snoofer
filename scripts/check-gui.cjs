@@ -33,6 +33,12 @@ add("hue.sync","Hue Sync","toggle","Off",{ShortLabel:"Sync"});
 add("hue.sync-mode","Hue Sync mode","selection","video",{Options:["video","games","music"],OptionLabels:{video:"Video",games:"Games",music:"Music"},Available:false,Hidden:true});
 add("hue.sync-intensity","Hue Sync intensity","selection","moderate",{Options:["subtle","moderate","high","extreme"],OptionLabels:{subtle:"Subtle",moderate:"Moderate",high:"High",extreme:"Extreme"},Available:false,Hidden:true});
 for(let n=1;n<=12;n++)add("hue.room-scene-"+n,"","command","",{Available:false,Group:"Hue room scenes"});
+const ago=s=>new Date(Date.now()-s*1000).toISOString();
+const report=(ID,Label,Group,Value,Connection)=>controls.push({ID,Label,Group,Kind:"connection",Value,Available:true,SurfaceOnly:true,Revision:1,Operations:[],Connection});
+report("hue.app-bridge","Hue Bridge","Hue","Connected",{State:"connected",Endpoint:"172.16.102.3",Since:ago(600),LastActivity:ago(1),LastError:"event stream ended: EOF",LastErrorAt:ago(700),Details:[{Label:"Bridge ID",Value:"001788fffe2490e0"},{Label:"Software",Value:"1978293000"}]});
+report("hue.app-sync","Hue Sync","Hue","N/A",{State:"disconnected",Endpoint:"ws://127.0.0.1:24851/",Since:ago(90),LastError:"connection refused",LastErrorAt:ago(5),Details:[]});
+report("audio.app-voicemeeter","Voicemeeter","Audio","Disconnected",{State:"disconnected",Endpoint:"C:\\Program Files (x86)\\VB\\Voicemeeter\\VoicemeeterRemote64.dll",Since:ago(30),LastActivity:ago(31),LastError:"voicemeeter disconnected",LastErrorAt:ago(30),Details:[{Label:"Required",Value:"Yes"},{Label:"Edition",Value:"Potato"},{Label:"Interval",Value:"1s"}]});
+report("audio.app-callback","Audio callback monitor","Audio","Off",{State:"off",Endpoint:"snoofer-audio-monitor.dll",Since:"0001-01-01T00:00:00Z",LastActivity:"0001-01-01T00:00:00Z",Details:[]});
 const view={Selected:0,Dirty:false,Home:true,Keys:Array.from({length:36},()=>({Control:"",Label:"",Source:""})),Dials:Array.from({length:5},()=>({Control:"",Label:"",Source:""}))};
 ["audio.mic-stack","audio.mic-mute","audio.speaker-mute","audio.normal-monitor","audio.normal-mode"].forEach((Control,i)=>view.Keys[i]={Control,Label:"",Source:""});
 view.Keys[9]={Control:"soundboard.clip-fah",Label:"fah",Source:"Auto"};
@@ -53,7 +59,8 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   const page=await browser.newPage({viewport:{width:1280,height:820}});
   const errors=[];page.on("pageerror",e=>errors.push(String(e)));
   await page.addInitScript(fixture=>{
-   window.fixture=fixture;window.sent=[];
+   window.fixture=fixture;window.sent=[];window.copied=[];
+   Object.defineProperty(navigator,"clipboard",{value:{writeText:async text=>{window.copied.push(text);}}});
    window.go={app:{Desktop:{State:async()=>structuredClone(window.fixture),Send:async action=>{
     window.sent.push(action);
     const r=action.Request;if(!r)return;
@@ -129,6 +136,27 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.waitForTimeout(300);
   await page.getByRole("button",{name:"Start sync",exact:true}).click();
   assert.equal(await page.evaluate(()=>window.sent.at(-1).Request.ID),"hue.sync");
+  await page.getByRole("button",{name:"Third-party apps",exact:false}).click();
+  await page.getByRole("heading",{name:"Hue",exact:true}).waitFor();
+  assert.equal(await page.locator(".app-card").count(),4);
+  assert.deepEqual(await page.locator(".summary-counts .badge").allTextContents(),["1 OK","0 Attention","1 Problems","2 Idle"]);
+  const vm=page.locator(".app-card",{hasText:"Voicemeeter"});
+  assert.equal(await vm.getAttribute("data-tone"),"critical","required peer down must be critical");
+  assert.equal(await vm.locator(".app-details dt").allTextContents().then(t=>t.join(",")),"Edition,Interval","Required stays internal");
+  const bridge=page.locator(".app-card",{hasText:"Hue Bridge"});
+  assert.match(await bridge.locator(".app-times").textContent(),/^Since 10m ago · Last activity (just now|\d+s ago)$/);
+  assert.match(await bridge.locator(".app-error").textContent(),/^Last error: event stream ended: EOF · 11m ago$/);
+  assert.equal(await page.locator(".app-card",{hasText:"callback"}).locator(".app-times").isVisible(),false,"zero times shown");
+  await bridge.getByRole("button",{name:"Copy details"}).click();
+  await page.waitForFunction(()=>window.copied.length===1);
+  const copied=await page.evaluate(()=>window.copied[0]);
+  assert.match(copied,/^Hue Bridge \(Hue\)\nState: Connected\nEndpoint: 172\.16\.102\.3\nSince: \d{4}-/);
+  assert.equal(copied.includes("Bridge ID: 001788fffe2490e0"),true);
+  await page.getByRole("button",{name:"Copy all",exact:true}).click();
+  await page.waitForFunction(()=>window.copied.length===2);
+  assert.equal((await page.evaluate(()=>window.copied[1])).split("\n\n").length,4);
+  assert.deepEqual(await page.locator(".not-monitored li").allTextContents(),["media — Disabled"]);
+  await page.screenshot({path:path.join(root,".local/gui-apps.png"),fullPage:true});
   await page.getByRole("button",{name:"Audio",exact:false}).click();
   await page.setViewportSize({width:800,height:600});
   await page.screenshot({path:path.join(root,".local/gui-narrow.png"),fullPage:true});
@@ -137,6 +165,8 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,"deck horizontal overflow");
   await page.getByRole("button",{name:"Lights",exact:false}).click();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,"lights horizontal overflow");
+  await page.getByRole("button",{name:"Third-party apps",exact:false}).click();
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,"apps horizontal overflow");
   await page.getByRole("button",{name:"Plugins",exact:false}).click();
   assert.equal(await page.locator(".control-row").count(),0,"Plugins page shows configuration");
   assert.equal(await page.getByText("Hue brightness").count(),0,"Plugins page shows plugin controls");
@@ -147,7 +177,7 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.getByRole("button",{name:"Cancel",exact:true}).click();
   assert.equal(await page.evaluate(()=>window.sent.at(-1).Kind),"cancel");
   assert.deepEqual(errors,[]);
-  console.log("PASS: GUI screens, deck selection, draft text, search, lights, responsive bounds and enable-only plugins");
+  console.log("PASS: GUI screens, deck selection, draft text, search, lights, third-party apps, responsive bounds and enable-only plugins");
  }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(e=>{console.error(e);process.exitCode=1;});
 

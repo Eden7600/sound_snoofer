@@ -23,3 +23,24 @@ test("light values and scene rooms",async()=>{
  assert.equal(sceneRoom({Label:"Living Room Bright",ShortLabel:"Bright"}),"Living Room");
  assert.equal(sceneRoom({Label:"Bright",ShortLabel:"Bright"}),"");
 });
+test("connection report helpers",async()=>{
+ const m=await import("./model.mjs");
+ const now=Date.parse("2026-10-05T12:00:00Z");
+ assert.equal(m.relativeTime("0001-01-01T00:00:00Z",now),"");
+ assert.equal(m.relativeTime("2026-10-05T11:59:59.5Z",now),"just now");
+ assert.equal(m.relativeTime("2026-10-05T11:59:30Z",now),"30s ago");
+ assert.equal(m.relativeTime("2026-10-05T11:57:00Z",now),"3m ago");
+ assert.equal(m.relativeTime("2026-10-05T09:00:00Z",now),"3h ago");
+ assert.equal(m.intervalMs("100 ms"),100);assert.equal(m.intervalMs("1s"),1000);assert.equal(m.intervalMs("2 min"),120000);assert.equal(m.intervalMs("often"),null);
+ const live={State:"connected",LastActivity:"2026-10-05T11:59:59Z",Details:[{Label:"Interval",Value:"1s"}]};
+ assert.equal(m.stale(live,now),false);
+ assert.equal(m.stale({...live,LastActivity:"2026-10-05T11:59:50Z"},now),true);
+ assert.equal(m.stale({...live,State:"disconnected",LastActivity:"2026-10-05T11:00:00Z"},now),false);
+ assert.equal(m.connectionTone({State:"ready"}),"active");
+ assert.equal(m.connectionTone({State:"attention"}),"attention");
+ assert.equal(m.connectionTone({State:"disconnected"}),"");
+ assert.equal(m.connectionTone({State:"disconnected",Details:[{Label:"Required",Value:"Yes"}]}),"critical");
+ assert.equal(m.connectionTone({State:"off"}),"muted");
+ const text=m.connectionText({Label:"Hue Bridge",Group:"Hue",Value:"Connected",Connection:{State:"connected",Endpoint:"172.16.102.3",Since:"2026-10-05T11:00:00Z",LastError:"timeout",LastErrorAt:"2026-10-05T10:00:00Z",Details:[{Label:"Bridge ID",Value:"abc"}]}});
+ assert.equal(text,"Hue Bridge (Hue)\nState: Connected\nEndpoint: 172.16.102.3\nSince: 2026-10-05T11:00:00.000Z\nLast error: timeout (2026-10-05T10:00:00.000Z)\nBridge ID: abc");
+});

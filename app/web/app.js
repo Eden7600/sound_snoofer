@@ -1,11 +1,11 @@
-import {controlsByID,compatible,tone,meterValue,display,gridMove,numericValue,sceneRoom} from "./model.mjs";
+import {controlsByID,compatible,tone,meterValue,display,gridMove,numericValue,sceneRoom,relativeTime,timeValue,stale,connectionTone,connectionText} from "./model.mjs";
 
 const $=s=>document.querySelector(s);
 const root=$("#content");
 let state={Controls:[],Plugins:{},Enabled:{}}, controls=new Map(), screen="audio", signature="", pending=null;
 let localError="", dismissedNotice="", connected=false;
 const widgets=[], updaters=[];
-const titles={audio:["AUDIO","Audio"],soundboard:["LIBRARY","Soundboard"],lights:["LIGHTING","Lights"],deck:["CONTROL SURFACE","Stream Deck"],plugins:["SYSTEM","Plugins"],diagnostics:["SYSTEM","Diagnostics"]};
+const titles={audio:["AUDIO","Audio"],soundboard:["LIBRARY","Soundboard"],lights:["LIGHTING","Lights"],deck:["CONTROL SURFACE","Stream Deck"],plugins:["SYSTEM","Plugins"],apps:["SYSTEM","Third-party apps"],diagnostics:["SYSTEM","Diagnostics"]};
 function el(tag,className="",text="") {
  const node=document.createElement(tag);
  if(className) node.className=className;
@@ -333,6 +333,60 @@ function buildPlugins(){
   updaters.push(()=>{status.textContent=state.Plugins[id];status.className=state.Plugins[id]==="Running"?"active":state.Plugins[id]==="Disabled"?"muted":"critical";toggle.textContent=state.Enabled[id]?"Disable":"Enable";toggle.disabled=!!pending;});
  }
 }
+async function copyText(text,feedback){
+ try{
+  if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(text);
+  else throw new Error("Clipboard unavailable");
+ }catch{
+  // WebView clipboard permissions vary; fall back to a temporary selection.
+  const area=el("textarea");area.value=text;area.setAttribute("readonly","");area.style.position="fixed";area.style.opacity="0";document.body.append(area);area.select();
+  const ok=document.execCommand("copy");area.remove();
+  if(!ok){showError("Copy failed: clipboard unavailable");return;}
+ }
+ feedback.textContent="Copied";setTimeout(()=>{feedback.textContent="";},1500);
+}
+function reportCard(id,parent){
+ const card=el("section","app-card"),head=el("div","app-head"),name=el("h3","",c(id).Label),badge=el("span","badge"),copy=button("Copy details",()=>copyText(connectionText(c(id)),copied),"small"),copied=el("small","copied");
+ const endpoint=el("code","endpoint"),times=el("p","app-times"),error=el("p","app-error"),list=el("dl","app-details");
+ head.append(name,badge);card.append(head,endpoint,times,error,list);
+ const foot=el("div","actions");foot.append(copy,copied);card.append(foot);parent.append(card);
+ updaters.push(()=>{
+  const item=c(id);if(!item)return;const conn=item.Connection||{},now=Date.now(),accent=connectionTone(conn);
+  badge.textContent=item.Value||conn.State||"";badge.className="badge "+accent;card.dataset.tone=accent;
+  endpoint.textContent=conn.Endpoint||"";endpoint.hidden=!conn.Endpoint;
+  const parts=[];
+  if(timeValue(conn.Since)!==null)parts.push("Since "+relativeTime(conn.Since,now));
+  if(timeValue(conn.LastActivity)!==null)parts.push("Last activity "+relativeTime(conn.LastActivity,now)+(stale(conn,now)?" · stale":""));
+  times.textContent=parts.join(" · ");times.hidden=!parts.length;times.className="app-times"+(stale(conn,now)?" attention":"");
+  const current=["error","attention","connecting"].includes(conn.State)||(conn.State==="disconnected"&&accent==="critical");
+  error.textContent=conn.LastError?(current?"":"Last error: ")+conn.LastError+(timeValue(conn.LastErrorAt)!==null?" · "+relativeTime(conn.LastErrorAt,now):""):"";
+  error.hidden=!conn.LastError;error.className="app-error "+(current?"critical":"muted");
+  const rows=(conn.Details||[]).filter(d=>d.Label!=="Required");
+  const key=JSON.stringify(rows);
+  if(list.dataset.key!==key){list.dataset.key=key;list.replaceChildren();for(const d of rows)list.append(el("dt","",d.Label),el("dd","",d.Value));}
+  list.hidden=!rows.length;
+ });
+}
+function buildApps(){
+ const reports=[...controls.values()].filter(v=>v.Kind==="connection").sort((a,b)=>(a.Group||"").localeCompare(b.Group||"")||a.Label.localeCompare(b.Label));
+ const bar=el("div","toolbar apps-summary"),counts=el("div","summary-counts"),copied=el("small","copied");
+ bar.append(counts,button("Copy all",()=>copyText(reports.map(r=>connectionText(c(r.ID)||r)).join("\n\n"),copied),"small"),copied);root.append(bar);
+ updaters.push(()=>{
+  const tally={active:0,attention:0,critical:0,other:0};
+  for(const r of reports){const t=connectionTone(c(r.ID)?.Connection);tally[t in tally?t:"other"]++;}
+  counts.replaceChildren(...[["active","OK"],["attention","Attention"],["critical","Problems"],["other","Idle"]].map(([k,label])=>el("span","badge "+(k==="other"?"":k),tally[k]+" "+label)));
+ });
+ if(!reports.length)empty(root,"No third-party apps are reporting. Enable plugins in Plugins.");
+ for(const group of [...new Set(reports.map(r=>r.Group||"Other"))]){
+  const card=panel(group,root,"apps-group"),grid=el("div","app-grid");card.append(grid);
+  for(const r of reports.filter(v=>(v.Group||"Other")===group))reportCard(r.ID,grid);
+ }
+ const idle=Object.entries(state.Plugins||{}).filter(([,status])=>status!=="Running").sort();
+ if(idle.length){
+  const card=panel("Not monitored",root,"apps-group"),list=el("ul","not-monitored");card.append(list);
+  for(const [id,status] of idle)list.append(el("li","",id+" — "+status));
+ }
+}
 function buildDiagnostics(){
  const toolbar=el("div","toolbar");toolbar.append(button("Retry plugins",()=>send({Kind:"retry"})));root.append(toolbar);
  const card=panel("Audio engine",root);control("audio.health",card);control("audio.interface",card);control("audio.asio-unavailable",card);
@@ -353,7 +407,7 @@ function build(){
  widgets.length=0;updaters.length=0;root.replaceChildren();
  for(const b of document.querySelectorAll("[data-screen]")){if(b.dataset.screen===screen)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current");}
  $("#eyebrow").textContent=titles[screen][0];$("#title").textContent=titles[screen][1];
- ({audio:buildAudio,soundboard:buildSoundboard,lights:buildLights,deck:buildDeck,plugins:buildPlugins,diagnostics:buildDiagnostics})[screen]();
+ ({audio:buildAudio,soundboard:buildSoundboard,lights:buildLights,deck:buildDeck,plugins:buildPlugins,apps:buildApps,diagnostics:buildDiagnostics})[screen]();
 }
 function update(){
  if(pending&&(Date.now()>pending.until || state.Notice!==pending.notice || (pending.id&&c(pending.id)?.Revision!==pending.revision) || (!pending.id&&state.Confirmation)))pending=null;

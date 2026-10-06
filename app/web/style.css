@@ -35,3 +35,27 @@ main{flex:1;min-width:0;padding:28px 32px 36px}header{display:flex;align-items:c
 .room-card .panel-head select{max-width:none;min-width:160px}
 .strip-grid.single{grid-template-columns:1fr}
 .clip.scene .clip-art img{height:40px;width:40px}
+.apps-summary{justify-content:space-between}
+.summary-counts{display:flex;gap:8px;flex-wrap:wrap;flex:1}
+.apps-group{margin-bottom:18px}
+.app-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.app-card{background:#101923;border:1px solid #253441;border-left:3px solid var(--line);border-radius:9px;padding:14px 16px;min-width:0}
+.app-card[data-tone="active"]{border-left-color:var(--cyan)}
+.app-card[data-tone="attention"]{border-left-color:var(--amber)}
+.app-card[data-tone="critical"]{border-left-color:var(--red)}
+.app-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
+.app-head h3{margin:0;font-size:14px}
+.badge.critical{color:var(--red);border-color:#76424e}
+.badge.attention{color:var(--amber);border-color:#6d5a2e}
+.endpoint{display:block;font:12px Consolas,monospace;color:var(--muted);overflow-wrap:anywhere;margin-bottom:6px}
+.app-times{margin:0 0 6px;font-size:12px;color:var(--muted)}
+.app-times.attention{color:var(--amber)}
+.app-error{margin:0 0 8px;font-size:12px;overflow-wrap:anywhere}
+.app-details{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:3px 12px;margin:8px 0 10px;font-size:12px}
+.app-details dt{color:var(--muted)}
+.app-details dd{margin:0;overflow-wrap:anywhere}
+.copied{color:var(--cyan);margin-left:6px}
+.not-monitored{margin:0;padding-left:18px;color:var(--muted);font-size:13px}
+nav button{white-space:nowrap}
+nav button span{flex-shrink:0}
+@media(max-width:1120px){nav button{gap:9px;padding:11px 8px}}
