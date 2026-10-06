@@ -1,5 +1,7 @@
 // Run with playwright available on NODE_PATH or in node_modules; uses installed Chrome.
 const { chromium }=require("playwright");
+// The GUI stylesheet is generated; build it so checks exercise the real styling.
+require("node:child_process").execSync("npm run --silent css",{cwd:require("node:path").resolve(__dirname,".."),stdio:"inherit"});
 const fs=require("node:fs"),path=require("node:path"),http=require("node:http"),assert=require("node:assert/strict");
 const root=path.resolve(__dirname,"..");
 const controls=[];

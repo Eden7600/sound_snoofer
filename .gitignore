@@ -10,3 +10,5 @@ coverage.out
 *.mutes.json
 *.recovery.json
 *.vr-ownership.json
+/app/web/dist/*
+!/app/web/dist/.gitkeep

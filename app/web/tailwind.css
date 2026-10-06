@@ -1,0 +1,24 @@
+/* Tailwind input for the desktop GUI; compiled to dist/app.css by `npm run css`. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme) source(none);
+@import "tailwindcss/utilities.css" layer(utilities);
+@source "./index.html";
+@source "./app.js";
+@source "./icons.mjs";
+
+@theme {
+  --color-canvas: #0e141b;
+  --color-sidebar: #101923;
+  --color-panel: #151e28;
+  --color-raised: #1c2834;
+  --color-line: #2b3a48;
+  --color-ink: #e3edf3;
+  --color-muted: #95a6b4;
+  --color-active: #3ac6e1;
+  --color-attention: #eeb74c;
+  --color-critical: #ff6978;
+  --font-sans: "Segoe UI", sans-serif;
+}
+
+/* Legacy rules, kept unchanged until the markup moves to utilities. */
+@import "./style.css";

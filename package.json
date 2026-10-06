@@ -3,10 +3,14 @@
   "private": true,
   "scripts": {
     "spec": "openspec",
-    "spec:check": "openspec validate --all --strict --no-interactive"
+    "spec:check": "openspec validate --all --strict --no-interactive",
+    "css": "tailwindcss -i app/web/tailwind.css -o app/web/dist/app.css --minify"
   },
   "devDependencies": {
     "@fission-ai/openspec": "1.14.0",
-    "playwright": "1.62.1"
+    "@tailwindcss/cli": "4.3.3",
+    "lucide-static": "1.52.0",
+    "playwright": "1.62.1",
+    "tailwindcss": "4.3.3"
   }
 }

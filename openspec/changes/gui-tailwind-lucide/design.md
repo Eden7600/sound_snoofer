@@ -11,7 +11,7 @@
 - **Embedding:** Go embeds `all:web/dist` alongside the other web files, so `go build`, `go vet` and `go test` compile without Node. A binary built without CSS is rejected only by `scripts/build.ps1`.
 - **Who generates it:**
   - `scripts/build.ps1` runs `npm run css` before compiling and fails if `dist/app.css` is missing or empty;
-  - `scripts/check-gui.cjs` and `scripts/check-desktop.cjs` generate CSS before serving;
+  - `scripts/check-gui.cjs` generates CSS before serving (`check-desktop.cjs` exercises the built binary, which already embeds it);
   - `scripts/check.ps1` inherits it through the build.
 - **Classes:** JavaScript builds class strings only from complete utility literals (Tailwind scans source text). Tone helpers return utility strings, for example `tone()` → `text-active`. State toggles use `data-*` attributes with Tailwind data variants (`data-[tone=active]:border-l-active`) or swap complete literals.
 - **Custom CSS:** none beyond tokens and base element rules. Exceptions:
