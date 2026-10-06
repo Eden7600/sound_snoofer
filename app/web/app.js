@@ -73,7 +73,15 @@ function control(id,parent,label) {
  } else {
   input=el("span","value");
  }
- row.append(input);parent.append(row);
+ if(initial.Kind==="text"){
+  const editor=el("div","text-edit"),apply=button(id==="streamdeck.add"?"Add":"Apply",()=>{
+   request(c(id),"set",input.value,0,input.editRevision??c(id)?.Revision);input.blur();
+  },"small");
+  editor.append(input,apply);row.append(editor);
+  const enable=()=>{apply.disabled=!!pending||!c(id)?.Available||input.value===(c(id)?.Value||"");};
+  input.addEventListener("input",enable);updaters.push(enable);
+ }else row.append(input);
+ parent.append(row);
  widgets.push({id,row,note,input,initial});
 }
 function mixer(id,parent,title) {
@@ -89,6 +97,12 @@ function mixer(id,parent,title) {
   const db=meterValue(control?.Meter);
   signal.style.clipPath="inset(0 "+(db===null?100:-(db/60)*100)+"% 0 0)";
   text.textContent=db===null?"LEVEL N/A":db.toFixed(1)+" dBFS";
+  const muteID={"audio.gain-mic":"audio.mic-mute","audio.gain-A1":"audio.a1-mute","audio.gain-A2":"audio.a2-mute"}[id];
+  if(muteID){
+   const muted=c(muteID)?.Value==="On";
+   actions.children[1].className=muted?"toggle critical":"toggle";
+   actions.children[1].setAttribute("aria-pressed",String(muted));
+  }
   for(const b of actions.children)b.disabled=!!pending||!control?.Available;
  });
 }

@@ -6,7 +6,7 @@ The default build includes Audio, VR, Stream Deck and Windows media. Enable or d
 
 ## Controls
 
-Choose Audio, Soundboard, Stream Deck, Plugins or Diagnostics in the sidebar. Up/Down moves along the sidebar; Tab moves focus between controls. Text fields support native editing and paste; Enter applies and Escape cancels. Dropdowns and toggles apply their selected values. Closing the window leaves plugins running.
+Choose Audio, Soundboard, Stream Deck, Plugins or Diagnostics in the sidebar. Up/Down moves along the sidebar; Tab moves focus between controls. Text fields support native editing and paste; Apply/Add or Enter applies, and Escape cancels. Dropdowns and toggles apply their selected values. Closing the window leaves plugins running.
 
 Normal microphone/playback and VR microphone/playback are separate sections. SteamVR running makes VR effective. Overridden Normal sections remain editable and explain that their edits apply outside VR. Mute, gain and recording preferences are shared. Unknown engine or device state is not reported as verified success.
 

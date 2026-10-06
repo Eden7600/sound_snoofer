@@ -69,6 +69,10 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.waitForTimeout(600);
   assert.equal(await name.inputValue(),"Unsubmitted name");
   await name.press("Escape");
+  await name.fill("Studio");
+  await page.getByRole("button",{name:"Apply",exact:true}).first().click();
+  assert.equal(await page.evaluate(()=>window.sent.at(-1).Request.Value),"Studio");
+  await page.waitForTimeout(300);
   await page.evaluate(()=>{window.fixture.Controls.find(c=>c.ID==="streamdeck.preview").ViewData.Dirty=true;});
   await page.getByRole("button",{name:"Save layout",exact:true}).waitFor();
   await page.waitForFunction(()=>!Array.from(document.querySelectorAll("button")).find(b=>b.textContent==="Save layout").disabled);
