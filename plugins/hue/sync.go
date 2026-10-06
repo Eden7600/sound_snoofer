@@ -304,6 +304,9 @@ func (w *worker) syncBrightnessLabel() string {
 	return fmt.Sprintf("Sync %.0f%%", math.Round(*w.sync.state.Bri))
 }
 
+// syncControls publishes the sync half. Sync-only controls are Hidden while
+// they cannot apply: Mode and Intensity unless syncing, Sync while the app
+// is not connected.
 func (w *worker) syncControls() []snoofer.Control {
 	live, ready, syncing := w.services.Live, w.syncReady(), w.syncing()
 	connected := w.sync.conn != nil && w.sync.known
@@ -331,10 +334,10 @@ func (w *worker) syncControls() []snoofer.Control {
 	return []snoofer.Control{
 		{ID: "hue.sync-status", Label: "Hue Sync", Group: "Hue", Kind: "status", Value: status, Status: w.sync.diagnostic, Available: true},
 		{ID: "hue.sync", Label: "Hue Sync", ShortLabel: "Sync", Group: "Hue", Kind: "toggle", Icon: "huesync-sync", Value: syncValue, Status: syncStatus,
-			Operations: []string{"press"}, Available: live && ready},
+			Operations: []string{"press"}, Available: live && ready, Hidden: !connected},
 		{ID: "hue.sync-mode", Label: "Hue Sync mode", ShortLabel: "Mode", Group: "Hue", Kind: "selection", Icon: "huesync-mode", Value: w.sync.state.Mode,
-			Options: syncModes, OptionLabels: syncModeLabels, Operations: []string{"set"}, Available: live && ready && syncing},
+			Options: syncModes, OptionLabels: syncModeLabels, Operations: []string{"set"}, Available: live && ready && syncing, Hidden: !syncing},
 		{ID: "hue.sync-intensity", Label: "Hue Sync intensity", ShortLabel: "Intensity", Group: "Hue", Kind: "selection", Icon: "huesync-intensity", Value: w.sync.state.Intensity,
-			Options: syncIntensities, OptionLabels: syncIntensityLabels, Operations: []string{"set"}, Available: live && ready && syncing},
+			Options: syncIntensities, OptionLabels: syncIntensityLabels, Operations: []string{"set"}, Available: live && ready && syncing, Hidden: !syncing},
 	}
 }

@@ -40,3 +40,10 @@ func TestEmptyProviderSlotRendersBlank(t *testing.T) {
 		t.Fatalf("unbound position rendered %+v", tile)
 	}
 }
+
+func TestHiddenControlRendersBlank(t *testing.T) {
+	hidden := snoofer.Control{ID: "hue.sync-mode", ShortLabel: "Mode", Icon: "huesync-mode", Value: "video", Hidden: true}
+	if tile := bindingTile(Binding{Control: hidden.ID, Label: "Mode"}, hidden, true, time.Now()); tile != (device.Tile{}) {
+		t.Fatalf("hidden control rendered %+v", tile)
+	}
+}

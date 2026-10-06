@@ -185,6 +185,7 @@ function segmented(id,title,parent){
  const initial=c(id);if(!initial)return;
  const row=el("div","segmented-row"),group=el("div","segmented");group.setAttribute("role","group");group.setAttribute("aria-label",title);
  row.append(el("h3","",title),group);parent.append(row);
+ updaters.push(()=>{row.hidden=!!c(id)?.Hidden;});
  for(const option of initial.Options||[]){
   const b=button(initial.OptionLabels?.[option]??option,()=>request(c(id),"set",option));group.append(b);
   updaters.push(()=>{const item=c(id);b.setAttribute("aria-pressed",String(item?.Value===option));b.disabled=!!pending||!item?.Available;});
@@ -237,7 +238,7 @@ function buildLights(){
   syncState.textContent=status?.Value==="N/A"?"Not connected":status?.Value||"";syncState.className="sync-state "+(on?"active":tone(status));
   toggle.textContent=item?.Status==="Pending"?"Wait":on?"Stop sync":"Start sync";toggle.setAttribute("aria-pressed",String(on));
   toggle.className="toggle sync-toggle "+(item?.Status&&item.Status!=="Pending"?"critical":"");toggle.disabled=!!pending||!item?.Available;
-  help.textContent=status?.Value==="N/A"?"Open Hue Sync and turn on Settings → Third-party control.":status?.Value==="No bridge"?"Hue Sync has no bridge connection.":!on?"Start sync to change mode and intensity.":item?.Status&&item.Status!=="Pending"?item.Status:"";
+  help.textContent=status?.Value==="N/A"?"Open Hue Sync and turn on Settings → Third-party control.":status?.Value==="No bridge"?"Hue Sync has no bridge connection.":item?.Status&&item.Status!=="Pending"?item.Status:"";
   help.className=item?.Status&&item.Status!=="Pending"?"critical":"muted";help.hidden=!help.textContent;
  });
 }

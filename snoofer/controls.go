@@ -20,6 +20,7 @@ type Control struct {
 	ShortLabel                                  string          // Optional label for icon-bearing compact surfaces.
 	Meter                                       Meter
 	SurfaceOnly                                 bool
+	Hidden                                      bool // Optional: no useful place on surfaces right now; the deck renders a blank key and GUIs omit it. Publish it unavailable.
 	OptionLabels                                map[string]string
 	EnterOnly                                   bool
 	Epoch                                       uint64

@@ -163,12 +163,18 @@ func TestSyncPortValidation(t *testing.T) {
 func TestSyncObservedStateAndCommands(t *testing.T) {
 	h, _, app := startJoined(t, "bridge_connected", true)
 	h.value("hue.sync-status", "Ready")
-	if mode := h.value("hue.sync-mode", "video"); mode.Available {
-		t.Fatal("mode adjustable while not syncing")
+	if mode := h.value("hue.sync-mode", "video"); mode.Available || !mode.Hidden {
+		t.Fatal("mode shown or adjustable while not syncing")
+	}
+	if sync, _ := h.find("hue.sync"); sync.Hidden {
+		t.Fatal("sync hidden while the app is connected")
 	}
 	h.mustDispatch("hue.sync", "press", 0, "")
 	h.value("hue.sync", "On")
-	h.waitControl("hue.sync-mode", func(c snoofer.Control) bool { return c.Available })
+	h.waitControl("hue.sync-mode", func(c snoofer.Control) bool { return c.Available && !c.Hidden })
+	if intensity, _ := h.find("hue.sync-intensity"); intensity.Hidden {
+		t.Fatal("intensity hidden while syncing")
+	}
 	h.mustDispatch("hue.sync-mode", "set", 0, "games")
 	h.value("hue.sync-mode", "games")
 	h.mustDispatch("hue.sync-intensity", "set", 0, "extreme")
@@ -290,8 +296,8 @@ func TestSyncRefusedKeepsRoomWorking(t *testing.T) {
 	if c.Value != "N/A" {
 		t.Fatalf("sync status %+v", c)
 	}
-	if s, _ := h.find("hue.sync"); s.Available {
-		t.Fatal("sync available without app")
+	if s, _ := h.find("hue.sync"); s.Available || !s.Hidden {
+		t.Fatal("sync shown without app")
 	}
 	h.value("hue.brightness", "50%")
 }

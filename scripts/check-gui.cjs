@@ -30,8 +30,8 @@ const sceneArt=fs.readFileSync(path.join(root,"docs/design/hue-scene-art.png")).
 for(const [room,name,value] of [["Studio","Bright","Ready"],["Studio","Relax","Active"],["Studio","Concentrate","Ready"],["Desk","Focus","Ready"],["Kitchen","Cook","Ready"]])add("hue.scene-"+room.toLowerCase()+"-"+name.toLowerCase(),room+" "+name,"command",value,{ShortLabel:name,Group:"Hue scenes",Artwork:name==="Relax"?sceneArt:""});
 add("hue.sync-status","Hue Sync","status","Ready");
 add("hue.sync","Hue Sync","toggle","Off",{ShortLabel:"Sync"});
-add("hue.sync-mode","Hue Sync mode","selection","video",{Options:["video","games","music"],OptionLabels:{video:"Video",games:"Games",music:"Music"},Available:false});
-add("hue.sync-intensity","Hue Sync intensity","selection","moderate",{Options:["subtle","moderate","high","extreme"],OptionLabels:{subtle:"Subtle",moderate:"Moderate",high:"High",extreme:"Extreme"},Available:false});
+add("hue.sync-mode","Hue Sync mode","selection","video",{Options:["video","games","music"],OptionLabels:{video:"Video",games:"Games",music:"Music"},Available:false,Hidden:true});
+add("hue.sync-intensity","Hue Sync intensity","selection","moderate",{Options:["subtle","moderate","high","extreme"],OptionLabels:{subtle:"Subtle",moderate:"Moderate",high:"High",extreme:"Extreme"},Available:false,Hidden:true});
 for(let n=1;n<=12;n++)add("hue.room-scene-"+n,"","command","",{Available:false,Group:"Hue room scenes"});
 const view={Selected:0,Dirty:false,Home:true,Keys:Array.from({length:36},()=>({Control:"",Label:"",Source:""})),Dials:Array.from({length:5},()=>({Control:"",Label:"",Source:""}))};
 ["audio.mic-stack","audio.mic-mute","audio.speaker-mute","audio.normal-monitor","audio.normal-mode"].forEach((Control,i)=>view.Keys[i]={Control,Label:"",Source:""});
@@ -121,8 +121,11 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.waitForTimeout(300);
   await page.getByRole("button",{name:"Relax",exact:false}).click();
   assert.equal(await page.evaluate(()=>window.sent.at(-1).Request.ID),"hue.scene-studio-relax");
-  assert.equal(await page.getByRole("button",{name:"Games",exact:true}).isDisabled(),true,"mode enabled while not syncing");
-  await page.getByText("Start sync to change mode and intensity.").waitFor();
+  assert.equal(await page.getByRole("button",{name:"Games",exact:true}).isVisible(),false,"mode shown while not syncing");
+  await page.evaluate(()=>{for(const id of ["hue.sync-mode","hue.sync-intensity"]){const m=window.fixture.Controls.find(c=>c.ID===id);m.Hidden=false;m.Available=true;m.Revision++;}});
+  await page.getByRole("button",{name:"Games",exact:true}).waitFor();
+  await page.getByRole("button",{name:"Games",exact:true}).click();
+  assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Value];}),["hue.sync-mode","games"]);
   await page.waitForTimeout(300);
   await page.getByRole("button",{name:"Start sync",exact:true}).click();
   assert.equal(await page.evaluate(()=>window.sent.at(-1).Request.ID),"hue.sync");

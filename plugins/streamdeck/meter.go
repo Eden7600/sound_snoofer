@@ -8,14 +8,17 @@ import (
 	"sound-snoofer/snoofer"
 )
 
-// bindingTile presents a binding's current control. An unavailable control
-// without label or icon is an empty provider slot and renders blank.
+// bindingTile presents a binding's current control. Hidden controls and
+// unavailable controls without label or icon (empty provider slots) render blank.
 func bindingTile(b Binding, c snoofer.Control, ok bool, now time.Time) device.Tile {
 	if b.Control == "" {
 		return device.Tile{}
 	}
 	if !ok {
 		return device.Tile{Label: b.Label, Value: "N/A"}
+	}
+	if c.Hidden {
+		return device.Tile{}
 	}
 	if !c.Available {
 		if c.Label == "" && c.ShortLabel == "" && c.Icon == "" {

@@ -115,11 +115,18 @@ func (h *harness) dispatch(id, operation string, delta int, value string) error 
 	return h.controls.Dispatch(context.Background(), snoofer.Request{ID: id, Revision: c.Revision, Operation: operation, Delta: delta, Value: value})
 }
 
+// mustDispatch retries with a fresh revision, as an input surface does when
+// the worker publishes between reading a control and dispatching to it.
 func (h *harness) mustDispatch(id, operation string, delta int, value string) {
 	h.t.Helper()
-	if err := h.dispatch(id, operation, delta, value); err != nil {
-		h.t.Fatalf("%s %s: %v", id, operation, err)
+	var err error
+	for range 20 {
+		if err = h.dispatch(id, operation, delta, value); err == nil {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
+	h.t.Fatalf("%s %s: %v", id, operation, err)
 }
 
 func (h *harness) settled(id string) snoofer.Control {
