@@ -33,6 +33,10 @@ Provider Label identifies an action without an icon. Optional ShortLabel is for 
 | Soundboard | Filename / Stop; Ready / Playing (cyan), Wait during normalization; failures stay local to the clip |
 | Gain | Playback / Mic; numeric dB and meter |
 | Soundboard gain | Volume; numeric dB; press resets to 0 dB |
+| Hue scene | Scene name; Ready / Active (cyan); Wait until the bridge confirms |
+| Hue room dials | Brightness: percent or Off, press toggles on/off. Temp: kelvin, Mixed or Off, press sets neutral |
+| Hue pairing | Pair; Ready / Press button / Paired |
+| Hue Sync | Sync; On (cyan) / Off. Sync bright: percent, press toggles sync. Mode / Intensity: app value |
 | Pending | Wait |
 | Unavailable or unknown | N/A; meter LEVEL N/A |
 | Failed | Error; detailed diagnostic in GUI |
@@ -84,6 +88,11 @@ Soundboard key reference (Ready, Playing, Stop, and sample artwork in Ready/Play
 Page dial reference:
 
 ![Page dial](design/page-dial.png)
+
+## Hue
+Scene keys use the bulb symbol and work with `auto_controls` prefixes (`hue.scene-` or `hue.scene-<room>-`). Brightness and Temp are dial controls without meters: the strip shows target and value only, and while a write is pending it shows the requested value (GUI marks it pending) rather than Wait. A control's Icon is an identifier and never appears as dial text; only the page dial uses that field for page names. Hue Sync uses the screen-with-rays symbol; mode and intensity show the app's value.
+
+![Hue keys](design/hue.png)
 
 ## Personal Home layout
 Open controls occupies key 31 (zero-based; bottom row, fifth column). The rightmost four columns are empty across all four rows. This is a user-owned layout choice; do not relocate it during builds or overwrite other users' layouts.

@@ -25,7 +25,12 @@ func renderChangedFrame(f, previous Frame, cached [][]byte) ([][]byte, []byte) {
 		view.Keys[n] = keyPresentation{Artwork: k.Artwork, Label: k.Label, Value: k.Value, Icon: k.Icon}
 	}
 	for n, k := range f.Dials {
-		view.Knobs[n] = knobPresentation{Target: k.Label, Value: k.Value, Name: k.Icon, Meter: k.Meter, LevelKnown: k.LevelKnown, LevelDB: k.LevelDB}
+		view.Knobs[n] = knobPresentation{Target: k.Label, Value: k.Value, Meter: k.Meter, LevelKnown: k.LevelKnown, LevelDB: k.LevelDB}
+		if n == Encoders-1 {
+			// Only the page dial carries text (the next page name) in Icon; a
+			// control's icon is an identifier, never strip text.
+			view.Knobs[n].Name = k.Icon
+		}
 	}
 	tiles := make([][]byte, Keys)
 	for n, k := range view.Keys {

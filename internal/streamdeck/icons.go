@@ -159,6 +159,77 @@ func drawIcon(im *image.RGBA, icon string, ink color.RGBA) bool {
 		}
 		line(76, 27, 84, 29)
 		line(84, 29, 84, 18)
+	case "hue-scene":
+		// Bulb: open globe, narrowing neck and two-ring base.
+		for a := 135; a <= 405; a++ {
+			r := float64(a) * math.Pi / 180
+			dot(56+int(17*math.Cos(r)), 30+int(17*math.Sin(r)), 2)
+		}
+		line(44, 42, 48, 54)
+		line(68, 42, 64, 54)
+		line(47, 57, 65, 57)
+		line(49, 63, 63, 63)
+	case "hue-brightness":
+		// Sun: disc with eight rays.
+		dot(56, 39, 10)
+		for a := 0; a < 360; a += 45 {
+			r := float64(a) * math.Pi / 180
+			c, s := math.Cos(r), math.Sin(r)
+			line(56+int(17*c), 39+int(17*s), 56+int(25*c), 39+int(25*s))
+		}
+	case "hue-temperature":
+		// Thermometer: tube, filled bulb and scale ticks.
+		for a := 180; a <= 360; a++ {
+			r := float64(a) * math.Pi / 180
+			dot(54+int(6*math.Cos(r)), 18+int(6*math.Sin(r)), 2)
+		}
+		line(48, 18, 48, 48)
+		line(60, 18, 60, 48)
+		dot(54, 56, 10)
+		line(54, 30, 54, 50)
+		for _, y := range []int{20, 29, 38} {
+			line(68, y, 75, y)
+		}
+	case "hue-pair":
+		// Link: two interlocking rings.
+		for a := 0; a < 360; a++ {
+			r := float64(a) * math.Pi / 180
+			dot(44+int(14*math.Cos(r)), 39+int(10*math.Sin(r)), 2)
+			dot(68+int(14*math.Cos(r)), 39+int(10*math.Sin(r)), 2)
+		}
+	case "huesync-sync":
+		// Screen casting light to both sides.
+		line(38, 22, 74, 22)
+		line(38, 22, 38, 48)
+		line(74, 22, 74, 48)
+		line(38, 48, 74, 48)
+		line(56, 48, 56, 57)
+		line(46, 57, 66, 57)
+		line(30, 25, 21, 19)
+		line(30, 35, 19, 35)
+		line(30, 45, 21, 51)
+		line(82, 25, 91, 19)
+		line(82, 35, 93, 35)
+		line(82, 45, 91, 51)
+	case "huesync-mode":
+		// Segmented selector with the middle choice filled.
+		for n, x := range []int{24, 49, 74} {
+			if n == 1 {
+				rect(x, 30, 15, 17)
+				continue
+			}
+			line(x, 30, x+14, 30)
+			line(x, 46, x+14, 46)
+			line(x, 30, x, 46)
+			line(x+14, 30, x+14, 46)
+		}
+	case "huesync-intensity":
+		// Wave whose amplitude grows left to right.
+		for x := 20; x <= 92; x++ {
+			amplitude := 4 + (x-20)*14/72
+			y := 39 + int(float64(amplitude)*math.Sin(float64(x-20)*math.Pi/12))
+			dot(x, y, 2)
+		}
 	default:
 		return false
 	}

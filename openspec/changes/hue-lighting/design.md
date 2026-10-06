@@ -82,7 +82,7 @@ The worker dials with a 3 s timeout and reconnects with backoff from 1 s to 30 s
 When Hue Sync reports `bridge_disconnected`, every control except status is unavailable.
 
 ## Presentation
-New code-drawn icons: `hue-scene` (bulb), `hue-brightness` (sun), `hue-temperature` (thermometer), `huesync-sync` (screen with light rays), `huesync-mode` and `huesync-intensity` (wave). `huesync.brightness` reuses `hue-brightness`. The UI contract gains vocabulary rows; scene `Active` uses the Active color. No artwork is generated from scene palettes. The GUI shows both plugins through the existing grouped fallback forms under Plugins; there are no new GUI screens.
+New code-drawn icons: `hue-scene` (bulb), `hue-brightness` (sun), `hue-temperature` (thermometer), `huesync-sync` (screen with light rays), `huesync-mode` and `huesync-intensity` (wave). `huesync.brightness` reuses `hue-brightness`. The UI contract gains vocabulary rows; scene `Active` uses the Active color. No artwork is generated from scene palettes. The deck font gains a `%` glyph for percent values. Non-page dials stop printing a control's Icon identifier as strip text; only the page dial carries page names in that field. The GUI shows both plugins through the existing grouped fallback forms under Plugins; there are no new GUI screens.
 
 ## Out of scope
 Per-light control, color (xy) control, dynamic scene playback, Entertainment API streaming, scene editing, cloud/remote API, Hue Sync Box (HDMI), and changes to personal deck layouts. Users add a Lights page with the configurator.

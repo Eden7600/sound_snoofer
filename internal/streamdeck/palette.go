@@ -34,7 +34,7 @@ func keyAccent(value, icon string, on, fallback bool) color.RGBA {
 	if strings.HasSuffix(icon, "-muted") || value == "MUTED" || value == "RECORDING" || value == "REC" {
 		return criticalColor
 	}
-	if on || value == "ON" || value == "LIVE" || value == "PLAYING" || value == "AUDIBLE" || value == "DIRECT" || value == "ELEMENT" || (icon == "monitor" && (value == "PRE" || value == "POST")) {
+	if on || value == "ON" || value == "LIVE" || value == "PLAYING" || value == "ACTIVE" || value == "AUDIBLE" || value == "DIRECT" || value == "ELEMENT" || (icon == "monitor" && (value == "PRE" || value == "POST")) {
 		return activeColor
 	}
 	return neutralColor
