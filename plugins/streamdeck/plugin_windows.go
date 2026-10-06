@@ -67,7 +67,8 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 		shared := false
 		serial := ""
 		editSerial := "Default"
-		status := ""
+		status := "" // Layout editor feedback only; device state lives in hardware.
+		var hardware deviceLink
 		generation := uint64(1)
 		dirty := false
 		editorEpoch := uint64(1)
@@ -237,6 +238,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					}
 				}
 			}
+			list = append(list, hardware.report(time.Now()))
 			_ = s.Controls.Publish("streamdeck", list, func(ctx context.Context, r snoofer.Request) error {
 				select {
 				case commands <- r:
@@ -265,12 +267,13 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					return
 				}
 				if event.Error != "" {
-					status = event.Error
+					hardware.failed(event.Error, time.Now())
 					generation++
+					publish()
 					continue
 				}
 				if event.Connected {
-					status = "Connected"
+					hardware.connectedTo(event.Serial, time.Now())
 					serial = event.Serial
 					page = active().Home
 					generation++
@@ -280,6 +283,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 				if event.Generation != generation {
 					continue
 				}
+				hardware.link.Activity(time.Now())
 				if event.Encoder == 5 {
 					if event.Press {
 						page = active().Home
