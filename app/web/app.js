@@ -1,4 +1,5 @@
 import {controlsByID,compatible,tone,meterValue,display,gridMove,numericValue,sceneRoom,relativeTime,timeValue,stale,connectionTone,connectionText} from "./model.mjs";
+import {icon} from "./icons.mjs";
 
 const $=s=>document.querySelector(s);
 const root=$("#content");
@@ -19,6 +20,7 @@ function panel(title,parent,className="") {
  const node=el("section","panel "+className), head=el("div","panel-head");
  head.append(el("h2","",title)); node.append(head); parent.append(node); return node;
 }
+function withIcon(node,name){node.prepend(icon(name,"size-4 shrink-0"));return node;}
 function empty(parent,text){parent.append(el("div","empty",text));}
 function c(id){return controls.get(id);}
 function showError(error){localError=String(error); refreshNotice();}
@@ -40,9 +42,13 @@ function request(control,operation,value="",delta=0,revision=control?.Revision) 
  send({Request:{ID:control.ID,Revision:revision,Operation:operation,Value:value,Delta:delta}});
 }
 function press(id){request(c(id),"press");}
-function command(id,label,parent,className="") {
+// iconButton is an icon-only button; label is its accessible name and tooltip.
+function iconButton(name,label,handler){
+ const b=button("",handler);b.append(icon(name,"size-4 shrink-0"));b.setAttribute("aria-label",label);b.title=label;return b;
+}
+function command(id,label,parent,className="",iconName="") {
  if(!c(id)) return null;
- const b=button(label,()=>press(id),className);parent.append(b);
+ const b=button(label,()=>press(id),className);if(iconName)b.prepend(icon(iconName,"size-4 shrink-0"));parent.append(b);
  updaters.push(()=>{b.disabled=!!pending || !c(id)?.Available;});
  return b;
 }
@@ -68,7 +74,7 @@ function control(id,parent,label) {
  } else if(initial.Kind==="numeric") {
   input=el("div","actions");
   const value=el("span","value");
-  input.append(button("−",()=>request(c(id),"adjust","",-1)),value,button("+",()=>request(c(id),"adjust","",1)));
+  input.append(iconButton("minus","Decrease "+(label||initial.Label),()=>request(c(id),"adjust","",-1)),value,iconButton("plus","Increase "+(label||initial.Label),()=>request(c(id),"adjust","",1)));
   updaters.push(()=>{value.textContent=display(c(id)||initial);for(const b of input.querySelectorAll("button"))b.disabled=!!pending||!c(id)?.Available;});
  } else {
   input=el("span","value");
@@ -89,7 +95,7 @@ function mixer(id,parent,title) {
  const node=el("div","strip"), value=el("div","gain-readout"),bar=el("div","level"),signal=el("div","level-signal"),text=el("div","meter-label"),actions=el("div","gain-buttons");
  const device=el("div","meter-label");
  node.append(el("h3","",title),device,value);bar.append(signal);node.append(bar,text,actions);
- actions.append(button("−",()=>request(c(id),"adjust","",-1)),button("0 dB",()=>press(id)),button("+",()=>request(c(id),"adjust","",1)));
+ actions.append(iconButton("minus",title+" down",()=>request(c(id),"adjust","",-1)),button("0 dB",()=>press(id)),iconButton("plus",title+" up",()=>request(c(id),"adjust","",1)));
  // Only soundboard's press means reset; audio gain press retains its existing mute behavior.
  if(id!=="soundboard.volume"){actions.children[1].textContent="Mute";actions.children[1].title="Toggle mute";}
  parent.append(node);
@@ -128,7 +134,7 @@ function buildAudio() {
 }
 function buildSoundboard(){
  const clips=[...controls.values()].filter(v=>v.ID.startsWith("soundboard.clip-"));
- const toolbar=el("div","toolbar"),search=el("input");search.type="search";search.placeholder="Search clips";search.setAttribute("aria-label","Search clips");toolbar.append(search);
+ const toolbar=el("div","toolbar"),search=el("input");search.type="search";search.placeholder="Search clips";search.setAttribute("aria-label","Search clips");toolbar.append(icon("search","size-5 shrink-0 text-muted"),search);
  command("soundboard.stop","Stop",toolbar);root.append(toolbar);
  if(c("soundboard.volume")){const card=panel("Playback",root);control("soundboard.status",card,"Library");mixer("soundboard.volume",card,"VOLUME");card.style.marginBottom="18px";}
  if(!clips.length){empty(root,"No clips available. Check the soundboard plugin and library folder.");return;}
@@ -140,7 +146,7 @@ function buildSoundboard(){
    const item=c(initial.ID);if(!item)return;
    b.disabled=!!pending||!item.Available;b.className="clip"+(item.Value==="Playing"?" playing":item.Value==="Wait"?" wait":tone(item)==="critical"?" error":"");
    status.textContent=item.Status||display(item);status.className=tone(item);
-   if(art.dataset.art!==item.Artwork){art.dataset.art=item.Artwork;art.replaceChildren();if(item.Artwork){const image=el("img");image.src="data:image/png;base64,"+item.Artwork;image.alt="";art.append(image);}else art.textContent="▷";}
+   if(art.dataset.art!==item.Artwork){art.dataset.art=item.Artwork;art.replaceChildren();if(item.Artwork){const image=el("img");image.src="data:image/png;base64,"+item.Artwork;image.alt="";art.append(image);}else art.append(icon("play","size-9"));}
    b.hidden=!item.Label.toLocaleLowerCase().includes(search.value.toLocaleLowerCase());
   });
  }
@@ -168,8 +174,7 @@ function lightDial(id,parent,title,pressLabel,step,min,max){
  const node=el("div","strip light-strip"),value=el("div","gain-readout"),slider=el("input"),note=el("div","meter-label"),actions=el("div","gain-buttons");
  slider.type="range";slider.min=min;slider.max=max;slider.step="any";slider.setAttribute("aria-label",title);
  node.append(el("h3","",title),value,slider,note,actions);parent.append(node);
- actions.append(button("−",()=>request(c(id),"adjust","",-1)),button(pressLabel,()=>press(id)),button("+",()=>request(c(id),"adjust","",1)));
- actions.children[0].setAttribute("aria-label",title+" down");actions.children[2].setAttribute("aria-label",title+" up");
+ actions.append(iconButton("minus",title+" down",()=>request(c(id),"adjust","",-1)),button(pressLabel,()=>press(id)),iconButton("plus",title+" up",()=>request(c(id),"adjust","",1)));
  // The plugin owns absolute values; the slider sends the equivalent relative ticks on release.
  slider.onchange=()=>{const current=numericValue(c(id)?.Value);if(current===null)return;const ticks=Math.round((Number(slider.value)-current)/step);if(ticks)request(c(id),"adjust","",ticks);};
  updaters.push(()=>{
@@ -192,7 +197,7 @@ function segmented(id,title,parent){
  }
 }
 function sceneCard(id,parent){
- const b=button("",()=>press(id),"clip scene"),art=el("div","clip-art","◍"),name=el("strong"),status=el("small");
+ const b=button("",()=>press(id),"clip scene"),art=el("div","clip-art"),name=el("strong"),status=el("small");
  b.append(art,name,status);parent.append(b);
  updaters.push(()=>{
   const item=c(id);if(!item)return;
@@ -200,7 +205,7 @@ function sceneCard(id,parent){
   b.disabled=!!pending||!item.Available;
   b.className="clip scene"+(item.Value==="Active"?" playing":item.Status==="Pending"?" wait":tone(item)==="critical"?" error":"");
   status.textContent=item.Status==="Pending"?"Wait":item.Status||display(item);status.className=tone(item);
-  if(art.dataset.art!==item.Artwork){art.dataset.art=item.Artwork||"";art.replaceChildren();if(item.Artwork){const image=el("img");image.src="data:image/png;base64,"+item.Artwork;image.alt="";art.append(image);}else art.textContent="◍";}
+  if(art.dataset.art!==item.Artwork){art.dataset.art=item.Artwork||"";art.replaceChildren();if(item.Artwork){const image=el("img");image.src="data:image/png;base64,"+item.Artwork;image.alt="";art.append(image);}else art.append(icon("lightbulb","size-7"));}
  });
 }
 function buildLights(){
@@ -271,7 +276,7 @@ function buildDeck(){
    name.textContent=item?.ShortLabel||item?.Label||slot.Label||"";
    source.textContent=slot.Source||"";
    const art=item?.Artwork||"";
-   if(icon.dataset.art!==art){icon.dataset.art=art;icon.replaceChildren();if(art){const image=el("img");image.src="data:image/png;base64,"+art;image.alt="";icon.append(image);}else icon.textContent=slot.Control?symbol(slot.Control):"";}
+   if(icon.dataset.art!==art){icon.dataset.art=art;icon.replaceChildren();if(art){const image=el("img");image.src="data:image/png;base64,"+art;image.alt="";icon.append(image);}else if(slot.Control)icon.append(symbolIcon(slot.Control));}
   });
  }
  for(let i=0;i<36;i++)slotButton(i,false);
@@ -280,7 +285,7 @@ function buildDeck(){
  const tools=panel("Page",left,"page-tools");
  control("streamdeck.name",tools,"Name");
  const commands=el("div","actions");tools.append(commands);
- command("streamdeck.earlier","← Earlier",commands);command("streamdeck.later","Later →",commands);command("streamdeck.home","Make Home",commands);
+ command("streamdeck.earlier","Earlier",commands,"","chevron-left");command("streamdeck.later","Later",commands,"","chevron-right");command("streamdeck.home","Make Home",commands,"","house");
  const more=el("details"),summary=el("summary","","Page options");more.append(summary);tools.append(more);
  control("streamdeck.add",more,"New page");
  control("streamdeck.auto-controls",more,"Automatic prefix");
@@ -325,7 +330,13 @@ function buildDeck(){
   if(discard)discard.disabled=!!pending||!v?.Dirty;if(save)save.disabled=!!pending||!v?.Dirty;
  });
 }
-function symbol(id){if(/mic|source|mode/.test(id))return "♩";if(/mute/.test(id))return "◌";if(/play|clip/.test(id))return "▷";if(/stop/.test(id))return "■";if(/record/.test(id))return "●";if(/prev/.test(id))return "‹";if(/next/.test(id))return "›";return "◇";}
+// Deck key previews map a control's deck icon to the closest Lucide icon.
+const deckIcons={"mic-mute":"mic","record-mic":"mic","vr-mic":"mic","speaker-mute":"volume-2","vr-playback":"volume-2","record-computer":"monitor","monitor":"headphones","mic-stack":"power","mode-direct":"audio-lines","mode-element":"audio-lines","tap-pre":"audio-lines","tap-post":"audio-lines","record-toggle":"circle-dot","record-start":"circle-dot","record-stop":"square","soundboard-play":"play","soundboard-stop":"square","media-prev":"skip-back","media-next":"skip-forward","media-play":"play","open-controls":"sliders-horizontal","defaults":"sliders-horizontal","engine-restart":"refresh-cw","hue-scene":"lightbulb","hue-brightness":"sun","hue-pair":"link","huesync-sync":"monitor","huesync-mode":"layers","huesync-intensity":"waves"};
+function symbolIcon(id){
+ const mapped=deckIcons[c(id)?.Icon];
+ const name=mapped||(/mute/.test(id)?"volume-2":/mic|source|mode/.test(id)?"mic":/play|clip/.test(id)?"play":/stop/.test(id)?"square":/record/.test(id)?"circle-dot":/prev/.test(id)?"skip-back":/next/.test(id)?"skip-forward":/scene/.test(id)?"lightbulb":"circle");
+ return icon(name,"size-6");
+}
 function buildPlugins(){
  for(const id of Object.keys(state.Plugins||{}).sort()){
   const card=el("section","panel plugin-card"),text=el("div"),status=el("p"),toggle=button("",()=>send({Kind:"selection",Plugin:id,Enable:!state.Enabled[id]}),"toggle");
@@ -346,7 +357,7 @@ async function copyText(text,feedback){
  feedback.textContent="Copied";setTimeout(()=>{feedback.textContent="";},1500);
 }
 function reportCard(id,parent){
- const card=el("section","app-card"),head=el("div","app-head"),name=el("h3","",c(id).Label),badge=el("span","badge"),copy=button("Copy details",()=>copyText(connectionText(c(id)),copied),"small"),copied=el("small","copied");
+ const card=el("section","app-card"),head=el("div","app-head"),name=el("h3","",c(id).Label),badge=el("span","badge"),copy=withIcon(button("Copy details",()=>copyText(connectionText(c(id)),copied),"small"),"copy"),copied=el("small","copied");
  const endpoint=el("code","endpoint"),times=el("p","app-times"),error=el("p","app-error"),list=el("dl","app-details");
  head.append(name,badge);card.append(head,endpoint,times,error,list);
  const foot=el("div","actions");foot.append(copy,copied);card.append(foot);parent.append(card);
@@ -370,7 +381,7 @@ function reportCard(id,parent){
 function buildApps(){
  const reports=[...controls.values()].filter(v=>v.Kind==="connection").sort((a,b)=>(a.Group||"").localeCompare(b.Group||"")||a.Label.localeCompare(b.Label));
  const bar=el("div","toolbar apps-summary"),counts=el("div","summary-counts"),copied=el("small","copied");
- bar.append(counts,button("Copy all",()=>copyText(reports.map(r=>connectionText(c(r.ID)||r)).join("\n\n"),copied),"small"),copied);root.append(bar);
+ bar.append(counts,withIcon(button("Copy all",()=>copyText(reports.map(r=>connectionText(c(r.ID)||r)).join("\n\n"),copied),"small"),"copy"),copied);root.append(bar);
  updaters.push(()=>{
   const tally={active:0,attention:0,critical:0,other:0};
   for(const r of reports){const t=connectionTone(c(r.ID)?.Connection);tally[t in tally?t:"other"]++;}
@@ -388,7 +399,7 @@ function buildApps(){
  }
 }
 function buildDiagnostics(){
- const toolbar=el("div","toolbar");toolbar.append(button("Retry plugins",()=>send({Kind:"retry"})));root.append(toolbar);
+ const toolbar=el("div","toolbar");toolbar.append(withIcon(button("Retry plugins",()=>send({Kind:"retry"})),"refresh-cw"));root.append(toolbar);
  const card=panel("Audio engine",root);control("audio.health",card);control("audio.interface",card);control("audio.asio-unavailable",card);
  const details=el("section","panel diagnostic");details.style.marginTop="18px";root.append(details);
  updaters.push(()=>{
@@ -443,7 +454,9 @@ function receive(next){
  }
  update();
 }
+const navIcons={audio:"audio-waveform",soundboard:"music",lights:"lightbulb",deck:"layout-grid",plugins:"puzzle",apps:"plug",diagnostics:"activity"};
 for(const b of document.querySelectorAll("[data-screen]")){
+ b.prepend(icon(navIcons[b.dataset.screen],"size-5 shrink-0"));
  b.onclick=()=>{screen=b.dataset.screen;signature="";receive(state);};
  b.onkeydown=e=>{if(!["ArrowUp","ArrowDown","Home","End"].includes(e.key))return;e.preventDefault();const items=[...document.querySelectorAll("[data-screen]")];const i=items.indexOf(b);const next=e.key==="Home"?0:e.key==="End"?items.length-1:gridMove(i,e.key,1,items.length);items[next].focus();items[next].click();};
 }
