@@ -2,6 +2,7 @@ package streamdeck
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	"sound-snoofer/snoofer"
@@ -38,5 +39,16 @@ func TestDefaultLayoutPages(t *testing.T) {
 	lights := expanded.Pages[3]
 	if lights.Keys[9].Control != "hue.room-scene-1" || lights.Keys[0].Control != "hue.group" || lights.Dials[4].Control != "hue.brightness" {
 		t.Fatal("lights page", lights.Keys[:12])
+	}
+}
+
+func TestLayoutJSONRoundTrip(t *testing.T) {
+	saved := snoofer.MarshalSettings(Settings{Layout: DefaultLayout()})
+	var decoded Settings
+	if err := snoofer.DecodeSettings(saved, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(decoded.Layout, DefaultLayout()) {
+		t.Fatal("layout changed through JSON", decoded.Layout.Pages[1].Regions)
 	}
 }
