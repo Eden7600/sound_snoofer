@@ -18,6 +18,8 @@ type Control struct {
 	ViewData                                    json.RawMessage `json:",omitempty"` // Optional provider-owned structured view; core treats it as opaque.
 	Artwork                                     string          // Optional base64 PNG thumbnail, square and at most 64px; immutable across snapshots.
 	ShortLabel                                  string          // Optional label for icon-bearing compact surfaces.
+	Collection                                  string          // Optional stable ID of a set of similar controls, which deck regions fill.
+	CollectionLabel                             string          // Optional editor name for Collection.
 	Meter                                       Meter
 	Connection                                  *Connection `json:",omitempty"` // Optional external integration report (Kind "connection").
 	SurfaceOnly                                 bool

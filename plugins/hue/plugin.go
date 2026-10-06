@@ -784,12 +784,16 @@ func (w *worker) controls() []snoofer.Control {
 			continue // A colliding ID prefix would invalidate the whole snapshot.
 		}
 		seen[scene.ControlID] = true
-		controls = append(controls, w.sceneControl(scene.ControlID, scene.Label, scene))
+		control := w.sceneControl(scene.ControlID, scene.Label, scene)
+		control.Collection = "hue.scenes." + scene.GroupID
+		control.CollectionLabel = "Scenes · " + scene.GroupName
+		controls = append(controls, control)
 	}
 	return append(controls, w.slotControls()...)
 }
 
-// roomSlots is the number of stable slots mirroring the selected room's scenes.
+// roomSlots is the minimum number of stable slots mirroring the selected
+// room's scenes; rooms with more scenes publish one slot per scene.
 const roomSlots = 12
 
 func (w *worker) sceneControl(id, label string, scene sceneInfo) snoofer.Control {
@@ -805,25 +809,29 @@ func (w *worker) sceneControl(id, label string, scene sceneInfo) snoofer.Control
 		Value: value, Status: status, Operations: []string{"press"}, Available: w.services.Live && w.connected}
 }
 
-// slotControls maps hue.room-scene-1..12 to the selected room's scenes. The
+// slotControls maps hue.room-scene-N to the selected room's scenes. The
 // scene ID in ViewData changes the slot's revision whenever its mapping
 // changes, so input generated for a previous scene is rejected as stale.
-// Unused slots have no label or icon, which the deck renders as a blank key.
+// Unused slots are Hidden with no label or icon: blank keys that regions skip.
 func (w *worker) slotControls() []snoofer.Control {
 	var scenes []sceneInfo
 	if w.connected && w.settings.Group != "" {
 		scenes = w.model.roomScenes(w.settings.Group)
 	}
-	controls := make([]snoofer.Control, 0, roomSlots)
-	for n := 1; n <= roomSlots; n++ {
+	slots := max(roomSlots, len(scenes))
+	controls := make([]snoofer.Control, 0, slots)
+	for n := 1; n <= slots; n++ {
 		id := "hue.room-scene-" + strconv.Itoa(n)
 		if n > len(scenes) {
-			controls = append(controls, snoofer.Control{ID: id, Group: "Hue room scenes", Kind: "command", Operations: []string{"press"}})
+			controls = append(controls, snoofer.Control{ID: id, Group: "Hue room scenes", Kind: "command", Operations: []string{"press"}, Hidden: true,
+				Collection: "hue.room-scenes", CollectionLabel: "Scenes · selected room"})
 			continue
 		}
 		scene := scenes[n-1]
 		control := w.sceneControl(id, scene.ShortLabel, scene)
 		control.Group = "Hue room scenes"
+		control.Collection = "hue.room-scenes"
+		control.CollectionLabel = "Scenes · selected room"
 		control.ViewData = json.RawMessage(strconv.Quote(scene.SceneID))
 		controls = append(controls, control)
 	}
@@ -837,7 +845,7 @@ func (w *worker) sceneForSlot(controlID string) string {
 		return ""
 	}
 	scenes := w.model.roomScenes(w.settings.Group)
-	if n < 1 || n > len(scenes) || n > roomSlots {
+	if n < 1 || n > len(scenes) {
 		return ""
 	}
 	return scenes[n-1].SceneID

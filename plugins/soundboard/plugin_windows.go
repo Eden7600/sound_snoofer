@@ -149,7 +149,7 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 				if c.ID == failed {
 					status = diagnostic
 				}
-				controls = append(controls, snoofer.Control{Artwork: c.Artwork, ID: c.ID, Label: c.Label, Group: "Soundboard", Kind: "command", Icon: "soundboard-play", Value: value, Status: status, Operations: []string{"press"}, Available: s.Live && ready == nil && scanErr == nil})
+				controls = append(controls, snoofer.Control{Artwork: c.Artwork, ID: c.ID, Label: c.Label, Group: "Soundboard", Collection: "soundboard.clips", CollectionLabel: "Soundboard clips", Kind: "command", Icon: "soundboard-play", Value: value, Status: status, Operations: []string{"press"}, Available: s.Live && ready == nil && scanErr == nil})
 			}
 			if err := s.Controls.Publish("soundboard", controls, func(ctx context.Context, r snoofer.Request) error {
 				if r.ID == volume.ID {

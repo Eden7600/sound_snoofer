@@ -11,7 +11,7 @@ Each numbered block is one reviewable commit.
   - the Lights screen Motion row.
 
   Tests use a fake bridge, plus a native-size icon preview.
-- [ ] 3. `feat(snoofer)`: control collections. Covers:
+- [x] 3. `feat(snoofer)`: control collections. Covers:
   - the `Collection`/`CollectionLabel` fields;
   - the soundboard clips collection;
   - the Hue room-scene and per-room scene collections;

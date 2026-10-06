@@ -3,6 +3,7 @@ package hue
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -399,9 +400,15 @@ func TestRoomSceneSlots(t *testing.T) {
 		t.Fatalf("slot 1 %+v", first)
 	}
 	for _, id := range []string{"hue.room-scene-2", "hue.room-scene-12"} {
-		if c, ok := h.find(id); !ok || c.Available || c.Label != "" || c.ShortLabel != "" || c.Icon != "" {
+		if c, ok := h.find(id); !ok || c.Available || !c.Hidden || c.Label != "" || c.ShortLabel != "" || c.Icon != "" {
 			t.Fatalf("%s should be blank: %+v", id, c)
 		}
+	}
+	if first.Collection != "hue.room-scenes" || first.CollectionLabel != "Scenes · selected room" {
+		t.Fatalf("slot collection %+v", first)
+	}
+	if scene, _ := h.find("hue.scene-studio-3f2a9c10"); scene.Collection != "hue.scenes.room-1" || scene.CollectionLabel != "Scenes · Studio" {
+		t.Fatalf("room scene collection %+v", scene)
 	}
 	if _, ok := h.find("hue.room-scene-13"); ok {
 		t.Fatal("more than twelve slots")
@@ -420,6 +427,25 @@ func TestRoomSceneSlots(t *testing.T) {
 	if puts := bridge.putLog(); len(puts) != 1 || !strings.HasPrefix(puts[0], "scene/8b7e0d21-aaaa-bbbb-cccc-000000000002:") {
 		t.Fatalf("writes %v", puts)
 	}
+}
+
+func TestRoomSceneSlotsGrowWithScenes(t *testing.T) {
+	items := studio()
+	for n := 0; n < 13; n++ {
+		items = append(items, resource{ID: fmt.Sprintf("scene-%02d", n), Type: "scene", Metadata: &metadata{Name: fmt.Sprintf("Scene %02d", n)},
+			Group: &reference{RID: "room-1", RType: "room"}})
+	}
+	bridge := newFakeBridge(t, "b1", items...)
+	h := startHarness(t, bridge, paired(bridge, "room-1"), true)
+	last := h.waitControl("hue.room-scene-14", func(c snoofer.Control) bool { return c.Label != "" })
+	if !last.Available || last.Hidden {
+		t.Fatalf("fourteenth slot %+v", last)
+	}
+	if _, ok := h.find("hue.room-scene-15"); ok {
+		t.Fatal("slot beyond the room's scenes")
+	}
+	h.mustDispatch("hue.room-scene-14", "press", 0, "")
+	h.waitControl("hue.room-scene-14", func(c snoofer.Control) bool { return c.Value == "Active" })
 }
 
 func TestRoomSceneSlotsBlankWithoutRoom(t *testing.T) {

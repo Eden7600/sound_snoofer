@@ -327,6 +327,7 @@ func (m model) motionSensors(groupID string) []motionSensor {
 
 type sceneInfo struct {
 	ControlID, SceneID, Label, ShortLabel string
+	GroupID, GroupName                    string // The room or zone the scene belongs to.
 	Active                                bool
 }
 
@@ -337,15 +338,18 @@ func (m model) scenes() []sceneInfo {
 		if r.Type != "scene" {
 			continue
 		}
-		groupName := ""
+		groupID, groupName := "", ""
 		if r.Group != nil {
-			groupName = m.resources[r.Group.RID].name()
+			groupID = r.Group.RID
+			groupName = m.resources[groupID].name()
 		}
 		info := sceneInfo{
 			ControlID:  "hue.scene-" + slug(groupName) + "-" + shortID(r.ID),
 			SceneID:    r.ID,
 			Label:      strings.TrimSpace(groupName + " " + r.name()),
 			ShortLabel: r.name(),
+			GroupID:    groupID,
+			GroupName:  groupName,
 			Active:     r.Status != nil && r.Status.Active != "" && r.Status.Active != "inactive",
 		}
 		out = append(out, info)
