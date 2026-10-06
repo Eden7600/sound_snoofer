@@ -9,7 +9,7 @@ Each numbered block is one reviewable commit.
 - [x] 5. `feat(extension)`: the MV3 extension: page, bridge and background scripts. Node tests cover pure logic (merging and command routing); a Playwright check loads it in Chrome against a test page.
 - [x] 6. `feat(streamdeck)`: dial artwork, `m:ss / m:ss` progress and the default Media page with its Home additions. Includes tests and a native-size preview.
 - [x] 7. `feat(gui)`: the Media screen and Browser extension card. The GUI check covers both.
-- [ ] 8. Validate: Go, JS and GUI checks; desktop check; OpenSpec; the canonical build. Add the personal Media page, Home go-to key and media dial; relaunch.
+- [x] 8. Validate: Go, JS and GUI checks; desktop check; OpenSpec; the canonical build. Add the personal Media page, Home go-to key and media dial; relaunch.
 
 ## Hardware acceptance
 - [ ] 9. With Brave and a Windows player:
