@@ -163,7 +163,10 @@ func TestConnectedControls(t *testing.T) {
 func TestPairingSavesIdentityAndConnects(t *testing.T) {
 	bridge := newFakeBridge(t, "b1", studio()...)
 	h := startHarness(t, bridge, Settings{NeutralKelvin: 4000, Group: "stale"}, true)
-	h.value("hue.status", "Not paired")
+	unpaired := h.value("hue.status", "Not paired")
+	if !strings.Contains(string(unpaired.ViewData), `"bridge":"`+bridge.address()+`"`) {
+		t.Fatalf("found bridge not reported: %s", unpaired.ViewData)
+	}
 	h.mustDispatch("hue.pair", "press", 0, "")
 	h.value("hue.pair", "Press button")
 	bridge.set(func(b *fakeBridge) { b.linkPressed = true })

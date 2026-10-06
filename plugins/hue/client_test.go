@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -191,4 +193,47 @@ func waitFor(t *testing.T, condition func() bool) {
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
+}
+
+func TestQueryInterfacesSelectsEveryMulticastIPv4Adapter(t *testing.T) {
+	up := net.FlagUp | net.FlagMulticast
+	interfaces := []net.Interface{
+		{Index: 1, Name: "Loopback", Flags: up | net.FlagLoopback},
+		{Index: 4, Name: "Tailscale", Flags: up},
+		{Index: 8, Name: "Ethernet", Flags: up},
+		{Index: 9, Name: "Down", Flags: net.FlagMulticast},
+		{Index: 10, Name: "PointToPoint", Flags: net.FlagUp},
+		{Index: 61, Name: "vEthernet", Flags: up},
+		{Index: 70, Name: "LinkLocalOnly", Flags: up},
+	}
+	addresses := map[string][]net.Addr{
+		"Loopback":      {&net.IPNet{IP: net.IPv4(127, 0, 0, 1)}},
+		"Tailscale":     {&net.IPNet{IP: net.ParseIP("fd7a::1")}, &net.IPNet{IP: net.IPv4(100, 96, 183, 127)}},
+		"Ethernet":      {&net.IPNet{IP: net.IPv4(172, 16, 108, 22)}},
+		"Down":          {&net.IPNet{IP: net.IPv4(10, 0, 0, 2)}},
+		"PointToPoint":  {&net.IPNet{IP: net.IPv4(10, 0, 0, 3)}},
+		"vEthernet":     {&net.IPNet{IP: net.IPv4(172, 21, 128, 1)}},
+		"LinkLocalOnly": {&net.IPNet{IP: net.IPv4(169, 254, 1, 1)}},
+	}
+	got := queryInterfaces(interfaces, func(i net.Interface) ([]net.Addr, error) { return addresses[i.Name], nil })
+	var names []string
+	for _, q := range got {
+		names = append(names, q.Interface.Name+"="+q.Address.String())
+	}
+	want := "Tailscale=100.96.183.127 Ethernet=172.16.108.22 vEthernet=172.21.128.1"
+	if strings.Join(names, " ") != want {
+		t.Fatalf("got %v, want %s", names, want)
+	}
+}
+
+// TestLiveDiscovery checks real-network discovery when SNOOFER_HUE_LIVE is set.
+func TestLiveDiscovery(t *testing.T) {
+	if os.Getenv("SNOOFER_HUE_LIVE") == "" {
+		t.Skip("set SNOOFER_HUE_LIVE=1 to query the local network")
+	}
+	addresses, err := discoverMDNS(context.Background(), 3*time.Second)
+	if err != nil || len(addresses) == 0 {
+		t.Fatalf("addresses %v, err %v", addresses, err)
+	}
+	t.Log("bridges:", addresses)
 }

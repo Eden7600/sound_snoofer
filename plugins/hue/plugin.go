@@ -109,15 +109,16 @@ type worker struct {
 	results  chan func(context.Context)
 	children sync.WaitGroup
 
-	generation int // Invalidates results from superseded connections.
-	connecting bool
-	connected  bool
-	client     *Client
-	model      model
-	status     string
-	diagnostic string
-	retryAt    time.Time
-	retryDelay time.Duration
+	generation    int // Invalidates results from superseded connections.
+	connecting    bool
+	connected     bool
+	client        *Client
+	model         model
+	status        string
+	bridgeAddress string // Bridge found while unpaired, shown by the pairing UI.
+	diagnostic    string
+	retryAt       time.Time
+	retryDelay    time.Duration
 
 	pairing   bool
 	pairValue string
@@ -227,7 +228,7 @@ func (w *worker) connect(ctx context.Context) {
 	w.spawn(ctx, func(ctx context.Context) func(context.Context) {
 		target, err := resolve(ctx, settings.Address, settings.BridgeID, discover)
 		if err != nil || settings.AppKey == "" {
-			return func(ctx context.Context) { w.onConnected(ctx, generation, nil, nil, err) }
+			return func(ctx context.Context) { w.onConnected(ctx, generation, target.Address, nil, nil, err) }
 		}
 		client := newClient(target.Address, settings.CertificateSHA256, settings.AppKey)
 		items, err := client.Resources(ctx)
@@ -235,12 +236,12 @@ func (w *worker) connect(ctx context.Context) {
 			client.close()
 			client = nil
 		}
-		return func(ctx context.Context) { w.onConnected(ctx, generation, client, items, err) }
+		return func(ctx context.Context) { w.onConnected(ctx, generation, target.Address, client, items, err) }
 	})
 }
 
 // onConnected applies a connection attempt's result on the worker goroutine.
-func (w *worker) onConnected(ctx context.Context, generation int, client *Client, items []resource, err error) {
+func (w *worker) onConnected(ctx context.Context, generation int, address string, client *Client, items []resource, err error) {
 	if generation != w.generation {
 		if client != nil {
 			client.close()
@@ -254,6 +255,7 @@ func (w *worker) onConnected(ctx context.Context, generation int, client *Client
 	}
 	if client == nil {
 		w.status = "Not paired"
+		w.bridgeAddress = address
 		w.diagnostic = ""
 		w.retryAt = time.Now().Add(w.timing.rediscover)
 		return
@@ -733,7 +735,7 @@ func (w *worker) controls() []snoofer.Control {
 		}
 	}
 	controls := []snoofer.Control{
-		{ID: "hue.status", Label: "Hue", Group: "Hue", Kind: "status", Value: w.status, Status: statusNote, Available: true},
+		{ID: "hue.status", Label: "Hue", Group: "Hue", Kind: "status", Value: w.status, Status: statusNote, ViewData: w.statusView(), Available: true},
 		{ID: "hue.pair", Label: "Pair Hue bridge", ShortLabel: "Pair", Group: "Hue", Kind: "command", Icon: "hue-pair", Value: pairValue, Status: w.pairErr, Operations: []string{"press"}, Available: live},
 		{ID: "hue.group", Label: "Hue room", ShortLabel: "Room", Group: "Hue", Kind: "selection", Value: w.settings.Group, Options: options, OptionLabels: labels, Status: w.groupErr, Operations: []string{"set"}, Available: live && w.connected},
 	}
@@ -810,4 +812,23 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+// statusView gives the Lights screen setup details that do not belong in deck text.
+func (w *worker) statusView() json.RawMessage {
+	view := map[string]string{}
+	if w.status == "Not paired" && w.bridgeAddress != "" {
+		view["bridge"] = w.bridgeAddress
+	}
+	if w.settings.Address != "" {
+		view["address"] = w.settings.Address
+	}
+	if len(view) == 0 {
+		return nil
+	}
+	data, err := json.Marshal(view)
+	if err != nil {
+		return nil // A map of strings always marshals.
+	}
+	return data
 }

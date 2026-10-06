@@ -7,9 +7,11 @@ import (
 	"net"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/net/dns/dnsmessage"
+	"golang.org/x/net/ipv4"
 )
 
 const hueService = "_hue._tcp.local."
@@ -37,48 +39,95 @@ func (e *bridgeMismatchError) Error() string {
 // discoverFunc returns candidate bridge addresses on the local network.
 type discoverFunc func(context.Context) ([]string, error)
 
-// discoverMDNS sends one mDNS PTR query for Hue bridges and collects the
-// source addresses of matching responses during window.
+// queryInterface is an interface and the IPv4 address its query socket binds.
+type queryInterface struct {
+	Interface net.Interface
+	Address   net.IP
+}
+
+// queryInterfaces selects up, multicast-capable, non-loopback interfaces with
+// a routable IPv4 address. The OS default multicast route alone can miss the
+// bridge network on hosts with VPN, virtual and wireless adapters.
+func queryInterfaces(interfaces []net.Interface, addresses func(net.Interface) ([]net.Addr, error)) []queryInterface {
+	var out []queryInterface
+	for _, candidate := range interfaces {
+		if candidate.Flags&net.FlagUp == 0 || candidate.Flags&net.FlagMulticast == 0 || candidate.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		list, err := addresses(candidate)
+		if err != nil {
+			continue
+		}
+		for _, address := range list {
+			network, ok := address.(*net.IPNet)
+			if !ok {
+				continue
+			}
+			ip := network.IP.To4()
+			if ip == nil || ip.IsLoopback() || ip.IsLinkLocalUnicast() {
+				continue
+			}
+			out = append(out, queryInterface{Interface: candidate, Address: ip})
+			break
+		}
+	}
+	return out
+}
+
+// discoverMDNS sends an mDNS PTR query for Hue bridges on every eligible
+// interface and collects the source addresses of matching replies during window.
 func discoverMDNS(ctx context.Context, window time.Duration) ([]string, error) {
 	query, err := mdnsQuery()
 	if err != nil {
 		return nil, err
 	}
-	conn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4zero})
+	interfaces, err := net.Interfaces()
 	if err != nil {
 		return nil, fmt.Errorf("discovery: %w", err)
 	}
-	defer conn.Close()
+	targets := queryInterfaces(interfaces, func(i net.Interface) ([]net.Addr, error) { return i.Addrs() })
 	deadline := time.Now().Add(window)
 	if d, ok := ctx.Deadline(); ok && d.Before(deadline) {
 		deadline = d
 	}
-	if err := conn.SetDeadline(deadline); err != nil {
-		return nil, fmt.Errorf("discovery: %w", err)
-	}
-	stop := context.AfterFunc(ctx, func() { _ = conn.SetDeadline(time.Now()) })
-	defer stop()
-	group := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 251), Port: 5353}
-	if _, err := conn.WriteToUDP(query, group); err != nil {
-		return nil, fmt.Errorf("discovery: %w", err)
-	}
-	found := map[string]bool{}
-	buffer := make([]byte, 9000)
-	for {
-		n, source, err := conn.ReadFromUDP(buffer)
+	var (
+		mu       sync.Mutex
+		found    = map[string]bool{}
+		failures []error
+		readers  sync.WaitGroup
+	)
+	for _, target := range targets {
+		conn, err := sendQuery(target, query, deadline)
 		if err != nil {
-			var timeout net.Error
-			if errors.As(err, &timeout) && timeout.Timeout() {
-				break
+			failures = append(failures, err)
+			continue
+		}
+		stop := context.AfterFunc(ctx, func() { _ = conn.SetDeadline(time.Now()) })
+		readers.Add(1)
+		go func() {
+			defer readers.Done()
+			defer stop()
+			defer conn.Close()
+			buffer := make([]byte, 9000)
+			for {
+				n, source, err := conn.ReadFromUDP(buffer)
+				if err != nil {
+					return // Deadline, cancellation or socket error ends this interface.
+				}
+				if isHueResponse(buffer[:n]) {
+					mu.Lock()
+					found[source.IP.String()] = true
+					mu.Unlock()
+				}
 			}
-			return nil, fmt.Errorf("discovery: %w", err)
-		}
-		if isHueResponse(buffer[:n]) {
-			found[source.IP.String()] = true
-		}
+		}()
 	}
+	readers.Wait()
 	if err := ctx.Err(); err != nil {
 		return nil, err
+	}
+	if len(targets) == 0 || len(failures) == len(targets) {
+		return nil, fmt.Errorf("discovery: no usable network interface: %w", errors.Join(failures...))
 	}
 	addresses := make([]string, 0, len(found))
 	for address := range found {
@@ -86,6 +135,33 @@ func discoverMDNS(ctx context.Context, window time.Duration) ([]string, error) {
 	}
 	sort.Strings(addresses)
 	return addresses, nil
+}
+
+// sendQuery binds to one interface address and multicasts the query from it.
+func sendQuery(target queryInterface, query []byte, deadline time.Time) (*net.UDPConn, error) {
+	conn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: target.Address})
+	if err != nil {
+		return nil, fmt.Errorf("discovery on %s: %w", target.Interface.Name, err)
+	}
+	packets := ipv4.NewPacketConn(conn)
+	if err := packets.SetMulticastInterface(&target.Interface); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("discovery on %s: %w", target.Interface.Name, err)
+	}
+	if err := packets.SetMulticastTTL(255); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("discovery on %s: %w", target.Interface.Name, err)
+	}
+	if err := conn.SetDeadline(deadline); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("discovery on %s: %w", target.Interface.Name, err)
+	}
+	group := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 251), Port: 5353}
+	if _, err := conn.WriteToUDP(query, group); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("discovery on %s: %w", target.Interface.Name, err)
+	}
+	return conn, nil
 }
 
 func mdnsQuery() ([]byte, error) {
