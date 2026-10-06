@@ -40,7 +40,15 @@ func startBridgeRig(t *testing.T) *bridgeRig {
 	t.Helper()
 	r := &bridgeRig{t: t, controls: snoofer.NewControls(), port: freePort(t)}
 	raw, _ := json.Marshal(Settings{Port: r.port})
+	// Like the real host, saving during Start fails (there it would deadlock).
+	var starting sync.Mutex
+	starting.Lock()
 	services := snoofer.Services{Controls: r.controls, Live: true, SaveSettings: func(id string, _, next json.RawMessage) error {
+		if !starting.TryLock() {
+			t.Error("settings saved during Start")
+			return errors.New("host lock held")
+		}
+		starting.Unlock()
 		r.mu.Lock()
 		defer r.mu.Unlock()
 		r.saved = Settings{}
@@ -51,6 +59,7 @@ func startBridgeRig(t *testing.T) *bridgeRig {
 	if err != nil {
 		t.Fatal(err)
 	}
+	starting.Unlock()
 	r.instance = instance
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -62,10 +71,17 @@ func startBridgeRig(t *testing.T) *bridgeRig {
 	return r
 }
 
+// token waits for the worker to save the first token.
 func (r *bridgeRig) token() string {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.saved.Token
+	for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); time.Sleep(2 * time.Millisecond) {
+		r.mu.Lock()
+		token := r.saved.Token
+		r.mu.Unlock()
+		if token != "" {
+			return token
+		}
+	}
+	return ""
 }
 
 func (r *bridgeRig) dial(origin string) (*websocket.Conn, *http.Response, error) {
@@ -116,8 +132,12 @@ func (r *bridgeRig) wait(what string, ready func(statusView) bool) statusView {
 
 func TestBridgeRefusesPagesAndBadTokens(t *testing.T) {
 	r := startBridgeRig(t)
-	if len(r.token()) != 64 {
-		t.Fatal("token not created on first start", r.token())
+	deadline := time.Now().Add(2 * time.Second)
+	for len(r.token()) != 64 {
+		if time.Now().After(deadline) {
+			t.Fatal("token not saved after first start", r.token())
+		}
+		time.Sleep(2 * time.Millisecond)
 	}
 	if _, resp, err := r.dial("https://evil.example"); err == nil || resp == nil || resp.StatusCode != http.StatusForbidden {
 		t.Fatal("page origin accepted", err)

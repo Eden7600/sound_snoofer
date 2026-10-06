@@ -144,10 +144,15 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, open fu
 	}
 	w := newWorker(s, open, t)
 	w.raw, w.settings = raw, settings
-	if settings.Token == "" {
-		if err := w.resetToken(); err != nil {
+	// The first token is used at once and saved from the worker: the host
+	// holds its lock while starting plugins, so saving here would deadlock.
+	unsaved := settings.Token == ""
+	if unsaved {
+		token, err := newToken()
+		if err != nil {
 			return nil, fmt.Errorf("create browser bridge token: %w", err)
 		}
+		w.settings.Token = token
 	}
 	w.saved = w.extensionSaved()
 	runCtx, cancel := context.WithCancel(ctx)
@@ -170,6 +175,11 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, open fu
 		defer close(i.done)
 		defer s.Controls.Remove("nowplaying")
 		defer w.closeWindows()
+		if unsaved {
+			if err := w.saveSettings(w.settings); err != nil {
+				w.bridgeErr = "Save the browser token: " + err.Error()
+			}
+		}
 		ticker := time.NewTicker(t.poll)
 		defer ticker.Stop()
 		for {
@@ -441,6 +451,17 @@ func (w *worker) resetToken() error {
 	}
 	next := w.settings
 	next.Token = token
+	if err := w.saveSettings(next); err != nil {
+		return err
+	}
+	if w.bridge != nil {
+		w.bridge.setToken(token)
+	}
+	return nil
+}
+
+// saveSettings persists next. It must not run during Start.
+func (w *worker) saveSettings(next Settings) error {
 	raw, err := json.Marshal(next)
 	if err != nil {
 		return err
@@ -451,9 +472,6 @@ func (w *worker) resetToken() error {
 		}
 	}
 	w.raw, w.settings = raw, next
-	if w.bridge != nil {
-		w.bridge.setToken(token)
-	}
 	return nil
 }
 
