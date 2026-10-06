@@ -76,6 +76,16 @@ navigator.mediaSession.setActionHandler("nexttrack", () => { window.nextCalls++;
     await command({ op: "toggle" });
     await page.waitForFunction(() => !document.getElementById("a").paused, null, { polling: 50 });
 
+    // Injected into a tab that is already playing (installing the extension
+    // mid-video), the script adopts the element and reports it.
+    const late = await browser.newPage();
+    await late.goto(base + "/");
+    await late.evaluate(() => document.getElementById("a").play());
+    await late.waitForFunction(() => !document.getElementById("a").paused, null, { polling: 50 });
+    await late.evaluate(() => { window.reports = []; window.addEventListener("snoofer-media:report", (e) => window.reports.push(JSON.parse(e.detail))); });
+    await late.evaluate(pageScript);
+    await late.waitForFunction(() => window.reports.at(-1)?.state === "playing" && window.reports.at(-1)?.title === "Song", null, { polling: 50 });
+
     // A page with no media never reports.
     const quiet = await browser.newPage();
     await quiet.addInitScript(() => { window.reports = []; window.addEventListener("snoofer-media:report", (e) => window.reports.push(e.detail)); });
@@ -174,7 +184,20 @@ async function live(base) {
     await page.waitForFunction(() => window.nextCalls === 1, null, { polling: 50, timeout: 10000 });
     fake.send({ type: "command", id: session.id, op: "mute" });
     await until("muted tab", (m) => m.type === "sessions" && m.sessions.some((s) => s.id === session.id && s.muted));
-    console.log("PASS: extension in Brave connects, reports the tab, and runs toggle, next and mute from the bridge");
+
+    // The install hook injects into open tabs. On a tab that already has the
+    // scripts it must be harmless: still one session, still controllable.
+    // (Automation cannot restart an unpacked extension after an update, and the
+    // late-injection adoption itself is checked in Chrome above.)
+    await page.evaluate(() => document.getElementById("a").play());
+    await until("playing again", (m) => m.type === "sessions" && m.sessions.some((s) => s.id === session.id && s.state === "playing"));
+    await worker.evaluate(() => injectOpenTabs());
+    fake.messages.length = 0;
+    fake.send({ type: "command", id: session.id, op: "toggle" });
+    await page.waitForFunction(() => document.getElementById("a").paused, null, { polling: 50, timeout: 10000 });
+    const after = await until("paused after injection", (m) => m.type === "sessions" && m.sessions.some((s) => s.id === session.id && s.state === "paused"));
+    assert.equal(after.sessions.filter((s) => s.title === "Song").length, 1, "injection duplicated the session");
+    console.log("PASS: extension in Brave connects, reports the tab, runs toggle, next and mute, and re-injects into open tabs harmlessly");
   } finally {
     await context.close();
     fake.close();

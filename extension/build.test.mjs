@@ -13,7 +13,7 @@ test("manifests differ only where the browsers do", () => {
   assert.equal(chrome.browser_specific_settings, undefined);
   for (const m of [chrome, firefox]) {
     assert.equal(m.manifest_version, 3);
-    assert.deepEqual(m.permissions, ["tabs", "storage"]);
+    assert.deepEqual(m.permissions, ["tabs", "storage", "scripting"]);
     assert.equal(m.content_scripts[0].world, "MAIN");
     assert.doesNotMatch(m.content_security_policy.extension_pages, /upgrade-insecure-requests/);
     delete m.background;

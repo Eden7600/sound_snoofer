@@ -157,6 +157,24 @@ api.storage.onChanged.addListener((changes, area) => {
   if (old) old.close();
 });
 
+// Content scripts reach only pages loaded after install or update, so inject
+// them into tabs that are already open. page.js ignores a second run.
+async function injectOpenTabs() {
+  const open = await api.tabs.query({ url: ["http://*/*", "https://*/*"] });
+  for (const tab of open) {
+    const target = { tabId: tab.id, allFrames: true };
+    try {
+      await api.scripting.executeScript({ target, files: ["page.js"], world: "MAIN" });
+      await api.scripting.executeScript({ target, files: ["bridge.js"] });
+    } catch {
+      // Pages the browser protects (stores, settings) refuse injection.
+    }
+  }
+}
+api.runtime.onInstalled.addListener(() => {
+  injectOpenTabs().catch(() => {});
+});
+
 api.tabs.query({}).then((all) => all.forEach(rememberTab));
 api.storage.local.get("port").then((stored) => {
   port = validPort(stored.port) || DEFAULT_PORT;

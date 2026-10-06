@@ -33,7 +33,11 @@ npm run package   # also dist/snoofer-media-<browser>-<version>.zip
 - **Version:** set it in `package.json`, then run `npm run package`.
 - **Chrome Web Store:** upload `dist/snoofer-media-chrome-<version>.zip`.
   - **Single purpose:** show and control tab media from the Snoofer desktop app.
-  - **Permissions:** `tabs` reads titles and mutes tabs; `storage` keeps the port; host access runs the media script on pages and fetches artwork.
+  - **Permissions:**
+    - `tabs` reads titles and mutes tabs;
+    - `storage` keeps the port;
+    - `scripting` reaches tabs already open at install;
+    - host access runs the media script on pages and fetches artwork.
 - **Firefox Add-ons:** upload `dist/snoofer-media-firefox-<version>.zip`.
   - **Add-on ID:** `snoofer-media@sound-snoofer` (`GECKO_ID` in `build.mjs`). It is permanent after the first upload; change it before then if you want another.
   - **Data collection:** none is declared, because data goes only to the local Snoofer app.

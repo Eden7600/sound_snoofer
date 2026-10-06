@@ -19,7 +19,7 @@ Each numbered block is one reviewable commit.
 - [x] 14. Validate: all checks and the canonical build; remove the legacy token from the personal config; relaunch.
 - [x] 15. `docs(media)`: revise de-duplication (title only), injection into existing tabs, the single-playing focus rule and the bottom-row controls.
 - [x] 16. `fix(nowplaying)`: title-only de-duplication and the single-playing focus rule. Tests cover both.
-- [ ] 17. `fix(extension)`: inject into open tabs on install and start; adopt media that is already playing. The live Brave check covers a tab playing before the extension loads.
+- [x] 17. `fix(extension)`: inject into open tabs on install and start; adopt media that is already playing. The live Brave check covers a tab playing before the extension loads.
 - [ ] 18. `feat(streamdeck)`: Media page controls on the bottom row (default and personal layout). Tests are updated.
 - [ ] 19. Validate: all checks and the canonical build; relaunch.
 

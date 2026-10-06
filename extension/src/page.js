@@ -93,9 +93,25 @@
       report(true);
     }, true);
   }
+  // Progress from an element not seen starting (it was playing before this
+  // script ran, for example after installing the extension) adopts it.
   document.addEventListener("timeupdate", (e) => {
-    if (e.target instanceof HTMLMediaElement && elements.has(e.target)) report(false);
+    if (!(e.target instanceof HTMLMediaElement)) return;
+    if (!elements.has(e.target)) {
+      elements.add(e.target);
+      if (!e.target.paused) lastPlayed = e.target;
+      report(true);
+      return;
+    }
+    report(false);
   }, true);
+
+  // Adopt media already in the document when injected into an open tab.
+  for (const el of document.querySelectorAll("audio, video")) {
+    elements.add(el);
+    if (!el.paused && !el.ended) lastPlayed = el;
+  }
+  if (lastPlayed) report(true);
 
   function call(action, details) {
     const handler = handlers.get(action);

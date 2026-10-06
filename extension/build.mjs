@@ -24,7 +24,7 @@ function base() {
     description: "Shows and controls the media playing in each tab from Snoofer on this computer.",
     icons,
     action: { default_title: "Snoofer Media", default_popup: "popup.html", default_icon: icons },
-    permissions: ["tabs", "storage"],
+    permissions: ["tabs", "storage", "scripting"],
     host_permissions: ["<all_urls>"],
     // No upgrade-insecure-requests: the only connection is ws://127.0.0.1.
     content_security_policy: { extension_pages: "script-src 'self'; object-src 'self'" },
