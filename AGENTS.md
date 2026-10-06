@@ -2,7 +2,7 @@
 
 ## Project and scope
 
-Snoofer is a Windows Go plugin host with a core tray, TUI, lifecycle and semantic controls. Optional audio, VR, Stream Deck and media plugins own their integrations. Audio preserves the Voicemeeter routing and recording invariants below. Use the Go version declared in `go.mod`. Do not redistribute Voicemeeter's DLL.
+Snoofer is a Windows Go plugin host with a core tray, GUI, lifecycle and semantic controls. Optional audio, VR, Stream Deck and media plugins own their integrations. Audio preserves the Voicemeeter routing and recording invariants below. Use the Go version declared in `go.mod`. Do not redistribute Voicemeeter's DLL.
 These instructions apply throughout the repository unless a deeper AGENTS.md
 provides more specific guidance. Explicit user instructions take precedence.
 
@@ -78,10 +78,10 @@ provides more specific guidance. Explicit user instructions take precedence.
 ## Architecture and audio invariants
 
 - Keep routing calculations deterministic and separate from native reads/writes.
-  The controller applies and verifies plans; the TUI presents state and submits
+  The controller applies and verifies plans; the GUI presents state and submits
   typed actions. Rendering and browsing selections must never write audio settings.
 - Preserve save-before-apply, stale-action rejection, atomic saved-choice updates,
-  drift checks and bounded verification. TUI/watch default to live; --dry-run
+  drift checks and bounded verification. GUI/watch default to live; --dry-run
   explicitly selects preview. Development smoke tests must opt into preview.
 - Mic stack disabled disconnects all managed mic and Element-return sends while retaining Normal/VR targets. It must
   not disable computer playback/capture or operate recorder transport.

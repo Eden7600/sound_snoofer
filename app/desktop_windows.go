@@ -23,7 +23,7 @@ import (
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-//go:embed web/*
+//go:embed web/index.html web/app.js web/style.css web/model.mjs
 var desktopAssets embed.FS
 
 // Desktop exposes only immutable state and the existing semantic action pipe.
@@ -82,6 +82,7 @@ func RunDesktop(ctx context.Context) error {
 		Windows:            &wwindows.Options{Theme: wwindows.Dark, IsZoomControlEnabled: true, WebviewUserDataPath: filepath.Join(filepath.Dir(exe), "webview-cache")},
 		Bind:               []interface{}{d},
 		OnDomReady: func(uiCtx context.Context) {
+			brandDesktop()
 			workers.Add(3)
 			go func() {
 				defer workers.Done()

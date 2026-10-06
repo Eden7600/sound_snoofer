@@ -13,7 +13,7 @@ Fast recognition, truthful state, predictable actions. Users know Snoofer. Use s
 | --- | --- |
 | Deck key | Short label, recognizable icon, current state or local status. One or two words where possible; max 16 ASCII characters for built-ins. No explanatory sentences, action IDs or profile suffix on active-profile controls. |
 | Deck dial | Target, gain, live meter; page dial shows previous/current/next page names on three lines, with the current name larger and cyan; neighboring names are smaller and neutral. Press still returns Home. No repeated gain label when dB is visible. |
-| TUI | Explicit labels where no icon supplies context, profile sections, diagnostics and compact keyboard hints. Do not duplicate the current state in prose. |
+| GUI | Task-oriented Audio, Soundboard, Stream Deck, Plugins and Diagnostics screens. Native controls, keyboard focus, spatial deck editor and persistent local feedback. |
 | Tray | Open controls, lifecycle actions, concise state. No tutorials. |
 
 Provider Label identifies an action without an icon. Optional ShortLabel is for compact icon-bearing surfaces. Shortening presentation must never change IDs, layout bindings, command semantics or saved settings. Fixed-profile bindings retain Normal/VR qualifiers. Custom plugin labels remain intact.
@@ -55,9 +55,9 @@ Colors supplement shape and words; they never carry state alone. Key backgrounds
 
 Precedence: unavailable > failure > pending/fallback > muted/recording > active > neutral. Ordinary Off is neutral, including disabled mic stack. Recording's circle/square and Ready/Rec distinguish transport state. No arbitrary colors per control/category. Color definitions and precedence live in internal/streamdeck/palette.go.
 
-TUI displays one existing control group at a time. Left/right or brackets cycle groups; up/down select controls. At 80 columns and above, show a section rail; narrower views show the section position. Editors use the full form width; forms are capped at 112 cells and shrink to content with a six-line minimum. Show row diagnostics once in the selected detail. Keep all groups reachable, preserve selection across snapshots, and exclude surface-only actions.
+The GUI replaces the terminal renderer. Use the available workspace responsively: a vertical sidebar (Up/Down), content cards, and a spatial deck grid with a contextual inspector. Tab follows standard focus order; arrows on the deck follow its geometry. Never dispatch a binding merely by selecting its position. Keep text edits, search and focus stable during live updates. Surface-only audio transport actions stay off the Audio page; they remain available as deck bindings.
 
-TUI retains blue focus/section styling, neutral text/details and subdued overridden rows. Amber is for consequential confirmations, not every footer. Honor NO_COLOR; preserve keyboard navigation, terminal bounds and diagnostics. Do not force pixel-exact deck colors into terminal themes.
+Apply the shared state palette to the GUI, with a separate visible focus outline. Normal sections are subdued but editable during VR override. Keep important errors local and visible; Diagnostics holds full details. Explicit Save/Discard applies only to draft deck configuration; regular audio controls remain live. Use the existing logo, not a new mark. Minimum window is 800×600; do not cap the workspace to terminal dimensions.
 
 ## Visual and behavioral invariants
 - Studio line icons, dark background, label above symbol, state badge below; no key outline.

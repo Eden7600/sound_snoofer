@@ -55,34 +55,6 @@ func detachConsole() error {
 	return nil
 }
 
-func controlsConsole() (*os.File, *os.File, error) {
-	if err := detachConsole(); err != nil {
-		return nil, nil, err
-	}
-	ok, _, err := kernel.NewProc("AllocConsole").Call()
-	if ok == 0 {
-		return nil, nil, fmt.Errorf("allocate controls console: %w", err)
-	}
-	in, e := os.OpenFile("CONIN$", os.O_RDWR, 0)
-	if e != nil {
-		return nil, nil, e
-	}
-	out, e := os.OpenFile("CONOUT$", os.O_RDWR, 0)
-	if e != nil {
-		in.Close()
-		return nil, nil, e
-	}
-	return in, out, nil
-}
-
-func focusConsole() {
-	window, _, _ := kernel.NewProc("GetConsoleWindow").Call()
-	if window != 0 {
-		user.NewProc("ShowWindow").Call(window, 9) // SW_RESTORE
-		user.NewProc("SetForegroundWindow").Call(window)
-	}
-}
-
 // ShowError makes startup errors visible even without a console.
 func ShowError(err error) {
 	message, _ := windows.UTF16PtrFromString(err.Error())
@@ -148,48 +120,21 @@ func verifyTrayIcon(thread uint32) error {
 	return nil
 }
 
-// consoleFontInfo mirrors CONSOLE_FONT_INFOEX (84 bytes); COORD is two int16s.
-type consoleFontInfo struct {
-	Size, Index    uint32
-	Width, Height  int16
-	Family, Weight uint32
-	Face           [32]uint16
+// brandDesktop uses this executable's existing mascot resource on its own GUI window.
+func brandDesktop() {
+	callback := windows.NewCallback(func(window, _ uintptr) uintptr {
+		var processID uint32
+		user.NewProc("GetWindowThreadProcessId").Call(window, uintptr(unsafe.Pointer(&processID)))
+		if processID == uint32(os.Getpid()) {
+			setWindowIcon(window)
+		}
+		return 1
+	})
+	user.NewProc("EnumWindows").Call(callback, 0)
 }
 
-// configureControlsFont changes only this freshly allocated console. Unsupported
-// hosts retain their original font; font selection must never block audio controls.
-func configureControlsFont(out *os.File) {
-	original := consoleFontInfo{}
-	original.Size = uint32(unsafe.Sizeof(original))
-	get := kernel.NewProc("GetCurrentConsoleFontEx")
-	set := kernel.NewProc("SetCurrentConsoleFontEx")
-	ok, _, _ := get.Call(out.Fd(), 0, uintptr(unsafe.Pointer(&original)))
-	if ok == 0 {
-		return
-	}
-	for _, name := range []string{"Cascadia Mono", "Consolas"} {
-		font := consoleFontInfo{Size: original.Size, Height: 18, Family: 0x36, Weight: 400}
-		face, _ := windows.UTF16FromString(name)
-		copy(font.Face[:], face)
-		ok, _, _ := set.Call(out.Fd(), 0, uintptr(unsafe.Pointer(&font)))
-		if ok == 0 {
-			continue
-		}
-		actual := consoleFontInfo{Size: original.Size}
-		ok, _, _ = get.Call(out.Fd(), 0, uintptr(unsafe.Pointer(&actual)))
-		if ok != 0 && strings.EqualFold(windows.UTF16ToString(actual.Face[:]), name) {
-			return
-		}
-	}
-	// Best effort restoration when the console substitutes an unsupported face.
-	set.Call(out.Fd(), 0, uintptr(unsafe.Pointer(&original)))
-}
-
-// setControlsIcon brands only the console allocated by the controls child. The
-// resource compiler assigns group ID 1 to the first ICO (no manifest precedes it).
-// LR_SHARED keeps these resource handles alive until process exit.
-func setControlsIcon() {
-	window, _, _ := kernel.NewProc("GetConsoleWindow").Call()
+// Resource group 1 is the repository's existing ICO. Shared handles live until exit.
+func setWindowIcon(window uintptr) {
 	if window == 0 {
 		return
 	}

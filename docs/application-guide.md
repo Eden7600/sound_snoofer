@@ -2,25 +2,25 @@
 
 Snoofer runs in the Windows tray and hosts optional compiled plugins. Open controls from the tray. Closing controls leaves Snoofer running; Quit releases its resources without stopping the recorder or resetting mixer routes.
 
-The default build includes Audio, VR, Stream Deck and Windows media. Enable or disable them in the Plugins tab. Changes show dependent plugins together and restart the application after saving. Ordinary control and layout edits apply live. Missing hardware is shown as disconnected; failed plugin branches can be retried with r.
+The default build includes Audio, VR, Stream Deck and Windows media. Enable or disable them in the Plugins tab. Changes show dependent plugins together and restart the application after saving. Ordinary control and layout edits apply live. Missing hardware is shown as disconnected; failed plugin branches can be retried in Diagnostics.
 
 ## Controls
 
-Use Tab to switch Controls/Plugins, arrows to select, Enter to edit or press, +/- for gains, and q to close the controls window. Selections support arrows and Enter; Esc cancels. Page Up/Down, Home and End navigate long views.
+Choose Audio, Soundboard, Stream Deck, Plugins or Diagnostics in the sidebar. Up/Down moves along the sidebar; Tab moves focus between controls. Text fields support native editing and paste; Enter applies and Escape cancels. Dropdowns and toggles apply their selected values. Closing the window leaves plugins running.
 
 Normal microphone/playback and VR microphone/playback are separate sections. SteamVR running makes VR effective. Overridden Normal sections remain editable and explain that their edits apply outside VR. Mute, gain and recording preferences are shared. Unknown engine or device state is not reported as verified success.
 
-Mic stack enablement is a master switch for both Normal and VR. Disabling disconnects managed mic inputs, ASIO input patches, monitoring and processing-return sends without stopping playback or recorder transport; Volt remains on A1 for playback. Mic stack target selects Automatic or a microphone and remains editable while disabled. Target edits and SteamVR changes never re-enable the stack. Enabling restores the active profile target through normal availability/fallback rules. Mic mute remains independent and does not disconnect devices or change the target. Recorder transport remains available as Stream Deck semantic bindings; the removed Actions section stays removed. An external engine-restart request that may interrupt recording produces an Enter-only confirmation under System.
+Mic stack enablement is a master switch for both Normal and VR. Disabling disconnects managed mic inputs, ASIO input patches, monitoring and processing-return sends without stopping playback or recorder transport; Volt remains on A1 for playback. Mic stack target selects Automatic or a microphone and remains editable while disabled. Target edits and SteamVR changes never re-enable the stack. Enabling restores the active profile target through normal availability/fallback rules. Mic mute remains independent and does not disconnect devices or change the target. Recorder transport remains available as Stream Deck semantic bindings; the removed Actions section stays removed. An external engine-restart request that may interrupt recording exposes an explicit confirmation control in Audio.
 
 ## Stream Deck
 
-The integrated configurator edits pages, Home, shared positions, keys and dials. Save commits a validated draft live; Cancel discards it. The effective-position preview shows the merged binding. Device layouts can be edited while hardware is disconnected.
+The integrated editor shows a 9×4 key grid and five assignable dials plus the reserved page dial. Click a position or use arrows then Enter to select it without triggering its action. The searchable binding inspector shows shared/automatic ownership. Save commits a validated draft live; Discard restores the saved layout. Key labels use zero-based physical indices. Device layouts can be edited while hardware is disconnected.
 
 The sixth dial rotates through pages with wraparound; press it for Home. The first five dials are assignable. Shared positions are reserved on every page. Missing-plugin bindings remain visible as Unavailable and become usable again when their original provider returns.
 
 See [plugin and configuration guide](plugins.md) for build composition, settings ownership and external plugin authoring.
 
 
-The Bubble Tea interface uses blue section headers, a bordered viewport, aligned values and a highlighted selection. The header identifies the active tab; status and keyboard hints remain at the bottom. NO_COLOR preserves text selection markers without color. Terminals smaller than 42×10 show a resize notice and block hidden edits or confirmations.
+Desktop controls use the existing mascot, dark neutral surfaces, cyan active state and focus outlines, amber pending/fallback indicators, and red error/mute states. Labels always accompany color. Audio displays live meters; Soundboard shows searchable artwork and playback state. The responsive interface supports windows from 800×600; larger windows expose the deck inspector beside its grid.
 
 Stream Deck gain dials show live digital level bars below their gain readouts. A1/A2 show the loudest channel on that output bus; Mic shows the active input after mute. Green/amber/red runs from -60 to 0 dBFS. LEVEL N/A means readings are unavailable or stale. These sampled meters are not calibrated analog VU or guaranteed true-peak meters.

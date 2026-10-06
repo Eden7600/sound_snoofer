@@ -1,6 +1,6 @@
 # Snoofer
 
-A Windows tray application with optional compiled Audio, VR, Stream Deck, Soundboard and Windows media plugins. Core owns the tray, unified TUI, plugin lifecycle and semantic controls. Audio retains Sound Snoofer's Voicemeeter routing, recording and recovery behavior.
+A Windows tray application with optional compiled Audio, VR, Stream Deck, Soundboard and Windows media plugins. Core owns the tray, desktop controls, plugin lifecycle and semantic controls. Audio retains Sound Snoofer's Voicemeeter routing, recording and recovery behavior.
 
 ## Run
 
@@ -8,11 +8,11 @@ Launch `bin/snoofer.exe`; choose **Open controls** from its tray icon. Closing c
 
 Configuration defaults to `snoofer.json` beside the executable. Plugin dependency changes are confirmed together and restart the application. A new configuration starts with every plugin disabled. Personal settings were manually converted in `bin/snoofer.json`, with operational journals at their original paths.
 
-Arrows navigate, Tab switches Settings/Plugins, Enter edits or confirms, Escape cancels, +/− adjusts numeric controls, R retries failed plugins, Q closes controls. Normal audio remains editable while VR overrides it. Stream Deck layouts are edited in the same TUI with Save/Cancel.
+The controls window has Audio, Soundboard, Stream Deck, Plugins and Diagnostics screens. Click or use Tab to focus controls; sidebar Up/Down follows its vertical order. Text fields apply with Enter and cancel with Escape. Normal audio remains editable under VR overrides. The deck editor shows physical positions with a binding inspector and explicit Save/Discard.
 
 ## Build and validate
 
-Use the Go version in go.mod. Default audio builds require installed MSVC x64 tools and the Windows SDK for the callback companion; core-only builds do not. Do not redistribute Voicemeeter's vendor DLL.
+The GUI uses the installed Microsoft WebView2 runtime. HTML/CSS/JavaScript assets are embedded in snoofer.exe; no frontend bundler or separate server is required. Use the Go version in go.mod. Default audio builds require installed MSVC x64 tools and the Windows SDK for the callback companion; core-only builds do not. Do not redistribute Voicemeeter's vendor DLL.
 
 ```powershell
 .\scripts\build.ps1
