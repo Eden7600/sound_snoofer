@@ -3,13 +3,15 @@ package control
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/model"
 	"sound-snoofer/internal/routing"
 )
+
+// StallMessage is the health text for a qualified callback stall.
+const StallMessage = "Audio engine stalled: no callback buffers"
 
 // callbackHealth qualifies progress, not sample amplitude. Time gaps reset grace.
 type callbackHealth struct {
@@ -20,34 +22,73 @@ type callbackHealth struct {
 	enabled                                    bool
 }
 
+// callbackTarget identifies the A1 device whose engine clock the callback
+// monitor watches. An ASIO A1 needs the configured physical presence evidence
+// (an installed ASIO driver alone never counts); any other A1 device needs an
+// available non-ASIO output endpoint with the assigned name. The key changes
+// with assignments and matching endpoints, so hotplug restarts grace.
 func callbackTarget(cfg config.Config, s model.Snapshot) (string, string) {
-	if cfg.Studio == nil ||
-		s.Edition != 3 || !strings.EqualFold(s.Assignments["A1"], "Universal Audio Volt") {
-		return "", "Automatic recovery supports managed Volt A1 on Potato"
+	if s.Edition == 0 {
+		return "", "Voicemeeter edition unknown"
 	}
-	dev, err := routing.SelectASIO(cfg.Studio, s)
-	if err != nil {
-		return "", "A1 presence uncertain: " + err.Error()
+	a1 := s.Assignments["A1"]
+	if a1 == "" {
+		return "", "No device assigned to A1"
 	}
-	if dev == nil {
-		return "", "Volt disconnected; waiting for hardware before recovery"
-	}
-	if dev.Name != s.Assignments["A1"] {
-		return "", "A1 assignment differs from managed Volt"
-	}
-	// Include physical identity, all assignments and matcher changes in transition grace.
 	ids := []string{}
-	for _, d := range s.Devices {
-		if d.Available && d.Driver == "wdm" && d.Direction == "input" {
-			for _, a := range cfg.Studio.ASIO {
-				if a.ASIORegex != nil && a.PresenceRegex != nil && a.ASIORegex.MatchString(dev.Name) && a.PresenceRegex.MatchString(d.Name) {
-					ids = append(ids, d.ID, d.Name)
+	if asioA1(cfg, s, a1) {
+		if cfg.Studio == nil {
+			return "", "A1 ASIO presence unknown: no configured interface"
+		}
+		dev, err := routing.SelectASIO(cfg.Studio, s)
+		if err != nil {
+			return "", "A1 presence uncertain: " + err.Error()
+		}
+		if dev == nil || dev.Name != a1 {
+			return "", "A1 interface " + a1 + " not present; waiting for hardware"
+		}
+		for _, d := range s.Devices {
+			if d.Available && d.Driver == "wdm" && d.Direction == "input" {
+				for _, a := range cfg.Studio.ASIO {
+					if a.ASIORegex != nil && a.PresenceRegex != nil && a.ASIORegex.MatchString(dev.Name) && a.PresenceRegex.MatchString(d.Name) {
+						ids = append(ids, d.ID, d.Name)
+					}
 				}
 			}
 		}
+	} else {
+		for _, d := range s.Devices {
+			if d.Available && d.Driver != "asio" && d.Direction == "output" && d.Name == a1 {
+				ids = append(ids, d.Driver, d.ID, d.Name)
+			}
+		}
+		if len(ids) == 0 {
+			return "", "A1 device " + a1 + " not present; waiting for hardware"
+		}
 	}
-	key, _ := json.Marshal([]any{s.Assignments, ids, cfg.Studio.ASIO})
+	var asio any
+	if cfg.Studio != nil {
+		asio = cfg.Studio.ASIO
+	}
+	key, _ := json.Marshal([]any{s.Assignments, ids, asio})
 	return string(key), ""
+}
+
+// asioA1 reports whether the A1 assignment names an ASIO interface.
+func asioA1(cfg config.Config, s model.Snapshot, a1 string) bool {
+	for _, d := range s.Devices {
+		if d.Driver == "asio" && d.Name == a1 {
+			return true
+		}
+	}
+	if cfg.Studio != nil {
+		for _, a := range cfg.Studio.ASIO {
+			if a.ASIORegex != nil && a.ASIORegex.MatchString(a1) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (h *callbackHealth) update(cfg config.Config, s model.Snapshot, now time.Time) (bool, string) {
@@ -97,7 +138,7 @@ func (h *callbackHealth) update(cfg config.Config, s model.Snapshot, now time.Ti
 		h.firstFault = now
 	}
 	h.samples++
-	return h.samples >= 3 && now.Sub(h.firstFault) >= time.Second, "Audio processing stalled: no callback buffers"
+	return h.samples >= 3 && now.Sub(h.firstFault) >= time.Second, StallMessage
 }
 
 // automaticRestart rechecks inventory, identity, routing and transport at submission.

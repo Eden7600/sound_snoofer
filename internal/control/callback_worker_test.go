@@ -18,6 +18,7 @@ type monitorWorkerClient struct {
 	active         bool
 	transitions    chan bool
 	ownershipError atomic.Bool
+	present        bool // Keep A1 hardware present so a stall can qualify.
 }
 
 func (b *monitorWorkerClient) SetMonitoring(enable bool) error {
@@ -34,7 +35,7 @@ func (b *monitorWorkerClient) SetMonitoring(enable bool) error {
 func (b *monitorWorkerClient) Snapshot() (model.Snapshot, error) {
 	_, s := callbackFixture()
 	// Missing hardware never authorizes restart, even with no buffers.
-	s.Devices[1].Available = false
+	s.Devices[1].Available = b.present
 	if !b.active {
 		s.Callback = nil
 	}
@@ -104,5 +105,48 @@ func TestWorkerMonitorOnlyWithinLiveOwnership(t *testing.T) {
 	<-done
 	if held.Load() || b.ownershipError.Load() {
 		t.Fatal("monitor ownership violated")
+	}
+}
+
+func TestWorkerDetectsStallWithoutAutoRecover(t *testing.T) {
+	c, _ := callbackFixture()
+	c.Studio.Voice = &config.Voice{Source: "off", Mode: "direct", Monitor: "off"}
+	c.Intent = &config.Intent{Version: 1, Source: "off", Mode: "direct", Monitor: "off"}
+	var held atomic.Bool
+	b := &monitorWorkerClient{held: &held, transitions: make(chan bool, 8), present: true}
+	ctx, cancel := context.WithCancel(context.Background())
+	actions := make(chan Action, 4)
+	states := make(chan State, 1)
+	done := make(chan struct{})
+	deps := Dependencies{Open: func(string) (Client, error) { return b, nil }, Acquire: func() (func(), error) {
+		held.Store(true)
+		return func() { held.Store(false) }, nil
+	}}
+	go Work(ctx, c, filepath.Join(t.TempDir(), "config"), "", true, deps, actions, states, done)
+	defer func() {
+		cancel()
+		<-done
+	}()
+	select {
+	case on := <-b.transitions:
+		if !on {
+			t.Fatal("expected live monitor without Auto-recover")
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("monitor not registered without Auto-recover")
+	}
+	deadline := time.After(15 * time.Second)
+	for {
+		select {
+		case s := <-states:
+			if s.Stalled {
+				if s.Health != StallMessage+" · restart required" || s.RecoveryPending {
+					t.Fatalf("alert-only stall reported %q (pending %v)", s.Health, s.RecoveryPending)
+				}
+				return
+			}
+		case <-deadline:
+			t.Fatal("stall not reported without Auto-recover")
+		}
 	}
 }

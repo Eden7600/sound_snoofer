@@ -114,3 +114,24 @@ func TestAudioIntegrationReports(t *testing.T) {
 		}
 	}
 }
+
+func TestStalledEngineReports(t *testing.T) {
+	var r reporter
+	now := time.Date(2026, 10, 6, 9, 28, 0, 0, time.UTC)
+	s := control.State{Connected: true, Live: true, Stalled: true, ObservedAt: now, Health: control.StallMessage,
+		Snapshot: model.Snapshot{Edition: 3, Callback: &model.CallbackStatus{Active: true, Starting: 1}}}
+	list := r.reports(s, now)
+	vm, cb := find(t, list, "audio.app-voicemeeter"), find(t, list, "audio.app-callback")
+	if vm.Value != "Engine stalled" || vm.Connection.State != snoofer.ConnectionAttention || vm.Connection.LastError != control.StallMessage {
+		t.Fatalf("voicemeeter %+v", vm.Connection)
+	}
+	if cb.Value != "Stalled" || cb.Connection.State != snoofer.ConnectionAttention {
+		t.Fatalf("callback %+v", cb.Connection)
+	}
+	s.Stalled = false
+	s.Snapshot.Callback.Buffers = 940
+	vm, cb = find(t, r.reports(s, now.Add(time.Minute)), "audio.app-voicemeeter"), find(t, r.reports(s, now.Add(time.Minute)), "audio.app-callback")
+	if vm.Connection.State != snoofer.ConnectionConnected || vm.Connection.LastError != control.StallMessage || cb.Connection.State != snoofer.ConnectionConnected {
+		t.Fatalf("recovery lost history: %+v %+v", vm.Connection, cb.Connection)
+	}
+}

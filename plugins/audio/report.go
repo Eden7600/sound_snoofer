@@ -61,7 +61,12 @@ func (r *reporter) voicemeeterReport(s control.State, now time.Time) snoofer.Con
 	}
 	r.connected = s.Connected
 	state, value := snoofer.ConnectionDisconnected, "Disconnected"
-	if s.Connected {
+	switch {
+	case s.Connected && s.Stalled:
+		// The API answers but the engine is not processing audio.
+		state, value = snoofer.ConnectionAttention, "Engine stalled"
+		t.Fail(control.StallMessage, now)
+	case s.Connected:
 		state, value = snoofer.ConnectionConnected, firstNonEmpty(editionName(s.Snapshot.Edition), "Connected")
 	}
 	t.Observe(state, now)
@@ -105,6 +110,9 @@ func (r *reporter) callbackReport(s control.State, now time.Time) snoofer.Contro
 		t.Fail(cb.Error, now)
 	case s.RecoveryPending:
 		state, value = snoofer.ConnectionAttention, "Recovering"
+	case s.Stalled:
+		state, value = snoofer.ConnectionAttention, "Stalled"
+		t.Fail(control.StallMessage, now)
 	case cb.Active:
 		state, value = snoofer.ConnectionConnected, "Active"
 	default:

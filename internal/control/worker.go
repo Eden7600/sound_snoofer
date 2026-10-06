@@ -48,6 +48,7 @@ type State struct {
 	DefaultKind                         windowsaudio.StatusKind
 	DefaultsDetail                      windowsaudio.Result // Latest full defaults observation, for diagnostics.
 	Remote                              model.RemoteInfo    // Native Remote API identity, for diagnostics.
+	Stalled                             bool                // A qualified callback stall: the engine is not processing audio.
 	RecoveryOutcome                     string
 	RecoveryPending                     bool
 	VRMic                               string
@@ -701,7 +702,10 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				return
 			}
 		}
-		monitorWanted := state.Live && cfg.VoiceIntent() != nil && cfg.VoiceIntent().AutoRecover
+		// Stall detection runs whenever the live owner holds audio; Auto-recover only
+		// gates automatic dispatch. Preview never registers the callback.
+		monitorWanted := state.Live
+		autoRecover := cfg.VoiceIntent() != nil && cfg.VoiceIntent().AutoRecover
 		monitorErr := configureMonitor(monitorWanted)
 		state.Error = ""
 		if recovery.pending {
@@ -740,9 +744,13 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		}
 		wasPending := recovery.pending
 		state.Health = recovery.observe(healthSnapshot, time.Now())
+		state.Stalled = monitorWanted && monitorErr == nil && fault
 		if monitorWanted && !wasPending {
 			state.Health = callbackMessage
-			if fault && !recovery.pending {
+			if fault && !recovery.pending && !autoRecover {
+				state.Health += " · restart required"
+			}
+			if fault && !recovery.pending && autoRecover {
 				if err := recovery.automaticRestart(backend, cfg, state.Live, time.Now()); err != nil {
 					state.Health += " · Auto: " + err.Error()
 				} else {

@@ -44,7 +44,7 @@ func TestCallbackDisconnectGraceAndSilence(t *testing.T) {
 		t.Fatal("stopped callbacks not detected")
 	}
 	s.Devices[1].Available = false
-	if fault, reason := h.update(c, s, now.Add(6500*time.Millisecond)); fault || !strings.Contains(reason, "disconnected") {
+	if fault, reason := h.update(c, s, now.Add(6500*time.Millisecond)); fault || !strings.Contains(reason, "not present") {
 		t.Fatal(fault, reason)
 	}
 	s.Devices[1].Available = true
@@ -75,7 +75,7 @@ func TestCallbackUnknownIdentityAndLifecycle(t *testing.T) {
 			case "other-a1":
 				s.Assignments["A1"] = "other"
 			case "edition":
-				s.Edition = 2
+				s.Edition = 0
 			case "ended":
 				s.Callback.Ending = 1
 			}
@@ -218,4 +218,66 @@ func TestAutomaticDispatchFreshGuards(t *testing.T) {
 }
 func (b *callbackBackend) SetRecorder(string, int) error {
 	return fmt.Errorf("unexpected recorder write")
+}
+
+// wdmFixture reproduces the 2026-10-06 incident: a WDM SteelSeries on A1, no Volt.
+func wdmFixture() (config.Config, model.Snapshot) {
+	c, s := callbackFixture()
+	s.Assignments["A1"] = "Speakers (3- SteelSeries Arena 9)"
+	s.Devices = []model.Device{
+		{Name: "Universal Audio Volt", Driver: "asio", Direction: "output", Available: true}, // Installed driver only.
+		{Name: "Speakers (3- SteelSeries Arena 9)", ID: "ss", Driver: "wdm", Direction: "output", Available: true},
+		{Name: "Speakers (3- SteelSeries Arena 9)", ID: "ss", Driver: "mme", Direction: "output", Available: true},
+	}
+	return c, s
+}
+
+func TestCallbackStallOnWDMA1(t *testing.T) {
+	c, s := wdmFixture()
+	h := callbackHealth{}
+	if !qualify(&h, c, s, time.Now()) {
+		t.Fatal("stopped callbacks on a WDM A1 not detected")
+	}
+	if _, reason := h.update(c, s, time.Now().Add(time.Hour)); reason == "" {
+		t.Fatal("no reason")
+	}
+
+	c, s = wdmFixture()
+	s.Devices = s.Devices[:1] // SteelSeries unplugged; only the Volt ASIO driver remains enumerated.
+	h = callbackHealth{}
+	if qualify(&h, c, s, time.Now()) {
+		t.Fatal("absent WDM A1 qualified")
+	}
+	if _, reason := callbackTarget(c, s); !strings.Contains(reason, "not present") {
+		t.Fatal(reason)
+	}
+
+	c, s = wdmFixture()
+	s.Devices[1].Driver = "asio" // Same name only as an ASIO entry: not WDM presence evidence.
+	s.Devices = s.Devices[:2]
+	if key, _ := callbackTarget(c, s); key != "" {
+		t.Fatal("ASIO entry accepted as presence of a non-matching A1")
+	}
+
+	c, s = wdmFixture()
+	delete(s.Assignments, "A1")
+	if _, reason := callbackTarget(c, s); reason != "No device assigned to A1" {
+		t.Fatal(reason)
+	}
+
+	// An installed Volt ASIO driver without physical presence never qualifies.
+	c, s = callbackFixture()
+	s.Devices[0].Available = true
+	s.Devices = s.Devices[:1]
+	if key, reason := callbackTarget(c, s); key != "" || !strings.Contains(reason, "not present") {
+		t.Fatal(key, reason)
+	}
+
+	// A WDM target without a Studio configuration still qualifies.
+	c, s = wdmFixture()
+	c.Studio = nil
+	h = callbackHealth{}
+	if !qualify(&h, c, s, time.Now()) {
+		t.Fatal("WDM A1 without studio config not detected")
+	}
 }
