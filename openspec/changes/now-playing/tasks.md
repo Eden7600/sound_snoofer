@@ -26,7 +26,7 @@ Each numbered block is one reviewable commit.
 - [x] 21. `feat(snoofer)`: `Progress` telemetry excluded from revisions; deck rendering from interpolated progress. Tests cover revision stability and rendering.
 - [x] 22. `fix(nowplaying)`: progress telemetry, coalesced scrubbing and optimistic progress. Tests cover coalescing, stale-free turning and quiet timeout.
 - [x] 23. `fix(gui)`: interpolated progress on session cards and an optimistic slider. The GUI check is updated.
-- [ ] 24. Validate: all checks and the canonical build; relaunch.
+- [x] 24. Validate: all checks and the canonical build; relaunch.
 
 ## Hardware acceptance
 - [ ] 9. With Brave and a Windows player:

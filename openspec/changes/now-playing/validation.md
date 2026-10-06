@@ -75,3 +75,30 @@ Review found the export pattern unsuitable for store publishing, and the first i
 
 ### Not automated
 Restarting an unpacked extension after `runtime.reload()` does not work under automation, so the update path in a real install is covered by hardware acceptance.
+
+## Revision: refined seeking (commits bed3e51 through ab24de6)
+### Causes
+- **Dropped turns:** the dial's value changed every second, so its revision changed too. Deck turns that crossed an update were rejected as stale, and the deck dropped events from the old generation.
+- **Seek per detent:** each detent sent its own seek.
+- **Display:** it snapped back until the player confirmed, and slow confirmations showed "No response".
+- **GUI slider:** it froze after one drag, because focus blocked updates.
+
+### Fixes
+- **`snoofer.Progress`:** display-only telemetry that the registry, like `Meter`, ignores for revisions. The deck renders interpolated `m:ss / m:ss` from it, with a status note.
+- **Coalesced scrubbing:** detents gather into one seek, sent 250 ms after the dial rests.
+- **Optimistic progress:** the requested position is shown until the player reports it.
+- **Quiet timeout:** a seek the player never confirms clears without an error.
+- **No Pending on the dial:** a status change would itself change the revision.
+- **GUI:** cards interpolate progress, and the slider uses a dragging flag.
+
+### Checks
+- `go test ./...`: pass. The nowplaying tests were run 3 times in a row. New tests cover:
+  - progress interpolation and text;
+  - the revision staying stable while progress advances, with input still accepted;
+  - three quick detents producing one seek to +15 s with an unchanged revision;
+  - a follow-up turn starting from the target;
+  - a quiet timeout.
+- `node --test app/web/model.test.mjs`: 6/6, including `progressAt`.
+- `scripts/check-gui.cjs`: pass. The slider follows the session after a seek, and a playing card advances between polls.
+- `scripts/check-desktop.cjs` and `scripts/check-extension.cjs` (Chrome and Brave stages): pass.
+- **Build and relaunch:** built with `scripts/build.ps1`; Snoofer relaunched.
