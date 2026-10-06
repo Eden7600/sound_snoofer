@@ -68,6 +68,7 @@ This builds on the existing pure-Go COM approach (`defaults_windows.go`): vtable
 - **Editor:** dial regions are listed with key regions and created by Shift-selecting dials. Validation rejects overlap with bound dials or other dial regions.
 
 ### Apps page (defaults and personal layout)
+Superseded: apps now share the Media page (change now-playing §4a), on keys 11–14 over dials 2–5, with an Apps deck filter. What follows is the original design.
 - **Dials 1–5:** a dial region of `appaudio.apps`. The strip shows name, value and meter, and its position track shows the percentage.
 - **Keys 1–5 (r1):** a key region of `appaudio.apps`, showing icon, name and value; Muted uses the critical colour. A press mutes.
 - **Up and Down** (keys 18 and 27) page through apps beyond five.

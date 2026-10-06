@@ -55,3 +55,14 @@ The bridge SHALL listen only on localhost, accept only browser-extension origins
 #### Scenario: Protocol mismatch
 - **WHEN** an extension offers a protocol version Snoofer does not support
 - **THEN** the connection is refused, and Snoofer and the extension's popup say which side to update
+
+### Requirement: Deck filters for apps and media
+The combined Media deck page SHALL offer an Apps filter (All, Pinned, Off) and a Media filter (On, Off) that limit what the deck shows without changing the GUI screens.
+
+#### Scenario: Pinned apps only
+- **WHEN** the Apps filter is Pinned
+- **THEN** only picked apps fill the app keys and dials, closing ranks, and the App audio screen still lists every app
+
+#### Scenario: Media off
+- **WHEN** the Media filter is Off
+- **THEN** session keys, transport keys and the media dial are blank on every page, and the Media filter key stays visible

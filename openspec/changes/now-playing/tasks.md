@@ -27,6 +27,11 @@ Each numbered block is one reviewable commit.
 - [x] 22. `fix(nowplaying)`: progress telemetry, coalesced scrubbing and optimistic progress. Tests cover coalescing, stale-free turning and quiet timeout.
 - [x] 23. `fix(gui)`: interpolated progress on session cards and an optimistic slider. The GUI check is updated.
 - [x] 24. Validate: all checks and the canonical build; relaunch.
+- [x] 25. `docs(media)`: one Media deck page for apps and media, with deck filters (§4a).
+- [ ] 26. `feat(appaudio)`: Apps deck filter (All, Pinned, Off), saved, with filtered apps Hidden. Includes tests.
+- [ ] 27. `feat(nowplaying)`: Media deck filter (On, Off), saved, hiding sessions, the dial and transport. Includes tests.
+- [ ] 28. `feat(streamdeck)`: the combined default page; Home go-to keys. Tests cover the layout and paging. Migrate the personal layout.
+- [ ] 29. Validate: all checks and the canonical build; relaunch.
 
 ## Hardware acceptance
 - [ ] 9. With Brave and a Windows player:

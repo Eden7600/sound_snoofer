@@ -123,6 +123,29 @@ Review found seeking unreliable. The dial's value (`m:ss / m:ss`) changed every 
 - **Home:** a go-to key for Media and the media dial on dial 3.
 - **Personal layout:** the same additions, at Home key 33 (r4c6) and dial 3 (both free). Home's existing media keys stay.
 
+## 4a. Combined Media page (revised after review)
+The Apps page (change app-audio) and the Media page were both sparse, so they are one deck page. The GUI keeps its separate App audio and Media screens.
+
+| Row | Keys |
+|---|---|
+| r1 c1–c8 | media sessions (region) |
+| r2 c2–c5 (keys 11–14) | app keys (region), above their dials |
+| r2c9, r3c9 | Up, Down |
+| r4 c1–c5 (keys 28–32) | Previous, Play/Pause, Next, Mute, Focus |
+| r4 c7 (key 34) | **Apps** filter |
+| r4 c8 (key 35) | **Media** filter |
+
+**Dials:** dial 1 is the media dial; dials 2–5 are a dial region of apps, paging in step with the app keys.
+
+**Filters** are deck filters owned by their providers and saved in their settings. Filtered members are published Hidden, so deck regions skip them, bound keys go blank, and the GUI screens, which list every member, are unaffected.
+- **`appaudio.deck-apps`:** a selection cycled by the key: All, Pinned or Off (setting `deck_apps`).
+  - Pinned keeps only picked apps; Off hides every app, leaving the app keys and dials blank.
+- **`nowplaying.deck-media`:** a toggle, On or Off (setting `deck_media`).
+  - Off hides the session keys, the media dial and the transport keys on every page, Home's media dial included.
+  - The toggle itself stays visible so it can be turned back on.
+
+**Home:** the go-to key for Apps is removed, and Media's moves to key 34 (r4c7), so Media, Soundboard and Lights sit together. The personal layout is migrated the same way.
+
 ## 5. GUI
 - **Media screen** (sidebar, after App audio):
   - **Session cards:** artwork, title, artist, source (app or browser · site), a progress bar with a seek slider, Previous/Play/Next, Mute for tabs and a Focus marker (click to focus).
