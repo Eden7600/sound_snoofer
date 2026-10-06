@@ -101,7 +101,8 @@ The browser's single Windows session repeats one of its tabs, so title matching 
 Review found seeking unreliable. The dial's value (`m:ss / m:ss`) changed every second, which gave the control a new revision each time. Deck turns that crossed an update were rejected as stale, and the new generation also dropped deck events. Each detent also sent its own seek, the display snapped back until the player confirmed, and slow confirmations flashed "No response".
 
 - **Progress telemetry:** `snoofer.Control.Progress{Known, Playing, PositionMs, DurationMs, Rate, At}` is display-only, like `Meter`, and is excluded from revisions. Surfaces interpolate it: `position + (now − At) × Rate` while playing, clamped to the length.
-  - The dial and session controls carry it. Their `Value` changes only with the play state, so input is never rejected during playback.
+  - The media dial carries it, and its `Value` changes only with the play state, so input is never rejected during playback.
+  - Session keys keep showing Playing or Paused. The GUI's session cards get the same fields (position, rate, playing, sample time) in the status ViewData and interpolate them.
 - **Scrubbing:**
   - Dial detents accumulate into one target (±5 s each, from the shown position), and the shown progress moves to it at once.
   - One seek goes out 250 ms after the last detent.

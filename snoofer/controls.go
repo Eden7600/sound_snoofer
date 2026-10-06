@@ -23,6 +23,7 @@ type Control struct {
 	CollectionLabel                             string          // Optional editor name for Collection.
 	Order                                       int             // Optional position within Collection; regions fill by Order, then label.
 	Meter                                       Meter
+	Progress                                    Progress    // Optional playback position; display only, like Meter.
 	Timers                                      []Timer     `json:",omitempty"` // Optional running countdowns, such as playing clips.
 	Connection                                  *Connection `json:",omitempty"` // Optional external integration report (Kind "connection").
 	SurfaceOnly                                 bool
@@ -51,6 +52,49 @@ type ArtworkFrame struct {
 type Timer struct {
 	Control string
 	Ends    time.Time
+}
+
+// Progress is optional display-only playback telemetry. Like Meter it never
+// changes command identity, so input is not rejected as stale while it
+// advances. Surfaces interpolate it with PositionAt.
+type Progress struct {
+	Known, Playing         bool
+	PositionMs, DurationMs int64 // DurationMs is zero when unknown.
+	Rate                   float64
+	At                     time.Time // When PositionMs was true.
+}
+
+// PositionAt interpolates the position at now, clamped to the length.
+func (p Progress) PositionAt(now time.Time) int64 {
+	position := p.PositionMs
+	if p.Playing && !p.At.IsZero() {
+		rate := p.Rate
+		if rate <= 0 {
+			rate = 1
+		}
+		position += int64(float64(now.Sub(p.At).Milliseconds()) * rate)
+	}
+	if p.DurationMs > 0 {
+		position = min(position, p.DurationMs)
+	}
+	return max(0, position)
+}
+
+// Text is the position at now as m:ss, with the length when known
+// ("1:05 / 4:45"); hours appear from an hour.
+func (p Progress) Text(now time.Time) string {
+	if p.DurationMs <= 0 {
+		return clock(p.PositionAt(now))
+	}
+	return clock(p.PositionAt(now)) + " / " + clock(p.DurationMs)
+}
+
+func clock(ms int64) string {
+	seconds := max(0, ms/1000)
+	if seconds >= 3600 {
+		return fmt.Sprintf("%d:%02d:%02d", seconds/3600, seconds/60%60, seconds%60)
+	}
+	return fmt.Sprintf("%d:%02d", seconds/60, seconds%60)
 }
 
 // Meter is optional display-only telemetry in dBFS; it never changes command identity.
@@ -111,7 +155,8 @@ func (c *Controls) Publish(provider string, controls []Control, invoke func(cont
 		old, ok := c.entries[v.ID]
 		previous := old.control
 		previous.Revision = 0
-		previous.Meter = v.Meter // Signal motion must not invalidate pending control input.
+		previous.Meter = v.Meter       // Signal motion must not invalidate pending control input.
+		previous.Progress = v.Progress // Nor may playback advancing.
 		v.Revision = 0
 		if ok && reflect.DeepEqual(previous, v) {
 			v.Revision = old.control.Revision

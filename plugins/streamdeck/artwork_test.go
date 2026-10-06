@@ -26,3 +26,13 @@ func TestArtworkAt(t *testing.T) {
 		t.Fatal("key does not show the current frame", tile.Artwork)
 	}
 }
+
+func TestProgressDialTile(t *testing.T) {
+	at := time.Unix(5000, 0)
+	c := snoofer.Control{Label: "Now playing", ShortLabel: "Song", Available: true, Value: "Playing", Status: "Pending",
+		Progress: snoofer.Progress{Known: true, Playing: true, PositionMs: 60_000, DurationMs: 240_000, Rate: 1, At: at}}
+	tile := withPosition(bindingTile(Binding{Control: "nowplaying.dial"}, c, true, at.Add(5*time.Second)))
+	if tile.Value != "1:05 / 4:00" || tile.Status != "Wait" || !tile.PositionKnown || tile.Label != "Song" {
+		t.Fatalf("%+v", tile)
+	}
+}

@@ -4,6 +4,7 @@ package streamdeck
 type Tile struct {
 	Artwork            string
 	Label, Value, Icon string
+	Status             string // Dials: a short note drawn beside the value, when the value itself must stay visible.
 	Meter, LevelKnown  bool
 	LevelDB            float64
 	PeakKnown          bool // Dials: a held peak to mark on the meter.
@@ -38,7 +39,7 @@ func renderChangedFrame(f, previous Frame, cached [][]byte) ([][]byte, []byte) {
 	}
 	for n, k := range f.Dials {
 		view.Knobs[n] = knobPresentation{Target: k.Label, Value: k.Value, Meter: k.Meter, LevelKnown: k.LevelKnown, LevelDB: k.LevelDB,
-			PeakKnown: k.PeakKnown, PeakDB: k.PeakDB, PositionKnown: k.PositionKnown, Position: k.Position, ZeroMark: k.ZeroMark, Timers: k.Timers, Artwork: k.Artwork}
+			PeakKnown: k.PeakKnown, PeakDB: k.PeakDB, PositionKnown: k.PositionKnown, Position: k.Position, ZeroMark: k.ZeroMark, Timers: k.Timers, Artwork: k.Artwork, Status: k.Status}
 		if n == Encoders-1 {
 			// Only the page dial carries text (the next page name) in Icon; a
 			// control's icon is an identifier, never strip text.

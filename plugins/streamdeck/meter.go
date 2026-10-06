@@ -42,6 +42,14 @@ func controlTile(c snoofer.Control, value string, now time.Time) device.Tile {
 	if label == "" {
 		label = c.Label
 	}
+	if c.Progress.Known {
+		// Playback position stays visible; a pending seek or failure is a note.
+		note := c.Status
+		if note == "Pending" {
+			note = "Wait"
+		}
+		return device.Tile{Artwork: artworkAt(c, now), Label: label, Value: c.Progress.Text(now), Icon: c.Icon, Status: note}
+	}
 	if c.Status != "" {
 		switch c.Status {
 		case "Pending":
