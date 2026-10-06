@@ -6,6 +6,11 @@ type Tile struct {
 	Label, Value, Icon string
 	Meter, LevelKnown  bool
 	LevelDB            float64
+	PeakKnown          bool // Dials: a held peak to mark on the meter.
+	PeakDB             float64
+	PositionKnown      bool    // Dials: the value's place within its range.
+	Position           float64 // 0…1.
+	ZeroMark           float64 // 0…1 position of a neutral mark; 0 for none.
 }
 
 // Frame contains one complete layout generation. Dial 6 is navigation.
@@ -25,7 +30,8 @@ func renderChangedFrame(f, previous Frame, cached [][]byte) ([][]byte, []byte) {
 		view.Keys[n] = keyPresentation{Artwork: k.Artwork, Label: k.Label, Value: k.Value, Icon: k.Icon}
 	}
 	for n, k := range f.Dials {
-		view.Knobs[n] = knobPresentation{Target: k.Label, Value: k.Value, Meter: k.Meter, LevelKnown: k.LevelKnown, LevelDB: k.LevelDB}
+		view.Knobs[n] = knobPresentation{Target: k.Label, Value: k.Value, Meter: k.Meter, LevelKnown: k.LevelKnown, LevelDB: k.LevelDB,
+			PeakKnown: k.PeakKnown, PeakDB: k.PeakDB, PositionKnown: k.PositionKnown, Position: k.Position, ZeroMark: k.ZeroMark}
 		if n == Encoders-1 {
 			// Only the page dial carries text (the next page name) in Icon; a
 			// control's icon is an identifier, never strip text.

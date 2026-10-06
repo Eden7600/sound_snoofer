@@ -431,7 +431,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 	}
 	var meterTicks <-chan time.Time
 	if deps.Meters {
-		ticker := time.NewTicker(100 * time.Millisecond)
+		ticker := time.NewTicker(50 * time.Millisecond)
 		defer ticker.Stop()
 		meterTicks = ticker.C
 	}

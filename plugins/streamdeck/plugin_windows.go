@@ -72,8 +72,12 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 		generation := uint64(1)
 		dirty := false
 		editorEpoch := uint64(1)
-		ticker := time.NewTicker(150 * time.Millisecond)
+		// Dial meters refresh faster than static tiles; the cadence follows
+		// whether the shown page has any meter.
+		ticker := time.NewTicker(idleRefresh)
 		defer ticker.Stop()
+		refresh := idleRefresh
+		var vus [Dials]vuMeter
 		active := func() Layout {
 			if l, ok := settings.Serials[serial]; ok {
 				return l
@@ -119,8 +123,19 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			for n, b := range p.Keys {
 				frame.Keys[n] = tile(b)
 			}
+			now := time.Now()
+			metered := false
 			for n, b := range p.Dials {
-				frame.Dials[n] = tile(b)
+				frame.Dials[n] = vus[n].apply(b.Control, withPosition(tile(b)), now)
+				metered = metered || frame.Dials[n].Meter
+			}
+			want := idleRefresh
+			if metered {
+				want = meterRefresh
+			}
+			if want != refresh {
+				refresh = want
+				ticker.Reset(refresh)
 			}
 			names := l.pageNames(p.ID)
 			frame.Dials[5] = device.Tile{Label: names[0], Value: names[1], Icon: names[2]}

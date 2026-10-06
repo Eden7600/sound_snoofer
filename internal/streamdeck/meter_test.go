@@ -19,6 +19,15 @@ func TestMeterRenderingAndStaticKeyCache(t *testing.T) {
 	if im.RGBAAt(8, 70) == green {
 		t.Fatal("silence retained signal")
 	}
+	peaked := knobPresentation{Meter: true, LevelKnown: true, LevelDB: -60, PeakKnown: true, PeakDB: -30, PositionKnown: true, Position: 0.5, ZeroMark: 0.75}
+	drawMeter(im, 8, peaked)
+	if tick := im.RGBAAt(8+(dialWidth-1)/2, meterTop+meterRows/2); tick != textColor {
+		t.Fatal("peak tick missing", tick)
+	}
+	drawPosition(im, 8, peaked)
+	if im.RGBAAt(8+dialWidth/4, 55) != activeColor || im.RGBAAt(8+dialWidth*7/8, 55) != meterQuietColor {
+		t.Fatal("position track wrong")
+	}
 	f := Frame{}
 	f.Dials[0] = Tile{Label: "A1 gain", Value: "0.0 dB", Meter: true, LevelKnown: true, LevelDB: -30}
 	keys, touch := renderFrame(f)

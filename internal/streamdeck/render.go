@@ -158,6 +158,8 @@ type knobPresentation struct {
 	Target, Value, Name, Status string
 	Meter, LevelKnown           bool
 	LevelDB                     float64
+	PeakKnown, PositionKnown    bool
+	PeakDB, Position, ZeroMark  float64
 }
 type presentation struct {
 	Keys  [Keys]keyPresentation
@@ -202,13 +204,22 @@ func renderKnobs(knobs [Encoders]knobPresentation) []byte {
 			}
 			continue
 		}
-		text(panel, n*200+8, 12, 2, knob.Target, activeColor)
-		text(panel, n*200+100, 12, 2, knob.Status, attentionColor)
-		text(panel, n*200+8, 40, 2, knob.Value, textColor)
+		x := n*200 + dialInset
+		text(panel, x, 8, 2, knob.Target, activeColor)
+		text(panel, n*200+100, 8, 2, knob.Status, attentionColor)
+		// The value is the dial's headline: large when it fits the panel.
+		size := 3
+		if len([]rune(knob.Value))*6*size > dialWidth {
+			size = 2
+		}
+		text(panel, x, 28, size, knob.Value, textColor)
+		if knob.PositionKnown {
+			drawPosition(panel, x, knob)
+		}
 		if knob.Meter {
-			drawMeter(panel, n*200+8, knob)
-		} else {
-			text(panel, n*200+8, 72, 2, knob.Name, neutralColor)
+			drawMeter(panel, x, knob)
+		} else if knob.Name != "" {
+			text(panel, x, 72, 2, knob.Name, neutralColor)
 		}
 	}
 	rotated := image.NewRGBA(image.Rect(0, 0, 100, 1200))
@@ -222,34 +233,85 @@ func renderKnobs(knobs [Encoders]knobPresentation) []byte {
 	return buf.Bytes()
 }
 
+const (
+	dialInset = 8
+	dialWidth = 184 // Usable width of a 200px dial panel.
+	meterTop  = 64
+	meterRows = 12
+)
+
+func fill(im *image.RGBA, x0, y0, x1, y1 int, c color.RGBA) {
+	for y := y0; y < y1; y++ {
+		for x := x0; x < x1; x++ {
+			im.SetRGBA(x, y, c)
+		}
+	}
+}
+
+// drawPosition shows where the value sits in its range, with an optional
+// neutral mark (0 dB for gain).
+func drawPosition(im *image.RGBA, x int, k knobPresentation) {
+	fill(im, x, 54, x+dialWidth, 58, meterQuietColor)
+	fill(im, x, 54, x+int(k.Position*dialWidth+0.5), 58, activeColor)
+	if k.ZeroMark > 0 {
+		zx := x + int(k.ZeroMark*dialWidth+0.5)
+		fill(im, zx-1, 52, zx+1, 60, textColor)
+	}
+}
+
+// meterColor blends green through amber to red across the dBFS scale.
+func meterColor(db float64) color.RGBA {
+	mix := func(a, b color.RGBA, t float64) color.RGBA {
+		t = min(1, max(0, t))
+		return color.RGBA{uint8(float64(a.R) + (float64(b.R)-float64(a.R))*t), uint8(float64(a.G) + (float64(b.G)-float64(a.G))*t), uint8(float64(a.B) + (float64(b.B)-float64(a.B))*t), 255}
+	}
+	if db < -12 {
+		return mix(meterGreenColor, meterAmberColor, (db+18)/6)
+	}
+	return mix(meterAmberColor, meterRedColor, (db+6)/4)
+}
+
+// dim keeps the unlit meter faintly visible as a gradient track.
+func dim(c color.RGBA) color.RGBA {
+	return color.RGBA{uint8((int(c.R)*22 + int(backgroundColor.R)*78) / 100), uint8((int(c.G)*22 + int(backgroundColor.G)*78) / 100), uint8((int(c.B)*22 + int(backgroundColor.B)*78) / 100), 255}
+}
+
+// drawMeter renders a continuous gradient bar with a held peak tick. Unknown
+// or expired readings say so instead of drawing silence.
 func drawMeter(im *image.RGBA, x int, k knobPresentation) {
 	if !k.LevelKnown {
 		text(im, x, 72, 1, "LEVEL N/A", neutralColor)
 		return
 	}
-	for segment := 0; segment < 24; segment++ {
-		threshold := -60 + float64(segment)*2.5
-		c := meterQuietColor
-		if k.LevelDB > threshold {
-			c = meterGreenColor
-			if threshold >= -12 {
-				c = meterAmberColor
-			}
-			if threshold >= -3 {
-				c = meterRedColor
-			}
+	for px := 0; px < dialWidth; px++ {
+		db := -60 + float64(px)/float64(dialWidth-1)*60
+		c := meterColor(db)
+		if db >= k.LevelDB {
+			c = dim(c)
 		}
-		for yy := 68; yy < 81; yy++ {
-			for xx := x + segment*7; xx < x+segment*7+5; xx++ {
-				im.SetRGBA(xx, yy, c)
-			}
+		fill(im, x+px, meterTop, x+px+1, meterTop+meterRows, c)
+	}
+	if k.PeakKnown && k.PeakDB > -60 {
+		px := x + int((min(0, k.PeakDB)+60)/60*float64(dialWidth-1))
+		ink := textColor
+		if k.PeakDB >= -3 {
+			ink = meterRedColor
 		}
+		fill(im, max(x, px-1), meterTop-2, min(x+dialWidth, px+2), meterTop+meterRows+2, ink)
 	}
 	scale := neutralColor
-	text(im, x, 87, 1, "-60", scale)
-	text(im, x+75, 87, 1, "-30", scale)
-	text(im, x+114, 87, 1, "DBFS", scale)
-	text(im, x+162, 87, 1, "0", scale)
+	for _, mark := range []struct {
+		db    float64
+		label string
+	}{{-60, "-60"}, {-30, "-30"}, {-12, "-12"}, {0, "0"}} {
+		px := x + int((mark.db+60)/60*float64(dialWidth-1))
+		width := len(mark.label) * 6
+		lx := min(px, x+dialWidth-width)
+		if mark.db > -60 && mark.db < 0 {
+			lx = px - width/2
+		}
+		text(im, lx, meterTop+meterRows+5, 1, mark.label, scale)
+	}
 }
 
 // drawArtwork accepts only the bounded thumbnail contract, never source files.
