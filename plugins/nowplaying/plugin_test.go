@@ -367,3 +367,36 @@ func TestFocusMovesToTheOnlyPlayingSession(t *testing.T) {
 		t.Fatal("focus moved with nothing playing", f)
 	}
 }
+
+func TestDeckMediaFilter(t *testing.T) {
+	r := newRig(t, true)
+	var saved Settings
+	r.w.services.SaveSettings = func(id string, _, next json.RawMessage) error {
+		saved = Settings{}
+		return json.Unmarshal(next, &saved)
+	}
+	r.w.raw = json.RawMessage("{}")
+	r.win.sessions = []mediasessions.Session{spotify("playing", 0, r.now)}
+	r.tick(0)
+	if c := r.control("nowplaying.deck-media"); c.Value != "On" || !c.Available {
+		t.Fatalf("filter %+v", c)
+	}
+	r.press("nowplaying.deck-media", "press", 0)
+	r.tick(0)
+	if !saved.DeckMediaOff || r.control("nowplaying.deck-media").Value != "Off" || r.control("nowplaying.deck-media").Hidden {
+		t.Fatal("filter not saved or hidden", saved)
+	}
+	for _, id := range []string{"nowplaying.dial", "nowplaying.toggle", "nowplaying.next", r.members()[0].ID} {
+		if !r.control(id).Hidden {
+			t.Error(id, "shown with media off")
+		}
+	}
+	if len(r.members()) != 1 {
+		t.Fatal("sessions left the published list; the GUI needs them")
+	}
+	r.press("nowplaying.deck-media", "press", 0)
+	r.tick(0)
+	if saved.DeckMediaOff || r.control("nowplaying.dial").Hidden {
+		t.Fatal("media not restored")
+	}
+}

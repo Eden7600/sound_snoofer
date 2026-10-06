@@ -140,7 +140,7 @@ The Apps page (change app-audio) and the Media page were both sparse, so they ar
 **Filters** are deck filters owned by their providers and saved in their settings. Filtered members are published Hidden, so deck regions skip them, bound keys go blank, and the GUI screens, which list every member, are unaffected.
 - **`appaudio.deck-apps`:** a selection cycled by the key: All, Pinned or Off (setting `deck_apps`).
   - Pinned keeps only picked apps; Off hides every app, leaving the app keys and dials blank.
-- **`nowplaying.deck-media`:** a toggle, On or Off (setting `deck_media`).
+- **`nowplaying.deck-media`:** a toggle, On or Off (setting `deck_media_off`, so On is the default).
   - Off hides the session keys, the media dial and the transport keys on every page, Home's media dial included.
   - The toggle itself stays visible so it can be turned back on.
 

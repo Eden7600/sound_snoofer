@@ -23,6 +23,9 @@ import (
 type Settings struct {
 	Port  int    `json:"port,omitempty"`  // Zero means 47815.
 	Token string `json:"token,omitempty"` // Legacy from the first build; ignored.
+	// DeckMediaOff hides media from the deck (sessions, the media dial and
+	// transport) without changing the GUI.
+	DeckMediaOff bool `json:"deck_media_off,omitempty"`
 }
 
 const defaultPort = 47815
@@ -116,6 +119,8 @@ type worker struct {
 	services  snoofer.Services
 	timing    timing
 	settings  Settings
+	raw       json.RawMessage // The saved settings, for compare-and-swap saves.
+	saveErr   string
 	bridge    *bridge // Nil when the port could not be opened.
 	bridgeErr string
 
@@ -150,7 +155,7 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, open fu
 		return nil, err
 	}
 	w := newWorker(s, open, t)
-	w.settings = settings
+	w.settings, w.raw = settings, raw
 	runCtx, cancel := context.WithCancel(ctx)
 	i := &instance{cancel: cancel, done: make(chan struct{})}
 	updates := make(chan browserUpdate, 16)
@@ -424,6 +429,14 @@ func sessionByKey(sessions []session, key string) (session, bool) {
 func (w *worker) handle(r snoofer.Request, now time.Time) {
 	focused, ok := w.find(w.focus)
 	switch r.ID {
+	case "nowplaying.deck-media":
+		next := w.settings
+		next.DeckMediaOff = !next.DeckMediaOff
+		w.saveErr = ""
+		if err := w.save(next); err != nil {
+			w.saveErr = err.Error()
+		}
+		return
 	case "nowplaying.focus":
 		for _, s := range w.sessions {
 			if controlID(s.Key) == r.Value {
@@ -472,6 +485,23 @@ func (w *worker) handle(r snoofer.Request, now time.Time) {
 		w.command(s, "toggle", 0, now)
 		return
 	}
+}
+
+// save persists next. It runs on the worker, never during Start, where the
+// host holds the lock saving needs.
+func (w *worker) save(next Settings) error {
+	raw, err := json.Marshal(next)
+	if err != nil {
+		return err
+	}
+	if w.services.SaveSettings == nil {
+		return errors.New("settings cannot be saved here")
+	}
+	if err := w.services.SaveSettings("nowplaying", w.raw, raw); err != nil {
+		return err
+	}
+	w.raw, w.settings = raw, next
+	return nil
 }
 
 // command sends op to a session's source and records what to observe.

@@ -62,7 +62,7 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 			status = "Pending"
 		}
 		controls = append(controls, snoofer.Control{ID: id, Label: title, ShortLabel: title, Group: "Now playing", Collection: "nowplaying.sessions", CollectionLabel: "Media sessions",
-			Order: n + 1, Kind: "command", Icon: "media-play", Artwork: s.Art, Value: s.Status, Status: status, Operations: []string{"press", "set"}, Available: s.CanToggle || s.CanSeek})
+			Order: n + 1, Kind: "command", Icon: "media-play", Artwork: s.Art, Value: s.Status, Status: status, Operations: []string{"press", "set"}, Hidden: w.settings.DeckMediaOff, Available: s.CanToggle || s.CanSeek})
 		options = append(options, id)
 		labels[id] = title + " · " + s.App
 		_, pending := w.pending[s.Key]
@@ -86,13 +86,13 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 		focusID = controlID(focused.Key)
 	}
 	controls = append(controls, snoofer.Control{ID: "nowplaying.focus", Label: "Media focus", ShortLabel: "Focus", Group: "Now playing", Kind: "selection", Icon: "media-play",
-		Value: focusID, Options: options, OptionLabels: labels, Operations: []string{"set"}, Hidden: len(options) < 2, Available: len(options) > 0})
+		Value: focusID, Options: options, OptionLabels: labels, Operations: []string{"set"}, Hidden: len(options) < 2 || w.settings.DeckMediaOff, Available: len(options) > 0})
 
 	dial := snoofer.Control{ID: "nowplaying.dial", Label: "Now playing", ShortLabel: "Nothing playing", Group: "Now playing", Kind: "numeric", Icon: "media-play",
 		Value: "", Operations: []string{"adjust", "press"}, Available: true}
 	transport := func(id, label, short, icon string, can bool, value string) snoofer.Control {
 		return snoofer.Control{ID: "nowplaying." + id, Label: label, ShortLabel: short, Group: "Now playing", Kind: "command", Icon: icon, Value: value,
-			Operations: []string{"press"}, Hidden: !ok || !can, Available: ok && can}
+			Operations: []string{"press"}, Hidden: !ok || !can || w.settings.DeckMediaOff, Available: ok && can}
 	}
 	toggleValue, muteValue, dialStatus := "", "", ""
 	if ok {
@@ -113,6 +113,14 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 		// position, and a changing status would make further turns stale.
 	}
 	dial.Status = dialStatus
+	dial.Hidden = w.settings.DeckMediaOff
+	deckMedia := "On"
+	if w.settings.DeckMediaOff {
+		deckMedia = "Off"
+	}
+	// The filter key stays visible so media can be turned back on.
+	controls = append(controls, snoofer.Control{ID: "nowplaying.deck-media", Label: "Media on the deck", ShortLabel: "Media", Group: "Now playing", Kind: "toggle", Icon: "media-play",
+		Value: deckMedia, Status: w.saveErr, Operations: []string{"press"}, Available: w.services.SaveSettings != nil})
 	controls = append(controls, dial,
 		transport("prev", "Previous track", "Previous", "media-prev", ok && focused.CanPrev, ""),
 		transport("toggle", "Play or pause", "Play", "media-play", ok && focused.CanToggle, toggleValue),
