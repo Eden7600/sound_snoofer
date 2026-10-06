@@ -53,7 +53,7 @@ Each numbered block is one reviewable commit.
   - the Lights Rooms card.
 
   Fake-bridge tests and the GUI check cover it.
-- [ ] 14. Validate:
+- [x] 14. Validate:
   - the canonical build and checks;
   - remove the Home keys from the personal Lights and Soundboard pages, and set rooms to Cody Office;
   - relaunch and record.

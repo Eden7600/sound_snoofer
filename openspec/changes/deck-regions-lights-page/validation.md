@@ -41,5 +41,20 @@ The migrated file passes `snoofer.ValidateEnabled` with every compiled plugin. S
 - **Native key renders:** Motion (On, slashed Off, Mixed) in `docs/design/hue.png`, and folder go-to keys (with Here active) in a scratch preview.
 - **GUI captures:** the Lights screen with the Motion row, and the deck editor with a tinted, numbered region and a dashed selection. The references in `docs/design` were refreshed.
 
+## Revisions after review (2026-10-06)
+- **Option labels:** keys show a selection's option label (the Room key showed a room ID); covered by a binding-tile test.
+- **Go-to keys:** they stay on Home only. No go-to control is published for the Home page, and the default content pages no longer bind one. The go-to test now returns Home with the page dial's press and asserts no Home key exists.
+- **Room scope:** fake-bridge tests cover:
+  - choosing a zone moves and saves the selection;
+  - unknown IDs are dropped;
+  - only chosen groups are offered, and the Room key hides with one;
+  - unchosen rooms' scenes are not published;
+  - an empty list is rejected, and a selection outside the list is rejected by the registry;
+  - a saved selection outside the list moves on connect.
+- **Text controls:** layout validation, the editor and the GUI picker reject them as bindings.
+- **GUI check:** the Rooms card sends the new list, and the last chosen room is disabled.
+- **Build and checks:** `go test ./...`, `go vet`, the GUI and desktop checks, strict OpenSpec and `scripts/build.ps1` pass.
+- **Personal config** (Snoofer stopped, backup in the scratchpad): the two Home go-to keys on Lights and Soundboard were removed, and Hue rooms set to Cody Office (already selected). The file passes `snoofer.ValidateEnabled`, and Snoofer was relaunched.
+
 ## Not yet verified
 Task 9 hardware acceptance is still open.
