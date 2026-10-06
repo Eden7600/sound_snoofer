@@ -27,7 +27,7 @@ Each numbered block is one reviewable commit.
 
   Tests cover a fixed frame, overflow, manual cells, Hidden candidates, overlap rejection and legacy equivalence.
 - [x] 5. `feat(streamdeck)`: go-to page keys and the `deck-page` icon. Covers publishing, press handling, Here state and binding eligibility. Includes tests and a native-size preview.
-- [ ] 6. `feat(gui)`: region editor. Covers:
+- [x] 6. `feat(gui)`: region editor. Covers:
   - rectangle selection (Shift+click, Shift+arrows);
   - the Regions list with a source picker and Remove;
   - region tint and number;

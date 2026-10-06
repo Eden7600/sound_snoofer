@@ -43,7 +43,14 @@ type Settings struct {
 	Serials map[string]Layout `json:"serials,omitempty"`
 }
 
-func (l Layout) clone() Layout { l.Pages = slices.Clone(l.Pages); return l }
+// clone copies pages deeply enough for draft edits, including region lists.
+func (l Layout) clone() Layout {
+	l.Pages = slices.Clone(l.Pages)
+	for n := range l.Pages {
+		l.Pages[n].Regions = slices.Clone(l.Pages[n].Regions)
+	}
+	return l
+}
 func (l Layout) index(id string) int {
 	for n, p := range l.Pages {
 		if p.ID == id {

@@ -66,7 +66,7 @@ type Region struct {
 **Migration.**
 - A page with `auto_controls` and no `regions` behaves exactly as before: one region covering every key, with the prefix as its source.
 - The editor shows it as "Whole page · `<prefix>`".
-- Saving from the editor converts it to `regions` and clears `auto_controls`.
+- Editing that page's regions in the editor first converts the prefix into an explicit whole-page region and clears `auto_controls`. Saving an untouched page keeps it as is.
 
 **Validation.**
 - Indexes must be in range.
@@ -152,7 +152,7 @@ Candidates are recorded for later changes and are not implemented here.
   - **Adding:** `Add region` uses the current rectangle and offers the published collections. It is disabled when the rectangle overlaps an existing region.
   - **Editing:** a region's source can be changed in place.
 - **Plugin requests:** the editor sends `streamdeck.region-add` (value `first,last,source`), `streamdeck.region-source` (`index,source`) and `streamdeck.region-remove` (`index`). All are draft edits; Save applies them as today.
-- **Grid:** region cells get a subtle tint and a small region number. Auto-filled keys keep the `Auto` marker. Key badges are one-based.
+- **Grid:** region cells get the active background tint and a small region number (`R1`); the selection is a dashed outline and clears after a region is added. Auto-filled keys keep the `Auto` marker. Key badges are one-based.
 - **Legacy pages:** the "Automatic prefix" field is removed. A legacy page shows its migrated whole-page region.
 
 ## 8. Default layout

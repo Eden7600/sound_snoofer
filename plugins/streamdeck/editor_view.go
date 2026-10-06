@@ -1,19 +1,30 @@
 package streamdeck
 
-import "sound-snoofer/snoofer"
+import (
+	"slices"
+	"strings"
+
+	"sound-snoofer/snoofer"
+)
 
 // EditorView is read-only presentation of the plugin-owned draft.
 type EditorView struct {
-	Keys     []EditorSlot
-	Dials    []EditorSlot
-	Regions  []EditorRegion
-	Selected int
-	Dirty    bool
-	Home     bool
+	Keys        []EditorSlot
+	Dials       []EditorSlot
+	Regions     []EditorRegion
+	Collections []EditorCollection // Sources the editor offers for regions.
+	Selected    int
+	Dirty       bool
+	Home        bool
 }
 type EditorSlot struct {
 	Control, Label, Source string
 	Region                 int // Index into Regions, or -1.
+}
+
+// EditorCollection is a region source published by some control.
+type EditorCollection struct {
+	ID, Label string
 }
 
 // EditorRegion is a page region with its editor label. Legacy marks the
@@ -38,6 +49,18 @@ func editorView(draft Layout, page string, selected int, dirty bool, controls []
 			region[cell] = n
 		}
 	}
+	seen := map[string]bool{}
+	for _, c := range controls {
+		if c.Collection != "" && !seen[c.Collection] {
+			seen[c.Collection] = true
+			label := c.CollectionLabel
+			if label == "" {
+				label = c.Collection
+			}
+			view.Collections = append(view.Collections, EditorCollection{ID: c.Collection, Label: label})
+		}
+	}
+	slices.SortFunc(view.Collections, func(a, b EditorCollection) int { return strings.Compare(a.Label, b.Label) })
 	slot := func(binding, manual, shared Binding, region int) EditorSlot {
 		source := ""
 		if shared.Control != "" {

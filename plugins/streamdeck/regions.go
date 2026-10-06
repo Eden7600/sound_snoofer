@@ -2,6 +2,8 @@ package streamdeck
 
 import (
 	"fmt"
+	"slices"
+	"strconv"
 	"strings"
 
 	"sound-snoofer/snoofer"
@@ -90,4 +92,52 @@ func (l Layout) validateRegions(p Page) error {
 		}
 	}
 	return nil
+}
+
+// editRegion applies an editor request to a copy of page n's regions:
+// "add" takes "first,last,source", "source" takes "index,source" and
+// "remove" takes "index". Editing a legacy page first converts its prefix
+// into an explicit whole-page region. The caller validates the result.
+func (l Layout) editRegion(n int, op, value string) (Layout, error) {
+	next := l.clone()
+	page := &next.Pages[n]
+	if len(page.Regions) == 0 && page.AutoControls != "" {
+		page.Regions = []Region{{Source: page.AutoControls, First: 0, Last: Keys - 1}}
+		page.AutoControls = ""
+	}
+	parts := strings.SplitN(value, ",", 3)
+	index := func() (int, error) {
+		i, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+		if err != nil || i < 0 || i >= len(page.Regions) {
+			return 0, fmt.Errorf("unknown region")
+		}
+		return i, nil
+	}
+	switch op {
+	case "add":
+		if len(parts) != 3 {
+			return l, fmt.Errorf("region needs keys and a source")
+		}
+		first, errFirst := strconv.Atoi(strings.TrimSpace(parts[0]))
+		last, errLast := strconv.Atoi(strings.TrimSpace(parts[1]))
+		if errFirst != nil || errLast != nil {
+			return l, fmt.Errorf("region keys must be numbers")
+		}
+		page.Regions = append(page.Regions, Region{Source: strings.TrimSpace(parts[2]), First: first, Last: last})
+	case "source":
+		i, err := index()
+		if err != nil || len(parts) < 2 {
+			return l, fmt.Errorf("unknown region")
+		}
+		page.Regions[i].Source = strings.TrimSpace(strings.Join(parts[1:], ","))
+	case "remove":
+		i, err := index()
+		if err != nil {
+			return l, err
+		}
+		page.Regions = slices.Delete(page.Regions, i, i+1)
+	default:
+		return l, fmt.Errorf("unknown region edit %q", op)
+	}
+	return next, nil
 }

@@ -145,3 +145,37 @@ func TestEditorViewRegions(t *testing.T) {
 		t.Fatal(legacy.Regions)
 	}
 }
+
+func TestEditRegion(t *testing.T) {
+	l := Layout{Home: "s", Pages: []Page{{ID: "s", Name: "S", AutoControls: "soundboard.clip-"}}}
+	l.Pages[0].Keys[35] = Binding{Control: "soundboard.stop"}
+
+	// Editing a legacy page converts its prefix into an explicit region.
+	removed, err := l.editRegion(0, "remove", "0")
+	if err != nil || removed.Pages[0].AutoControls != "" || len(removed.Pages[0].Regions) != 0 {
+		t.Fatal("legacy removal", removed.Pages[0], err)
+	}
+	added, err := removed.editRegion(0, "add", "34,0,soundboard.clips")
+	if err != nil || !reflect.DeepEqual(added.Pages[0].Regions, []Region{{Source: "soundboard.clips", First: 34, Last: 0}}) {
+		t.Fatal("add", added.Pages[0].Regions, err)
+	}
+	if err := added.Validate(nil); err != nil {
+		t.Fatal(err)
+	}
+	changed, err := added.editRegion(0, "source", "0,hue.room-scenes")
+	if err != nil || changed.Pages[0].Regions[0].Source != "hue.room-scenes" || added.Pages[0].Regions[0].Source != "soundboard.clips" {
+		t.Fatal("source edit leaked into the original draft", added.Pages[0].Regions, err)
+	}
+	overlapping, err := changed.editRegion(0, "add", "1,2,soundboard.clips")
+	if err != nil || overlapping.Validate(nil) == nil {
+		t.Fatal("overlapping region accepted", err)
+	}
+	for _, bad := range []struct{ op, value string }{{"remove", "5"}, {"add", "x,1,a.b"}, {"add", "1,2"}, {"source", "9,a.b"}, {"rename", ""}} {
+		if _, err := changed.editRegion(0, bad.op, bad.value); err == nil {
+			t.Errorf("%s %q accepted", bad.op, bad.value)
+		}
+	}
+	if l.Pages[0].AutoControls != "soundboard.clip-" {
+		t.Fatal("original layout mutated")
+	}
+}

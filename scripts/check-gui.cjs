@@ -23,7 +23,7 @@ add("soundboard.volume","Volume","numeric","0.0 dB");
 add("soundboard.stop","Stop","command","");
 add("soundboard.status","Soundboard","status","Ready");
 for(const name of ["fah","sadge","instinct","airhorn","ping"])add("soundboard.clip-"+name,name,"command","Ready");
-for(const [id,label,kind,value,options]of [["profile","Device","selection","Default",["Default"]],["page","Page","selection","home",["home","soundboard"]],["slot","Position","selection","Key 1",Array.from({length:36},(_,i)=>"Key "+(i+1))],["shared","Shared","toggle","Off"],["binding","Binding","selection","audio.mic-stack",["","audio.mic-stack","audio.mic-mute"]],["name","Name","text","Home"],["add","New page","text",""],["auto-controls","Automatic prefix","text",""],["preview","Preview","status",""],["status","Layout status","status","Connected"]])add("streamdeck."+id,label,kind,value,{Options:options});
+for(const [id,label,kind,value,options]of [["profile","Device","selection","Default",["Default"]],["page","Page","selection","home",["home","soundboard"]],["slot","Position","selection","Key 1",Array.from({length:36},(_,i)=>"Key "+(i+1))],["shared","Shared","toggle","Off"],["binding","Binding","selection","audio.mic-stack",["","audio.mic-stack","audio.mic-mute"]],["name","Name","text","Home"],["add","New page","text",""],["region-add","Add region","text",""],["region-source","Region source","text",""],["region-remove","Remove region","text",""],["preview","Preview","status",""],["status","Layout status","status","Connected"]])add("streamdeck."+id,label,kind,value,{Options:options});
 for(const id of ["save","cancel","delete","earlier","later","home"])add("streamdeck."+id,id,"command","");
 add("hue.status","Hue","status","Not paired",{ViewData:{bridge:"172.16.102.3"}});
 add("hue.pair","Pair Hue bridge","command","Ready",{ShortLabel:"Pair"});
@@ -43,7 +43,7 @@ report("hue.app-bridge","Hue Bridge","Hue","Connected",{State:"connected",Endpoi
 report("hue.app-sync","Hue Sync","Hue","N/A",{State:"disconnected",Endpoint:"ws://127.0.0.1:24851/",Since:ago(90),LastError:"connection refused",LastErrorAt:ago(5),Details:[]});
 report("audio.app-voicemeeter","Voicemeeter","Audio","Disconnected",{State:"disconnected",Endpoint:"C:\\Program Files (x86)\\VB\\Voicemeeter\\VoicemeeterRemote64.dll",Since:ago(30),LastActivity:ago(31),LastError:"voicemeeter disconnected",LastErrorAt:ago(30),Details:[{Label:"Required",Value:"Yes"},{Label:"Edition",Value:"Potato"},{Label:"Interval",Value:"1s"}]});
 report("audio.app-callback","Audio callback monitor","Audio","Off",{State:"off",Endpoint:"snoofer-audio-monitor.dll",Since:"0001-01-01T00:00:00Z",LastActivity:"0001-01-01T00:00:00Z",Details:[]});
-const view={Selected:0,Dirty:false,Home:true,Keys:Array.from({length:36},()=>({Control:"",Label:"",Source:""})),Dials:Array.from({length:5},()=>({Control:"",Label:"",Source:""}))};
+const view={Selected:0,Dirty:false,Home:true,Regions:[],Collections:[{ID:"hue.room-scenes",Label:"Scenes · selected room"},{ID:"soundboard.clips",Label:"Soundboard clips"}],Keys:Array.from({length:36},()=>({Control:"",Label:"",Source:""})),Dials:Array.from({length:5},()=>({Control:"",Label:"",Source:""}))};
 ["audio.mic-stack","audio.mic-mute","audio.speaker-mute","audio.normal-monitor","audio.normal-mode"].forEach((Control,i)=>view.Keys[i]={Control,Label:"",Source:""});
 view.Keys[9]={Control:"soundboard.clip-fah",Label:"fah",Source:"Auto"};
 view.Keys[31]={Control:"core.open-controls",Label:"Controls",Source:"Shared"};
@@ -74,7 +74,16 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
     window.sent.push(action);
     const r=action.Request;if(!r)return;
     const target=window.fixture.Controls.find(c=>c.ID===r.ID);
-    if(r.ID==="streamdeck.slot"){window.fixture.Controls.find(c=>c.ID==="streamdeck.preview").ViewData.Selected=Number(r.Value.split(" ")[1])-1;}
+    const view=window.fixture.Controls.find(c=>c.ID==="streamdeck.preview").ViewData;
+    if(r.ID==="streamdeck.slot"){view.Selected=Number(r.Value.split(" ")[1])-1;}
+    if(r.ID.startsWith("streamdeck.region-")){
+     if(r.ID==="streamdeck.region-add"){const [first,last,source]=r.Value.split(",");view.Regions.push({Source:source,Label:view.Collections.find(x=>x.ID===source)?.Label||source,First:Number(first),Last:Number(last)});}
+     if(r.ID==="streamdeck.region-source"){const [i,source]=r.Value.split(",");Object.assign(view.Regions[Number(i)],{Source:source,Label:view.Collections.find(x=>x.ID===source)?.Label||source});}
+     if(r.ID==="streamdeck.region-remove")view.Regions.splice(Number(r.Value),1);
+     view.Keys.forEach(k=>{k.Region=-1;});
+     view.Regions.forEach((g,n)=>{const rows=[Math.floor(g.First/9),Math.floor(g.Last/9)].sort((a,b)=>a-b),cols=[g.First%9,g.Last%9].sort((a,b)=>a-b);for(let row=rows[0];row<=rows[1];row++)for(let col=cols[0];col<=cols[1];col++)view.Keys[row*9+col].Region=n;});
+     view.Dirty=true;window.fixture.Controls.find(c=>c.ID==="streamdeck.preview").Revision++;
+    }
     if(r.Operation==="set")target.Value=r.Value;
     target.Revision++;
    }}}};
@@ -99,14 +108,43 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.getByRole("button",{name:"Stream Deck",exact:false}).click();
   await page.getByRole("heading",{name:"Binding",exact:true}).waitFor();
   assert.equal(await page.locator("[data-part=deck-key]").count(),36);
-  await page.getByRole("button",{name:"Key 0: Mic stack",exact:true}).focus();
+  assert.equal(await page.locator("[data-part=deck-key] small").first().textContent(),"1","key numbers start at 1");
+  await page.getByRole("button",{name:"Key 1: Mic stack",exact:true}).focus();
   await page.keyboard.press("ArrowDown");
-  assert.match(await page.locator(":focus").getAttribute("aria-label"),/^Key 9:/);
+  assert.match(await page.locator(":focus").getAttribute("aria-label"),/^Key 10:/);
   assert.equal(await page.evaluate(()=>window.sent.length),0,"arrow browsing fired an action");
   await page.screenshot({path:path.join(root,".local/gui-deck.png"),fullPage:true});
-  await page.getByRole("button",{name:"Key 7: Empty",exact:true}).click();
-  await page.waitForFunction(()=>document.querySelector("[data-part=inspector] [data-part=eyebrow]").textContent==="KEY 7");
+  await page.getByRole("button",{name:"Key 8: Empty",exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector("[data-part=inspector] [data-part=eyebrow]").textContent==="KEY 8");
   assert.equal(await page.evaluate(()=>window.sent.at(-1).Request.ID),"streamdeck.slot");
+  await page.waitForTimeout(300);
+  await page.getByRole("button",{name:/^Key 19: /}).click();
+  await page.waitForFunction(()=>document.querySelector("[data-part=inspector] [data-part=eyebrow]").textContent==="KEY 19");
+  const beforeRange=await page.evaluate(()=>window.sent.length);
+  await page.getByRole("button",{name:/^Key 35: /}).click({modifiers:["Shift"]});
+  await page.keyboard.press("Shift+ArrowRight");
+  assert.equal(await page.evaluate(()=>window.sent.length),beforeRange,"range selection dispatched");
+  assert.equal(await page.locator("[data-part=deck-key][data-range=true]").count(),18);
+  const addRegion=page.locator("[data-part=add-region]");
+  assert.equal(await addRegion.textContent(),"Add region · Keys 19–36");
+  await page.getByLabel("New region source").selectOption("soundboard.clips");
+  await addRegion.click();
+  assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Value];}),["streamdeck.region-add","18,35,soundboard.clips"]);
+  await page.locator("[data-part=region]").waitFor();
+  assert.equal(await page.locator("[data-part=deck-key][data-region=true]").count(),18);
+  assert.equal(await page.locator("[data-part=deck-key][data-range=true]").count(),0,"selection kept after adding");
+  await page.getByRole("button",{name:/^Key 27: /}).click({modifiers:["Shift"]});
+  assert.equal(await addRegion.isDisabled(),true,"region offered over an existing region");
+  await page.waitForTimeout(300);
+  await page.getByLabel("Region 1 source").selectOption("hue.room-scenes");
+  assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Value];}),["streamdeck.region-source","0,hue.room-scenes"]);
+  await page.waitForTimeout(300);
+  await page.screenshot({path:path.join(root,".local/gui-deck-regions.png"),fullPage:true});
+  await page.getByRole("button",{name:"Remove region 1",exact:true}).click();
+  assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Value];}),["streamdeck.region-remove","0"]);
+  await page.locator("[data-part=region]").waitFor({state:"detached"});
+  await page.waitForTimeout(300);
+  await page.evaluate(()=>{window.fixture.Controls.find(c=>c.ID==="streamdeck.preview").ViewData.Dirty=false;});
   const name=page.getByLabel("Name",{exact:true});
   await name.fill("Unsubmitted name");
   await page.waitForTimeout(600);
