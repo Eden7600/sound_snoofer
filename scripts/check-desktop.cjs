@@ -43,15 +43,15 @@ async function checkTrayShutdown(){
  let output="",errors="";child.stdout.on("data",s=>output+=s);child.stderr.on("data",s=>errors+=s);
  const exited=new Promise(resolve=>child.once("exit",(code,signal)=>resolve({code,signal})));
  child.stdin.on("error",()=>{});
- const state={Controls:[{ID:"audio.health",Label:"Audio health",Kind:"status",Value:"Preview",Available:true,Revision:1},{ID:"external.light",Label:"Light",Group:"Lighting",Kind:"toggle",Value:"Off",Available:true,Operations:["press"],Revision:9}],Plugins:{external:"Running"},Enabled:{external:true}};
+ const state={Controls:[{ID:"audio.health",Label:"Audio health",Kind:"status",Value:"Preview",Available:true,Revision:1},{ID:"hue.status",Label:"Hue",Group:"Hue",Kind:"status",Value:"Connected",Available:true,Revision:1},{ID:"hue.sync",Label:"Hue Sync",Group:"Hue",Kind:"toggle",Value:"Off",Available:true,Operations:["press"],Revision:9}],Plugins:{hue:"Running"},Enabled:{hue:true}};
  child.stdin.write(JSON.stringify({State:state})+"\n");
  try{
   await delay(2500);
   const result=execFileSync("powershell.exe",["-NoProfile","-ExecutionPolicy","Bypass","-File",path.join(root,"scripts/check-desktop-window.ps1"),"-ProcessId",String(child.pid)],{cwd:root,windowsHide:true,encoding:"utf8",timeout:25000});
   console.log(result.trim());
-  for(let i=0;i<20&&!output.includes("external.light");i++)await delay(100);
+  for(let i=0;i<20&&!output.includes("hue.sync");i++)await delay(100);
   const action=JSON.parse(output.trim().split("\n").at(-1));
-  assert.equal(action.Request.ID,"external.light");assert.equal(action.Request.Revision,9);
+  assert.equal(action.Request.ID,"hue.sync");assert.equal(action.Request.Revision,9);
   child.stdin.write(JSON.stringify({State:state,Focus:true})+"\n");
   execFileSync("powershell.exe",["-NoProfile","-File",path.join(root,"scripts/check-desktop-window.ps1"),"-ProcessId",String(child.pid),"-CloseOnly"],{windowsHide:true,timeout:15000});
   const ended=await waitExit(exited,7000,"GUI survived window close");

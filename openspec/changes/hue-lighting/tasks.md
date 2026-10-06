@@ -17,7 +17,7 @@ Each numbered block is one reviewable commit.
 - [x] 15. `feat(hue)`: room scene slots, with tests for room change, blanks and stale slot presses.
 - [x] 16. `feat(streamdeck)`: blank empty-slot keys, with presentation tests; correct the contract wording for the Home dials.
 - [x] 17. `feat(gui)`: Lights screen and enable-only Plugins page. Update check-gui fixtures and screenshots, the UI contract and docs/plugins.md.
-- [ ] 18. Validate (gofmt, test, vet, OpenSpec, GUI check, canonical build). Apply the personal Home layout and remove the stale `huesync` entry while Snoofer is stopped, then relaunch. Record the results.
+- [x] 18. Validate (gofmt, test, vet, OpenSpec, GUI check, canonical build). Apply the personal Home layout and remove the stale `huesync` entry while Snoofer is stopped, then relaunch. Record the results.
 
 ## Hardware acceptance
 - [ ] 8. Pair the real bridge through the link button (revision 1 discovery failed with "No bridge" on this multi-adapter host); confirm discovery, restart persistence and that the key stays out of diagnostics.

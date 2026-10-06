@@ -33,11 +33,11 @@ function Find-Control([string]$Name) {
     $names=$window.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition) | ForEach-Object { $_.Current.Name }
     throw "Missing accessible control: $Name; found: $($names -join ', ')"
 }
-$plugins = Find-Control 'Plugins'
-$invoke = $plugins.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+$lights = Find-Control 'Lights'
+$invoke = $lights.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
 $invoke.Invoke()
-$light = Find-Control 'Light'
-$toggle = $light.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+$sync = Find-Control 'Start sync'
+$toggle = $sync.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
 $toggle.Toggle()
-Write-Output 'PASS: native window and accessible Plugins / Light controls'
+Write-Output 'PASS: native window and accessible Lights / Start sync controls'
 

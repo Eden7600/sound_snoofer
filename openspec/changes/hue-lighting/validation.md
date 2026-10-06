@@ -15,3 +15,12 @@
 
 ## Not yet verified
 Hardware acceptance tasks 8–11: real bridge pairing and mDNS discovery through the Windows firewall, scene recall, dial responsiveness at the 250 ms write gap against the bridge rate limit, and Hue Sync with Third-party control enabled (currently off in the local Hue Sync config).
+
+## Revision 2 (2026-10-05)
+- Root cause of "No bridge": the single mDNS query used the OS default multicast route. On this host (Ethernet plus Tailscale, the WSL Hyper-V switch and four Wi‑Fi adapters) it did not reach the bridge network. A scratch diagnostic got the bridge's answer (172.16.102.3) when the query was sent explicitly on Ethernet. After the fix, `SNOOFER_HUE_LIVE=1 go test ./plugins/hue -run TestLiveDiscovery` finds `[172.16.102.3]`, and `/api/0/config` reports a BSB002 bridge.
+- `go vet ./...` and `go test ./...`: pass. The hue package also passed `-count=3` after the merge. gofmt is clean for all changed files; `internal/voicemeeter/{client,studio}_test.go` were already unformatted at HEAD and were not touched.
+- `node --test app/web/model.test.mjs`: pass. `node scripts/check-gui.cjs`: pass (Lights setup and Pair, scene grouping, dial buttons and slider ticks, sync disabled while not syncing, enable-only Plugins, narrow-width overflow). Reference image: `docs/design/gui-lights.png`.
+- `node scripts/check-desktop.cjs` against the new binary: pass. The native checks now drive the Lights screen's Start sync toggle instead of the removed Plugins fallback form.
+- `go test -race`: not run (no C compiler; toolchain unchanged). OpenSpec strict validation: valid. `scripts/build.ps1`: built; Snoofer exited gracefully.
+- Personal config (`bin/snoofer.json`, not in git; backup kept in the session scratchpad): applied the Home Hue block (keys 5–8: Sync, Mode, Intensity, Brightness; rows 1–3 of columns 5–8: room scene slots 1–12) and dials 3–4 (Brightness, Temp), and removed the obsolete `huesync` entry. The target positions were empty before the change, no other settings changed, and `snoofer.exe --check` passes. Snoofer was relaunched without the automation-only NO_COLOR.
+- Still requires hardware: pressing the bridge link button to pair, and every item in tasks 8–11.
