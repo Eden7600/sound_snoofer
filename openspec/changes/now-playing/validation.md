@@ -52,3 +52,26 @@ Review found the export pattern unsuitable for store publishing, and the first i
 ### Personal setup and limits
 - **Config:** the legacy token was removed from the personal config (backup `snoofer.json.before-extension`), and Snoofer was relaunched.
 - **Not tested:** Firefox, which is not installed here. Its manifest is covered by the build tests only.
+
+## Revision: nothing playing, focus and bottom-row controls (commits df0124d through 8564e65)
+### Cause
+- **Diagnosis:** the user's Brave extension was connected (an ESTABLISHED connection to Snoofer), and the plugin, run against the real companion, saw Brave's Windows session.
+- **Combination:** Snoofer hid Brave's Windows session as soon as the extension connected. Meanwhile the extension reported nothing, because the video tab was opened before the extension was installed. Content scripts reach only pages loaded afterwards, and an already-playing element never fires `play`.
+
+### Fixes
+- **De-duplication:** title only, so a Windows session is never hidden unless the extension reports its tab.
+- **Existing tabs:** the extension injects into open tabs on install (`scripting` permission).
+- **Already-playing media:** `page.js` adopts media already in the document, or seen through `timeupdate`.
+- **Focus:** when exactly one session plays and the focused one does not, focus moves to it.
+- **Media page:** transport keys moved to the bottom row (keys 28–32), with sessions on r1–r3 c1–c8, in the defaults and the personal layout (backup `snoofer.json.before-media-row`).
+
+### Checks
+- `go test ./...`: pass. New tests cover a Windows session kept while its tab is unseen, focus moving to the only playing session, and the bottom-row Media page.
+- `npm test`: 7/7.
+- `scripts/check-extension.cjs`: pass, run 3 times.
+  - **Chrome page stage:** `page.js` injected into a tab already playing reports it at once.
+  - **Brave live stage:** the install hook re-injects into open tabs without duplicating the session, and the tab stays controllable.
+- **Build and relaunch:** built and relaunched; `snoofer.exe --check` passes.
+
+### Not automated
+Restarting an unpacked extension after `runtime.reload()` does not work under automation, so the update path in a real install is covered by hardware acceptance.
