@@ -6,3 +6,5 @@
 - [x] Fix redirected CLI console allocation and add a detached-process regression check (`7ba46a4`).
 - [x] Run canonical checks, build and restart Snoofer; record results.
 - [ ] Hardware acceptance: interface disconnect/fallback, VR switch, audible mute and physical dial.
+
+- [x] Follow-up: move Mic to dial 1, validate with scripts/check.ps1 -GUI and deploy.

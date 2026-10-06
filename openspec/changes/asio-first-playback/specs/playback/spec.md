@@ -23,3 +23,9 @@ Snoofer SHALL persist requested playback mute and impose both muted and unmuted 
 #### Scenario: Muted transition
 - **WHEN** playback changes destination while muted
 - **THEN** mute is verified before enabling the new route and obsolete ownership is released only after routing settles
+
+### Requirement: Adjacent playback and microphone dials
+The default and personal Home layout SHALL place Playback at dial 0 and Mic at dial 1, leaving dial 2 empty.
+#### Scenario: Compact mixer layout
+- **WHEN** the revised layout is loaded
+- **THEN** Mic is immediately right of Playback and other keys, pages and dials retain their positions

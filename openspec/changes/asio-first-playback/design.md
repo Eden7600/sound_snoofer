@@ -9,3 +9,5 @@ Playback gain resolves the planned bus and binds actions to its device identity.
 Playback mute is persisted desired state, imposed as either 0 or 1 on the current output and read back before routing. Acquire ownership with a durable baseline, then restore obsolete outputs after routes settle. Keep microphone baseline behavior unchanged. UI requested state never derives from native mute; readback only marks pending/verified.
 
 This supersedes Volt-only fallback and fixed A1/A2 surface requirements in volt-playback-fallback, mixer-surface-controls and streamdeck-knob-meters. Recovery remains limited to the already validated Volt callback setup.
+
+Follow-up: move the Mic dial from index 2 to index 1 beside Playback. Clear index 2; preserve all other personal bindings.

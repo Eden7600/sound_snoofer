@@ -26,7 +26,7 @@ const view={Selected:0,Dirty:false,Home:true,Keys:Array.from({length:36},()=>({C
 ["audio.mic-stack","audio.mic-mute","audio.speaker-mute","audio.normal-monitor","audio.normal-mode"].forEach((Control,i)=>view.Keys[i]={Control,Label:"",Source:""});
 view.Keys[9]={Control:"soundboard.clip-fah",Label:"fah",Source:"Auto"};
 view.Keys[31]={Control:"core.open-controls",Label:"Controls",Source:"Shared"};
-["audio.gain-playback","","audio.gain-mic"].forEach((Control,i)=>view.Dials[i]={Control,Label:"",Source:""});
+["audio.gain-playback","audio.gain-mic",""].forEach((Control,i)=>view.Dials[i]={Control,Label:"",Source:""});
 controls.find(c=>c.ID==="streamdeck.preview").ViewData=view;
 const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",streamdeck:"Running",vr:"Running",media:"Disabled"},Enabled:{audio:true,soundboard:true,streamdeck:true,vr:true,media:false}};
 (async()=>{
