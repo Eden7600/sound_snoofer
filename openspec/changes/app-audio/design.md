@@ -52,6 +52,7 @@ This builds on the existing pure-Go COM approach (`defaults_windows.go`): vtable
   - Kind `numeric`; operations `press` (mute), `adjust` (volume) and `set` (percent, from the GUI slider).
   - Value `42%`, `Muted` or `Mixed`; Status `Pending`, `Ignored by app` or empty.
   - Carries `Meter` (the highest peak, in dBFS), `Artwork` (the icon), ShortLabel (the name) and Collection `appaudio.apps` (label "Apps").
+  - Carries `Order`, the app's position. The registry snapshot does not keep publish order, so a new optional `snoofer.Control.Order` field records it, and regions fill by Order before label. Other collections leave it at zero, so their order is unchanged.
 - **`appaudio.status`:** a status control whose ViewData lists every app (visible and hidden) with diagnostics: executables, PIDs, devices, session count, last heard and the matching rule.
 - **`appaudio.edit`:** a text control that receives GUI edits as JSON: `{"op":"pick|unpick|move|hide|unhide|rename|combine","app":"…","value":"…"}`.
   - GUI rules match the app's executable file names exactly (`(?i)(^|\\)(discord\.exe)$`) and are inserted first.

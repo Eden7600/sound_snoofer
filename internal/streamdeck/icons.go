@@ -217,6 +217,15 @@ func drawIcon(im *image.RGBA, icon string, ink color.RGBA) bool {
 		line(86, 29, 86, 58)
 		line(26, 58, 86, 58)
 		line(26, 36, 86, 36)
+	case "app-audio":
+		// Application window, for apps without their own icon.
+		line(28, 20, 84, 20)
+		line(28, 20, 28, 60)
+		line(84, 20, 84, 60)
+		line(28, 60, 84, 60)
+		line(28, 30, 84, 30)
+		dot(35, 25, 2)
+		dot(43, 25, 2)
 	case "deck-up", "deck-down":
 		// Chevron over a short shaft: scroll the page's sets.
 		tip, wing := 18, 38

@@ -21,6 +21,7 @@ type Control struct {
 	ShortLabel                                  string          // Optional label for icon-bearing compact surfaces.
 	Collection                                  string          // Optional stable ID of a set of similar controls, which deck regions fill.
 	CollectionLabel                             string          // Optional editor name for Collection.
+	Order                                       int             // Optional position within Collection; regions fill by Order, then label.
 	Meter                                       Meter
 	Timers                                      []Timer     `json:",omitempty"` // Optional running countdowns, such as playing clips.
 	Connection                                  *Connection `json:",omitempty"` // Optional external integration report (Kind "connection").

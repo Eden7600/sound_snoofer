@@ -81,7 +81,7 @@ func (l Layout) expanded(controls []snoofer.Control) Layout {
 }
 
 // candidates lists a region's pressable, visible members that are not bound
-// elsewhere on the page, in label order.
+// elsewhere on the page, in collection order, then label order.
 func candidates(f fill, controls []snoofer.Control, bound map[string]bool) []snoofer.Control {
 	var out []snoofer.Control
 	for _, c := range controls {
@@ -90,6 +90,9 @@ func candidates(f fill, controls []snoofer.Control, bound map[string]bool) []sno
 		}
 	}
 	slices.SortFunc(out, func(a, b snoofer.Control) int {
+		if a.Order != b.Order {
+			return a.Order - b.Order
+		}
 		if cmp := strings.Compare(a.Label, b.Label); cmp != 0 {
 			return cmp
 		}
