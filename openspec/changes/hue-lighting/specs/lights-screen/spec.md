@@ -12,7 +12,7 @@ The GUI SHALL provide a Lights screen that presents the room and sync halves of 
 - **THEN** the screen shows the diagnostic and how to set a bridge address
 #### Scenario: Paired
 - **WHEN** the bridge is connected
-- **THEN** the room selector, brightness, temperature and the selected room's scenes are shown, with other rooms' scenes in a disclosure
+- **THEN** the room selector, brightness and the selected room's scenes are shown, with other rooms' scenes in a disclosure
 #### Scenario: Hue Sync unreachable
 - **WHEN** the sync socket is unavailable
 - **THEN** the sync card shows how to enable Third-party control while the room card stays usable

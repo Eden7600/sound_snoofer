@@ -43,6 +43,3 @@ The Hue plugin SHALL route shared controls to whichever half currently drives th
 #### Scenario: Sync stop unconfirmed
 - **WHEN** Hue Sync does not confirm the stop within 3 seconds
 - **THEN** the scene shows Error and is not recalled
-#### Scenario: Temperature while syncing
-- **WHEN** Hue Sync is syncing
-- **THEN** the temperature dial is unavailable with a Sync active status

@@ -59,8 +59,8 @@ The Hue plugin SHALL publish twelve stable slot controls that mirror the selecte
 - **WHEN** a slot press refers to a slot revision whose scene has since changed
 - **THEN** the press is rejected and no scene is recalled
 
-### Requirement: Room brightness and temperature knobs
-The Hue plugin SHALL expose separate brightness and color-temperature controls for one configured room or zone, coalescing rapid adjustment into bounded group writes.
+### Requirement: Room brightness knob
+The Hue plugin SHALL expose a brightness control for one configured room or zone, coalescing rapid adjustment into bounded group writes, and SHALL NOT expose color-temperature control.
 #### Scenario: Turn brightness
 - **WHEN** the brightness dial turns
 - **THEN** the requested brightness changes 2% per tick, clamped to 1–100%, and only the latest value is sent
@@ -70,15 +70,6 @@ The Hue plugin SHALL expose separate brightness and color-temperature controls f
 #### Scenario: Turn up while off
 - **WHEN** the brightness dial turns up while the room is observed off
 - **THEN** the room turns on at the requested brightness; turning down while off does nothing
-#### Scenario: Turn temperature
-- **WHEN** the temperature dial turns while the room is on
-- **THEN** the requested temperature changes 100 K per tick within the range supported by the room's lights
-#### Scenario: Press temperature
-- **WHEN** the temperature dial is pressed while the room is on
-- **THEN** the room is set to the configured neutral temperature
-#### Scenario: Mixed or unsupported temperature
-- **WHEN** member lights disagree, are in color mode, or none support color temperature
-- **THEN** the dial shows Mixed or N/A rather than a single value, and N/A rejects adjustment
 #### Scenario: Fast rotation
 - **WHEN** many ticks arrive faster than the group write interval
 - **THEN** at most one write is outstanding and no backlog of stale values is sent
@@ -87,7 +78,7 @@ The Hue plugin SHALL expose separate brightness and color-temperature controls f
 - **THEN** the dial shows Error and later ticks start from the observed value
 #### Scenario: No room configured or room deleted
 - **WHEN** no group is selected or the selected group no longer exists
-- **THEN** both dials are unavailable and the saved selection is retained
+- **THEN** the brightness dial is unavailable and the saved selection is retained
 
 ### Requirement: Preview safety
 The Hue plugin SHALL perform no bridge writes or pairing in preview.

@@ -2,16 +2,17 @@
 
 One compiled plugin, `hue`, with no dependency on other plugins. It has two halves: the room (Hue Bridge, CLIP v2) and sync (the Hue Sync PC app's third-party control socket). A single worker goroutine owns both connections and all their state, which lets the two halves coordinate directly. It serializes writes, publishes control snapshots and joins its child goroutines in Stop. Control handlers only enqueue into a bounded queue (capacity 16) and reject when full. Preview (`Services.Live == false`) reads and observes but publishes every write control unavailable. Nothing is replayed on reconnect and no uncertain command is retried.
 
+Revision 3 (after use): the color-temperature dial is removed entirely, by user decision. That covers `hue.temperature`, the `neutral_kelvin` setting, color-temperature observation, the GUI Temperature readout, the `hue-temperature` icon and the Home dial 4 binding. Saved settings containing `neutral_kelvin` are converted manually, with no migration code (the plugin was never released); the personal config is edited while Snoofer is stopped.
+
 Revision 2 (after first use): Hue Sync merged into `hue`, mDNS fixed for multi-adapter hosts, a dedicated Lights GUI screen, a Plugins page reduced to enable/disable, room scene slots, and Hue bindings on the personal Home page. The separate `huesync` plugin and its `no_huesync` tag are removed; it was never released beyond this change.
 
 ## Settings
 ```json
 "hue": {"address": "", "bridge_id": "", "app_key": "", "certificate_sha256": "",
-        "group": "", "neutral_kelvin": 4000, "sync_port": 24851}
+        "group": "", "sync_port": 24851}
 ```
 - `address` optionally overrides discovery (IP or host name).
 - Pairing writes `bridge_id`, `app_key` and `certificate_sha256`; the Lights screen writes `group`. All writes use `Services.SaveSettings` with the settings payload last read, so concurrent edits are rejected rather than lost.
-- `neutral_kelvin` is validated to 2000–6500.
 - `sync_port` is optional: absent means 24851, and a present value must be 1–65535. Absent and zero stay distinct.
 - Empty strings mean not configured. `app_key` never appears in control values, statuses or diagnostics.
 
@@ -35,11 +36,10 @@ Resource payloads differ by type. For example, `status` is an object on scenes b
 
 After connecting, the worker loads all CLIP v2 resources, then follows `/eventstream/clip/v2` (SSE), applying `update`/`add`/`delete` events. Every (re)connect reloads fully. Reconnects back off from 1 s to 30 s. A stream gap marks observed values `N/A`.
 
-The configured group resolves to a room or zone. Its `grouped_light` supplies observed `on` and average brightness. Member lights are the room's device light services or the zone's lights. Color temperature comes from lit members with `mirek_valid`: if they agree within one step, the value is their mean in kelvin; otherwise `Mixed`; with none valid, unknown. The temperature range is the intersection of the members' `mirek_schema`, or their union if the intersection is empty.
+The configured group resolves to a room or zone. Its `grouped_light` supplies observed `on` and average brightness. Member lights are the room's device light services or the zone's lights.
 
 ### Knob semantics
 - Brightness: one tick is 2%, clamped to 1–100%. Rotation never turns the room off. Rotating up while off sends `on:true` with the brightness; rotating down while off is ignored. A press toggles on/off from observed state, and with unknown state the press is rejected.
-- Temperature: one tick is 100 K, clamped in kelvin and then in mirek to the group range, and displayed rounded to 100 K. Rotating while off or without CT-capable lights is ignored. A press sets `neutral_kelvin`.
 
 ### Write coalescing and verification
 Each knob keeps one requested target, so ticks never queue. At most one `PUT grouped_light` is outstanding, at least 250 ms apart, always carrying the latest targets. HTTP 429/503 doubles the gap (up to 2 s) and resends the latest value. While pending, dials show the requested value (`Subdued` in the GUI). If the bridge reports nothing within one step of the target within 3 s, the dial shows `Error` and later ticks start from the observed value.
@@ -74,11 +74,10 @@ Dial timeout is 3 s; reconnects back off from 1 s to 30 s. A refused connection 
 ## Joining the halves
 - **One brightness dial.** `hue.brightness` follows whatever drives the lights. While Hue Sync reports `syncing`, rotation sends coalesced `inc_bri` (2 per tick, 100 ms minimum gap) and the value shows the sync brightness as `Sync 62%`. Otherwise it controls the room as above. A press always toggles the room on/off, and Sync has its own key.
 - **Scenes win over sync.** Pressing a scene (or slot) while syncing sends `stop_sync` first. The recall is sent only after the app confirms the sync stopped, within 3 s; otherwise the scene shows `Error` and nothing is recalled. Without a sync connection, scenes recall directly.
-- **Temperature while syncing** is unavailable with status `Sync active`, because the stream overrides it.
 - **Status:** `hue.status` reports the bridge and `hue.sync-status` reports the app. The Lights screen shows both side by side.
 
 ## Controls summary (group `Hue`)
-- **Room half:** `hue.status`, `hue.pair`, `hue.group` (selection; room/zone IDs with name labels, zones suffixed "(zone)"), `hue.brightness`, `hue.temperature`, the scene controls and the slots.
+- **Room half:** `hue.status`, `hue.pair`, `hue.group` (selection; room/zone IDs with name labels, zones suffixed "(zone)"), `hue.brightness`, the scene controls and the slots.
 - **Sync half:** `hue.sync-status`, `hue.sync`, `hue.sync-mode`, `hue.sync-intensity`.
 
 ## GUI
@@ -90,7 +89,6 @@ The **Lights** screen sits in the sidebar after Soundboard. It is built from the
   - Certificate error: Pair again.
 - **Room card (left):** the room selector, then two large readouts with −/+:
   - Brightness, with an On/Off button.
-  - Temperature, with a Neutral button.
   - A note "Sync controls brightness" while syncing.
   - Below them, a scene grid for the selected room (Active highlighted, Wait/Error per card). An "Other rooms" disclosure lists the remaining scenes grouped by room.
 - **Sync card (right):** a large Sync toggle, segmented Mode and Intensity buttons (disabled with "Start sync to change" while not syncing), and the app status. When unreachable it shows: "Open Hue Sync and turn on Settings → Third-party control".
@@ -98,7 +96,7 @@ The **Lights** screen sits in the sidebar after Soundboard. It is built from the
 The **Plugins** page becomes enable/disable only: plugin cards with status and Enable/Disable, plus Retry. The generic fallback forms move off this page. Built-in plugins have their own screens. Third-party plugin controls remain available as deck bindings, and their statuses still appear in Diagnostics. `docs/plugins.md` changes accordingly.
 
 ## Presentation (deck)
-- **Icons:** `hue-scene` (bulb), `hue-brightness` (sun), `hue-temperature` (thermometer), `hue-pair` (link), `huesync-sync` (screen with rays), `huesync-mode` (segments), `huesync-intensity` (wave). Scene `Active` uses the Active color.
+- **Icons:** `hue-scene` (bulb), `hue-brightness` (sun), `hue-pair` (link), `huesync-sync` (screen with rays), `huesync-mode` (segments), `huesync-intensity` (wave). Scene `Active` uses the Active color.
 - **Deck font:** gains a `%` glyph.
 - **Dial text:** non-page dials no longer print a control's Icon identifier as strip text.
 - **Empty slots:** a control that is unavailable and has no Label, ShortLabel or Icon renders as a blank key instead of `N/A`. Normal unavailable controls still show `N/A`.
@@ -108,7 +106,7 @@ Home keeps every existing binding.
 - **Rightmost four columns** (zero-based keys 5–8, 14–17, 23–26, 32–35), left open for Hue:
   - Row 0: `hue.sync`, `hue.sync-mode`, `hue.sync-intensity`, `hue.brightness` (press = lights on/off).
   - Rows 1–3: `hue.room-scene-1` … `-12`.
-- **Dials:** index 2 is `hue.brightness`, index 3 is `hue.temperature`, index 4 stays free; dial 6 remains pagination.
+- **Dials:** index 2 is `hue.brightness`; indexes 3 and 4 stay free; dial 6 remains pagination.
 - **Contract wording:** "index 2 is empty" only described the result of moving Mic in `e4ea932`; it was never a reservation, and the contract is corrected.
 - **Config cleanup:** the obsolete `huesync` config entry is removed. No Lights deck page is added.
 

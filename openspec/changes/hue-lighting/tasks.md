@@ -21,8 +21,11 @@ Each numbered block is one reviewable commit.
 
 - [x] 19. `fix(hue)`: tolerate type-specific `status` shapes and skip malformed unused resource types in loads and events. Test with real-bridge payload shapes, and verify with a gated live load against the paired bridge.
 
+## Revision 3
+- [ ] 20. `feat(hue)!`: remove color-temperature control (plugin, settings, model, GUI, icon, docs, contract, tests); remove `neutral_kelvin` and the Home dial 4 binding from the personal config while Snoofer is stopped; rebuild and relaunch.
+
 ## Hardware acceptance
 - [ ] 8. Pair the real bridge through the link button (revision 1 discovery failed with "No bridge" on this multi-adapter host); confirm discovery, restart persistence and that the key stays out of diagnostics.
 - [ ] 9. Recall scenes from the Home slots; confirm Active state and changes made in the Hue app.
-- [ ] 10. Turn and press the brightness and temperature dials on the configured room; judge responsiveness of the 250 ms coalescing and confirm no lag backlog.
+- [ ] 10. Turn and press the brightness dial on the configured room; judge responsiveness of the 250 ms coalescing and confirm no lag backlog.
 - [ ] 11. Enable Hue Sync Third-party control; toggle sync, change mode/intensity, check the joined brightness dial and that scenes stop sync; close and reopen Hue Sync.
