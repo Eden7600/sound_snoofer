@@ -7,7 +7,7 @@ Each numbered block is one reviewable commit.
 - [x] 3. `feat(appaudio)`: plugin. Covers rules and defaults, grouping, combined volume and mute, pending/observed/ignored, recency by meter, picked order, edits and preview mode. Fake-backend tests cover each scenario.
 - [x] 4. `feat(streamdeck)`: dial regions. Covers the model, validation, expansion with key streams paging in step, the editor view and the default Apps page with its Home go-to key. Includes tests.
 - [x] 5. `feat(gui)`: App audio screen. Covers strips, pin and order, Rename/Combine/Hide, the hidden list, details and dial-region editing. The GUI check covers each action.
-- [ ] 6. Validate: Go tests and vet, GUI and desktop checks, OpenSpec, the canonical build; add the Apps page to the personal layout; relaunch.
+- [x] 6. Validate: Go tests and vet, GUI and desktop checks, OpenSpec, the canonical build; add the Apps page to the personal layout; relaunch.
 
 ## Hardware acceptance
 - [ ] 7. With real apps:
