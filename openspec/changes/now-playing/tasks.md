@@ -4,7 +4,7 @@ Each numbered block is one reviewable commit.
 ## Implementation
 - [x] 1. `docs(media)`: design the Now playing plugin, Windows sessions, browser bridge, deck dial artwork and Media screen; update the UI contract.
 - [x] 2. `feat(mediasessions)`: the C++/WinRT companion and Go wrapper. Covers the build script, JSON snapshot, artwork and commands. Includes JSON parsing tests and an opt-in live probe.
-- [ ] 3. `feat(nowplaying)`: plugin core. Covers merging sources, de-duplication, focus, controls, interpolation, commands with pending/observed, and artwork scaling. Fake-source tests cover it.
+- [x] 3. `feat(nowplaying)`: plugin core. Covers merging sources, de-duplication, focus, controls, interpolation, commands with pending/observed, and artwork scaling. Fake-source tests cover it.
 - [ ] 4. `feat(nowplaying)`: browser bridge server. Covers origin and token checks, the protocol, bounds, replacement and saving the extension files. Tests use a WebSocket client.
 - [ ] 5. `feat(extension)`: the MV3 extension: page, bridge and background scripts. Node tests cover pure logic (merging and command routing); a Playwright check loads it in Chrome against a test page.
 - [ ] 6. `feat(streamdeck)`: dial artwork, `m:ss / m:ss` progress and the default Media page with its Home additions. Includes tests and a native-size preview.
