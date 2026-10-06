@@ -1,24 +1,53 @@
-/* Tailwind input for the desktop GUI; compiled to dist/app.css by `npm run css`. */
-@layer theme, base, components, utilities;
-@import "tailwindcss/theme.css" layer(theme) source(none);
-@import "tailwindcss/utilities.css" layer(utilities);
+/* Tailwind input for the desktop GUI; compiled to dist/app.css by `npm run css`.
+   Styling lives in utilities in index.html and app.js. This file only holds
+   theme tokens and plain element defaults; it defines no component classes. */
+@import "tailwindcss" source(none);
 @source "./index.html";
 @source "./app.js";
 @source "./icons.mjs";
 
 @theme {
+  --font-sans: "Segoe UI", sans-serif;
   --color-canvas: #0e141b;
   --color-sidebar: #101923;
   --color-panel: #151e28;
   --color-raised: #1c2834;
+  --color-hover: #293b4b;
   --color-line: #2b3a48;
+  --color-seam: #253441;
   --color-ink: #e3edf3;
   --color-muted: #95a6b4;
   --color-active: #3ac6e1;
+  --color-active-bg: #12333f;
+  --color-active-edge: #256174;
   --color-attention: #eeb74c;
+  --color-attention-edge: #6d5a2e;
   --color-critical: #ff6978;
-  --font-sans: "Segoe UI", sans-serif;
+  --color-critical-bg: #39252e;
+  --color-critical-edge: #76424e;
+  --color-deck: #0a1017;
+  --color-key: #15222e;
+  --color-key-empty: #101820;
+  --color-meter-green: #2dd28c;
+  --color-meter-amber: #f5be3c;
+  --color-meter-red: #ff5a64;
 }
 
-/* Legacy rules, kept unchanged until the markup moves to utilities. */
-@import "./style.css";
+@layer base {
+  html { color-scheme: dark; }
+  body { background: var(--color-canvas); color: var(--color-ink); font: 14px/1.5 var(--font-sans); }
+  button, input, select, textarea {
+    border: 1px solid var(--color-line);
+    border-radius: 7px;
+    background: var(--color-raised);
+    padding: 8px 11px;
+  }
+  button { cursor: pointer; transition: background-color .12s; }
+  button:hover:not(:disabled) { background: var(--color-hover); }
+  :disabled { opacity: .5; cursor: default; }
+  :focus-visible { outline: 2px solid var(--color-active); outline-offset: 3px; }
+  input:focus, select:focus { border-color: var(--color-active); }
+  summary { cursor: pointer; color: var(--color-muted); padding: 7px 0; }
+  [hidden] { display: none !important; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+}

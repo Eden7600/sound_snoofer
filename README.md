@@ -16,7 +16,7 @@ The controls window has Audio, Soundboard, Stream Deck, Plugins and Diagnostics 
 
 ## Build and validate
 
-The GUI uses the installed Microsoft WebView2 runtime. HTML/CSS/JavaScript assets are embedded in snoofer.exe; no frontend bundler or separate server is required. Use the Go version in go.mod. Default audio builds require installed MSVC x64 tools and the Windows SDK for the callback companion; core-only builds do not. Do not redistribute Voicemeeter's vendor DLL.
+The GUI uses the installed Microsoft WebView2 runtime. HTML/CSS/JavaScript assets are embedded in snoofer.exe; no separate server is required. The stylesheet is Tailwind CSS compiled at build time, so builds need Node.js: run `npm ci` once, after which scripts/build.ps1 runs `npm run css` itself. Icons are vendored from Lucide (`node scripts/vendor-icons.cjs` regenerates app/web/icons.mjs). Use the Go version in go.mod. Default audio builds require installed MSVC x64 tools and the Windows SDK for the callback companion; core-only builds do not. Do not redistribute Voicemeeter's vendor DLL.
 
 ```powershell
 .\scripts\build.ps1

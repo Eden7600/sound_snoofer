@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Snoofer</title><link rel="stylesheet" href="dist/app.css"></head>
-<body>
-<aside class="sidebar">
- <div class="brand"><img class="brandmark" src="logo.ico" alt=""><strong>snoofer</strong></div>
- <div class="nav-caption">WORKSPACE</div>
- <nav aria-label="Workspace">
+<body class="flex min-h-screen">
+<aside class="sticky top-0 flex h-screen w-[190px] shrink-0 flex-col border-r border-[#21313e] bg-sidebar px-3.5 pt-[26px] pb-[18px] max-[1120px]:w-[164px] max-[1120px]:px-2.5 max-[1120px]:pt-[22px] max-[850px]:w-[150px]">
+ <div class="mx-2.5 mb-[35px] flex items-center gap-2.5 text-[23px] tracking-[-.7px] max-[1120px]:text-[21px]"><img class="size-[42px] object-contain" data-part="brandmark" src="logo.ico" alt=""><strong>snoofer</strong></div>
+ <div class="mx-3 mb-2.5 text-[10px] font-semibold tracking-[1.7px] text-muted">WORKSPACE</div>
+ <nav class="grid gap-[5px]" aria-label="Workspace">
   <button data-screen="audio">Audio</button>
   <button data-screen="soundboard">Soundboard</button>
   <button data-screen="lights">Lights</button>
@@ -14,14 +14,13 @@
   <button data-screen="apps">Third-party apps</button>
   <button data-screen="diagnostics">Diagnostics</button>
  </nav>
- <div class="sidebar-foot"><span id="connection" class="badge">Connecting</span><small>Plugin host</small></div>
+ <div class="mt-auto px-2.5 pt-5"><span id="connection">Connecting</span><small class="mt-3.5 block text-[11px] leading-relaxed text-muted">Plugin host</small></div>
 </aside>
-<main>
- <header><div><div id="eyebrow" class="eyebrow">CONTROLS</div><h1 id="title">Audio</h1></div><div id="summary" class="header-status"></div></header>
- <div id="notice" role="alert" hidden></div>
- <div id="content" aria-busy="true"><div class="empty">Connecting to Snoofer…</div></div>
+<main class="min-w-0 flex-1 px-8 pt-7 pb-9 max-[1120px]:px-5 max-[1120px]:pt-6">
+ <header class="mb-[26px] flex items-center justify-between gap-4"><div><div id="eyebrow" class="text-[10px] font-semibold tracking-[1.7px] text-muted">CONTROLS</div><h1 id="title" class="mt-1.5 text-[29px] leading-tight font-bold tracking-[-.7px]">Audio</h1></div><div id="summary" class="flex flex-wrap items-center gap-2 max-[850px]:max-w-[190px]"></div></header>
+ <div id="notice" class="mb-[18px] rounded-lg border border-[#7b4a42] bg-[#332329] px-4 py-3 break-words whitespace-pre-wrap text-[#ffb7a9]" role="alert" hidden></div>
+ <div id="content" aria-busy="true"><div class="rounded-xl border border-dashed border-line px-6 py-11 text-center text-muted">Connecting to Snoofer…</div></div>
 </main>
-<dialog id="confirm"><h2>Apply changes?</h2><p id="confirm-text"></p><div class="actions"><button id="confirm-no">Cancel</button><button class="primary" id="confirm-yes">Apply & restart</button></div></dialog>
+<dialog id="confirm" class="m-auto max-w-[500px] rounded-[14px] border border-line bg-panel p-[25px] text-ink backdrop:bg-black/65"><h2 class="text-base font-semibold">Apply changes?</h2><p id="confirm-text" class="my-3 break-words whitespace-pre-wrap"></p><div class="mt-[25px] flex flex-wrap items-center justify-end gap-2"><button id="confirm-no">Cancel</button><button class="border-transparent bg-active font-semibold text-[#06232b] hover:bg-active" id="confirm-yes">Apply &amp; restart</button></div></dialog>
 <script type="module" src="app.js"></script>
 </body></html>
-
