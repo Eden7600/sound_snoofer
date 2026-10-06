@@ -4,7 +4,7 @@ import {icon} from "./icons.mjs";
 const $=s=>document.querySelector(s);
 const root=$("#content");
 let state={Controls:[],Plugins:{},Enabled:{}}, controls=new Map(), screen="audio", signature="", pending=null;
-let localError="", dismissedNotice="", connected=false;
+let localError="", dismissedNotice="";
 const widgets=[], updaters=[];
 const titles={audio:["AUDIO","Audio"],soundboard:["LIBRARY","Soundboard"],lights:["LIGHTING","Lights"],deck:["CONTROL SURFACE","Stream Deck"],plugins:["SYSTEM","Plugins"],apps:["SYSTEM","Third-party apps"],diagnostics:["SYSTEM","Diagnostics"]};
 
@@ -162,6 +162,7 @@ function buildAudio() {
  if(![...controls.keys()].some(id=>id.startsWith("audio."))){empty(root,"Audio is disabled. Enable it in Plugins.");return;}
  const grid=el("div",ui.grid);root.append(grid);
  const live=panel("Live controls",grid,"col-span-full"), top=el("div","mb-5 grid grid-cols-3 gap-5"), strips=el("div","grid grid-cols-2 gap-5 max-[850px]:gap-[9px]");
+ control("audio.health",live,"Engine");
  live.append(top);control("audio.mic-stack",top,"Mic stack",{layout:"bare"});control("audio.mic-mute",top,"Mic mute",{layout:"bare"});control("audio.speaker-mute",top,"Playback mute",{layout:"bare"});
  live.append(strips);
  mixer("audio.gain-mic",strips,"MICROPHONE");mixer("audio.gain-playback",strips,"PLAYBACK");control("audio.interface",live,"Interface");
@@ -503,11 +504,10 @@ function update(){
   if(["toggle","selection","text","command"].includes(item.Kind))input.disabled=!!pending||!item.Available;
  }
  for(const fn of updaters)fn();
- const health=c("audio.health");$("#summary").replaceChildren();
+ // Audio health lives on the Audio and Diagnostics screens, not the shared header.
+ $("#summary").replaceChildren();
  if(pending)$("#summary").append(badge("Sending","attention"));
- if(health)$("#summary").append(badge(health.Value||"Unknown",tone(health)));
  if(c("audio.normal-source")?.Subdued)$("#summary").append(badge("VR active","active"));
- const link=$("#connection");link.textContent=connected?"Connected":"Disconnected";link.className=ui.badge;link.dataset.tone=connected?"active":"critical";
  root.setAttribute("aria-busy",String(!!pending));
  refreshNotice();
  const dialog=$("#confirm");
@@ -538,8 +538,8 @@ $("#confirm").oncancel=e=>{e.preventDefault();send({Kind:"cancel"});};
 async function poll(){
  try {
   if(!window.go?.app?.Desktop)throw new Error("Desktop connection unavailable");
-  const next=await window.go.app.Desktop.State();connected=true;receive(next);
- }catch(error){connected=false;showError(error);update();}
+  const next=await window.go.app.Desktop.State();receive(next);
+ }catch(error){showError(error);update();}
  setTimeout(poll,200);
 }
 poll();

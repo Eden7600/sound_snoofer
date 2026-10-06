@@ -77,6 +77,9 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.getByRole("heading",{name:"Live controls"}).waitFor();
   await page.waitForFunction(()=>document.querySelector("[data-part=brandmark]").naturalWidth>0);
   assert.equal(await page.locator("[data-part=strip]").count(),2);
+  assert.equal(await page.getByText("Engine",{exact:true}).count(),1,"Audio screen lacks the Engine health row");
+  assert.equal(await page.locator("#summary").getByText("Healthy").count(),0,"health badge still in the header");
+  assert.equal(await page.getByText("Plugin host").count(),0,"sidebar host footer still shown");
   assert.equal(await page.getByRole("heading",{name:"PLAYBACK",exact:true}).count(),1);
   assert.equal(await page.getByText("A1 OUTPUT",{exact:true}).count(),0);
   await page.screenshot({path:path.join(root,".local/gui-audio.png"),fullPage:true});
