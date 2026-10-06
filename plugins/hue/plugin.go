@@ -138,6 +138,8 @@ type worker struct {
 	scenePending map[string]time.Time // Recalled scenes awaiting an active status.
 	sceneErr     map[string]string
 
+	motion motionLink // Requested motion sensor states in the selected room.
+
 	sync syncLink // Hue Sync PC app half.
 
 	artwork map[string]cachedArtwork // Scene thumbnails by scene ID.
@@ -235,6 +237,7 @@ func (w *worker) connect(ctx context.Context) {
 	}
 	w.connecting = true
 	w.generation++
+	w.resetMotion()
 	generation := w.generation
 	settings := w.settings
 	discover := w.discover
@@ -324,6 +327,7 @@ func (w *worker) disconnect(err error) {
 	w.group = groupRequest{}
 	w.sceneWriting = ""
 	clear(w.scenePending)
+	w.resetMotion()
 	w.fail(err)
 }
 
@@ -391,6 +395,9 @@ func (w *worker) tick(ctx context.Context, now time.Time) bool {
 			changed = true
 		}
 	}
+	if w.expireMotion(now) {
+		changed = true
+	}
 	if w.syncTick(ctx, now) {
 		changed = true
 	}
@@ -415,6 +422,7 @@ func (w *worker) observe() {
 			delete(w.scenePending, scene.SceneID)
 		}
 	}
+	w.observeMotion()
 }
 
 func (w *worker) handle(ctx context.Context, r snoofer.Request) {
@@ -428,6 +436,8 @@ func (w *worker) handle(ctx context.Context, r snoofer.Request) {
 		w.selectGroup(r.Value)
 	case r.ID == "hue.brightness":
 		w.adjustBrightness(r)
+	case r.ID == "hue.motion":
+		w.toggleMotion(ctx)
 	case strings.HasPrefix(r.ID, "hue.sync"):
 		w.handleSync(r)
 	case strings.HasPrefix(r.ID, "hue.scene-"):
@@ -764,7 +774,7 @@ func (w *worker) controls() []snoofer.Control {
 		brightness.Subdued = w.sync.stepsDue != 0
 		brightness.Available = live
 	}
-	controls = append(controls, brightness)
+	controls = append(controls, brightness, w.motionControl())
 	controls = append(controls, w.syncControls()...)
 	now := time.Now()
 	controls = append(controls, w.bridgeReport(now), w.syncReport(now))

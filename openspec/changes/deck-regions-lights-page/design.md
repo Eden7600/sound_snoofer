@@ -20,7 +20,7 @@ Positions are given as row/column on the 4×9 key grid (r1c1 is top-left). Dials
 **State discipline.**
 - A successful PUT is only *requested*. The value comes from observed resources: the SSE `motion` update or the next reload.
 - Until each sensor is observed, the Status is `Pending`.
-- A failed PUT shows `Failed` on the control and keeps full details in diagnostics. A partial failure leaves the observed `Mixed`.
+- A failed PUT sets the control Status to the error: the deck shows `Error`, and the GUI shows the reason. A partial failure leaves the observed `Mixed`.
 - The bridge owns this state. Snoofer never persists it and never reapplies it on launch or reconnect.
 
 **Model.**

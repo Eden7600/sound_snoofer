@@ -85,7 +85,7 @@ func (s *sceneStatus) UnmarshalJSON(data []byte) error {
 
 // usedTypes are the resource types the model reads. Malformed resources of
 // other types are skipped so unrelated bridge data cannot block loading.
-var usedTypes = map[string]bool{"room": true, "zone": true, "device": true, "light": true, "grouped_light": true, "scene": true}
+var usedTypes = map[string]bool{"room": true, "zone": true, "device": true, "light": true, "grouped_light": true, "scene": true, "motion": true}
 
 // decodeResources decodes each resource separately, skipping malformed
 // resources of unused types and rejecting malformed used ones.
@@ -119,6 +119,8 @@ type resource struct {
 	Children []reference   `json:"children,omitempty"`
 	Services []reference   `json:"services,omitempty"`
 	Group    *reference    `json:"group,omitempty"`
+	Owner    *reference    `json:"owner,omitempty"`   // Motion services: the sensor device.
+	Enabled  *bool         `json:"enabled,omitempty"` // Motion services: the sensor is armed.
 	On       *onState      `json:"on,omitempty"`
 	Dimming  *dimming      `json:"dimming,omitempty"`
 	Status   *sceneStatus  `json:"status,omitempty"`
@@ -142,6 +144,12 @@ func (r *resource) merge(update resource) {
 	}
 	if update.On != nil {
 		r.On = update.On
+	}
+	if update.Owner != nil {
+		r.Owner = update.Owner
+	}
+	if update.Enabled != nil {
+		r.Enabled = update.Enabled
 	}
 	if update.Dimming != nil {
 		r.Dimming = update.Dimming
@@ -276,6 +284,44 @@ func (m model) lights(g resource) []resource {
 			}
 		}
 	}
+	return out
+}
+
+// motionSensor is one motion service in a room.
+type motionSensor struct {
+	ID      string
+	Known   bool // The bridge reported the enabled flag.
+	Enabled bool
+}
+
+// motionSensors lists the motion services owned by a room's devices, sorted by
+// ID. Zones contain lights rather than devices and have none.
+func (m model) motionSensors(groupID string) []motionSensor {
+	g, ok := m.resources[groupID]
+	if !ok || g.Type != "room" {
+		return nil
+	}
+	var out []motionSensor
+	for _, child := range g.Children {
+		if child.RType != "device" {
+			continue
+		}
+		for _, service := range m.resources[child.RID].Services {
+			if service.RType != "motion" {
+				continue
+			}
+			motion, ok := m.resources[service.RID]
+			if !ok {
+				continue
+			}
+			sensor := motionSensor{ID: motion.ID}
+			if motion.Enabled != nil {
+				sensor.Known, sensor.Enabled = true, *motion.Enabled
+			}
+			out = append(out, sensor)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out
 }
 

@@ -20,7 +20,7 @@ The Hue plugin SHALL offer a toggle for the motion sensors of the selected room.
 
 #### Scenario: Write failure
 - **WHEN** a sensor update fails
-- **THEN** the control shows Failed with details in diagnostics, and its value reflects the observed sensors
+- **THEN** the key shows Error and the GUI shows the reason, and the value reflects the observed sensors
 
 ### Requirement: Page regions
 A Stream Deck page SHALL support rectangular regions filled from a named control collection. Manual and shared bindings SHALL take precedence, and overflow SHALL add pages that repeat the page's fixed bindings.

@@ -3,7 +3,7 @@ Each numbered block is one reviewable commit.
 
 ## Implementation
 - [x] 1. `docs(deck)`: specify page regions, go-to keys, the Lights page and the motion toggle. Record the UX review and update the UI contract's deck and Hue sections.
-- [ ] 2. `feat(hue)`: motion toggle for the selected room. Covers:
+- [x] 2. `feat(hue)`: motion toggle for the selected room. Covers:
   - the `motion` resource in the model and event merges;
   - the association to the room;
   - On/Off/Mixed values, Pending until observed, and Failed;

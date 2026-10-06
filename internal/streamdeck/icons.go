@@ -44,6 +44,7 @@ func drawIcon(im *image.RGBA, icon string, ink color.RGBA) bool {
 		}
 	}
 	muted := strings.HasSuffix(icon, "-muted")
+	off := strings.HasSuffix(icon, "-off")
 	icon = strings.TrimSuffix(strings.TrimSuffix(icon, "-muted"), "-off")
 	switch icon {
 	case "record-toggle", "record-start":
@@ -187,6 +188,25 @@ func drawIcon(im *image.RGBA, icon string, ink color.RGBA) bool {
 			r := float64(a) * math.Pi / 180
 			dot(44+int(14*math.Cos(r)), 39+int(10*math.Sin(r)), 2)
 			dot(68+int(14*math.Cos(r)), 39+int(10*math.Sin(r)), 2)
+		}
+	case "hue-motion":
+		// Sensor body with its lens, sensing to both sides; slashed while Off,
+		// which stays a neutral state rather than a muted one.
+		line(44, 26, 68, 26)
+		line(44, 54, 68, 54)
+		line(42, 28, 42, 52)
+		line(70, 28, 70, 52)
+		dot(56, 40, 6)
+		for _, radius := range []int{22, 31} {
+			for a := -35; a <= 35; a++ {
+				r := float64(a) * math.Pi / 180
+				c, sn := math.Cos(r), math.Sin(r)
+				dot(56+int(float64(radius)*c), 40+int(float64(radius)*sn), 2)
+				dot(56-int(float64(radius)*c), 40+int(float64(radius)*sn), 2)
+			}
+		}
+		if off {
+			line(25, 14, 87, 67)
 		}
 	case "huesync-sync":
 		// Screen casting light to both sides.

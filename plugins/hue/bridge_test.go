@@ -115,6 +115,10 @@ func (b *fakeBridge) put(w http.ResponseWriter, r *http.Request) {
 		b.applyGroup(parts[1], body)
 	case "scene":
 		b.update(resource{ID: parts[1], Type: "scene", Status: &sceneStatus{Active: "static"}})
+	case "motion":
+		var enabled bool
+		_ = json.Unmarshal(body["enabled"], &enabled)
+		b.update(resource{ID: parts[1], Type: "motion", Enabled: &enabled})
 	}
 }
 
