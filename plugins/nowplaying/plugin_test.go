@@ -119,11 +119,11 @@ func TestWindowsSessionsFocusAndArt(t *testing.T) {
 		t.Fatalf("members %+v", m)
 	}
 	dial := r.control("nowplaying.dial")
-	if dial.ShortLabel != "Song" || dial.Value != "1:00 / 3:20" || dial.Artwork == "" {
+	if dial.ShortLabel != "Song" || dial.Progress.Text(r.now) != "1:00 / 3:20" || dial.Value != "Playing" || dial.Artwork == "" {
 		t.Fatalf("dial %+v", dial)
 	}
 	r.tick(10 * time.Second) // Interpolated while playing.
-	if v := r.control("nowplaying.dial").Value; v != "1:10 / 3:20" {
+	if v := r.control("nowplaying.dial").Progress.Text(r.now); v != "1:10 / 3:20" {
 		t.Fatal("interpolation", v)
 	}
 	if r.win.artCalls != 1 {
@@ -142,21 +142,22 @@ func TestCommandsPendingAndObserved(t *testing.T) {
 	r.win.sessions = []mediasessions.Session{spotify("playing", 60_000, r.now)}
 	r.tick(0)
 	r.press("nowplaying.dial", "adjust", 3)
+	r.tick(scrubSettle)
 	if len(r.win.commands) != 1 || r.win.commands[0] != "Spotify.exe:seek:75µs" {
 		t.Fatal("seek", r.win.commands)
 	}
-	if r.control("nowplaying.dial").Status != "Pending" {
-		t.Fatal("seek not pending")
+	if p := r.control("nowplaying.dial").Progress; p.PositionMs != 75_000 {
+		t.Fatal("pending seek not shown", p)
 	}
 	r.win.sessions = []mediasessions.Session{spotify("playing", 75_000, r.now)}
 	r.tick(100 * time.Millisecond)
-	if s := r.control("nowplaying.dial").Status; s != "" {
-		t.Fatal("seek not observed", s)
+	if len(r.w.pending) != 0 {
+		t.Fatal("seek not observed", r.w.pending)
 	}
 	r.press("nowplaying.toggle", "press", 0)
 	r.tick(time.Second)
-	if r.control("nowplaying.toggle").Value != "Playing" || r.control("nowplaying.dial").Status != "Pending" {
-		t.Fatal("toggle state", r.control("nowplaying.toggle").Value, r.control("nowplaying.dial").Status)
+	if r.control("nowplaying.toggle").Value != "Playing" || r.control("nowplaying.toggle").Status != "" || len(r.w.pending) != 1 {
+		t.Fatal("toggle state", r.control("nowplaying.toggle").Value, r.w.pending)
 	}
 	r.tick(3 * time.Second) // Never paused: reported, not retried.
 	if s := r.control("nowplaying.dial").Status; s != "No response" || len(r.win.commands) != 2 {
@@ -166,6 +167,38 @@ func TestCommandsPendingAndObserved(t *testing.T) {
 	r.press("nowplaying.next", "press", 0)
 	if s := r.control("nowplaying.dial").Status; s != "Declined" {
 		t.Fatal("declined", s)
+	}
+}
+
+func TestScrubbingCoalescesDetents(t *testing.T) {
+	r := newRig(t, true)
+	r.win.sessions = []mediasessions.Session{spotify("paused", 60_000, r.now)}
+	r.tick(0)
+	revision := r.control("nowplaying.dial").Revision
+	// Three quick detents: the dial shows 1:15 at once, nothing is sent yet.
+	for n := 0; n < 3; n++ {
+		r.press("nowplaying.dial", "adjust", 1)
+		r.tick(50 * time.Millisecond)
+	}
+	dial := r.control("nowplaying.dial")
+	if dial.Progress.Text(r.now) != "1:15 / 3:20" || dial.Status != "" || len(r.win.commands) != 0 {
+		t.Fatal("scrub", dial.Progress.Text(r.now), dial.Status, r.win.commands)
+	}
+	if dial.Revision != revision {
+		t.Fatal("scrubbing changed the dial revision; turns would be rejected")
+	}
+	// One seek once the dial rests; a turn after that starts from the target.
+	r.tick(scrubSettle)
+	r.press("nowplaying.dial", "adjust", -1)
+	r.tick(scrubSettle)
+	if len(r.win.commands) != 2 || r.win.commands[0] != "Spotify.exe:seek:75µs" || r.win.commands[1] != "Spotify.exe:seek:70µs" {
+		t.Fatal("seeks", r.win.commands)
+	}
+	// The player never reports the new position: after the timeout the dial
+	// quietly shows what the player says, without an error.
+	r.tick(4 * time.Second)
+	if dial := r.control("nowplaying.dial"); dial.Status != "" || dial.Progress.Text(r.now) != "1:00 / 3:20" {
+		t.Fatal("quiet timeout", dial.Status, dial.Progress.Text(r.now))
 	}
 }
 

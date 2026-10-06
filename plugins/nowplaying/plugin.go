@@ -35,7 +35,8 @@ func (s Settings) port() int {
 }
 
 const (
-	seekStep    = 5000 // Milliseconds per dial detent.
+	seekStep    = 5000                   // Milliseconds per dial detent.
+	scrubSettle = 250 * time.Millisecond // Quiet time after the last detent before seeking.
 	focusHold   = 30 * time.Second
 	seekMatchMs = 3000
 )
@@ -94,6 +95,14 @@ func (i *instance) Stop(ctx context.Context) error {
 	}
 }
 
+// scrub is a dial seek being gathered: detents move the target, and one seek
+// is sent once the dial rests.
+type scrub struct {
+	key      string
+	targetMs int64
+	last     time.Time
+}
+
 // pendingCommand is a request awaiting an observed change.
 type pendingCommand struct {
 	op          string
@@ -129,6 +138,7 @@ type worker struct {
 	pressed  time.Time // The last time the user chose what to control.
 	pending  map[string]pendingCommand
 	failure  map[string]string
+	scrub    *scrub // The dial seek being gathered, if any.
 }
 
 func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, open func() (windowsSource, error), t timing) (snoofer.Instance, error) {
@@ -219,6 +229,13 @@ func (w *worker) step(now time.Time) {
 		}
 	}
 	w.merge(now)
+	if w.scrub != nil && now.Sub(w.scrub.last) >= scrubSettle {
+		target := *w.scrub
+		w.scrub = nil
+		if s, ok := w.find(target.key); ok {
+			w.command(s, "seek", target.targetMs, now)
+		}
+	}
 }
 
 // windowsArt fetches artwork only for tracks not seen before, and forgets
@@ -357,6 +374,12 @@ func (w *worker) observe(now time.Time) {
 		case "seek":
 			d := s.position(now) - p.wantMs
 			done = d > -seekMatchMs && d < seekMatchMs
+			if !done && now.Sub(p.at) > w.timing.observe {
+				// Players report positions late or coarsely; show theirs
+				// rather than an error.
+				delete(w.pending, k)
+				continue
+			}
 		case "mute":
 			done = s.Muted == p.wantMuted
 		}
@@ -368,6 +391,21 @@ func (w *worker) observe(now time.Time) {
 			w.failure[k] = "No response"
 		}
 	}
+}
+
+// progress is what surfaces show for a session: the dial seek being
+// gathered, else a pending seek's target, else what the source reports.
+func (w *worker) progress(s session, now time.Time) snoofer.Progress {
+	p := snoofer.Progress{Known: true, Playing: s.playing(), PositionMs: s.PositionMs, DurationMs: s.DurationMs, Rate: s.Rate, At: s.Updated}
+	if p.At.IsZero() {
+		p.At = now
+	}
+	if w.scrub != nil && w.scrub.key == s.Key {
+		p.PositionMs, p.At = w.scrub.targetMs, w.scrub.last
+	} else if pending, ok := w.pending[s.Key]; ok && pending.op == "seek" {
+		p.PositionMs, p.At = pending.wantMs, pending.at
+	}
+	return p
 }
 
 func (w *worker) find(key string) (session, bool) {
@@ -399,11 +437,15 @@ func (w *worker) handle(r snoofer.Request, now time.Time) {
 		}
 		w.pressed = now
 		if r.Operation == "adjust" {
-			target := focused.position(now) + int64(r.Delta)*seekStep
+			if !focused.CanSeek {
+				return
+			}
+			// Detents gather from the shown position into one seek.
+			target := w.progress(focused, now).PositionAt(now) + int64(r.Delta)*seekStep
 			if focused.DurationMs > 0 {
 				target = min(target, focused.DurationMs-1000)
 			}
-			w.command(focused, "seek", max(0, target), now)
+			w.scrub = &scrub{key: focused.Key, targetMs: max(0, target), last: now}
 			return
 		}
 		w.command(focused, "toggle", 0, now)

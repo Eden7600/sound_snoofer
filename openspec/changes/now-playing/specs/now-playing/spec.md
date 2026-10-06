@@ -27,7 +27,7 @@ Snoofer SHALL control each session individually and SHALL direct the media dial 
 
 #### Scenario: Seeking with the dial
 - **WHEN** the media dial turns three detents clockwise in quick succession on a seekable session at 1:00
-- **THEN** the dial shows 1:15 immediately, one seek to 1:15 is sent after the turning stops, and the dial shows Pending until the new position is observed
+- **THEN** the dial shows 1:15 immediately and keeps showing it, advancing if playing, until the new position is observed; one seek to 1:15 is sent after the turning stops
 
 #### Scenario: Turning during playback
 - **WHEN** the dial is turned while the session plays and its progress advances

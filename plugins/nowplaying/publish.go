@@ -13,7 +13,8 @@ import (
 // viewSession is a session's full detail for the GUI.
 type viewSession struct {
 	ID, Source, App, Title, Artist, Album, Status, Progress string
-	PositionMs, DurationMs                                  int64
+	PositionMs, DurationMs, AtMs                            int64 // AtMs: when PositionMs was true (Unix ms).
+	Rate                                                    float64
 	Focused, CanToggle, CanNext, CanPrev, CanSeek, CanMute  bool
 	Muted                                                   bool
 	Pending                                                 bool
@@ -65,8 +66,9 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 		options = append(options, id)
 		labels[id] = title + " · " + s.App
 		_, pending := w.pending[s.Key]
+		shown := w.progress(s, now)
 		view.Sessions = append(view.Sessions, viewSession{ID: id, Source: s.Source, App: s.App, Title: s.Title, Artist: s.Artist, Album: s.Album, Status: s.Status,
-			Progress: s.progress(now), PositionMs: s.position(now), DurationMs: s.DurationMs, Focused: s.Key == w.focus, CanToggle: s.CanToggle, CanNext: s.CanNext,
+			Progress: shown.Text(now), PositionMs: shown.PositionMs, AtMs: shown.At.UnixMilli(), Rate: shown.Rate, DurationMs: s.DurationMs, Focused: s.Key == w.focus, CanToggle: s.CanToggle, CanNext: s.CanNext,
 			CanPrev: s.CanPrev, CanSeek: s.CanSeek, CanMute: s.CanMute, Muted: s.Muted, Pending: pending, Failure: w.failure[s.Key]})
 	}
 	names := make([]string, 0, len(w.browsers))
@@ -98,15 +100,17 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 		if title == "" {
 			title = focused.App
 		}
-		dial.ShortLabel, dial.Value, dial.Artwork = title, focused.progress(now), focused.Art
+		// Value changes only with the play state; progress is telemetry, so
+		// turning the dial during playback is never rejected as stale.
+		dial.ShortLabel, dial.Value, dial.Artwork = title, focused.Status, focused.Art
+		dial.Progress = w.progress(focused, now)
 		toggleValue = focused.Status
 		if focused.Muted {
 			muteValue = "Muted"
 		}
 		dialStatus = w.failure[focused.Key]
-		if _, pending := w.pending[focused.Key]; pending {
-			dialStatus = "Pending"
-		}
+		// No "Pending" here: the progress already shows the requested
+		// position, and a changing status would make further turns stale.
 	}
 	dial.Status = dialStatus
 	controls = append(controls, dial,

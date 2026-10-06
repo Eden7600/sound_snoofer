@@ -107,6 +107,7 @@ Review found seeking unreliable. The dial's value (`m:ss / m:ss`) changed every 
   - Dial detents accumulate into one target (±5 s each, from the shown position), and the shown progress moves to it at once.
   - One seek goes out 250 ms after the last detent.
   - Further turns while a seek is pending start from the pending target.
+  - The dial's status never shows Pending for seeks. The optimistic progress already shows the request, and a changing status would change the revision and reject the next turns. Only failures appear.
 - **Optimistic progress:** while a seek is pending, progress shows the requested position, advancing if playing. The pending seek clears when the source reports a position within 3 s of the target. If that does not happen within 3 s, Snoofer quietly shows what the source reports instead of an error.
 - **GUI:** session cards interpolate `Progress` between polls. The seek slider is not overwritten while dragged, and after release it shows the optimistic position.
 - **Deck rendering:** with `Progress` known, the dial shows `m:ss / m:ss` and its track from the interpolated position at render time, at the idle refresh (150 ms).
