@@ -102,3 +102,19 @@ Restarting an unpacked extension after `runtime.reload()` does not work under au
 - `scripts/check-gui.cjs`: pass. The slider follows the session after a seek, and a playing card advances between polls.
 - `scripts/check-desktop.cjs` and `scripts/check-extension.cjs` (Chrome and Brave stages): pass.
 - **Build and relaunch:** built with `scripts/build.ps1`; Snoofer relaunched.
+
+## Revision: combined Media deck page (commits bf276e8 through 67138df)
+### Checks
+- `go test ./...`: pass. The appaudio and nowplaying tests were run 3 times each. They cover:
+  - the Apps filter: All, Pinned, Off; filtered apps still published for the GUI; the filter surviving GUI edits; All stored as the default;
+  - the Media filter: saved; sessions, dial and transport hidden while the filter key stays visible; restored on the next press;
+  - the combined default page: sessions on r1, app keys over dials 2–5, the bottom row, and six apps paging keys and dials together;
+  - Home's go-to keys.
+- `scripts/check-gui.cjs` and `scripts/check-desktop.cjs`: pass.
+- **Build and relaunch:** built with `scripts/build.ps1`; Snoofer relaunched.
+
+### Personal layout (backup `snoofer.json.before-combined`)
+- The Apps page was removed; it held only Up/Down.
+- The Media page was rebuilt to the combined layout. Its Playback dial gave way to the app dials, and Playback stays on Home.
+- Home key 34 now goes to Media, and key 33 is free.
+- `snoofer.exe --check` passes.
