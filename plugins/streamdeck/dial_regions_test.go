@@ -22,22 +22,23 @@ func TestDialRegionsPageWithKeys(t *testing.T) {
 	if err := l.Validate(nil); err != nil {
 		t.Fatal(err)
 	}
-	expanded := l.expanded(appControls(7))
-	first, second := expanded.effective("apps"), expanded.effective("apps~auto~2")
-	if second.ID != "apps~auto~2" {
-		t.Fatal("seven apps need a second set")
+	// Six apps on four app keys and dials: two sets, in step.
+	expanded := l.expanded(appControls(6))
+	first, second := expanded.effective("media"), expanded.effective("media~auto~2")
+	if second.ID != "media~auto~2" {
+		t.Fatal("six apps need a second set")
 	}
-	for n := 0; n < 5; n++ {
-		if first.Keys[n].Control != first.Dials[n].Control || first.Dials[n].Control != fmt.Sprintf("appaudio.app-%d", n+1) {
-			t.Fatalf("set 1 position %d: key %s dial %s", n, first.Keys[n].Control, first.Dials[n].Control)
+	for n := 0; n < 4; n++ {
+		if first.Keys[10+n].Control != first.Dials[1+n].Control || first.Dials[1+n].Control != fmt.Sprintf("appaudio.app-%d", n+1) {
+			t.Fatalf("set 1 position %d: key %s dial %s", n, first.Keys[10+n].Control, first.Dials[1+n].Control)
 		}
 	}
-	if second.Dials[0].Control != "appaudio.app-6" || second.Keys[1].Control != "appaudio.app-7" || second.Dials[2].Control != "" || second.Keys[17].Control != scrollPrefix+"up" {
-		t.Fatal("set 2", second.Keys[:3], second.Dials)
+	if second.Dials[1].Control != "appaudio.app-5" || second.Keys[11].Control != "appaudio.app-6" || second.Dials[3].Control != "" || second.Keys[17].Control != scrollPrefix+"up" || second.Dials[0].Control != "nowplaying.dial" {
+		t.Fatal("set 2", second.Keys[10:14], second.Dials)
 	}
 	// Dial regions take only adjustable members.
 	pressOnly := []snoofer.Control{{ID: "appaudio.app-x", Label: "X", Collection: "appaudio.apps", Operations: []string{"press"}}}
-	if expanded := l.expanded(pressOnly).effective("apps"); expanded.Keys[0].Control == "" || expanded.Dials[0].Control != "" {
+	if expanded := l.expanded(pressOnly).effective("media"); expanded.Keys[10].Control == "" || expanded.Dials[1].Control != "" {
 		t.Fatal("press-only member placed on a dial")
 	}
 }

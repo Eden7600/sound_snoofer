@@ -13,10 +13,10 @@ func TestDefaultLayoutPages(t *testing.T) {
 	if err := l.Validate(nil); err != nil {
 		t.Fatal(err)
 	}
-	if len(l.Pages) != 5 || l.Pages[0].ID != "home" || l.Pages[1].ID != "soundboard" || l.Pages[2].ID != "lights" || l.Pages[3].ID != "apps" || l.Pages[4].ID != "media" {
+	if len(l.Pages) != 4 || l.Pages[0].ID != "home" || l.Pages[1].ID != "soundboard" || l.Pages[2].ID != "lights" || l.Pages[3].ID != "media" {
 		t.Fatal("default pages", l.Pages)
 	}
-	if l.Pages[0].Keys[35].Control != gotoPrefix+"lights" || l.Pages[0].Keys[34].Control != gotoPrefix+"soundboard" || l.Pages[0].Keys[33].Control != gotoPrefix+"apps" {
+	if l.Pages[0].Keys[35].Control != gotoPrefix+"lights" || l.Pages[0].Keys[34].Control != gotoPrefix+"soundboard" || l.Pages[0].Keys[33].Control != gotoPrefix+"media" || l.Pages[0].Keys[32].Control != "" {
 		t.Fatal("Home lacks one-step reach")
 	}
 	var controls []snoofer.Control
@@ -29,7 +29,7 @@ func TestDefaultLayoutPages(t *testing.T) {
 	expanded := l.expanded(controls)
 	// 31 clip cells: 40 clips overflow to a second Soundboard set, which the
 	// page dial skips because the page binds scroll keys.
-	if len(expanded.Pages) != 6 || expanded.Pages[2].ID != "soundboard~auto~2" {
+	if len(expanded.Pages) != 5 || expanded.Pages[2].ID != "soundboard~auto~2" {
 		t.Fatal("expanded pages", len(expanded.Pages))
 	}
 	if expanded.next("soundboard", 1) != "lights" || expanded.next("soundboard~auto~2", -1) != "home" || expanded.next("lights", -1) != "soundboard" {
@@ -47,19 +47,25 @@ func TestDefaultLayoutPages(t *testing.T) {
 }
 
 func TestDefaultMediaPage(t *testing.T) {
-	media := DefaultLayout().Pages[4]
-	for n, id := range []string{"nowplaying.prev", "nowplaying.toggle", "nowplaying.next", "nowplaying.mute", "nowplaying.focus"} {
+	media := DefaultLayout().Pages[3]
+	for n, id := range []string{"nowplaying.prev", "nowplaying.toggle", "nowplaying.next", "nowplaying.mute", "nowplaying.focus", "", "appaudio.deck-apps", "nowplaying.deck-media"} {
 		if media.Keys[27+n].Control != id {
 			t.Fatalf("bottom row key %d is %q, want %q", 28+n, media.Keys[27+n].Control, id)
 		}
 	}
+	if media.Dials[0].Control != "nowplaying.dial" {
+		t.Fatal("media dial", media.Dials)
+	}
 	var controls []snoofer.Control
-	for n := 0; n < 30; n++ {
+	for n := 0; n < 3; n++ {
 		controls = append(controls, snoofer.Control{ID: fmt.Sprintf("nowplaying.s-%02d", n), Label: "S", Collection: "nowplaying.sessions", Order: n + 1, Operations: []string{"press", "set"}})
 	}
-	page := DefaultLayout().expanded(controls).effective("media")
-	if page.Keys[0].Control != "nowplaying.s-00" || page.Keys[25].Control == "" || page.Keys[8].Control != "" || page.Keys[27].Control != "nowplaying.prev" {
-		t.Fatal("sessions do not fill r1–r3 c1–c8 around the frame", page.Keys)
+	page := DefaultLayout().expanded(append(controls, appControls(2)...)).effective("media")
+	if page.Keys[0].Control != "nowplaying.s-00" || page.Keys[2].Control != "nowplaying.s-02" || page.Keys[9].Control != "" {
+		t.Fatal("sessions do not fill r1", page.Keys[:10])
+	}
+	if page.Keys[10].Control != "appaudio.app-1" || page.Dials[1].Control != "appaudio.app-1" || page.Keys[11].Control != page.Dials[2].Control || page.Dials[3].Control != "" {
+		t.Fatal("app keys do not sit over their dials", page.Keys[10:14], page.Dials)
 	}
 }
 

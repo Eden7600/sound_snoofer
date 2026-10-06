@@ -9,7 +9,7 @@ package streamdeck
 func DefaultLayout() Layout {
 	home := Page{ID: "home", Name: "Home"}
 	for n, id := range map[int]string{0: "audio.mic-mute", 1: "audio.speaker-mute", 2: "audio.monitor", 3: "audio.mode", 8: "core.open-controls", 9: "audio.record-toggle", 11: "audio.record-mic", 12: "audio.record-computer", 13: "audio.record-tap", 27: "media.prev", 28: "media.play", 29: "media.next",
-		32: gotoPrefix + "media", 33: gotoPrefix + "apps", 34: gotoPrefix + "soundboard", 35: gotoPrefix + "lights"} {
+		33: gotoPrefix + "media", 34: gotoPrefix + "soundboard", 35: gotoPrefix + "lights"} {
 		home.Keys[n] = Binding{Control: id, Label: id}
 	}
 	for n, id := range map[int]string{0: "audio.gain-playback", 1: "audio.gain-mic", 2: "nowplaying.dial"} {
@@ -32,18 +32,16 @@ func DefaultLayout() Layout {
 	for n, id := range map[int]string{0: "audio.gain-playback", 1: "audio.gain-mic", 4: "hue.brightness"} {
 		lights.Dials[n] = Binding{Control: id, Label: id}
 	}
-	// Each app has a dial and the key above-left of it in r1; both page together.
-	apps := Page{ID: "apps", Name: "Apps", Regions: []Region{{Source: "appaudio.apps", First: 0, Last: 4}}, DialRegions: []Region{{Source: "appaudio.apps", First: 0, Last: 4}}}
-	apps.Keys[17] = Binding{Control: scrollPrefix + "up", Label: scrollPrefix + "up"}
-	apps.Keys[26] = Binding{Control: scrollPrefix + "down", Label: scrollPrefix + "down"}
-	// Media sessions fill r1–r3 c1–c8; transport for the focused session is on
-	// the bottom row, and the media dial sits beside Playback.
-	media := Page{ID: "media", Name: "Media", Regions: []Region{{Source: "nowplaying.sessions", First: 0, Last: 25}}}
-	for n, id := range map[int]string{27: "nowplaying.prev", 28: "nowplaying.toggle", 29: "nowplaying.next", 30: "nowplaying.mute", 31: "nowplaying.focus", 17: scrollPrefix + "up", 26: scrollPrefix + "down"} {
+	// Media and apps share a page: sessions on r1, app keys on r2 above their
+	// dials (2–5), transport and the deck filters on the bottom row, and the
+	// media dial first. App keys and dials page together.
+	media := Page{ID: "media", Name: "Media",
+		Regions:     []Region{{Source: "nowplaying.sessions", First: 0, Last: 7}, {Source: "appaudio.apps", First: 10, Last: 13}},
+		DialRegions: []Region{{Source: "appaudio.apps", First: 1, Last: 4}}}
+	for n, id := range map[int]string{17: scrollPrefix + "up", 26: scrollPrefix + "down", 27: "nowplaying.prev", 28: "nowplaying.toggle", 29: "nowplaying.next",
+		30: "nowplaying.mute", 31: "nowplaying.focus", 33: "appaudio.deck-apps", 34: "nowplaying.deck-media"} {
 		media.Keys[n] = Binding{Control: id, Label: id}
 	}
-	for n, id := range map[int]string{0: "nowplaying.dial", 1: "audio.gain-playback"} {
-		media.Dials[n] = Binding{Control: id, Label: id}
-	}
-	return Layout{Home: "home", Pages: []Page{home, sounds, lights, apps, media}}
+	media.Dials[0] = Binding{Control: "nowplaying.dial", Label: "nowplaying.dial"}
+	return Layout{Home: "home", Pages: []Page{home, sounds, lights, media}}
 }
