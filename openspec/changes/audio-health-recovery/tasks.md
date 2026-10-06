@@ -15,6 +15,12 @@
 - [ ] Run tests, vet, Windows build, strict validation and isolated UI smoke.
 - [x] Validate callback qualification, reconnect/resume grace, identity ambiguity, live-owner lifecycle, recorder deferral, persisted uncertainty and callback-based recovery verification with targeted tests.
 - [x] Exercise the production native monitor against Voicemeeter: register, observe advancing buffers, disable/re-enable and clean up without setters.
+## 5. Generalized A1 detection (2026-10-06)
+- [x] Capture the SteelSeries A1 stall and post-restart baseline with the callback probe (incident-2026-10-06.md).
+- [ ] `fix(audio)`: monitor whenever live; target any present A1 device (ASIO presence rules kept); explicit Stalled state; health/report/tone updates. Tests cover WDM/ASIO targets, absent/ambiguous hardware, alert-only versus Auto-recover dispatch and preview.
+- [ ] `feat(gui)`: Restart audio engine (and Confirm) on Audio and Diagnostics; stall badge tone. Update the GUI check.
+- [ ] Validate, build, enable Auto-recover through the GUI, relaunch and record. Hardware: the next real stall auto-recovers (left unchecked until observed).
+
 ## 4. Hardware acceptance
 - [ ] Verify actual incident detection and engine recovery on the affected hardware, separately from mock success.
 - [ ] Check audible output, Element return, mic mute, Volt A1 and recorder behavior after recovery.
