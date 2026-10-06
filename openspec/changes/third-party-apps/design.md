@@ -32,6 +32,8 @@ type ConnectionDetail struct{ Label, Value string }
 - **Timestamps:** wall-clock instants, which marshal as RFC 3339. The GUI computes "ago" against its own clock (same machine).
 - **Credentials:** providers never put them in reports (the Hue app key, for example). Endpoint and details are safe to copy.
 
+`snoofer.ConnectionTracker` (owned by the publishing goroutine) implements these semantics so every provider handles Since, activity and retained errors identically.
+
 ### `Since` semantics
 Set when the reported State changes, and kept otherwise. `LastError` and `LastErrorAt` survive recovery until a newer failure replaces them; the card marks a recovered error as "Last error" in muted tone.
 

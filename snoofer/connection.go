@@ -47,3 +47,39 @@ func (c *Connection) clone() *Connection {
 	out.Details = append([]ConnectionDetail(nil), c.Details...)
 	return &out
 }
+
+// ConnectionTracker keeps the time-based parts of a report: Since changes only
+// when the state changes, and the last error survives recovery. It is not safe
+// for concurrent use; the goroutine that publishes the report owns it.
+type ConnectionTracker struct {
+	state       ConnectionState
+	since       time.Time
+	activity    time.Time
+	lastError   string
+	lastErrorAt time.Time
+}
+
+// Observe records the current state, starting Since when it changes.
+func (t *ConnectionTracker) Observe(state ConnectionState, now time.Time) {
+	if state != t.state || t.since.IsZero() {
+		t.state = state
+		t.since = now
+	}
+}
+
+// Activity records a successful exchange with the peer.
+func (t *ConnectionTracker) Activity(at time.Time) { t.activity = at }
+
+// Fail records a failure; an empty message is ignored.
+func (t *ConnectionTracker) Fail(message string, at time.Time) {
+	if message != "" {
+		t.lastError = message
+		t.lastErrorAt = at
+	}
+}
+
+// Report builds a report for the observed state.
+func (t *ConnectionTracker) Report(endpoint string, details ...ConnectionDetail) *Connection {
+	return &Connection{State: t.state, Endpoint: endpoint, Since: t.since, LastActivity: t.activity,
+		LastError: t.lastError, LastErrorAt: t.lastErrorAt, Details: append([]ConnectionDetail(nil), details...)}
+}

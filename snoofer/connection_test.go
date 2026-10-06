@@ -39,3 +39,22 @@ func TestConnectionReportsAreIsolatedCopies(t *testing.T) {
 		t.Fatal("changed report kept its revision")
 	}
 }
+
+func TestConnectionTrackerSinceAndRetainedError(t *testing.T) {
+	var tracker ConnectionTracker
+	t0 := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
+	tracker.Observe(ConnectionConnected, t0)
+	tracker.Observe(ConnectionConnected, t0.Add(time.Minute))
+	if r := tracker.Report("x"); !r.Since.Equal(t0) || r.State != ConnectionConnected {
+		t.Fatalf("since moved without a state change: %+v", r)
+	}
+	tracker.Fail("refused", t0.Add(2*time.Minute))
+	tracker.Observe(ConnectionDisconnected, t0.Add(2*time.Minute))
+	tracker.Fail("", t0.Add(3*time.Minute))
+	tracker.Observe(ConnectionConnected, t0.Add(4*time.Minute))
+	tracker.Activity(t0.Add(5 * time.Minute))
+	r := tracker.Report("x", ConnectionDetail{"Mode", "video"})
+	if !r.Since.Equal(t0.Add(4*time.Minute)) || r.LastError != "refused" || !r.LastErrorAt.Equal(t0.Add(2*time.Minute)) || !r.LastActivity.Equal(t0.Add(5*time.Minute)) || r.Details[0].Value != "video" {
+		t.Fatalf("report %+v", r)
+	}
+}
