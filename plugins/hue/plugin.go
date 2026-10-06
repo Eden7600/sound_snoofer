@@ -672,6 +672,10 @@ func pair(ctx context.Context, address, deviceType string, discover discoverFunc
 		if err == nil {
 			return target, key, nil
 		}
+		// A request cut off by the pairing window is a timeout, not a bridge error.
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return target, "", fmt.Errorf("bridge button not pressed within %s", window)
+		}
 		if !errors.Is(err, ErrLinkButton) {
 			return target, "", err
 		}

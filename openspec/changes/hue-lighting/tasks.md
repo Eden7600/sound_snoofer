@@ -31,6 +31,8 @@ Each numbered block is one reviewable commit.
 - [x] 24. Validate, build, move Home brightness to dial index 4 while Snoofer is stopped, relaunch and record.
 - [x] 25. `fix(hue)`: retransmit mDNS queries, reconnect via the last known address, and retry a missing paired bridge with backoff (one lost reply caused a minute of No bridge).
 
+- [x] 26. `fix(hue)`: report a pairing-window timeout that interrupts an in-flight request as "bridge button not pressed", not a transport error (found as a flaky test under load).
+
 ## Hardware acceptance
 - [ ] 8. Pair the real bridge through the link button (revision 1 discovery failed with "No bridge" on this multi-adapter host); confirm discovery, restart persistence and that the key stays out of diagnostics.
 - [ ] 9. Recall scenes from the Home slots; confirm Active state and changes made in the Hue app.
