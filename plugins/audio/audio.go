@@ -195,6 +195,15 @@ func (i *Instance) Stop(ctx context.Context) error {
 	}
 }
 
+// micPathControls only act on the microphone path; the deck hides them while
+// the mic stack is off. The mic stack toggle itself is never hidden.
+var micPathControls = map[string]bool{
+	"mic-mute": true, "source": true, "mode": true, "monitor": true, "gain-mic": true,
+	"record-mic": true, "record-tap": true,
+	"normal-source": true, "normal-mode": true, "normal-monitor": true,
+	"vr-profile-source": true, "vr-profile-mode": true, "vr-profile-monitor": true,
+}
+
 func controls(s control.State) []snoofer.Control {
 	out := []snoofer.Control{{ID: "audio.health", Label: "Audio health", Group: "System", Kind: "status", Value: s.Health, Status: strings.TrimSpace(s.Error + " " + s.StateError + " " + s.Notice), Available: true}}
 	if s.Intent == nil {
@@ -387,6 +396,9 @@ func controls(s control.State) []snoofer.Control {
 		if out[n].Group == "Bindings" {
 			out[n].Label += " · " + s.Profile
 		}
+		// With the mic stack off, mic-path controls have no use on control
+		// surfaces; the GUI still shows them, so availability is unchanged.
+		out[n].Hidden = !s.Intent.Enabled && micPathControls[key]
 		if out[n].Kind == "numeric" || out[n].Group == "Transport" {
 			out[n].Available = s.Connected && s.Live
 			if strings.HasPrefix(key, "gain-") {

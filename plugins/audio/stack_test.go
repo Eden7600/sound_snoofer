@@ -47,3 +47,35 @@ func TestDisabledStackDoesNotHideNativeError(t *testing.T) {
 		}
 	}
 }
+
+func TestMicControlsHiddenOnSurfacesWhenStackOff(t *testing.T) {
+	intent := &config.Intent{Enabled: false, Source: "desk", Mode: "direct", Monitor: "off", Recording: &config.RecordingChoices{}}
+	s := control.State{Connected: true, Live: true, MicOptions: []string{"desk", "off"}, Intent: intent, ActiveIntent: intent.Clone()}
+	hidden := map[string]bool{}
+	byID := map[string]snoofer.Control{}
+	for _, c := range controls(s) {
+		byID[c.ID] = c
+		hidden[c.ID] = c.Hidden
+	}
+	for _, id := range []string{"audio.mic-mute", "audio.source", "audio.mode", "audio.monitor", "audio.record-mic", "audio.record-tap", "audio.normal-source"} {
+		if _, ok := byID[id]; !ok {
+			t.Fatalf("%s not published", id)
+		}
+		if !hidden[id] {
+			t.Errorf("%s visible with the mic stack off", id)
+		}
+	}
+	if hidden["audio.mic-stack"] || hidden["audio.speaker-mute"] || hidden["audio.record-computer"] {
+		t.Fatal("non-mic control hidden")
+	}
+	if !byID["audio.mode"].Available {
+		t.Fatal("hiding changed availability")
+	}
+	s.Intent = &config.Intent{Enabled: true, Source: "desk", Mode: "direct", Monitor: "off", Recording: &config.RecordingChoices{}}
+	s.ActiveIntent = s.Intent.Clone()
+	for _, c := range controls(s) {
+		if c.Hidden {
+			t.Errorf("%s hidden with the mic stack on", c.ID)
+		}
+	}
+}

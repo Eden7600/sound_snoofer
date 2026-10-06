@@ -309,7 +309,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					b = p.Keys[event.Key]
 				}
 				c, ok := shown[b.Control]
-				if !ok || !c.Available {
+				if !ok || !c.Available || c.Hidden { // Hidden bindings are blank and inert.
 					continue
 				}
 				r := snoofer.Request{ID: c.ID, Revision: c.Revision, Operation: "press"}

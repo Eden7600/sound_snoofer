@@ -25,6 +25,7 @@ Provider Label identifies an action without an icon. Optional ShortLabel is for 
 | Monitoring | Monitor; Off / Pre / Post |
 | Processing | Mic processing; Direct / Element |
 | Stack enablement | Mic stack; On / Off |
+| Mic stack Off on the deck | Mic mute, Mic target, Processing, Monitor, Mic gain, Record mic and Mic stage keys/dials are blank and inert (bindings kept); Mic stack stays visible. The GUI keeps showing them. |
 | Input selection | Mic target; Auto / selected device |
 | Recording capture | Record mic / Record PC; On / Off |
 | Recording tap | Mic stage; Pre / Post |
