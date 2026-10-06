@@ -424,10 +424,24 @@ function buildAppAudio(){
   const card=panel("App audio is off",root,"mb-[18px] border-[#345365]");card.dataset.part="setup";card.append(el("p","mt-2 mb-3.5 text-muted","Control the volume and mute of individual apps."));
   const actions=el("div",ui.actions);actions.append(button("Enable App audio",()=>send({Kind:"selection",Plugin:"appaudio",Enable:true}),ui.primary));card.append(actions);return;
  }
- const note=el("p","mb-[18px] text-[13px]");note.dataset.part="appaudio-note";root.append(note);
+ // The recent window is edited inline; it saves on Enter or when focus leaves.
+ const intro=el("div","mb-2 flex flex-wrap items-center gap-2 text-[13px] text-muted"),minutes=el("input","w-20 tabular-nums");
+ intro.dataset.part="appaudio-note";
+ minutes.type="number";minutes.min="1";minutes.max="1440";minutes.step="1";minutes.setAttribute("aria-label","Recent window in minutes");minutes.dataset.part="recent";
+ minutes.onchange=()=>{
+  const value=Number(minutes.value),current=c("appaudio.status")?.ViewData?.RecentMinutes;
+  if(Number.isInteger(value)&&value>=1&&value<=1440&&value!==current)appEdit("recent","recent",String(value));
+  else minutes.value=String(current||5);
+ };
+ minutes.onkeydown=e=>{if(e.key==="Enter")minutes.blur();};
+ intro.append(el("span","","Pinned apps first, then apps heard in the last"),minutes,el("span","","minutes."));
+ const note=el("p","mb-[18px] text-[13px]");root.append(intro,note);
  updaters.push(()=>{
   const s=c("appaudio.status");
-  note.textContent=s?.Status||(s?.Value==="Preview"?"Preview: volumes are read, never changed.":"Pinned apps first, then apps heard in the last "+(s?.ViewData?.RecentMinutes||5)+" minutes.");
+  if(document.activeElement!==minutes)minutes.value=String(s?.ViewData?.RecentMinutes||5);
+  minutes.disabled=!!pending||!c("appaudio.edit")?.Available;
+  note.textContent=s?.Status||(s?.Value==="Preview"?"Preview: volumes are read, never changed.":"");
+  note.hidden=!note.textContent;
   note.className="mb-[18px] text-[13px] "+(s?.Status?"text-critical":"text-muted");
  });
  const apps=[...controls.values()].filter(v=>v.Collection==="appaudio.apps").sort((a,b)=>(a.Order||0)-(b.Order||0));

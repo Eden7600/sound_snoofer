@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -63,6 +64,13 @@ func (w *worker) applyEdit(e edit) (Settings, error) {
 			return next, fmt.Errorf("%s is not excluded", e.Value)
 		}
 		next.Exclude = slices.DeleteFunc(next.Exclude, func(p string) bool { return p == pattern })
+		return next, nil
+	case "recent":
+		minutes, err := strconv.Atoi(strings.TrimSpace(e.Value))
+		if err != nil || minutes < 1 || minutes > 24*60 {
+			return next, fmt.Errorf("recent window must be 1–1440 minutes")
+		}
+		next.RecentMinutes = minutes
 		return next, nil
 	case "move":
 		to := pickIndex - 1

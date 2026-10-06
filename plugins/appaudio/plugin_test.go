@@ -348,6 +348,38 @@ func TestEdits(t *testing.T) {
 	}
 }
 
+func TestRecentWindowEdit(t *testing.T) {
+	backend := studio()
+	h := startHarness(t, backend, Settings{}, true)
+	h.wait("apps", func(l []snoofer.Control) bool { return find(l, "Discord").ID != "" })
+	for _, bad := range []string{"0", "1441", "soon"} {
+		h.edit("recent", "recent", bad)
+		h.wait("rejected "+bad, func(l []snoofer.Control) bool {
+			for _, c := range l {
+				if c.ID == "appaudio.status" {
+					return c.Status == "recent window must be 1–1440 minutes"
+				}
+			}
+			return false
+		})
+	}
+	h.edit("recent", "recent", "30")
+	h.wait("window shown", func(l []snoofer.Control) bool {
+		for _, c := range l {
+			if c.ID == "appaudio.status" {
+				var v statusView
+				return json.Unmarshal(c.ViewData, &v) == nil && v.RecentMinutes == 30 && c.Status == ""
+			}
+		}
+		return false
+	})
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.saved.RecentMinutes != 30 {
+		t.Fatal("saved", h.saved.RecentMinutes)
+	}
+}
+
 func TestHeardWindow(t *testing.T) {
 	w := &worker{}
 	now := time.Unix(10000, 0)

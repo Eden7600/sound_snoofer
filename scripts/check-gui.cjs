@@ -245,6 +245,18 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.getByRole("button",{name:"App audio",exact:true}).click();
   await page.locator("[data-part=app]").first().waitFor();
   assert.deepEqual(await page.locator("[data-part=app] h3").allTextContents(),["Discord","Google Chrome","Spotify"]);
+  assert.equal(await page.getByRole("spinbutton",{name:"Recent window in minutes"}).inputValue(),"5");
+  await page.getByRole("spinbutton",{name:"Recent window in minutes"}).fill("30");
+  await page.keyboard.press("Enter");
+  assert.deepEqual(await page.evaluate(()=>JSON.parse(window.sent.at(-1).Request.Value)),{op:"recent",app:"recent",value:"30"});
+  await page.evaluate(()=>{const s=window.fixture.Controls.find(c=>c.ID==="appaudio.status");s.ViewData.RecentMinutes=30;s.Revision++;const e=window.fixture.Controls.find(c=>c.ID==="appaudio.edit");e.Revision++;});
+  await page.waitForFunction(()=>document.querySelector("[data-part=recent]").value==="30");
+  const sentBefore=await page.evaluate(()=>window.sent.length);
+  await page.getByRole("spinbutton",{name:"Recent window in minutes"}).fill("0");
+  await page.keyboard.press("Enter");
+  assert.equal(await page.evaluate(()=>window.sent.length),sentBefore,"invalid window sent");
+  assert.equal(await page.getByRole("spinbutton",{name:"Recent window in minutes"}).inputValue(),"30");
+  await page.waitForTimeout(300);
   assert.equal(await page.getByRole("slider",{name:"Spotify volume"}).isVisible(),false,"closed app adjustable");
   await page.waitForTimeout(300);
   await page.getByRole("slider",{name:"Discord volume"}).fill("60");
