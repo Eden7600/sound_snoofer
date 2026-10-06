@@ -38,7 +38,7 @@ func renderChangedFrame(f, previous Frame, cached [][]byte) ([][]byte, []byte) {
 	}
 	for n, k := range f.Dials {
 		view.Knobs[n] = knobPresentation{Target: k.Label, Value: k.Value, Meter: k.Meter, LevelKnown: k.LevelKnown, LevelDB: k.LevelDB,
-			PeakKnown: k.PeakKnown, PeakDB: k.PeakDB, PositionKnown: k.PositionKnown, Position: k.Position, ZeroMark: k.ZeroMark, Timers: k.Timers}
+			PeakKnown: k.PeakKnown, PeakDB: k.PeakDB, PositionKnown: k.PositionKnown, Position: k.Position, ZeroMark: k.ZeroMark, Timers: k.Timers, Artwork: k.Artwork}
 		if n == Encoders-1 {
 			// Only the page dial carries text (the next page name) in Icon; a
 			// control's icon is an identifier, never strip text.

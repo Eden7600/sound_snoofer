@@ -3,6 +3,7 @@ package streamdeck
 import (
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	device "sound-snoofer/internal/streamdeck"
@@ -64,17 +65,37 @@ func (v *vuMeter) apply(control string, t device.Tile, now time.Time) device.Til
 var (
 	dbValue      = regexp.MustCompile(`^(-?\d+(?:\.\d+)?) dB$`)
 	percentValue = regexp.MustCompile(`(\d+(?:\.\d+)?)%`)
+	// progressValue is playback progress such as "1:05 / 3:20" or "1:02:03 / 2:00:00".
+	progressValue = regexp.MustCompile(`^(\d+(?::\d\d){1,2}) / (\d+(?::\d\d){1,2})$`)
 )
 
+// clockSeconds reads m:ss or h:mm:ss.
+func clockSeconds(s string) float64 {
+	total := 0.0
+	for _, part := range strings.Split(s, ":") {
+		n, _ := strconv.ParseFloat(part, 64)
+		total = total*60 + n
+	}
+	return total
+}
+
 // withPosition adds the knob-position track for values with a known range:
-// gain in dB (−60…+12, with the zero mark) or a percentage. It reads the same
-// displayed value the dial already shows; it never drives behavior.
+// gain in dB (−60…+12, with the zero mark), a percentage or playback progress.
+// It reads the same displayed value the dial already shows; it never drives
+// behavior.
 func withPosition(t device.Tile) device.Tile {
 	if m := dbValue.FindStringSubmatch(t.Value); m != nil {
 		db, _ := strconv.ParseFloat(m[1], 64)
 		t.Position = min(1, max(0, (db-gainMin)/(gainMax-gainMin)))
 		t.PositionKnown = true
 		t.ZeroMark = (0 - gainMin) / (gainMax - gainMin)
+		return t
+	}
+	if m := progressValue.FindStringSubmatch(t.Value); m != nil {
+		if length := clockSeconds(m[2]); length > 0 {
+			t.Position = min(1, max(0, clockSeconds(m[1])/length))
+			t.PositionKnown = true
+		}
 		return t
 	}
 	if m := percentValue.FindStringSubmatch(t.Value); m != nil {

@@ -61,3 +61,38 @@ func TestTimerPanelRendering(t *testing.T) {
 	}
 	writePreview(t, os.Getenv("SNOOFER_TIMER_PREVIEW"), strip)
 }
+
+func TestArtworkDialRendering(t *testing.T) {
+	art := image.NewNRGBA(image.Rect(0, 0, 64, 64))
+	for i := range art.Pix {
+		art.Pix[i] = 230
+	}
+	var encoded bytes.Buffer
+	if err := png.Encode(&encoded, art); err != nil {
+		t.Fatal(err)
+	}
+	frame := Frame{}
+	frame.Dials[0] = Tile{Artwork: base64.StdEncoding.EncodeToString(encoded.Bytes()), Label: "The Troubles", Value: "1:05 / 4:45", PositionKnown: true, Position: 0.23}
+	frame.Dials[2] = Tile{Artwork: base64.StdEncoding.EncodeToString(encoded.Bytes()), Label: "Song", Value: "0:12 / 3:20", PositionKnown: true, Position: 0.06}
+	frame.Dials[1] = Tile{Artwork: base64.StdEncoding.EncodeToString(encoded.Bytes()), Label: "A very long video title", Value: "12:05 / 1:04:45", PositionKnown: true, Position: 0.2}
+	frame.Dials[1].Label = "A very long video title"
+	_, raw := renderFrame(frame)
+	rotated, err := jpeg.Decode(bytes.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bounds := rotated.Bounds()
+	strip := image.NewRGBA(image.Rect(0, 0, bounds.Dy(), bounds.Dx()))
+	for y := 0; y < bounds.Dx(); y++ {
+		for x := 0; x < bounds.Dy(); x++ {
+			strip.Set(x, y, rotated.At(y, bounds.Dy()-1-x))
+		}
+	}
+	if r, _, _, _ := strip.At(30, 50).RGBA(); r>>8 < 200 {
+		t.Fatal("artwork missing on the dial")
+	}
+	if r, g, b, _ := strip.At(74, 56).RGBA(); r>>8 > 100 || g>>8 < 150 || b>>8 < 150 {
+		t.Fatal("progress track not beside the artwork")
+	}
+	writePreview(t, os.Getenv("SNOOFER_MEDIA_DIAL_PREVIEW"), strip)
+}

@@ -59,3 +59,16 @@ func TestDialPosition(t *testing.T) {
 		}
 	}
 }
+
+func TestProgressPosition(t *testing.T) {
+	for value, want := range map[string]float64{"1:00 / 4:00": 0.25, "1:00:00 / 2:00:00": 0.5, "5:00 / 4:00": 1} {
+		if tile := withPosition(device.Tile{Value: value}); !tile.PositionKnown || tile.Position != want || tile.ZeroMark != 0 {
+			t.Errorf("%s: %+v", value, tile)
+		}
+	}
+	for _, value := range []string{"1:00", "1:00 / 0:00", "Paused"} {
+		if withPosition(device.Tile{Value: value}).PositionKnown {
+			t.Errorf("%s has a position", value)
+		}
+	}
+}

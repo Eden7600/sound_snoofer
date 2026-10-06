@@ -13,7 +13,7 @@ func TestDefaultLayoutPages(t *testing.T) {
 	if err := l.Validate(nil); err != nil {
 		t.Fatal(err)
 	}
-	if len(l.Pages) != 4 || l.Pages[0].ID != "home" || l.Pages[1].ID != "soundboard" || l.Pages[2].ID != "lights" || l.Pages[3].ID != "apps" {
+	if len(l.Pages) != 5 || l.Pages[0].ID != "home" || l.Pages[1].ID != "soundboard" || l.Pages[2].ID != "lights" || l.Pages[3].ID != "apps" || l.Pages[4].ID != "media" {
 		t.Fatal("default pages", l.Pages)
 	}
 	if l.Pages[0].Keys[35].Control != gotoPrefix+"lights" || l.Pages[0].Keys[34].Control != gotoPrefix+"soundboard" || l.Pages[0].Keys[33].Control != gotoPrefix+"apps" {
@@ -29,7 +29,7 @@ func TestDefaultLayoutPages(t *testing.T) {
 	expanded := l.expanded(controls)
 	// 31 clip cells: 40 clips overflow to a second Soundboard set, which the
 	// page dial skips because the page binds scroll keys.
-	if len(expanded.Pages) != 5 || expanded.Pages[2].ID != "soundboard~auto~2" {
+	if len(expanded.Pages) != 6 || expanded.Pages[2].ID != "soundboard~auto~2" {
 		t.Fatal("expanded pages", len(expanded.Pages))
 	}
 	if expanded.next("soundboard", 1) != "lights" || expanded.next("soundboard~auto~2", -1) != "home" || expanded.next("lights", -1) != "soundboard" {

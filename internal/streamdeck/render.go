@@ -161,6 +161,7 @@ type knobPresentation struct {
 	PeakKnown, PositionKnown    bool
 	PeakDB, Position, ZeroMark  float64
 	Timers                      [2]TimerTile
+	Artwork                     string // Shown left of the dial's text when set.
 }
 type presentation struct {
 	Keys  [Keys]keyPresentation
@@ -209,6 +210,10 @@ func renderKnobs(knobs [Encoders]knobPresentation) []byte {
 			drawTimers(panel, n*200, knob.Timers)
 			continue
 		}
+		if knob.Artwork != "" {
+			drawArtworkKnob(panel, n*200, knob)
+			continue
+		}
 		x := n*200 + dialInset
 		text(panel, x, 8, 2, knob.Target, activeColor)
 		text(panel, n*200+100, 8, 2, knob.Status, attentionColor)
@@ -219,7 +224,7 @@ func renderKnobs(knobs [Encoders]knobPresentation) []byte {
 		}
 		text(panel, x, 28, size, knob.Value, textColor)
 		if knob.PositionKnown {
-			drawPosition(panel, x, knob)
+			drawPosition(panel, x, dialWidth, knob)
 		}
 		if knob.Meter {
 			drawMeter(panel, x, knob)
@@ -255,12 +260,37 @@ func fill(im *image.RGBA, x0, y0, x1, y1 int, c color.RGBA) {
 
 // drawPosition shows where the value sits in its range, with an optional
 // neutral mark (0 dB for gain).
-func drawPosition(im *image.RGBA, x int, k knobPresentation) {
-	fill(im, x, 54, x+dialWidth, 58, meterQuietColor)
-	fill(im, x, 54, x+int(k.Position*dialWidth+0.5), 58, activeColor)
+func drawPosition(im *image.RGBA, x, width int, k knobPresentation) {
+	fill(im, x, 54, x+width, 58, meterQuietColor)
+	fill(im, x, 54, x+int(k.Position*float64(width)+0.5), 58, activeColor)
 	if k.ZeroMark > 0 {
-		zx := x + int(k.ZeroMark*dialWidth+0.5)
+		zx := x + int(k.ZeroMark*float64(width)+0.5)
 		fill(im, zx-1, 52, zx+1, 60, textColor)
+	}
+}
+
+// drawArtworkKnob spans the target across the panel, then puts artwork on the
+// left with the value, position track and status or name beside it. The
+// value drops the spaces around "/" and then shrinks only when it must.
+func drawArtworkKnob(im *image.RGBA, x0 int, k knobPresentation) {
+	text(im, x0+dialInset, 6, 2, fit(k.Target, dialWidth/12), activeColor)
+	drawThumb(im, x0+dialInset, 28, 56, k.Artwork, "")
+	x, width := x0+72, 200-72-dialInset
+	value, size := k.Value, 2
+	if len([]rune(value))*12 > width {
+		value = strings.ReplaceAll(value, " / ", "/")
+	}
+	if len([]rune(value))*12 > width {
+		size = 1
+	}
+	text(im, x, 34, size, fit(value, width/(6*size)), textColor)
+	if k.PositionKnown {
+		drawPosition(im, x, width, k)
+	}
+	if k.Status != "" {
+		text(im, x, 68, 1, fit(k.Status, width/6), attentionColor)
+	} else if k.Name != "" {
+		text(im, x, 68, 1, fit(k.Name, width/6), neutralColor)
 	}
 }
 

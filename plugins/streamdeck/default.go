@@ -9,10 +9,10 @@ package streamdeck
 func DefaultLayout() Layout {
 	home := Page{ID: "home", Name: "Home"}
 	for n, id := range map[int]string{0: "audio.mic-mute", 1: "audio.speaker-mute", 2: "audio.monitor", 3: "audio.mode", 8: "core.open-controls", 9: "audio.record-toggle", 11: "audio.record-mic", 12: "audio.record-computer", 13: "audio.record-tap", 27: "media.prev", 28: "media.play", 29: "media.next",
-		33: gotoPrefix + "apps", 34: gotoPrefix + "soundboard", 35: gotoPrefix + "lights"} {
+		32: gotoPrefix + "media", 33: gotoPrefix + "apps", 34: gotoPrefix + "soundboard", 35: gotoPrefix + "lights"} {
 		home.Keys[n] = Binding{Control: id, Label: id}
 	}
-	for n, id := range map[int]string{0: "audio.gain-playback", 1: "audio.gain-mic"} {
+	for n, id := range map[int]string{0: "audio.gain-playback", 1: "audio.gain-mic", 2: "nowplaying.dial"} {
 		home.Dials[n] = Binding{Control: id, Label: id}
 	}
 
@@ -36,5 +36,14 @@ func DefaultLayout() Layout {
 	apps := Page{ID: "apps", Name: "Apps", Regions: []Region{{Source: "appaudio.apps", First: 0, Last: 4}}, DialRegions: []Region{{Source: "appaudio.apps", First: 0, Last: 4}}}
 	apps.Keys[17] = Binding{Control: scrollPrefix + "up", Label: scrollPrefix + "up"}
 	apps.Keys[26] = Binding{Control: scrollPrefix + "down", Label: scrollPrefix + "down"}
-	return Layout{Home: "home", Pages: []Page{home, sounds, lights, apps}}
+	// Media sessions fill r1 c1–c8; transport for the focused session is on r2,
+	// and the media dial sits beside Playback.
+	media := Page{ID: "media", Name: "Media", Regions: []Region{{Source: "nowplaying.sessions", First: 0, Last: 7}}}
+	for n, id := range map[int]string{9: "nowplaying.prev", 10: "nowplaying.toggle", 11: "nowplaying.next", 12: "nowplaying.mute", 13: "nowplaying.focus", 17: scrollPrefix + "up", 26: scrollPrefix + "down"} {
+		media.Keys[n] = Binding{Control: id, Label: id}
+	}
+	for n, id := range map[int]string{0: "nowplaying.dial", 1: "audio.gain-playback"} {
+		media.Dials[n] = Binding{Control: id, Label: id}
+	}
+	return Layout{Home: "home", Pages: []Page{home, sounds, lights, apps, media}}
 }

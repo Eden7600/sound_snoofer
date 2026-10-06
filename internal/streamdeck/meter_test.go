@@ -24,7 +24,7 @@ func TestMeterRenderingAndStaticKeyCache(t *testing.T) {
 	if tick := im.RGBAAt(8+(dialWidth-1)/2, meterTop+meterRows/2); tick != textColor {
 		t.Fatal("peak tick missing", tick)
 	}
-	drawPosition(im, 8, peaked)
+	drawPosition(im, 8, dialWidth, peaked)
 	if im.RGBAAt(8+dialWidth/4, 55) != activeColor || im.RGBAAt(8+dialWidth*7/8, 55) != meterQuietColor {
 		t.Fatal("position track wrong")
 	}
