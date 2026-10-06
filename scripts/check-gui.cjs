@@ -70,10 +70,10 @@ add("appaudio.edit","App audio edit","text","abc");
 add("nowplaying.s-tab","Video A","command","Playing",{ShortLabel:"Video A",Group:"Now playing",Collection:"nowplaying.sessions",CollectionLabel:"Media sessions",Order:1,Icon:"media-play",Operations:["press","set"]});
 add("nowplaying.s-spotify","Song","command","Paused",{ShortLabel:"Song",Group:"Now playing",Collection:"nowplaying.sessions",CollectionLabel:"Media sessions",Order:2,Icon:"media-play",Operations:["press","set"]});
 add("nowplaying.focus","Media focus","selection","nowplaying.s-tab",{Options:["nowplaying.s-tab","nowplaying.s-spotify"]});
-for(const [id,label] of [["prev","Previous track"],["next","Next track"],["toggle","Play or pause"],["mute","Mute tab"],["extension-save","Save extension files"],["token-reset","Reset browser token"]])add("nowplaying."+id,label,"command","");
+for(const [id,label] of [["prev","Previous track"],["next","Next track"],["toggle","Play or pause"],["mute","Mute tab"]])add("nowplaying."+id,label,"command","");
 add("nowplaying.dial","Now playing","numeric","1:05 / 4:45",{Operations:["adjust","press"]});
-add("nowplaying.status","Now playing","status","2 sessions",{ViewData:{Windows:"Connected",Bridge:{Port:47815,Error:"",Refused:""},Extension:{Path:"C:\\Snoofer\\bin\\browser-extension",Version:"1.0.0",Saved:false,Error:""},
- Browsers:[{Name:"Brave",Version:"0.9.0",Sessions:1,Outdated:true}],
+add("nowplaying.status","Now playing","status","2 sessions",{ViewData:{Windows:"Connected",Bridge:{Port:47815,Error:"",Refused:"Update the Snoofer Media extension in Firefox"},
+ Browsers:[{Name:"Brave",Version:"1.0.0",Sessions:1}],
  Sessions:[{ID:"nowplaying.s-tab",Source:"Brave",App:"Brave · youtube.com",Title:"Video A",Artist:"Channel",Status:"Playing",PositionMs:65000,DurationMs:285000,Focused:true,CanToggle:true,CanNext:true,CanSeek:true,CanMute:true},
   {ID:"nowplaying.s-spotify",Source:"windows",App:"Spotify",Title:"Song",Artist:"Band",Album:"Album",Status:"Paused",PositionMs:0,DurationMs:200000,CanToggle:true,CanNext:true,CanPrev:true,CanSeek:true}]}});
 const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",streamdeck:"Running",vr:"Running",media:"Disabled",hue:"Running",appaudio:"Running",nowplaying:"Running"},Enabled:{audio:true,soundboard:true,streamdeck:true,vr:true,media:false,hue:true,appaudio:true,nowplaying:true}};
@@ -318,11 +318,9 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await tab.locator("[data-part=mute]").click();
   assert.equal(await page.evaluate(()=>window.sent.at(-1).Request.ID),"nowplaying.mute");
   const extension=page.locator("[data-part=extension]");
-  assert.match(await extension.textContent(),/Brave connected · 1 playing · extension 0\.9\.0 is older than 1\.0\.0/);
-  assert.match(await extension.textContent(),/Not saved/);
-  await page.waitForTimeout(300);
-  await extension.locator("[data-part=extension-save]").click();
-  assert.equal(await page.evaluate(()=>window.sent.at(-1).Request.ID),"nowplaying.extension-save");
+  assert.match(await extension.textContent(),/Brave connected · 1 with media · extension 1\.0\.0/);
+  assert.match(await extension.textContent(),/Update the Snoofer Media extension in Firefox/);
+  assert.equal(await extension.getByRole("button").count(),0,"extension card offers export or token actions");
   await page.screenshot({path:path.join(root,".local/gui-media.png"),fullPage:true});
   await page.getByRole("button",{name:"Third-party apps",exact:false}).click();
   await page.getByRole("heading",{name:"Hue",exact:true}).waitFor();

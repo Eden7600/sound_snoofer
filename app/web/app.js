@@ -508,26 +508,22 @@ function mediaCard(id,parent){
   for(const b of [prev,next,mute,focus])b.disabled=!!pending;
  });
 }
-// extensionCard explains and maintains the browser extension that reports
-// each tab: connection status, saving its files and resetting its token.
+// extensionCard explains the Snoofer Media extension, which reports each
+// browser tab, and shows which browsers are connected.
 function extensionCard(parent){
  const card=panel("Browser extension",parent,"mt-[18px]");card.dataset.part="extension";
- const intro=el("p","-mt-2 text-[13px] text-muted","Browsers show Windows only one session for all their tabs. The Snoofer extension reports each tab separately, so every video or song can be paused and sought on its own.");
- const browsers=el("div","mt-3 grid gap-1 text-[13px]"),problem=el("p","mt-2 text-[13px] text-critical"),saved=el("p","mt-3 text-[13px]"),where=el("code","block break-all rounded-md bg-sidebar px-2.5 py-1.5 text-[12px]");
- const steps=el("ol","mt-2 list-decimal space-y-1 pl-5 text-[13px] text-muted");
- for(const step of ["Save the extension files (below).","Open brave://extensions (or chrome://extensions) and turn on Developer mode.","Choose Load unpacked and pick the folder shown.","After saving again, press the extension's reload button."])steps.append(el("li","",step));
- const actions=el("div",ui.actions+" mt-3"),save=button("Save extension files",()=>press("nowplaying.extension-save"),ui.primary),reset=button("Reset token",()=>{if(window.confirm("Reset the token? Connected browsers disconnect until you save the extension files again and reload the extension."))press("nowplaying.token-reset");},ui.danger);
- save.dataset.part="extension-save";actions.append(save,reset);
- card.append(intro,browsers,problem,saved,where,steps,actions);
+ const intro=el("p","-mt-2 text-[13px] text-muted","Browsers show Windows only one session for all their tabs. The Snoofer Media extension reports each tab separately, so every video or song can be paused and sought on its own. It connects by itself; there is nothing to pair.");
+ const browsers=el("div","mt-3 grid gap-1 text-[13px]"),problem=el("p","mt-2 text-[13px] text-critical");
+ const steps=el("ol","mt-3 list-decimal space-y-1 pl-5 text-[13px] text-muted");
+ for(const step of ["Install Snoofer Media from the Chrome Web Store (Chrome, Brave, Edge) or Firefox Add-ons.","In Firefox, click the extension's toolbar button and choose Allow on all sites.","Play something in a tab; it appears above."])steps.append(el("li","",step));
+ const dev=el("p","mt-2 text-[12px] text-muted","Developing: run npm run build in the repository's extension folder, then load extension/dist/chrome unpacked (Developer mode) or extension/dist/firefox as a temporary add-on.");
+ card.append(intro,browsers,problem,steps,dev);
  updaters.push(()=>{
-  const v=c("nowplaying.status")?.ViewData||{},ext=v.Extension||{};
+  const v=c("nowplaying.status")?.ViewData||{};
   browsers.replaceChildren();
-  for(const b of v.Browsers||[])browsers.append(el("div",b.Outdated?"text-attention":"text-active",b.Name+" connected · "+b.Sessions+" playing"+(b.Outdated?" · extension "+(b.Version||"?")+" is older than "+ext.Version+": save and reload it":"")));
+  for(const b of v.Browsers||[])browsers.append(el("div","text-active",b.Name+" connected · "+b.Sessions+" with media"+(b.Version?" · extension "+b.Version:"")));
   if(!(v.Browsers||[]).length)browsers.append(el("div","text-muted","No browser connected."));
-  problem.textContent=[v.Bridge?.Error,v.Bridge?.Refused,ext.Error,v.Windows&&v.Windows!=="Connected"?"Windows media sessions: "+v.Windows:""].filter(Boolean).join(" · ");problem.hidden=!problem.textContent;
-  saved.textContent=ext.Saved?"Saved and up to date ("+ext.Version+").":"Not saved, or saved by an older version or token.";saved.className="mt-3 text-[13px] "+(ext.Saved?"text-muted":"text-attention");
-  where.textContent=ext.Path||"";where.hidden=!ext.Path;
-  save.disabled=!!pending||!c("nowplaying.extension-save")?.Available;reset.disabled=!!pending||!c("nowplaying.token-reset")?.Available;
+  problem.textContent=[v.Bridge?.Error,v.Bridge?.Refused,v.Windows&&v.Windows!=="Connected"?"Windows media sessions: "+v.Windows:""].filter(Boolean).join(" · ");problem.hidden=!problem.textContent;
  });
 }
 function buildMedia(){
@@ -790,7 +786,7 @@ function buildDiagnostics(){
 function layoutKey(){
  // Values and telemetry are updated in place. Only structure/context rebuilds a screen.
  const list=[...controls.values()].map(v=>[v.ID,v.Label,v.Kind,v.Group,v.Options,v.OptionLabels]);
- return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="lights"?[state.Enabled?.hue,c("hue.group")?.Value,c("hue.rooms")?.ViewData]:null,screen==="media"?[state.Enabled?.nowplaying,(c("nowplaying.status")?.ViewData?.Sessions||[]).map(s=>[s.ID,s.CanSeek,s.CanMute]),(c("nowplaying.status")?.ViewData?.Browsers||[]).map(b=>[b.Name,b.Outdated]),c("nowplaying.status")?.ViewData?.Extension?.Saved]:null,screen==="appaudio"?[state.Enabled?.appaudio,(c("appaudio.status")?.ViewData?.Apps||[]).map(a=>[a.ID,a.Name,a.Hidden,a.Picked,a.Open,a.Rule]),c("appaudio.status")?.ViewData?.Exclude]:null,screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value,c("streamdeck.preview")?.ViewData?.Regions,c("streamdeck.preview")?.ViewData?.Collections]:null]);
+ return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="lights"?[state.Enabled?.hue,c("hue.group")?.Value,c("hue.rooms")?.ViewData]:null,screen==="media"?[state.Enabled?.nowplaying,(c("nowplaying.status")?.ViewData?.Sessions||[]).map(s=>[s.ID,s.CanSeek,s.CanMute]),(c("nowplaying.status")?.ViewData?.Browsers||[]).map(b=>b.Name)]:null,screen==="appaudio"?[state.Enabled?.appaudio,(c("appaudio.status")?.ViewData?.Apps||[]).map(a=>[a.ID,a.Name,a.Hidden,a.Picked,a.Open,a.Rule]),c("appaudio.status")?.ViewData?.Exclude]:null,screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value,c("streamdeck.preview")?.ViewData?.Regions,c("streamdeck.preview")?.ViewData?.Collections]:null]);
 }
 function build(){
  widgets.length=0;updaters.length=0;root.replaceChildren();
