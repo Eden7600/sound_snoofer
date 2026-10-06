@@ -1,0 +1,813 @@
+package hue
+
+import (
+	"context"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"strings"
+	"sync"
+	"time"
+
+	"sound-snoofer/snoofer"
+)
+
+// Settings configures the Hue plugin. Pairing writes the bridge identity, key
+// and certificate pin; the GUI writes Group. Empty strings mean not configured.
+type Settings struct {
+	Address           string `json:"address"`
+	BridgeID          string `json:"bridge_id"`
+	AppKey            string `json:"app_key"`
+	CertificateSHA256 string `json:"certificate_sha256"`
+	Group             string `json:"group"`
+	NeutralKelvin     int    `json:"neutral_kelvin"`
+}
+
+// Plugin returns inert metadata; no network activity occurs until Start.
+func Plugin() snoofer.Plugin {
+	return snoofer.Plugin{
+		ID:       "hue",
+		Label:    "Hue",
+		Validate: validate,
+		Defaults: snoofer.MarshalSettings(Settings{NeutralKelvin: 4000}),
+		Start: func(ctx context.Context, s snoofer.Services, raw json.RawMessage, _ map[string]snoofer.Instance) (snoofer.Instance, error) {
+			discover := func(ctx context.Context) ([]string, error) { return discoverMDNS(ctx, 3*time.Second) }
+			return start(ctx, s, raw, discover, defaultTiming)
+		},
+	}
+}
+
+func decode(raw json.RawMessage) (Settings, error) {
+	var s Settings
+	if err := snoofer.DecodeSettings(raw, &s); err != nil {
+		return s, err
+	}
+	if s.NeutralKelvin < 2000 || s.NeutralKelvin > 6500 {
+		return s, fmt.Errorf("hue neutral_kelvin must be 2000-6500")
+	}
+	if strings.ContainsAny(s.Address, " /\\\x00") {
+		return s, fmt.Errorf("hue address must be a host name or IP address")
+	}
+	if s.AppKey != "" {
+		pin, err := hex.DecodeString(s.CertificateSHA256)
+		if err != nil || len(pin) != 32 || s.BridgeID == "" {
+			return s, fmt.Errorf("hue pairing is incomplete; pair again")
+		}
+	}
+	return s, nil
+}
+
+func validate(raw json.RawMessage) error {
+	_, err := decode(raw)
+	return err
+}
+
+type instance struct {
+	cancel context.CancelFunc
+	done   chan struct{}
+}
+
+// Stop cancels the worker and waits for it and its requests to finish.
+func (i *instance) Stop(ctx context.Context) error {
+	i.cancel()
+	select {
+	case <-i.done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, discover discoverFunc, t timing) (snoofer.Instance, error) {
+	settings, err := decode(raw)
+	if err != nil {
+		return nil, err
+	}
+	w := newWorker(s, settings, raw, discover, t)
+	runCtx, cancel := context.WithCancel(ctx)
+	i := &instance{cancel: cancel, done: make(chan struct{})}
+	go func() {
+		defer close(i.done)
+		w.run(runCtx)
+	}()
+	return i, nil
+}
+
+// worker owns all bridge state. Child goroutines perform network I/O and
+// return their results as functions executed on the worker goroutine.
+type worker struct {
+	services   snoofer.Services
+	settings   Settings
+	raw        json.RawMessage // Settings payload last saved, for atomic replacement.
+	discover   discoverFunc
+	timing     timing
+	deviceType string
+
+	requests chan snoofer.Request
+	results  chan func(context.Context)
+	children sync.WaitGroup
+
+	generation int // Invalidates results from superseded connections.
+	connecting bool
+	connected  bool
+	client     *Client
+	model      model
+	status     string
+	diagnostic string
+	retryAt    time.Time
+	retryDelay time.Duration
+
+	pairing   bool
+	pairValue string
+	pairErr   string
+
+	group     groupRequest
+	brightErr string
+	tempErr   string
+	groupErr  string
+
+	sceneWriting string               // Scene ID with a recall request in flight.
+	scenePending map[string]time.Time // Recalled scenes awaiting an active status.
+	sceneErr     map[string]string
+}
+
+func newWorker(s snoofer.Services, settings Settings, raw json.RawMessage, discover discoverFunc, t timing) *worker {
+	host, err := os.Hostname()
+	if err != nil || host == "" {
+		host = "pc"
+	}
+	if len(host) > 19 {
+		host = host[:19] // Hue limits the device part of devicetype to 19 characters.
+	}
+	return &worker{
+		services:     s,
+		settings:     settings,
+		raw:          append(json.RawMessage(nil), raw...),
+		discover:     discover,
+		timing:       t,
+		deviceType:   "snoofer#" + host,
+		requests:     make(chan snoofer.Request, 16),
+		results:      make(chan func(context.Context), 16),
+		model:        newModel(nil),
+		status:       "Disconnected",
+		scenePending: map[string]time.Time{},
+		sceneErr:     map[string]string{},
+	}
+}
+
+func (w *worker) run(ctx context.Context) {
+	defer w.services.Controls.Remove("hue")
+	defer w.closeClient()
+	defer w.children.Wait() // Children observe ctx, which Stop has canceled.
+	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
+	w.connect(ctx)
+	w.publish()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case r := <-w.requests:
+			w.handle(ctx, r)
+		case apply := <-w.results:
+			apply(ctx)
+		case now := <-ticker.C:
+			if !w.tick(ctx, now) {
+				continue
+			}
+		}
+		w.publish()
+	}
+}
+
+// spawn runs network work off the worker goroutine and delivers its result.
+func (w *worker) spawn(ctx context.Context, work func(context.Context) func(context.Context)) {
+	w.children.Add(1)
+	go func() {
+		defer w.children.Done()
+		apply := work(ctx)
+		select {
+		case w.results <- apply:
+		case <-ctx.Done():
+		}
+	}()
+}
+
+// enqueue is the control handler. It runs under the registry lock and must not block.
+func (w *worker) enqueue(ctx context.Context, r snoofer.Request) error {
+	select {
+	case w.requests <- r:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		return errors.New("hue queue full")
+	}
+}
+
+func (w *worker) closeClient() {
+	if w.client != nil {
+		w.client.close()
+		w.client = nil
+	}
+}
+
+// connect resolves the bridge and, when paired, loads resources and follows events.
+func (w *worker) connect(ctx context.Context) {
+	if w.connecting {
+		return
+	}
+	w.connecting = true
+	w.generation++
+	generation := w.generation
+	settings := w.settings
+	discover := w.discover
+	w.spawn(ctx, func(ctx context.Context) func(context.Context) {
+		target, err := resolve(ctx, settings.Address, settings.BridgeID, discover)
+		if err != nil || settings.AppKey == "" {
+			return func(ctx context.Context) { w.onConnected(ctx, generation, nil, nil, err) }
+		}
+		client := newClient(target.Address, settings.CertificateSHA256, settings.AppKey)
+		items, err := client.Resources(ctx)
+		if err != nil {
+			client.close()
+			client = nil
+		}
+		return func(ctx context.Context) { w.onConnected(ctx, generation, client, items, err) }
+	})
+}
+
+// onConnected applies a connection attempt's result on the worker goroutine.
+func (w *worker) onConnected(ctx context.Context, generation int, client *Client, items []resource, err error) {
+	if generation != w.generation {
+		if client != nil {
+			client.close()
+		}
+		return
+	}
+	w.connecting = false
+	if err != nil {
+		w.fail(err)
+		return
+	}
+	if client == nil {
+		w.status = "Not paired"
+		w.diagnostic = ""
+		w.retryAt = time.Now().Add(w.timing.rediscover)
+		return
+	}
+	w.client = client
+	w.connected = true
+	w.model = newModel(items)
+	w.status = "Connected"
+	w.diagnostic = ""
+	w.retryDelay = 0
+	w.observe()
+	w.follow(ctx, generation, client)
+}
+
+// follow streams events until the stream ends; any gap forces a full reload.
+func (w *worker) follow(ctx context.Context, generation int, client *Client) {
+	w.spawn(ctx, func(ctx context.Context) func(context.Context) {
+		err := client.Events(ctx, func(events []event) error {
+			apply := func(context.Context) {
+				if generation == w.generation && w.connected {
+					w.model.apply(events)
+					w.observe()
+				}
+			}
+			select {
+			case w.results <- apply:
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		})
+		return func(context.Context) {
+			if generation == w.generation && w.connected {
+				w.disconnect(fmt.Errorf("event stream ended: %w", err))
+			}
+		}
+	})
+}
+
+// disconnect drops observed state and pending requests; nothing is replayed.
+func (w *worker) disconnect(err error) {
+	w.generation++
+	w.connected = false
+	w.connecting = false
+	w.closeClient()
+	w.group = groupRequest{}
+	w.sceneWriting = ""
+	clear(w.scenePending)
+	w.fail(err)
+}
+
+func (w *worker) fail(err error) {
+	var multiple *multipleBridgesError
+	var mismatch *bridgeMismatchError
+	now := time.Now()
+	w.diagnostic = err.Error()
+	switch {
+	case errors.Is(err, errNoBridge):
+		w.status = "No bridge"
+		w.diagnostic = ""
+		w.retryAt = now.Add(w.timing.rediscover)
+	case errors.As(err, &multiple):
+		w.status = "Multiple bridges"
+		w.retryAt = now.Add(w.timing.rediscover)
+	case errors.Is(err, ErrCertificateChanged), errors.As(err, &mismatch):
+		w.status = "Error"
+		w.retryAt = time.Time{} // Requires pairing or configuration; never retried.
+	default:
+		w.status = "Disconnected"
+		w.retryDelay = min(w.timing.retryMax, max(w.timing.retryBase, 2*w.retryDelay))
+		w.retryAt = now.Add(w.retryDelay)
+	}
+}
+
+// reconnect discards the current connection and connects with current settings.
+func (w *worker) reconnect(ctx context.Context) {
+	w.generation++
+	w.connected = false
+	w.connecting = false
+	w.closeClient()
+	w.group = groupRequest{}
+	w.status = "Disconnected"
+	w.diagnostic = ""
+	w.connect(ctx)
+}
+
+// tick schedules retries and writes and expires confirmations. It reports changes.
+func (w *worker) tick(ctx context.Context, now time.Time) bool {
+	changed := false
+	if !w.connected && !w.connecting && !w.retryAt.IsZero() && now.After(w.retryAt) {
+		w.retryAt = time.Time{}
+		w.connect(ctx)
+		changed = true
+	}
+	if w.connected && w.group.dirty && !w.group.inFlight && now.Sub(w.group.lastSend) >= w.group.gap {
+		w.sendGroup(ctx)
+		changed = true
+	}
+	if w.group.pending() && !w.group.dirty && !w.group.inFlight && now.Sub(w.group.lastSend) > w.timing.confirm {
+		w.expireGroup()
+		changed = true
+	}
+	for id, sent := range w.scenePending {
+		if now.Sub(sent) > w.timing.confirm {
+			delete(w.scenePending, id)
+			w.sceneErr[id] = "Not confirmed by bridge"
+			changed = true
+		}
+	}
+	return changed
+}
+
+func (w *worker) view() groupView {
+	if !w.connected || w.settings.Group == "" {
+		return groupView{}
+	}
+	return w.model.group(w.settings.Group)
+}
+
+// observe confirms pending requests against the latest bridge state.
+func (w *worker) observe() {
+	view := w.view()
+	if view.GroupedLight == w.group.target {
+		w.group.confirm(view)
+	}
+	for _, scene := range w.model.scenes() {
+		if scene.Active {
+			delete(w.scenePending, scene.SceneID)
+		}
+	}
+}
+
+func (w *worker) handle(ctx context.Context, r snoofer.Request) {
+	if !w.services.Live {
+		return
+	}
+	switch {
+	case r.ID == "hue.pair":
+		w.startPairing(ctx)
+	case r.ID == "hue.group":
+		w.selectGroup(r.Value)
+	case r.ID == "hue.brightness":
+		w.adjustBrightness(r)
+	case r.ID == "hue.temperature":
+		w.adjustTemperature(r)
+	case strings.HasPrefix(r.ID, "hue.scene-"):
+		w.recallScene(ctx, r.ID)
+	}
+}
+
+func (w *worker) save(next Settings) error {
+	raw, err := json.Marshal(next)
+	if err != nil {
+		return err
+	}
+	if err := w.services.SaveSettings("hue", w.raw, raw); err != nil {
+		return err
+	}
+	w.raw = raw
+	w.settings = next
+	return nil
+}
+
+func (w *worker) selectGroup(id string) {
+	next := w.settings
+	next.Group = id
+	if err := w.save(next); err != nil {
+		w.groupErr = err.Error()
+		return
+	}
+	w.groupErr = ""
+	w.group = groupRequest{}
+	w.brightErr = ""
+	w.tempErr = ""
+}
+
+// retarget starts a fresh request when the configured group's light service changes.
+func (w *worker) retarget(groupedLight string) {
+	if w.group.target != groupedLight {
+		w.group = groupRequest{target: groupedLight, gap: w.timing.writeGap}
+	}
+}
+
+// effectiveOn includes a pending on/off request.
+func (w *worker) effectiveOn(view groupView) (on, known bool) {
+	if w.group.on != nil {
+		return *w.group.on, true
+	}
+	return view.On, view.OnKnown
+}
+
+func (w *worker) adjustBrightness(r snoofer.Request) {
+	view := w.view()
+	if view.GroupedLight == "" {
+		return
+	}
+	w.retarget(view.GroupedLight)
+	w.brightErr = ""
+	on, known := w.effectiveOn(view)
+	if !known {
+		w.brightErr = "Room state unknown"
+		return
+	}
+	if r.Operation == "press" {
+		next := !on
+		w.group.on = &next
+		w.group.dirty = true
+		return
+	}
+	if r.Operation != "adjust" || r.Delta == 0 {
+		return
+	}
+	if !on && r.Delta < 0 {
+		return
+	}
+	base := 0.0
+	switch {
+	case w.group.brightness != nil:
+		base = *w.group.brightness
+	case view.BrightKnown:
+		base = view.Brightness
+	case on:
+		w.brightErr = "Brightness unknown"
+		return
+	}
+	if !on {
+		turnOn := true
+		w.group.on = &turnOn
+	}
+	next := nextBrightness(base, r.Delta)
+	w.group.brightness = &next
+	w.group.dirty = true
+}
+
+func (w *worker) adjustTemperature(r snoofer.Request) {
+	view := w.view()
+	if view.GroupedLight == "" || !view.CTCapable {
+		return
+	}
+	on, known := w.effectiveOn(view)
+	if !known || !on {
+		return
+	}
+	w.retarget(view.GroupedLight)
+	w.tempErr = ""
+	var next int
+	switch {
+	case r.Operation == "press":
+		next = clampMirek(kelvinToMirek(float64(w.settings.NeutralKelvin)), view.MirekMin, view.MirekMax)
+	case r.Operation == "adjust" && r.Delta != 0:
+		base := view.Kelvin
+		if w.group.mirek != nil {
+			base = mirekToKelvin(*w.group.mirek)
+		} else if view.Temperature == temperatureUnknown {
+			return
+		}
+		next = nextMirek(base, r.Delta, view.MirekMin, view.MirekMax)
+	default:
+		return
+	}
+	w.group.mirek = &next
+	w.group.dirty = true
+}
+
+// sendGroup writes the latest targets; at most one write is outstanding.
+func (w *worker) sendGroup(ctx context.Context) {
+	client, target, generation := w.client, w.group.target, w.generation
+	body := w.group.body()
+	w.group.dirty = false
+	w.group.inFlight = true
+	w.spawn(ctx, func(ctx context.Context) func(context.Context) {
+		err := client.Put(ctx, "grouped_light", target, body)
+		return func(context.Context) { w.groupWritten(generation, target, err) }
+	})
+}
+
+func (w *worker) groupWritten(generation int, target string, err error) {
+	if generation != w.generation || target != w.group.target {
+		return
+	}
+	w.group.inFlight = false
+	w.group.lastSend = time.Now()
+	switch {
+	case errors.Is(err, ErrThrottled):
+		w.group.gap = min(w.timing.maxWriteGap, 2*w.group.gap)
+		w.group.dirty = true // Resend the latest targets after the longer gap.
+		return
+	case err != nil:
+		if w.group.on != nil || w.group.brightness != nil {
+			w.brightErr = err.Error()
+		}
+		if w.group.mirek != nil {
+			w.tempErr = err.Error()
+		}
+		w.group = groupRequest{target: target, gap: w.timing.writeGap}
+		return
+	}
+	w.group.gap = w.timing.writeGap
+	w.group.confirm(w.view())
+}
+
+// expireGroup reports targets the bridge did not confirm and drops them, so
+// later ticks start from observed values.
+func (w *worker) expireGroup() {
+	view := w.view()
+	if w.group.on != nil || w.group.brightness != nil {
+		w.brightErr = fmt.Sprintf("Not applied: requested %s, observed %s", w.requestedBrightness(), observedBrightness(view))
+	}
+	if w.group.mirek != nil {
+		w.tempErr = fmt.Sprintf("Not applied: requested %s, observed %s", kelvinLabel(mirekToKelvin(*w.group.mirek)), observedTemperature(view))
+	}
+	w.group = groupRequest{target: w.group.target, gap: w.timing.writeGap}
+}
+
+func (w *worker) requestedBrightness() string {
+	if w.group.on != nil && !*w.group.on {
+		return "Off"
+	}
+	if w.group.brightness != nil {
+		return percentLabel(*w.group.brightness)
+	}
+	return "On"
+}
+
+func observedBrightness(view groupView) string {
+	switch {
+	case !view.OnKnown:
+		return "N/A"
+	case !view.On:
+		return "Off"
+	case view.BrightKnown:
+		return percentLabel(view.Brightness)
+	}
+	return "N/A"
+}
+
+func observedTemperature(view groupView) string {
+	switch {
+	case view.OnKnown && !view.On:
+		return "Off"
+	case view.Temperature == temperatureKnown:
+		return kelvinLabel(view.Kelvin)
+	case view.Temperature == temperatureMixed:
+		return "Mixed"
+	}
+	return "N/A"
+}
+
+func (w *worker) recallScene(ctx context.Context, controlID string) {
+	if !w.connected || w.sceneWriting != "" {
+		return
+	}
+	var scene sceneInfo
+	for _, s := range w.model.scenes() {
+		if s.ControlID == controlID {
+			scene = s
+		}
+	}
+	if scene.SceneID == "" {
+		return
+	}
+	w.sceneWriting = scene.SceneID
+	delete(w.sceneErr, scene.SceneID)
+	delete(w.scenePending, scene.SceneID)
+	client, generation := w.client, w.generation
+	w.spawn(ctx, func(ctx context.Context) func(context.Context) {
+		err := client.Put(ctx, "scene", scene.SceneID, map[string]any{"recall": map[string]string{"action": "active"}})
+		return func(context.Context) { w.sceneRecalled(generation, scene.SceneID, err) }
+	})
+}
+
+func (w *worker) sceneRecalled(generation int, sceneID string, err error) {
+	if generation != w.generation {
+		return
+	}
+	w.sceneWriting = ""
+	if err != nil {
+		w.sceneErr[sceneID] = err.Error()
+		return
+	}
+	if active, ok := w.model.resources[sceneID]; ok && active.Status != nil && active.Status.Active != "inactive" {
+		return // Already reported active; the recall needs no further confirmation.
+	}
+	w.scenePending[sceneID] = time.Now()
+}
+
+func (w *worker) startPairing(ctx context.Context) {
+	if w.pairing {
+		return
+	}
+	w.pairing = true
+	w.pairValue = "Press button"
+	w.pairErr = ""
+	address, deviceType, discover, window := w.settings.Address, w.deviceType, w.discover, w.timing.pairWindow
+	w.spawn(ctx, func(ctx context.Context) func(context.Context) {
+		target, key, err := pair(ctx, address, deviceType, discover, window)
+		return func(ctx context.Context) { w.paired(ctx, target, key, err) }
+	})
+}
+
+// pair resolves any single bridge and polls for a key while the link button window is open.
+func pair(ctx context.Context, address, deviceType string, discover discoverFunc, window time.Duration) (bridgeTarget, string, error) {
+	ctx, cancel := context.WithTimeout(ctx, window)
+	defer cancel()
+	target, err := resolve(ctx, address, "", discover)
+	if err != nil {
+		return target, "", err
+	}
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	for {
+		key, err := requestKey(ctx, target.Address, target.Fingerprint, deviceType)
+		if err == nil {
+			return target, key, nil
+		}
+		if !errors.Is(err, ErrLinkButton) {
+			return target, "", err
+		}
+		select {
+		case <-ctx.Done():
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				return target, "", fmt.Errorf("bridge button not pressed within %s", window)
+			}
+			return target, "", ctx.Err()
+		case <-ticker.C:
+		}
+	}
+}
+
+func (w *worker) paired(ctx context.Context, target bridgeTarget, key string, err error) {
+	w.pairing = false
+	w.pairValue = ""
+	if err != nil {
+		w.pairErr = err.Error()
+		return
+	}
+	next := w.settings
+	if next.BridgeID != target.BridgeID {
+		next.Group = "" // Rooms belong to the previous bridge.
+	}
+	next.BridgeID = target.BridgeID
+	next.AppKey = key
+	next.CertificateSHA256 = target.Fingerprint
+	if err := w.save(next); err != nil {
+		w.pairErr = err.Error()
+		return
+	}
+	w.reconnect(ctx)
+}
+
+func (w *worker) publish() {
+	// Publish fails only while the host is stopping, which also cancels this worker.
+	_ = w.services.Controls.Publish("hue", w.controls(), w.enqueue)
+}
+
+func (w *worker) controls() []snoofer.Control {
+	live := w.services.Live
+	view := w.view()
+	statusNote := ""
+	if w.status == "Error" || w.status == "Disconnected" || w.status == "Multiple bridges" {
+		statusNote = w.diagnostic
+	}
+	pairValue := w.pairValue
+	if pairValue == "" && w.pairErr == "" {
+		pairValue = "Ready"
+		if w.settings.AppKey != "" {
+			pairValue = "Paired"
+		}
+	}
+	options := []string{}
+	labels := map[string]string{}
+	for _, g := range w.model.groups() {
+		options = append(options, g.ID)
+		labels[g.ID] = g.Name
+		if g.Kind == "zone" {
+			labels[g.ID] = g.Name + " (zone)"
+		}
+	}
+	controls := []snoofer.Control{
+		{ID: "hue.status", Label: "Hue", Group: "Hue", Kind: "status", Value: w.status, Status: statusNote, Available: true},
+		{ID: "hue.pair", Label: "Pair Hue bridge", ShortLabel: "Pair", Group: "Hue", Kind: "command", Icon: "hue-pair", Value: pairValue, Status: w.pairErr, Operations: []string{"press"}, Available: live},
+		{ID: "hue.group", Label: "Hue room", ShortLabel: "Room", Group: "Hue", Kind: "selection", Value: w.settings.Group, Options: options, OptionLabels: labels, Status: w.groupErr, Operations: []string{"set"}, Available: live && w.connected},
+	}
+	knobNote := ""
+	switch {
+	case !w.connected:
+	case w.settings.Group == "":
+		knobNote = "Choose room"
+	case !view.Found || view.GroupedLight == "":
+		knobNote = "Room missing"
+	}
+	ready := live && w.connected && view.GroupedLight != ""
+	brightness := snoofer.Control{ID: "hue.brightness", Label: "Hue brightness", ShortLabel: "Brightness", Group: "Hue", Kind: "numeric", Icon: "hue-brightness",
+		Value: w.brightnessValue(view), Status: firstNonEmpty(knobNote, w.brightErr), Subdued: w.group.on != nil || w.group.brightness != nil,
+		Operations: []string{"adjust", "press"}, Available: ready}
+	temperatureNote := firstNonEmpty(knobNote, w.tempErr)
+	if knobNote == "" && w.connected && view.GroupedLight != "" && !view.CTCapable {
+		temperatureNote = "No white ambiance lights"
+	}
+	temperature := snoofer.Control{ID: "hue.temperature", Label: "Hue temperature", ShortLabel: "Temp", Group: "Hue", Kind: "numeric", Icon: "hue-temperature",
+		Value: w.temperatureValue(view), Status: temperatureNote, Subdued: w.group.mirek != nil,
+		Operations: []string{"adjust", "press"}, Available: ready && view.CTCapable}
+	controls = append(controls, brightness, temperature)
+	seen := map[string]bool{}
+	for _, scene := range w.model.scenes() {
+		if seen[scene.ControlID] {
+			continue // A colliding ID prefix would invalidate the whole snapshot.
+		}
+		seen[scene.ControlID] = true
+		value := "Ready"
+		if scene.Active {
+			value = "Active"
+		}
+		status := w.sceneErr[scene.SceneID]
+		if _, waiting := w.scenePending[scene.SceneID]; waiting || w.sceneWriting == scene.SceneID {
+			status = "Pending"
+		}
+		controls = append(controls, snoofer.Control{ID: scene.ControlID, Label: scene.Label, ShortLabel: scene.ShortLabel, Group: "Hue scenes", Kind: "command", Icon: "hue-scene",
+			Value: value, Status: status, Operations: []string{"press"}, Available: live && w.connected})
+	}
+	return controls
+}
+
+func (w *worker) brightnessValue(view groupView) string {
+	if !w.connected || view.GroupedLight == "" {
+		return "N/A"
+	}
+	if w.group.on != nil && !*w.group.on {
+		return "Off"
+	}
+	if w.group.brightness != nil {
+		return percentLabel(*w.group.brightness)
+	}
+	if w.group.on != nil && view.BrightKnown {
+		return percentLabel(view.Brightness)
+	}
+	return observedBrightness(view)
+}
+
+func (w *worker) temperatureValue(view groupView) string {
+	if !w.connected || view.GroupedLight == "" || !view.CTCapable {
+		return "N/A"
+	}
+	if w.group.mirek != nil {
+		return kelvinLabel(mirekToKelvin(*w.group.mirek))
+	}
+	return observedTemperature(view)
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}

@@ -22,7 +22,7 @@ Without `address`, the worker sends an mDNS PTR query for `_hue._tcp.local` (via
 Bridges present either a Signify-CA certificate or a self-signed one. The client does not embed a CA; it pins on first use. Pairing records the SHA-256 of the leaf certificate's DER encoding, and every later connection requires a matching leaf. A mismatch sets status `Error` (certificate changed) and requires pairing again. Before pairing, only `/api/0/config` and the pairing POST run without a pin, and pairing pins the certificate from that same connection.
 
 ### Pairing
-`hue.pair` (press) opens a 30 s window that posts `{"devicetype":"snoofer#<hostname>"}` to `/api` once per second. Hue error type 101 (link button not pressed) shows `Press bridge button`. Success saves `bridge_id`, `app_key` and the pin atomically. Any other error, or the window expiring, ends pairing with a local error. Pressing again restarts the window. Pairing a different bridge replaces the stored identity and clears `group`.
+`hue.pair` (press) opens a 30 s window that posts `{"devicetype":"snoofer#<hostname>"}` to `/api` once per second. Hue error type 101 (link button not pressed) shows `Press button`. Success saves `bridge_id`, `app_key` and the pin atomically. Any other error, or the window expiring, ends pairing with a local error. Pressing Pair again during the window has no effect. Pairing a different bridge replaces the stored identity and clears `group`.
 
 ### Model and observation
 After connecting, the worker loads `room`, `zone`, `grouped_light`, `light` and `scene` from `/clip/v2/resource/...`. It then follows `/eventstream/clip/v2` (SSE, `hue-application-key` header) and applies `update`/`add`/`delete` events to an immutable model it owns. Each event-stream (re)connect does a full reload before publishing, because missed events are possible. SSE reconnects back off from 1 s to 30 s. A stream gap or bridge loss marks observed values unknown (`N/A`) without changing settings.
@@ -33,7 +33,7 @@ The configured group resolves to a room or zone by resource ID. Its `grouped_lig
 | ID | Kind / ops | Value |
 | --- | --- | --- |
 | `hue.status` | status | `Connected`, `No bridge`, `Multiple bridges`, `Not paired`, `Disconnected`, `Error` |
-| `hue.pair` | command / press | `Ready`, `Press bridge button`, `Paired`, `Error` |
+| `hue.pair` | command / press | `Ready`, `Press button`, `Paired`, `Error` |
 | `hue.group` | select / set | room/zone ID options with name OptionLabels |
 | `hue.brightness` | numeric / adjust, press | `62%`, `Off`, `N/A` |
 | `hue.temperature` | numeric / adjust, press | `4000K`, `Mixed`, `N/A` |
@@ -45,7 +45,7 @@ Without a configured group, both knobs are unavailable with status `Choose room`
 
 ### Knob semantics
 - Brightness: one tick is 2%, clamped to 1–100%. Rotating never turns the room off; only a press does. Rotating up while the room is observed off sends `on:true` along with the brightness. Rotating down while off is ignored. A press toggles `on` based on observed state; with unknown observed state the press is rejected.
-- Temperature: one tick is 100 K, converted to mirek (`round(1e6/K)`) and clamped to the group range. Rotating while off or with no CT-capable member is rejected locally. A press sets `neutral_kelvin`. From `Mixed`, the first tick starts from the mean.
+- Temperature: one tick is 100 K, converted to mirek (`round(1e6/K)`) and clamped (in kelvin, then mirek) to the group range and displayed rounded to 100 K. Rotating while off or with no CT-capable member is rejected locally. A press sets `neutral_kelvin`. From `Mixed`, the first tick starts from the mean.
 
 ### Write coalescing and verification
 Hue limits group commands (about one per second per group, according to Signify guidance). Each knob keeps one requested target. Ticks update the target from the pending target if there is one, otherwise from the observed value. The worker sends at most one `PUT /clip/v2/resource/grouped_light/<id>` at a time, at least 250 ms apart, always carrying the latest targets, so no backlog builds. HTTP 429/503 doubles the gap up to 2 s, and a success restores it. While a write is pending, the dial shows the requested value with `Subdued` set. The GUI marks it pending, and the deck shows the number rather than `Wait` so the dial stays readable while turning. Observed events confirm the target within one step tolerance. If no confirmation arrives within 3 s of the last send, the control shows `Error` with an observed/requested diagnostic and the pending target is dropped. Later ticks start from the observed value.
