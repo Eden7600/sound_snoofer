@@ -105,3 +105,10 @@ Review asked for a visible exclusion list, with Hue Sync excluded by default. Hu
   - **Hide** adds the app's program file names.
   - **Unhide** removes every pattern matching the app's programs, plus any exact-match hide rule for them.
 - **GUI:** an **Excluded** card lists the patterns. Each shows the running apps it currently hides and has a Remove button. An Add field takes a file name. Apps hidden by JSON regex rules are listed under the card with their rule.
+
+## 7. Revision: configurable recent window
+Review asked for the 5-minute window to be configurable in the app.
+- **Setting:** `Settings.RecentMinutes` already exists (0 means the default of 5; the maximum is 1440).
+- **Edit:** a new `recent` op takes a whole number of minutes from 1 to 1440 and saves it.
+- **GUI:** the App audio screen's intro line becomes "Pinned apps first, then apps heard in the last [N] minutes", with N in a number field that saves on Enter or when the field loses focus.
+- **Effect:** the change applies on the next refresh. Memory of when apps were heard is kept, so lengthening the window can bring recently heard apps back.
