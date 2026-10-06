@@ -4,6 +4,9 @@ The system SHALL provide an optional Hue plugin that locates a Hue Bridge on the
 #### Scenario: Single bridge discovered
 - **WHEN** no address is configured and exactly one bridge answers discovery
 - **THEN** that bridge is used and its bridge ID is confirmed before pairing
+#### Scenario: Several network adapters
+- **WHEN** the host has VPN, virtual and wireless adapters besides the bridge network
+- **THEN** discovery queries every multicast-capable IPv4 adapter and finds the bridge on its own network
 #### Scenario: No bridge
 - **WHEN** no bridge answers and no address is configured
 - **THEN** status shows No bridge and discovery repeats without writing settings
@@ -43,6 +46,18 @@ The Hue plugin SHALL publish one press control per bridge scene, with stable roo
 #### Scenario: Scene active elsewhere
 - **WHEN** a scene is activated by another app
 - **THEN** its key shows Active from observed bridge state
+
+### Requirement: Room scene slots
+The Hue plugin SHALL publish twelve stable slot controls that mirror the selected room's scenes in name order.
+#### Scenario: Room changes
+- **WHEN** a different room is selected
+- **THEN** the slots show that room's scenes without changing any deck binding
+#### Scenario: Fewer scenes than slots
+- **WHEN** the room has fewer than twelve scenes or no room is selected
+- **THEN** the remaining slots are unavailable and render as blank keys
+#### Scenario: Stale slot press
+- **WHEN** a slot press refers to a slot revision whose scene has since changed
+- **THEN** the press is rejected and no scene is recalled
 
 ### Requirement: Room brightness and temperature knobs
 The Hue plugin SHALL expose separate brightness and color-temperature controls for one configured room or zone, coalescing rapid adjustment into bounded group writes.

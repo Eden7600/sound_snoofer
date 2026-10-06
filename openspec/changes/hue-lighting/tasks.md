@@ -10,8 +10,17 @@ Each numbered block is one reviewable commit.
 - [x] 6. `docs(hue)`: plugins.md setup for pairing, room selection, `auto_controls` scene pages and Hue Sync third-party control.
 - [x] 7. Run gofmt, `go test ./...`, `go vet ./...`, `go test -race ./...` (if supported), strict OpenSpec validation and `scripts/build.ps1`. Record results in validation.md.
 
+## Revision 2 (after first use)
+- [x] 12. `docs(hue)`: respecify: merged plugin, multi-interface discovery, Lights screen, enable-only Plugins page, scene slots, blank slots, personal Home layout, and the contract correction for Home dial index 2.
+- [ ] 13. `fix(hue)`: query mDNS on every multicast IPv4 interface. Unit-test the interface filter and report the found bridge while unpaired.
+- [ ] 14. `refactor(hue)!`: merge Hue Sync into the hue plugin with `sync_port` and `hue.sync*` controls; remove `plugins/huesync` and `no_huesync`. Tests cover the brightness dial while syncing, scene-stops-sync with confirmation and timeout, temperature while syncing, and the existing sync scenarios.
+- [ ] 15. `feat(hue)`: room scene slots, with tests for room change, blanks and stale slot presses.
+- [ ] 16. `feat(streamdeck)`: blank empty-slot keys, with presentation tests; correct the contract wording for the Home dials.
+- [ ] 17. `feat(gui)`: Lights screen and enable-only Plugins page. Update check-gui fixtures and screenshots, the UI contract and docs/plugins.md.
+- [ ] 18. Validate (gofmt, test, vet, OpenSpec, GUI check, canonical build). Apply the personal Home layout and remove the stale `huesync` entry while Snoofer is stopped, then relaunch. Record the results.
+
 ## Hardware acceptance
-- [ ] 8. Pair the real bridge through the link button; confirm discovery, restart persistence and that the key stays out of diagnostics.
-- [ ] 9. Recall scenes from an automatic deck page; confirm Active state and changes made in the Hue app.
+- [ ] 8. Pair the real bridge through the link button (revision 1 discovery failed with "No bridge" on this multi-adapter host); confirm discovery, restart persistence and that the key stays out of diagnostics.
+- [ ] 9. Recall scenes from the Home slots; confirm Active state and changes made in the Hue app.
 - [ ] 10. Turn and press the brightness and temperature dials on the configured room; judge responsiveness of the 250 ms coalescing and confirm no lag backlog.
-- [ ] 11. Enable Hue Sync Third-party control; toggle sync, dial brightness and change mode/intensity; close and reopen Hue Sync.
+- [ ] 11. Enable Hue Sync Third-party control; toggle sync, change mode/intensity, check the joined brightness dial and that scenes stop sync; close and reopen Hue Sync.

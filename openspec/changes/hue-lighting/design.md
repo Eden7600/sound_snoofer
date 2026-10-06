@@ -1,88 +1,114 @@
 # Design
 
-Two compiled plugins, `hue` and `huesync`, with no dependencies on other plugins. Each owns one worker goroutine that holds all network state, serializes writes, publishes control snapshots and joins in Stop. Control handlers only enqueue into a bounded queue (capacity 16) and reject when full. Preview (`Services.Live == false`) reads and observes but publishes every write control unavailable. Neither plugin replays commands on reconnect or retries an uncertain command.
+One compiled plugin, `hue`, with no dependency on other plugins. It has two halves: the room (Hue Bridge, CLIP v2) and sync (the Hue Sync PC app's third-party control socket). A single worker goroutine owns both connections and all their state, which lets the two halves coordinate directly. It serializes writes, publishes control snapshots and joins its child goroutines in Stop. Control handlers only enqueue into a bounded queue (capacity 16) and reject when full. Preview (`Services.Live == false`) reads and observes but publishes every write control unavailable. Nothing is replayed on reconnect and no uncertain command is retried.
 
-## Hue Bridge (`hue`)
+Revision 2 (after first use): Hue Sync merged into `hue`, mDNS fixed for multi-adapter hosts, a dedicated Lights GUI screen, a Plugins page reduced to enable/disable, room scene slots, and Hue bindings on the personal Home page. The separate `huesync` plugin and its `no_huesync` tag are removed; it was never released beyond this change.
 
-### Settings
+## Settings
 ```json
 "hue": {"address": "", "bridge_id": "", "app_key": "", "certificate_sha256": "",
-        "group": "", "neutral_kelvin": 4000}
+        "group": "", "neutral_kelvin": 4000, "sync_port": 24851}
 ```
-`address` optionally overrides discovery (IP or host name). Pairing writes `bridge_id`, `app_key` and `certificate_sha256`; the GUI writes `group`. All writes use `Services.SaveSettings` with the settings payload last read, so concurrent edits are rejected rather than lost. `neutral_kelvin` is validated to 2000–6500. Empty strings mean not configured. `app_key` never appears in control values, statuses or diagnostics.
+- `address` optionally overrides discovery (IP or host name).
+- Pairing writes `bridge_id`, `app_key` and `certificate_sha256`; the Lights screen writes `group`. All writes use `Services.SaveSettings` with the settings payload last read, so concurrent edits are rejected rather than lost.
+- `neutral_kelvin` is validated to 2000–6500.
+- `sync_port` is optional: absent means 24851, and a present value must be 1–65535. Absent and zero stay distinct.
+- Empty strings mean not configured. `app_key` never appears in control values, statuses or diagnostics.
+
+## Room half (Hue Bridge)
 
 ### Discovery and identity
-Without `address`, the worker sends an mDNS PTR query for `_hue._tcp.local` (via `golang.org/x/net/dns/dnsmessage`, IPv4 multicast, 3 s window) and resolves each answer's A record. It confirms each candidate with unauthenticated `GET https://<ip>/api/0/config` and reads `bridgeid`. Outcomes stay distinct:
-- None found: status `No bridge`. Rediscover every 60 s.
-- One found: use it.
-- Several found and none matches the saved `bridge_id`: status `Multiple bridges`, with the candidate IPs and IDs in the diagnostic. Set `address` to choose; there is no automatic pick.
-- Paired and `bridge_id` known: only a candidate with that ID is accepted, so a DHCP address change is followed automatically. With `address` set, a different `bridgeid` is a hard error and never used silently.
+Without `address`, the worker sends an mDNS PTR query for `_hue._tcp.local` (via `golang.org/x/net/dns/dnsmessage`) on every up, multicast-capable, non-loopback IPv4 interface. Each query uses a socket bound to that interface's address with the multicast interface set explicitly (`golang.org/x/net/ipv4`). The worker collects unicast replies from all interfaces for 3 s and treats each reply's source address as a candidate. Querying only the OS default multicast route missed the bridge on a host with Tailscale, WSL and several Wi‑Fi adapters (observed 2026-10-05). An interface that fails to send is skipped; discovery fails only if every interface fails. Each candidate is confirmed with unauthenticated `GET https://<ip>/api/0/config`, which supplies `bridgeid`. Outcomes stay distinct:
+- None found: status `No bridge`, rediscover every 60 s. The diagnostic suggests setting the address.
+- One found: use it. While unpaired, status `Not paired` and the diagnostic `Bridge <ip>`, so the pairing UI can name it.
+- Several found and none matches the saved `bridge_id`: status `Multiple bridges`, with candidates listed. There is no automatic pick.
+- Paired: only a candidate with the saved `bridge_id` is accepted, so DHCP address changes are followed. With `address` set, a different `bridgeid` is a hard error.
 
 ### TLS
-Bridges present either a Signify-CA certificate or a self-signed one. The client does not embed a CA; it pins on first use. Pairing records the SHA-256 of the leaf certificate's DER encoding, and every later connection requires a matching leaf. A mismatch sets status `Error` (certificate changed) and requires pairing again. Before pairing, only `/api/0/config` and the pairing POST run without a pin, and pairing pins the certificate from that same connection.
+The client pins on first use. Pairing records the SHA-256 of the leaf certificate (DER encoding), and every later connection requires that leaf. A mismatch sets status `Error` (certificate changed) and requires pairing again. Before pairing, only `/api/0/config` and the pairing POST run unpinned.
 
 ### Pairing
-`hue.pair` (press) opens a 30 s window that posts `{"devicetype":"snoofer#<hostname>"}` to `/api` once per second. Hue error type 101 (link button not pressed) shows `Press button`. Success saves `bridge_id`, `app_key` and the pin atomically. Any other error, or the window expiring, ends pairing with a local error. Pressing Pair again during the window has no effect. Pairing a different bridge replaces the stored identity and clears `group`.
+`hue.pair` (press) opens a 30 s window that posts `{"devicetype":"snoofer#<hostname>"}` to `/api` once per second. Hue error 101 shows `Press button`. Success saves `bridge_id`, `app_key` and the pin atomically, then reconnects. Other errors, or the window expiring, end pairing with a local error. Pressing Pair again during the window has no effect. Pairing a different bridge clears `group`.
 
 ### Model and observation
-After connecting, the worker loads `room`, `zone`, `grouped_light`, `light` and `scene` from `/clip/v2/resource/...`. It then follows `/eventstream/clip/v2` (SSE, `hue-application-key` header) and applies `update`/`add`/`delete` events to an immutable model it owns. Each event-stream (re)connect does a full reload before publishing, because missed events are possible. SSE reconnects back off from 1 s to 30 s. A stream gap or bridge loss marks observed values unknown (`N/A`) without changing settings.
+After connecting, the worker loads all CLIP v2 resources, then follows `/eventstream/clip/v2` (SSE), applying `update`/`add`/`delete` events. Every (re)connect reloads fully. Reconnects back off from 1 s to 30 s. A stream gap marks observed values `N/A`.
 
-The configured group resolves to a room or zone by resource ID. Its `grouped_light` service supplies observed `on` and average `dimming.brightness`. Member lights are the room's device light services or the zone's light services. Color temperature is observed from member lights that are on and have `color_temperature.mirek_valid`. If all of them agree within one dial step, the value is their mean in kelvin. Otherwise it shows `Mixed`, and with none valid (all off or in color mode) it is unknown. The temperature range is the intersection of the members' `mirek_schema`. An empty intersection uses the union, and the bridge clamps each light.
-
-### Controls (group `Hue`)
-| ID | Kind / ops | Value |
-| --- | --- | --- |
-| `hue.status` | status | `Connected`, `No bridge`, `Multiple bridges`, `Not paired`, `Disconnected`, `Error` |
-| `hue.pair` | command / press | `Ready`, `Press button`, `Paired`, `Error` |
-| `hue.group` | select / set | room/zone ID options with name OptionLabels |
-| `hue.brightness` | numeric / adjust, press | `62%`, `Off`, `N/A` |
-| `hue.temperature` | numeric / adjust, press | `4000K`, `Mixed`, `N/A` |
-| `hue.scene-<group-slug>-<id8>` | command / press | `Active`, `Ready` |
-
-Scene IDs combine the slug of the owning room/zone name with the first 8 hex digits of the scene UUID. This lets a Stream Deck page use `auto_controls: hue.scene-` for every scene or `hue.scene-studio-` for one room. Renaming a room changes its scene IDs, which leaves manual bindings showing Unavailable (existing behavior) while automatic pages refill. Label is `<Room> <Scene>` and ShortLabel is the scene name. Scenes are listed sorted by label. A scene is `Active` when `status.active` is not `inactive`. Pressing recalls it with `{"recall":{"action":"active"}}`: the key shows `Wait` until a matching status event arrives, and `Error` if none arrives within 3 s.
-
-Without a configured group, both knobs are unavailable with status `Choose room`. If the group disappears from the bridge, they are unavailable with `Room missing`; the setting is kept.
+The configured group resolves to a room or zone. Its `grouped_light` supplies observed `on` and average brightness. Member lights are the room's device light services or the zone's lights. Color temperature comes from lit members with `mirek_valid`: if they agree within one step, the value is their mean in kelvin; otherwise `Mixed`; with none valid, unknown. The temperature range is the intersection of the members' `mirek_schema`, or their union if the intersection is empty.
 
 ### Knob semantics
-- Brightness: one tick is 2%, clamped to 1–100%. Rotating never turns the room off; only a press does. Rotating up while the room is observed off sends `on:true` along with the brightness. Rotating down while off is ignored. A press toggles `on` based on observed state; with unknown observed state the press is rejected.
-- Temperature: one tick is 100 K, converted to mirek (`round(1e6/K)`) and clamped (in kelvin, then mirek) to the group range and displayed rounded to 100 K. Rotating while off or with no CT-capable member is rejected locally. A press sets `neutral_kelvin`. From `Mixed`, the first tick starts from the mean.
+- Brightness: one tick is 2%, clamped to 1–100%. Rotation never turns the room off. Rotating up while off sends `on:true` with the brightness; rotating down while off is ignored. A press toggles on/off from observed state, and with unknown state the press is rejected.
+- Temperature: one tick is 100 K, clamped in kelvin and then in mirek to the group range, and displayed rounded to 100 K. Rotating while off or without CT-capable lights is ignored. A press sets `neutral_kelvin`.
 
 ### Write coalescing and verification
-Hue limits group commands (about one per second per group, according to Signify guidance). Each knob keeps one requested target. Ticks update the target from the pending target if there is one, otherwise from the observed value. The worker sends at most one `PUT /clip/v2/resource/grouped_light/<id>` at a time, at least 250 ms apart, always carrying the latest targets, so no backlog builds. HTTP 429/503 doubles the gap up to 2 s, and a success restores it. While a write is pending, the dial shows the requested value with `Subdued` set. The GUI marks it pending, and the deck shows the number rather than `Wait` so the dial stays readable while turning. Observed events confirm the target within one step tolerance. If no confirmation arrives within 3 s of the last send, the control shows `Error` with an observed/requested diagnostic and the pending target is dropped. Later ticks start from the observed value.
+Each knob keeps one requested target, so ticks never queue. At most one `PUT grouped_light` is outstanding, at least 250 ms apart, always carrying the latest targets. HTTP 429/503 doubles the gap (up to 2 s) and resends the latest value. While pending, dials show the requested value (`Subdued` in the GUI). If the bridge reports nothing within one step of the target within 3 s, the dial shows `Error` and later ticks start from the observed value.
 
-A Hue Sync entertainment stream overrides bridge commands for its lights. The plugin reports what the bridge observes and does not stop syncing.
+### Scenes
+`hue.scene-<group-slug>-<id8>` (press) exists for every scene. Label is `<Room> <Scene>`, ShortLabel is the scene name, Value is `Active`/`Ready`. A press recalls with `{"recall":{"action":"active"}}` and shows `Wait` until the bridge reports the scene active, or `Error` after 3 s.
 
-## Hue Sync PC app (`huesync`)
+`hue.room-scene-1` … `hue.room-scene-12` are stable slots for the selected group's scenes, sorted by name. Slot *n* mirrors the *n*th scene's label, state and recall, so deck bindings survive room changes and renames. Slots beyond the scene count, or without a room, publish as unavailable with empty Label, ShortLabel and Icon. The deck renders such a slot as a blank key (see Presentation). Recalling through a slot targets the scene shown when the input was generated: the request carries the slot's revision, which changes whenever the mapped scene changes, so a stale press is rejected.
+
+## Sync half (Hue Sync PC app)
 
 ### Protocol (from the Hue Sync binary and the Elgato plugin source)
-Hue Sync exposes a WebSocket at `ws://127.0.0.1:<port>/`, default port 24851, only when Hue Sync *Settings → Third-party control* is on. It has no authentication and listens on loopback only. Clients send `{"command":C,"data":{...}}`:
-- `start_sync` with optional `mode` (`video`/`games`/`music`) and `intensity` (`subtle`/`moderate`/`high`/`extreme`)
+`ws://127.0.0.1:<sync_port>/` exists only when Hue Sync *Settings → Third-party control* is on. It has no authentication and listens on loopback only. Commands are sent as `{"command":C,"data":{...}}`:
+- `start_sync` (optional `mode`, `intensity`)
 - `stop_sync`
-- `set_intensity {intensity}`
-- `set_app_mode {mode}` (these two take effect only while syncing)
-- `inc_bri {step}`, a relative brightness change on a 0–100 scale
+- `set_intensity`, `set_app_mode` (effective only while syncing)
+- `inc_bri {step}` (relative, 0–100 scale)
 
-The app pushes `{"event":"app_state_update","data":{"state","mode","intensity","bri"}}`, where `state` is `bridge_connected`, `bridge_disconnected` or `syncing`. Unknown events and fields are ignored. The client uses `github.com/gorilla/websocket`, already in the module graph through Wails, rather than implementing framing by hand.
-
-### Settings
-`{"port": 24851}`, validated to 1–65535.
+The app pushes `app_state_update` with `state` (`bridge_connected`/`bridge_disconnected`/`syncing`), `mode`, `intensity` and `bri`. Unknown fields and events are ignored. The client uses `github.com/gorilla/websocket`, already in the module graph through Wails.
 
 ### Connection
-The worker dials with a 3 s timeout and reconnects with backoff from 1 s to 30 s. A refused connection cannot tell "app closed" apart from "third-party control off", so the status is `N/A` and the diagnostic names both remedies. Observed state is unknown until the first `app_state_update` after connecting. A disconnect drops pending commands and does not resend them.
+Dial timeout is 3 s; reconnects back off from 1 s to 30 s. A refused connection is `N/A`, and the diagnostic names both remedies (start Hue Sync, enable Third-party control). State is unknown until the first event. A disconnect drops pending commands without resending them. When the app reports `bridge_disconnected`, every sync control is unavailable.
 
-### Controls (group `Hue Sync`)
+### Sync controls
 | ID | Kind / ops | Behavior |
 | --- | --- | --- |
-| `huesync.status` | status | `Syncing`, `Ready`, `No bridge`, `N/A` |
-| `huesync.sync` | toggle / press | `On`/`Off`. Sends `start_sync` without data (the app keeps its current mode and intensity) or `stop_sync`. `Wait` until the state event; `Error` after 3 s. |
-| `huesync.brightness` | numeric / adjust, press | Adjust sends `inc_bri` with step = ticks × 2, coalesced: ticks accumulate while one command is outstanding (100 ms minimum gap). Press toggles sync, as in the Elgato dial. Value is observed `bri%`. |
-| `huesync.mode` | select / set | `video`/`games`/`music` with Video/Games/Music labels. Available only while syncing. |
-| `huesync.intensity` | select / set | `subtle`/`moderate`/`high`/`extreme`. Available only while syncing. |
+| `hue.sync-status` | status | `Syncing`, `Ready`, `No bridge`, `N/A` |
+| `hue.sync` | toggle / press | `On`/`Off`. Sends `start_sync` (keeps the app's mode and intensity) or `stop_sync`. `Wait` until confirmed, `Error` after 3 s. |
+| `hue.sync-mode` | selection / set | Video, Games, Music. Available only while syncing. |
+| `hue.sync-intensity` | selection / set | Subtle, Moderate, High, Extreme. Available only while syncing. |
 
-When Hue Sync reports `bridge_disconnected`, every control except status is unavailable.
+## Joining the halves
+- **One brightness dial.** `hue.brightness` follows whatever drives the lights. While Hue Sync reports `syncing`, rotation sends coalesced `inc_bri` (2 per tick, 100 ms minimum gap) and the value shows the sync brightness as `Sync 62%`. Otherwise it controls the room as above. A press always toggles the room on/off, and Sync has its own key.
+- **Scenes win over sync.** Pressing a scene (or slot) while syncing sends `stop_sync` first. The recall is sent only after the app confirms the sync stopped, within 3 s; otherwise the scene shows `Error` and nothing is recalled. Without a sync connection, scenes recall directly.
+- **Temperature while syncing** is unavailable with status `Sync active`, because the stream overrides it.
+- **Status:** `hue.status` reports the bridge and `hue.sync-status` reports the app. The Lights screen shows both side by side.
 
-## Presentation
-New code-drawn icons: `hue-scene` (bulb), `hue-brightness` (sun), `hue-temperature` (thermometer), `huesync-sync` (screen with light rays), `huesync-mode` and `huesync-intensity` (wave). `huesync.brightness` reuses `hue-brightness`. The UI contract gains vocabulary rows; scene `Active` uses the Active color. No artwork is generated from scene palettes. The deck font gains a `%` glyph for percent values. Non-page dials stop printing a control's Icon identifier as strip text; only the page dial carries page names in that field. The GUI shows both plugins through the existing grouped fallback forms under Plugins; there are no new GUI screens.
+## Controls summary (group `Hue`)
+- **Room half:** `hue.status`, `hue.pair`, `hue.group` (selection; room/zone IDs with name labels, zones suffixed "(zone)"), `hue.brightness`, `hue.temperature`, the scene controls and the slots.
+- **Sync half:** `hue.sync-status`, `hue.sync`, `hue.sync-mode`, `hue.sync-intensity`.
+
+## GUI
+The **Lights** screen sits in the sidebar after Soundboard. It is built from the controls above, never writes settings directly, and does not appear in the Plugins page.
+- **Setup banner** (only while something is missing):
+  - Disabled plugin: an Enable button that dispatches the existing plugin selection (confirmation dialog).
+  - `No bridge`: the diagnostic, plus a note that `hue.address` can be set.
+  - Unpaired: "Bridge <ip> found" with Pair. During the pairing window: "Press the link button on the bridge" with a countdown hint from the `Press button` state. Then success or the error.
+  - Certificate error: Pair again.
+- **Room card (left):** the room selector, then two large readouts with −/+:
+  - Brightness, with an On/Off button.
+  - Temperature, with a Neutral button.
+  - A note "Sync controls brightness" while syncing.
+  - Below them, a scene grid for the selected room (Active highlighted, Wait/Error per card). An "Other rooms" disclosure lists the remaining scenes grouped by room.
+- **Sync card (right):** a large Sync toggle, segmented Mode and Intensity buttons (disabled with "Start sync to change" while not syncing), and the app status. When unreachable it shows: "Open Hue Sync and turn on Settings → Third-party control".
+
+The **Plugins** page becomes enable/disable only: plugin cards with status and Enable/Disable, plus Retry. The generic fallback forms move off this page. Built-in plugins have their own screens. Third-party plugin controls remain available as deck bindings, and their statuses still appear in Diagnostics. `docs/plugins.md` changes accordingly.
+
+## Presentation (deck)
+- **Icons:** `hue-scene` (bulb), `hue-brightness` (sun), `hue-temperature` (thermometer), `hue-pair` (link), `huesync-sync` (screen with rays), `huesync-mode` (segments), `huesync-intensity` (wave). Scene `Active` uses the Active color.
+- **Deck font:** gains a `%` glyph.
+- **Dial text:** non-page dials no longer print a control's Icon identifier as strip text.
+- **Empty slots:** a control that is unavailable and has no Label, ShortLabel or Icon renders as a blank key instead of `N/A`. Normal unavailable controls still show `N/A`.
+
+## Personal layout (bin/snoofer.json, user-owned and not in git)
+Home keeps every existing binding.
+- **Rightmost four columns** (zero-based keys 5–8, 14–17, 23–26, 32–35), left open for Hue:
+  - Row 0: `hue.sync`, `hue.sync-mode`, `hue.sync-intensity`, `hue.brightness` (press = lights on/off).
+  - Rows 1–3: `hue.room-scene-1` … `-12`.
+- **Dials:** index 2 is `hue.brightness`, index 3 is `hue.temperature`, index 4 stays free; dial 6 remains pagination.
+- **Contract wording:** "index 2 is empty" only described the result of moving Mic in `e4ea932`; it was never a reservation, and the contract is corrected.
+- **Config cleanup:** the obsolete `huesync` config entry is removed. No Lights deck page is added.
 
 ## Out of scope
-Per-light control, color (xy) control, dynamic scene playback, Entertainment API streaming, scene editing, cloud/remote API, Hue Sync Box (HDMI), and changes to personal deck layouts. Users add a Lights page with the configurator.
+Per-light control, color (xy), dynamic scene playback, Entertainment API streaming, scene editing, the cloud API and the HDMI Sync Box.

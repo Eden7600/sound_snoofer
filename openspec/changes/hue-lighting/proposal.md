@@ -1,10 +1,14 @@
 # Hue lighting
 ## Why
-Control Philips Hue scenes and room lighting, and the Hue Sync PC app, from Snoofer's Stream Deck and GUI without Elgato software.
+Control Philips Hue scenes, room lighting and the Hue Sync PC app from Snoofer's Stream Deck and GUI without Elgato software, as two halves of one lighting feature.
 ## What Changes
-- Optional `hue` plugin for a local Hue Bridge (CLIP v2): LAN discovery, link-button pairing, scene recall keys, and separate brightness and color-temperature dials for one configured room or zone.
-- Optional `huesync` plugin for the Hue Sync PC app's local third-party control socket: Sync on/off, sync brightness dial, mode and intensity.
-- Scene controls work with the existing `auto_controls` prefix to fill Stream Deck pages.
-- New code-drawn deck icons and UI contract vocabulary for Hue controls.
+- One optional `hue` plugin with two halves:
+  - **Room:** a local Hue Bridge (CLIP v2) with multi-interface LAN discovery, link-button pairing, scene recall and separate brightness and color-temperature dials for one configured room or zone.
+  - **Sync:** the Hue Sync PC app's local third-party control socket, with Sync on/off, mode and intensity.
+- The halves coordinate: the brightness dial follows sync while syncing, and recalling a scene stops sync first.
+- Stable room scene slots for deck bindings, and scene controls usable with `auto_controls` prefixes.
+- A dedicated Lights GUI screen. The Plugins page becomes enable/disable only.
+- New code-drawn deck icons, blank rendering for empty slots, and UI contract vocabulary. The contract no longer implies Home dial index 2 is reserved.
+- Hue bindings in the user's Home page block (rightmost four columns, dials 3–4).
 ## Impact
-Two independent plugins with no audio or Stream Deck dependency, both disabled by default, with `no_hue` and `no_huesync` build exclusions. `github.com/gorilla/websocket` and `golang.org/x/net` (`dns/dnsmessage`) become direct dependencies; both already exist in go.sum through Wails, so no new module downloads. The bridge application key is stored in the ignored snoofer.json. No audio routing, recorder or existing layout changes.
+One plugin, disabled by default, with a `no_hue` build exclusion. `github.com/gorilla/websocket` and `golang.org/x/net` (`dns/dnsmessage`, `ipv4`) become direct dependencies; both already exist in go.sum through Wails, so nothing new is downloaded. The bridge application key is stored in the ignored snoofer.json. Third-party plugin fallback forms leave the Plugins page. No audio routing or recorder changes.
