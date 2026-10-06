@@ -19,12 +19,19 @@ var user = windows.NewLazySystemDLL("user32.dll")
 // Console supplies terminal handles for a GUI-subsystem executable. Existing
 // redirected standard streams are retained for explicit CLI commands.
 func Console() error {
+	// Redirected maintenance commands have everything they need. In particular,
+	// a pseudoconsole can have valid streams without a console window.
+	if _, outErr := os.Stdout.Stat(); outErr == nil {
+		if _, errErr := os.Stderr.Stat(); errErr == nil {
+			return nil
+		}
+	}
 	kernel.NewProc("AttachConsole").Call(^uintptr(0))
 	window, _, _ := kernel.NewProc("GetConsoleWindow").Call()
 	if window == 0 {
 		ok, _, err := kernel.NewProc("AllocConsole").Call()
 		if ok == 0 {
-			return fmt.Errorf("allocate controls console: %w", err)
+			return fmt.Errorf("allocate command console: %w", err)
 		}
 	}
 	var err error
