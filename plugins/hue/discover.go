@@ -121,6 +121,11 @@ func discoverMDNS(ctx context.Context, window time.Duration) ([]string, error) {
 				}
 			}
 		}()
+		readers.Add(1)
+		go func() {
+			defer readers.Done()
+			resend(ctx, conn, query, deadline)
+		}()
 	}
 	readers.Wait()
 	if err := ctx.Err(); err != nil {
@@ -135,6 +140,28 @@ func discoverMDNS(ctx context.Context, window time.Duration) ([]string, error) {
 	}
 	sort.Strings(addresses)
 	return addresses, nil
+}
+
+var mdnsGroup = &net.UDPAddr{IP: net.IPv4(224, 0, 0, 251), Port: 5353}
+
+// resend repeats the query one and two seconds after the first send, so a
+// single lost UDP packet does not hide the bridge. A failed resend is ignored:
+// the socket may already be closed at the deadline, and the first send has
+// already proven the interface can multicast.
+func resend(ctx context.Context, conn *net.UDPConn, query []byte, deadline time.Time) {
+	for _, delay := range []time.Duration{time.Second, time.Second} {
+		if !time.Now().Add(delay).Before(deadline) {
+			return
+		}
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
+		_, _ = conn.WriteToUDP(query, mdnsGroup)
+	}
 }
 
 // sendQuery binds to one interface address and multicasts the query from it.
@@ -156,8 +183,7 @@ func sendQuery(target queryInterface, query []byte, deadline time.Time) (*net.UD
 		conn.Close()
 		return nil, fmt.Errorf("discovery on %s: %w", target.Interface.Name, err)
 	}
-	group := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 251), Port: 5353}
-	if _, err := conn.WriteToUDP(query, group); err != nil {
+	if _, err := conn.WriteToUDP(query, mdnsGroup); err != nil {
 		conn.Close()
 		return nil, fmt.Errorf("discovery on %s: %w", target.Interface.Name, err)
 	}

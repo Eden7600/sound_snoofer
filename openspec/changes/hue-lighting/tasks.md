@@ -29,6 +29,7 @@ Each numbered block is one reviewable commit.
 - [x] 22. `feat(hue)`: scene artwork from scene colors, on deck and Lights cards. Tests cover xy/mirek/gradient conversion, palette fallback, merging, caching and refresh; inspect native-size output with real-bridge-like scenes.
 - [x] 23. `feat(snoofer)`: `Control.Hidden`; the deck blanks hidden keys and Hue hides sync-only controls. Update GUI, contract and docs.
 - [x] 24. Validate, build, move Home brightness to dial index 4 while Snoofer is stopped, relaunch and record.
+- [x] 25. `fix(hue)`: retransmit mDNS queries, reconnect via the last known address, and retry a missing paired bridge with backoff (one lost reply caused a minute of No bridge).
 
 ## Hardware acceptance
 - [ ] 8. Pair the real bridge through the link button (revision 1 discovery failed with "No bridge" on this multi-adapter host); confirm discovery, restart persistence and that the key stays out of diagnostics.

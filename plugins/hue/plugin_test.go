@@ -499,3 +499,47 @@ func TestNoTemperatureControl(t *testing.T) {
 		t.Fatal("temperature control published")
 	}
 }
+
+func TestPairedBridgeReconnectsWithoutDiscovery(t *testing.T) {
+	bridge := newFakeBridge(t, "b1", studio()...)
+	settings := paired(bridge, "room-1")
+	settings.Address = "" // Use discovery, whose first reply is lost.
+	port := closedPort(t)
+	settings.SyncPort = &port
+	raw, err := json.Marshal(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var mu sync.Mutex
+	calls := 0
+	discover := func(context.Context) ([]string, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		calls++
+		if calls != 2 {
+			return nil, nil // Only the second query is answered.
+		}
+		return []string{bridge.address()}, nil
+	}
+	controls := snoofer.NewControls()
+	instance, err := start(context.Background(), snoofer.Services{Controls: controls, Live: true}, raw, discover, testTiming)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := instance.Stop(ctx); err != nil {
+			t.Error(err)
+		}
+	}()
+	h := &harness{t: t, controls: controls}
+	// testTiming.rediscover is an hour, so only the paired backoff can reconnect in time.
+	h.value("hue.status", "Connected")
+
+	// Discovery no longer answers; a stream drop must reconnect through the last address.
+	waitFor(t, func() bool { return bridge.streamCount() == 1 })
+	bridge.closeStreams()
+	waitFor(t, func() bool { return bridge.streamCount() == 1 })
+	h.value("hue.status", "Connected")
+}

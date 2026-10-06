@@ -118,6 +118,7 @@ type worker struct {
 	model         model
 	status        string
 	bridgeAddress string // Bridge found while unpaired, shown by the pairing UI.
+	lastAddress   string // Address of the paired bridge last connected this session.
 	diagnostic    string
 	retryAt       time.Time
 	retryDelay    time.Duration
@@ -234,8 +235,9 @@ func (w *worker) connect(ctx context.Context) {
 	generation := w.generation
 	settings := w.settings
 	discover := w.discover
+	hint := w.lastAddress
 	w.spawn(ctx, func(ctx context.Context) func(context.Context) {
-		target, err := resolve(ctx, settings.Address, settings.BridgeID, discover)
+		target, err := resolveKnown(ctx, settings, hint, discover)
 		if err != nil || settings.AppKey == "" {
 			return func(ctx context.Context) { w.onConnected(ctx, generation, target.Address, nil, nil, err) }
 		}
@@ -270,6 +272,7 @@ func (w *worker) onConnected(ctx context.Context, generation int, address string
 		return
 	}
 	w.client = client
+	w.lastAddress = address
 	w.connected = true
 	w.model = newModel(items)
 	w.status = "Connected"
@@ -326,6 +329,11 @@ func (w *worker) fail(err error) {
 		w.status = "No bridge"
 		w.diagnostic = ""
 		w.retryAt = now.Add(w.timing.rediscover)
+		if w.settings.AppKey != "" {
+			// A paired bridge should exist; a missed reply must not cost a full rediscovery delay.
+			w.retryDelay = min(w.timing.retryMax, max(w.timing.retryBase, 2*w.retryDelay))
+			w.retryAt = now.Add(w.retryDelay)
+		}
 	case errors.As(err, &multiple):
 		w.status = "Multiple bridges"
 		w.retryAt = now.Add(w.timing.rediscover)
@@ -851,4 +859,16 @@ func (w *worker) statusView() json.RawMessage {
 		return nil // A map of strings always marshals.
 	}
 	return data
+}
+
+// resolveKnown tries the paired bridge at the address it last answered on
+// before discovery, so reconnects do not depend on mDNS replies. A configured
+// address still takes precedence.
+func resolveKnown(ctx context.Context, settings Settings, hint string, discover discoverFunc) (bridgeTarget, error) {
+	if hint != "" && settings.Address == "" && settings.BridgeID != "" {
+		if id, err := probe(ctx, hint); err == nil && id.BridgeID == settings.BridgeID {
+			return bridgeTarget{Address: hint, identity: id}, nil
+		}
+	}
+	return resolve(ctx, settings.Address, settings.BridgeID, discover)
 }
