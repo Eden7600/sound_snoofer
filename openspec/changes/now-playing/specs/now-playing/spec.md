@@ -26,8 +26,12 @@ Snoofer SHALL control each session individually and SHALL direct the media dial 
 - **THEN** that session toggles play/pause and becomes focused
 
 #### Scenario: Seeking with the dial
-- **WHEN** the media dial turns three detents clockwise on a seekable session at 1:00
-- **THEN** the session seeks to 1:15, and the dial shows Pending until the new position is observed
+- **WHEN** the media dial turns three detents clockwise in quick succession on a seekable session at 1:00
+- **THEN** the dial shows 1:15 immediately, one seek to 1:15 is sent after the turning stops, and the dial shows Pending until the new position is observed
+
+#### Scenario: Turning during playback
+- **WHEN** the dial is turned while the session plays and its progress advances
+- **THEN** every detent is applied; none is rejected as stale
 
 #### Scenario: Only one session playing
 - **WHEN** the user focused a session that is now paused and another session is the only one playing

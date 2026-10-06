@@ -97,6 +97,19 @@ The browser's single Windows session repeats one of its tabs, so title matching 
 - **Status control:** `nowplaying.status` carries ViewData with sources (Windows: ok or error; browsers: connected, version and session count), sessions with full details (for the GUI), and the extension path and token state.
 - **Polling:** Windows snapshots every 500 ms (artwork only when `artKey` changes); browser state arrives by push.
 
+## 3a. Seeking (revised after review)
+Review found seeking unreliable. The dial's value (`m:ss / m:ss`) changed every second, which gave the control a new revision each time. Deck turns that crossed an update were rejected as stale, and the new generation also dropped deck events. Each detent also sent its own seek, the display snapped back until the player confirmed, and slow confirmations flashed "No response".
+
+- **Progress telemetry:** `snoofer.Control.Progress{Known, Playing, PositionMs, DurationMs, Rate, At}` is display-only, like `Meter`, and is excluded from revisions. Surfaces interpolate it: `position + (now − At) × Rate` while playing, clamped to the length.
+  - The dial and session controls carry it. Their `Value` changes only with the play state, so input is never rejected during playback.
+- **Scrubbing:**
+  - Dial detents accumulate into one target (±5 s each, from the shown position), and the shown progress moves to it at once.
+  - One seek goes out 250 ms after the last detent.
+  - Further turns while a seek is pending start from the pending target.
+- **Optimistic progress:** while a seek is pending, progress shows the requested position, advancing if playing. The pending seek clears when the source reports a position within 3 s of the target. If that does not happen within 3 s, Snoofer quietly shows what the source reports instead of an error.
+- **GUI:** session cards interpolate `Progress` between polls. The seek slider is not overwritten while dragged, and after release it shows the optimistic position.
+- **Deck rendering:** with `Progress` known, the dial shows `m:ss / m:ss` and its track from the interpolated position at render time, at the idle refresh (150 ms).
+
 ## 4. Deck
 - **Dial artwork:** when a dial's tile carries Artwork, the touch-strip panel draws it at 56 px on the left. The label, value and position track then move to the right column (x 72–192).
 - **Progress:** `withPosition` accepts `m:ss / m:ss` values and turns them into a 0…1 progress track with no zero mark.

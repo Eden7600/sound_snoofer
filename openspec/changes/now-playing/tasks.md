@@ -22,6 +22,11 @@ Each numbered block is one reviewable commit.
 - [x] 17. `fix(extension)`: inject into open tabs on install and start; adopt media that is already playing. The live Brave check covers a tab playing before the extension loads.
 - [x] 18. `feat(streamdeck)`: Media page controls on the bottom row (default and personal layout). Tests are updated.
 - [x] 19. Validate: all checks and the canonical build; relaunch.
+- [x] 20. `docs(media)`: refined seeking (§3a).
+- [ ] 21. `feat(snoofer)`: `Progress` telemetry excluded from revisions; deck rendering from interpolated progress. Tests cover revision stability and rendering.
+- [ ] 22. `fix(nowplaying)`: progress telemetry, coalesced scrubbing and optimistic progress. Tests cover coalescing, stale-free turning and quiet timeout.
+- [ ] 23. `fix(gui)`: interpolated progress on session cards and an optimistic slider. The GUI check is updated.
+- [ ] 24. Validate: all checks and the canonical build; relaunch.
 
 ## Hardware acceptance
 - [ ] 9. With Brave and a Windows player:
