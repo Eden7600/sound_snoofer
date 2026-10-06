@@ -146,6 +146,15 @@ func TestEditorViewRegions(t *testing.T) {
 	}
 }
 
+func TestTextControlsHaveNoDeckPosition(t *testing.T) {
+	l := Layout{Home: "a", Pages: []Page{{ID: "a", Name: "A"}}}
+	l.Pages[0].Keys[0] = Binding{Control: "hue.rooms"}
+	rooms := snoofer.Control{ID: "hue.rooms", Label: "Hue rooms", Kind: "text", Operations: []string{"set"}}
+	if err := l.Validate([]snoofer.Control{rooms}); err == nil || !strings.Contains(err.Error(), "text entry") {
+		t.Fatal(err)
+	}
+}
+
 func TestEditRegion(t *testing.T) {
 	l := Layout{Home: "s", Pages: []Page{{ID: "s", Name: "S", AutoControls: "soundboard.clip-"}}}
 	l.Pages[0].Keys[35] = Binding{Control: "soundboard.stop"}

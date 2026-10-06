@@ -2,6 +2,7 @@ export function controlsByID(state) {
  return new Map((state.Controls || []).map(c => [c.ID,c]));
 }
 export function compatible(control, dial) {
+ if (control.Kind==="text") return false; // Text entry has no deck position.
  const ops=control.Operations || [];
  return dial ? ops.includes("adjust") : ops.includes("press") || ops.includes("set");
 }

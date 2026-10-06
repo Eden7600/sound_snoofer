@@ -30,6 +30,7 @@ add("hue.pair","Pair Hue bridge","command","Ready",{ShortLabel:"Pair"});
 add("hue.group","Hue room","selection","room-1",{Options:["zone-1","room-1"],OptionLabels:{"zone-1":"Desk (zone)","room-1":"Studio"}});
 add("hue.brightness","Hue brightness","numeric","62%",{ShortLabel:"Brightness"});
 add("hue.motion","Hue motion sensors","toggle","On",{ShortLabel:"Motion",Icon:"hue-motion"});
+add("hue.rooms","Hue rooms","text","",{ViewData:[{ID:"room-1",Name:"Studio",Kind:"room",Chosen:true},{ID:"zone-1",Name:"Desk",Kind:"zone",Chosen:true}]});
 const sceneArt=fs.readFileSync(path.join(root,"docs/design/hue-scene-art.png")).toString("base64");
 for(const [room,name,value] of [["Studio","Bright","Ready"],["Studio","Relax","Active"],["Studio","Concentrate","Ready"],["Desk","Focus","Ready"],["Kitchen","Cook","Ready"]])add("hue.scene-"+room.toLowerCase()+"-"+name.toLowerCase(),room+" "+name,"command",value,{ShortLabel:name,Group:"Hue scenes",Artwork:name==="Relax"?sceneArt:""});
 add("hue.sync-status","Hue Sync","status","Ready");
@@ -190,6 +191,13 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Operation];}),["hue.motion","press"]);
   await page.evaluate(()=>{const m=window.fixture.Controls.find(c=>c.ID==="hue.motion");m.Hidden=true;m.Available=false;m.Revision++;});
   await page.locator("[data-part=motion]").waitFor({state:"hidden"});
+  await page.waitForTimeout(300);
+  await page.getByRole("checkbox",{name:"Desk (zone)",exact:true}).click(); // The host's state, not the click, sets the box.
+  assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Value];}),["hue.rooms","room-1"]);
+  await page.evaluate(()=>{const r=window.fixture.Controls.find(c=>c.ID==="hue.rooms");r.Value="room-1";r.ViewData[1].Chosen=false;r.Revision++;});
+  await page.waitForFunction(()=>!document.querySelector("[data-part=rooms] input[value=zone-1]").checked);
+  // The last chosen room cannot be unchecked; the other stays available.
+  await page.waitForFunction(()=>{const [room,zone]=document.querySelectorAll("[data-part=rooms] input");return room.disabled&&!zone.disabled;});
   assert.equal(await page.getByRole("button",{name:"Games",exact:true}).isVisible(),false,"mode shown while not syncing");
   await page.evaluate(()=>{for(const id of ["hue.sync-mode","hue.sync-intensity"]){const m=window.fixture.Controls.find(c=>c.ID===id);m.Hidden=false;m.Available=true;m.Revision++;}});
   await page.getByRole("button",{name:"Games",exact:true}).waitFor();

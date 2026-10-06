@@ -288,6 +288,27 @@ function sceneCard(id,parent){
   setArt(art,item.Artwork,()=>icon("lightbulb","size-7"),"size-10");
  });
 }
+// roomsCard chooses the rooms and zones Snoofer controls, here and on the deck.
+function roomsCard(parent){
+ const item=c("hue.rooms");if(!item?.ViewData?.length)return;
+ const card=panel("Rooms",parent,"col-span-full");card.dataset.part="rooms";
+ card.append(el("p","text-[13px] text-muted","Only checked rooms appear here and on the deck."));
+ const list=el("div","mt-3 grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2"),error=el("p","mt-2 text-critical");card.append(list,error);
+ const boxes=[];
+ for(const room of item.ViewData){
+  const label=el("label","flex items-center gap-2.5"),box=el("input","size-4 accent-active");box.type="checkbox";box.value=room.ID;
+  label.append(box,el("span","",room.Name+(room.Kind==="zone"?" (zone)":"")));list.append(label);boxes.push(box);
+  box.onchange=()=>request(c("hue.rooms"),"set",boxes.filter(b=>b.checked).map(b=>b.value).join(","));
+ }
+ updaters.push(()=>{
+  const current=c("hue.rooms"),chosen=new Map((current?.ViewData||[]).map(r=>[r.ID,r.Chosen]));
+  for(const b of boxes)b.checked=!!chosen.get(b.value);
+  const count=boxes.filter(b=>b.checked).length;
+  // The last chosen room stays chosen.
+  for(const b of boxes)b.disabled=!!pending||!current?.Available||(b.checked&&count===1);
+  error.textContent=current?.Status||"";error.hidden=!error.textContent;
+ });
+}
 function buildLights(){
  if(!(state.Plugins||{}).hue){empty(root,"Hue is not part of this build.");return;}
  if(!state.Enabled?.hue){
@@ -330,6 +351,7 @@ function buildLights(){
   help.textContent=status?.Value==="N/A"?"Open Hue Sync and turn on Settings → Third-party control.":status?.Value==="No bridge"?"Hue Sync has no bridge connection.":failed?item.Status:"";
   help.className=failed?"text-critical":"text-muted";help.hidden=!help.textContent;
  });
+ roomsCard(grid);
 }
 // deckRange is the GUI-local key rectangle for creating regions; selecting it
 // never dispatches anything. It resets when the edited page changes.
@@ -575,7 +597,7 @@ function buildDiagnostics(){
 function layoutKey(){
  // Values and telemetry are updated in place. Only structure/context rebuilds a screen.
  const list=[...controls.values()].map(v=>[v.ID,v.Label,v.Kind,v.Group,v.Options,v.OptionLabels]);
- return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="lights"?[state.Enabled?.hue,c("hue.group")?.Value]:null,screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value,c("streamdeck.preview")?.ViewData?.Regions,c("streamdeck.preview")?.ViewData?.Collections]:null]);
+ return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="lights"?[state.Enabled?.hue,c("hue.group")?.Value,c("hue.rooms")?.ViewData]:null,screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value,c("streamdeck.preview")?.ViewData?.Regions,c("streamdeck.preview")?.ViewData?.Collections]:null]);
 }
 function build(){
  widgets.length=0;updaters.length=0;root.replaceChildren();

@@ -19,12 +19,13 @@ import (
 // identity, key and certificate pin; the Lights screen writes Group. Empty
 // strings mean not configured.
 type Settings struct {
-	Address           string `json:"address"`
-	BridgeID          string `json:"bridge_id"`
-	AppKey            string `json:"app_key"`
-	CertificateSHA256 string `json:"certificate_sha256"`
-	Group             string `json:"group"`
-	SyncPort          *int   `json:"sync_port,omitempty"` // Hue Sync third-party control port; nil means 24851.
+	Address           string   `json:"address"`
+	BridgeID          string   `json:"bridge_id"`
+	AppKey            string   `json:"app_key"`
+	CertificateSHA256 string   `json:"certificate_sha256"`
+	Group             string   `json:"group"`
+	Rooms             []string `json:"rooms,omitempty"`     // Rooms and zones Snoofer controls; empty means all.
+	SyncPort          *int     `json:"sync_port,omitempty"` // Hue Sync third-party control port; nil means 24851.
 }
 
 // Plugin returns inert metadata; no network activity occurs until Start.
@@ -133,6 +134,7 @@ type worker struct {
 	group     groupRequest
 	brightErr string
 	groupErr  string
+	roomsErr  string
 
 	sceneWriting string               // Scene ID with a recall request in flight.
 	scenePending map[string]time.Time // Recalled scenes awaiting an active status.
@@ -423,6 +425,7 @@ func (w *worker) observe() {
 		}
 	}
 	w.observeMotion()
+	w.enforceRoom()
 }
 
 func (w *worker) handle(ctx context.Context, r snoofer.Request) {
@@ -433,7 +436,9 @@ func (w *worker) handle(ctx context.Context, r snoofer.Request) {
 	case r.ID == "hue.pair":
 		w.startPairing(ctx)
 	case r.ID == "hue.group":
-		w.selectGroup(r.Value)
+		w.selectGroup(r.Value) // The registry accepts only published options: chosen rooms.
+	case r.ID == "hue.rooms":
+		w.setRooms(r.Value)
 	case r.ID == "hue.brightness":
 		w.adjustBrightness(r)
 	case r.ID == "hue.motion":
@@ -742,7 +747,7 @@ func (w *worker) controls() []snoofer.Control {
 	}
 	options := []string{}
 	labels := map[string]string{}
-	for _, g := range w.model.groups() {
+	for _, g := range w.chosenGroups() {
 		options = append(options, g.ID)
 		labels[g.ID] = g.Name
 		if g.Kind == "zone" {
@@ -752,7 +757,9 @@ func (w *worker) controls() []snoofer.Control {
 	controls := []snoofer.Control{
 		{ID: "hue.status", Label: "Hue", Group: "Hue", Kind: "status", Value: w.status, Status: statusNote, ViewData: w.statusView(), Available: true},
 		{ID: "hue.pair", Label: "Pair Hue bridge", ShortLabel: "Pair", Group: "Hue", Kind: "command", Icon: "hue-pair", Value: pairValue, Status: w.pairErr, Operations: []string{"press"}, Available: live},
-		{ID: "hue.group", Label: "Hue room", ShortLabel: "Room", Group: "Hue", Kind: "selection", Value: w.settings.Group, Options: options, OptionLabels: labels, Status: w.groupErr, Operations: []string{"set"}, Available: live && w.connected},
+		{ID: "hue.group", Label: "Hue room", ShortLabel: "Room", Group: "Hue", Kind: "selection", Value: w.settings.Group, Options: options, OptionLabels: labels, Status: w.groupErr, Operations: []string{"set"}, Available: live && w.connected,
+			Hidden: w.connected && len(options) < 2}, // Nothing to switch between on the deck.
+		w.roomsControl(),
 	}
 	knobNote := ""
 	switch {
@@ -782,6 +789,9 @@ func (w *worker) controls() []snoofer.Control {
 	for _, scene := range w.model.scenes() {
 		if seen[scene.ControlID] {
 			continue // A colliding ID prefix would invalidate the whole snapshot.
+		}
+		if !w.settings.chosen(scene.GroupID) {
+			continue
 		}
 		seen[scene.ControlID] = true
 		control := w.sceneControl(scene.ControlID, scene.Label, scene)

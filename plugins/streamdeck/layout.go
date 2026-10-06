@@ -118,6 +118,9 @@ func (l Layout) Validate(controls []snoofer.Control) error {
 		}
 		for _, c := range controls {
 			if c.ID == b.Control {
+				if c.Kind == "text" {
+					return fmt.Errorf("%s needs text entry and has no deck position", c.Label)
+				}
 				op := "press"
 				if dial {
 					op = "adjust"

@@ -175,6 +175,9 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 				if strings.HasPrefix(c.ID, "streamdeck.") && !strings.HasPrefix(c.ID, gotoPrefix) {
 					continue
 				}
+				if c.Kind == "text" {
+					continue // Text entry has no deck position.
+				}
 				if (slot < Keys && (slices.Contains(c.Operations, "press") || slices.Contains(c.Operations, "set"))) || (slot >= Keys && slices.Contains(c.Operations, "adjust")) {
 					ids = append(ids, c.ID)
 				}

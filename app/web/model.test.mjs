@@ -4,6 +4,7 @@ import {compatible,tone,meterValue,gridMove} from "./model.mjs";
 test("binding compatibility, semantic states and meter expiry",()=>{
  assert.equal(compatible({Operations:["press"]},true),false);
  assert.equal(compatible({Operations:["set"]},false),true);
+ assert.equal(compatible({Kind:"text",Operations:["set"]},false),false);
  assert.equal(tone({ID:"audio.mic-mute",Available:true,Value:"On"}),"critical");
  assert.equal(tone({ID:"audio.mic-stack",Available:true,Value:"On"}),"active");
  assert.equal(tone({Available:false,Status:"Error"}),"muted");
