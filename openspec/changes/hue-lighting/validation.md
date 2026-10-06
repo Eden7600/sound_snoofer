@@ -28,3 +28,7 @@ Hardware acceptance tasks 8–11: real bridge pairing and mDNS discovery through
 ## Decoding fix (2026-10-05)
 - Pairing succeeded on the real bridge, but loading failed with "cannot unmarshal string into ... sceneStatus": `zigbee_connectivity` and `entertainment_configuration` use a string `status`. The fake bridge had only scene statuses, so the tests missed it.
 - After the fix, `SNOOFER_HUE_CONFIG=bin/snoofer.json go test ./plugins/hue -run TestLiveResources` loads the paired bridge (172.16.102.3): 36 resource types, 6 rooms and 2 zones, 36 lights, 48 scenes. It prints resource counts only. New tests cover string statuses in loads and in the event stream, skipping of malformed unused types, and rejection of malformed used types.
+
+## Revision 3: temperature removed (2026-10-05)
+- The user found the temperature dial worked once the lights were in color-temperature mode, but decided to remove it. `go vet ./...`, `go test ./...`, the GUI model tests, `check-gui.cjs` and strict OpenSpec validation pass. The reference images `docs/design/hue.png` and `docs/design/gui-lights.png` were regenerated.
+- Personal config, edited while Snoofer was stopped for the canonical build (backup in the session scratchpad): removed `hue.neutral_kelvin` and unbound Home dial 4 (`hue.temperature`). `snoofer.exe --check` passes; Snoofer was relaunched.
