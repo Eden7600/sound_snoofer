@@ -35,8 +35,8 @@ Provider Label identifies an action without an icon. Optional ShortLabel is for 
 | Soundboard gain | Volume; numeric dB; press resets to 0 dB |
 | Pending | Wait |
 | Unavailable or unknown | N/A; meter LEVEL N/A |
-| Failed | Error; detailed diagnostic in TUI |
-| Overridden normal profile | VR; TUI VR override |
+| Failed | Error; detailed diagnostic in GUI |
+| Overridden normal profile | VR; GUI VR override |
 
 Status takes priority only on the affected control. Keep uncertainty distinct from Off or zero. Meter expiry must not show silence. Ready is not recording; enabled capture is not recorder transport.
 

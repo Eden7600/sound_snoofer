@@ -1,6 +1,12 @@
 {
   "name": "sound-snoofer-dev",
   "private": true,
-  "scripts": {"spec": "openspec", "spec:check": "openspec validate --all --strict --no-interactive"},
-  "devDependencies": {"@fission-ai/openspec": "1.14.0"}
+  "scripts": {
+    "spec": "openspec",
+    "spec:check": "openspec validate --all --strict --no-interactive"
+  },
+  "devDependencies": {
+    "@fission-ai/openspec": "1.14.0",
+    "playwright": "1.62.1"
+  }
 }

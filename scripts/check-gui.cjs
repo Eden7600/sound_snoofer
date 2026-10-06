@@ -56,6 +56,10 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.getByRole("button",{name:"Stream Deck",exact:false}).click();
   await page.getByRole("heading",{name:"Binding",exact:true}).waitFor();
   assert.equal(await page.locator(".deck-key").count(),36);
+  await page.getByRole("button",{name:"Key 0: Mic stack",exact:true}).focus();
+  await page.keyboard.press("ArrowDown");
+  assert.match(await page.locator(":focus").getAttribute("aria-label"),/^Key 9:/);
+  assert.equal(await page.evaluate(()=>window.sent.length),0,"arrow browsing fired an action");
   await page.screenshot({path:path.join(root,".local/gui-deck.png"),fullPage:true});
   await page.getByRole("button",{name:"Key 7: Empty",exact:true}).click();
   await page.waitForFunction(()=>document.querySelector(".inspector .eyebrow").textContent==="KEY 7");
@@ -65,6 +69,13 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.waitForTimeout(600);
   assert.equal(await name.inputValue(),"Unsubmitted name");
   await name.press("Escape");
+  await page.evaluate(()=>{window.fixture.Controls.find(c=>c.ID==="streamdeck.preview").ViewData.Dirty=true;});
+  await page.getByRole("button",{name:"Save layout",exact:true}).waitFor();
+  await page.waitForFunction(()=>!Array.from(document.querySelectorAll("button")).find(b=>b.textContent==="Save layout").disabled);
+  await page.getByRole("button",{name:"Save layout",exact:true}).click();
+  assert.equal(await page.evaluate(()=>window.sent.at(-1).Request.ID),"streamdeck.save");
+  await page.evaluate(()=>{window.fixture.Notice="Control changed; try again";});
+  await page.getByRole("alert").filter({hasText:"Control changed; try again"}).waitFor();
   await page.getByRole("button",{name:"Soundboard",exact:false}).click();
   await page.getByRole("searchbox",{name:"Search clips"}).fill("sad");
   await page.waitForTimeout(600);
@@ -79,6 +90,10 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.getByRole("button",{name:"Plugins",exact:false}).click();
   await page.getByRole("button",{name:"Enable",exact:true}).click();
   assert.equal(await page.evaluate(()=>window.sent.at(-1).Plugin),"media");
+  await page.evaluate(()=>window.fixture.Confirmation="Enable media and restart Snoofer?");
+  await page.getByRole("dialog").waitFor();
+  await page.getByRole("button",{name:"Cancel",exact:true}).click();
+  assert.equal(await page.evaluate(()=>window.sent.at(-1).Kind),"cancel");
   assert.deepEqual(errors,[]);
   console.log("PASS: GUI screens, deck selection, draft text, search, responsive bounds and plugin dispatch");
  }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

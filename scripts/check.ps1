@@ -1,4 +1,4 @@
-param([switch]$Fuzz)
+param([switch]$Fuzz, [switch]$GUI)
 $ErrorActionPreference = "Stop"
 Push-Location (Split-Path $PSScriptRoot -Parent)
 $previousCache = $env:GOCACHE
@@ -29,6 +29,12 @@ try {
     }
     Write-Output "SKIPPED: native probes, GUI smoke, and audible/hardware acceptance are separate opt-in checks"
     & ./scripts/build.ps1
+    if ($GUI) {
+        node scripts/check-gui.cjs
+        if ($LASTEXITCODE -ne 0) { throw "Browser GUI checks failed" }
+        node scripts/check-desktop.cjs
+        if ($LASTEXITCODE -ne 0) { throw "Native GUI checks failed" }
+    }
 } finally {
     $env:GOCACHE = $previousCache
     Pop-Location

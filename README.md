@@ -19,8 +19,11 @@ The GUI uses the installed Microsoft WebView2 runtime. HTML/CSS/JavaScript asset
 .\scripts\build.ps1 -Tags core
 .\scripts\build.ps1 -Tags no_audio
 .\scripts\check.ps1
+.\scripts\check.ps1 -GUI
 .\bin\snoofer.exe --check --config .\bin\snoofer.json
 ```
+
+Optional `-GUI` checks use the development Playwright dependency and installed Chrome, plus Windows UI Automation for the packaged WebView2 window. Run `npm ci` once for development dependencies. No browser download is performed by these scripts.
 
 Keep `snoofer-audio-monitor.dll` beside audio-enabled executables and `snoofer-soundboard.dll` beside soundboard-enabled executables. Build scripts use the Windows GUI subsystem to avoid a blank terminal. They do not stop an in-use application.
 
