@@ -18,11 +18,13 @@ type Binding struct {
 	Label   string `json:"label"`
 }
 
-// Page covers keys and the five user-assignable dials. Regions fill keys from
-// control collections; AutoControls is the legacy whole-page prefix.
+// Page covers keys and the five user-assignable dials. Regions fill keys and
+// DialRegions fill dials from control collections; AutoControls is the
+// legacy whole-page prefix.
 type Page struct {
 	AutoControls string         `json:"auto_controls,omitempty"`
 	Regions      []Region       `json:"regions,omitempty"`
+	DialRegions  []Region       `json:"dial_regions,omitempty"` // First and Last are dial indexes 0–4.
 	ID           string         `json:"id"`
 	Name         string         `json:"name"`
 	Keys         [Keys]Binding  `json:"keys"`
@@ -48,6 +50,7 @@ func (l Layout) clone() Layout {
 	l.Pages = slices.Clone(l.Pages)
 	for n := range l.Pages {
 		l.Pages[n].Regions = slices.Clone(l.Pages[n].Regions)
+		l.Pages[n].DialRegions = slices.Clone(l.Pages[n].DialRegions)
 	}
 	return l
 }

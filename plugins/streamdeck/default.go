@@ -3,12 +3,13 @@ package streamdeck
 // DefaultLayout preserves the useful Studio keys and adjacent Playback and Mic
 // dials on Home, and adds Soundboard and Lights pages: a fixed frame of keys
 // around a region of clips or the selected room's scenes. Home reaches both
-// in one press; the page dial's press returns Home. Up and Down page through
+// in one press; the page dial's press returns Home. The Apps page gives each
+// app a dial and a mute key. Up and Down page through
 // soundboard overflow.
 func DefaultLayout() Layout {
 	home := Page{ID: "home", Name: "Home"}
 	for n, id := range map[int]string{0: "audio.mic-mute", 1: "audio.speaker-mute", 2: "audio.monitor", 3: "audio.mode", 8: "core.open-controls", 9: "audio.record-toggle", 11: "audio.record-mic", 12: "audio.record-computer", 13: "audio.record-tap", 27: "media.prev", 28: "media.play", 29: "media.next",
-		34: gotoPrefix + "soundboard", 35: gotoPrefix + "lights"} {
+		33: gotoPrefix + "apps", 34: gotoPrefix + "soundboard", 35: gotoPrefix + "lights"} {
 		home.Keys[n] = Binding{Control: id, Label: id}
 	}
 	for n, id := range map[int]string{0: "audio.gain-playback", 1: "audio.gain-mic"} {
@@ -31,5 +32,9 @@ func DefaultLayout() Layout {
 	for n, id := range map[int]string{0: "audio.gain-playback", 1: "audio.gain-mic", 4: "hue.brightness"} {
 		lights.Dials[n] = Binding{Control: id, Label: id}
 	}
-	return Layout{Home: "home", Pages: []Page{home, sounds, lights}}
+	// Each app has a dial and the key above-left of it in r1; both page together.
+	apps := Page{ID: "apps", Name: "Apps", Regions: []Region{{Source: "appaudio.apps", First: 0, Last: 4}}, DialRegions: []Region{{Source: "appaudio.apps", First: 0, Last: 4}}}
+	apps.Keys[17] = Binding{Control: scrollPrefix + "up", Label: scrollPrefix + "up"}
+	apps.Keys[26] = Binding{Control: scrollPrefix + "down", Label: scrollPrefix + "down"}
+	return Layout{Home: "home", Pages: []Page{home, sounds, lights, apps}}
 }

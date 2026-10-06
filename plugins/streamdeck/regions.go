@@ -32,6 +32,15 @@ func (r Region) cells() []int {
 	return out
 }
 
+// dialCells lists a dial region's dials in order.
+func (r Region) dialCells() []int {
+	var out []int
+	for dial := min(r.First, r.Last); dial <= max(r.First, r.Last); dial++ {
+		out = append(out, dial)
+	}
+	return out
+}
+
 // fill is a region in effect: saved regions, or the whole-page region a
 // legacy auto_controls prefix implies.
 type fill struct {
@@ -61,8 +70,12 @@ func (p Page) fills() []fill {
 	return out
 }
 
-// validateRegions checks a page's saved regions against the layout's shared keys.
+// validateRegions checks a page's saved regions against the layout's shared
+// keys and dials.
 func (l Layout) validateRegions(p Page) error {
+	if err := l.validateDialRegions(p); err != nil {
+		return err
+	}
 	if len(p.Regions) == 0 {
 		return nil
 	}
@@ -94,10 +107,38 @@ func (l Layout) validateRegions(p Page) error {
 	return nil
 }
 
+func (l Layout) validateDialRegions(p Page) error {
+	owner := map[int]int{}
+	for n, r := range p.DialRegions {
+		if r.First < 0 || r.First >= Dials || r.Last < 0 || r.Last >= Dials {
+			return fmt.Errorf("%s dial region %d is outside the deck", p.Name, n+1)
+		}
+		if !strings.Contains(r.Source, ".") || strings.HasSuffix(r.Source, "-") {
+			return fmt.Errorf("%s dial region %d needs a collection source", p.Name, n+1)
+		}
+		free := 0
+		for _, dial := range r.dialCells() {
+			if other, taken := owner[dial]; taken {
+				return fmt.Errorf("%s dial regions %d and %d overlap", p.Name, other+1, n+1)
+			}
+			owner[dial] = n
+			if p.Dials[dial].Control == "" && l.SharedDials[dial].Control == "" {
+				free++
+			}
+		}
+		if free == 0 {
+			return fmt.Errorf("%s dial region %d has no free dial", p.Name, n+1)
+		}
+	}
+	return nil
+}
+
 // editRegion applies an editor request to a copy of page n's regions:
 // "add" takes "first,last,source", "source" takes "index,source" and
-// "remove" takes "index". Editing a legacy page first converts its prefix
-// into an explicit whole-page region. The caller validates the result.
+// "remove" takes "index". Positions are editor slots: keys 0–35, then dials
+// from Keys. Indexes count key regions first, then dial regions. Editing a
+// legacy page first converts its prefix into an explicit whole-page region.
+// The caller validates the result.
 func (l Layout) editRegion(n int, op, value string) (Layout, error) {
 	next := l.clone()
 	page := &next.Pages[n]
@@ -108,7 +149,7 @@ func (l Layout) editRegion(n int, op, value string) (Layout, error) {
 	parts := strings.SplitN(value, ",", 3)
 	index := func() (int, error) {
 		i, err := strconv.Atoi(strings.TrimSpace(parts[0]))
-		if err != nil || i < 0 || i >= len(page.Regions) {
+		if err != nil || i < 0 || i >= len(page.Regions)+len(page.DialRegions) {
 			return 0, fmt.Errorf("unknown region")
 		}
 		return i, nil
@@ -123,19 +164,36 @@ func (l Layout) editRegion(n int, op, value string) (Layout, error) {
 		if errFirst != nil || errLast != nil {
 			return l, fmt.Errorf("region keys must be numbers")
 		}
-		page.Regions = append(page.Regions, Region{Source: strings.TrimSpace(parts[2]), First: first, Last: last})
+		source := strings.TrimSpace(parts[2])
+		switch {
+		case first >= Keys && last >= Keys:
+			page.DialRegions = append(page.DialRegions, Region{Source: source, First: first - Keys, Last: last - Keys})
+		case first < Keys && last < Keys:
+			page.Regions = append(page.Regions, Region{Source: source, First: first, Last: last})
+		default:
+			return l, fmt.Errorf("a region holds keys or dials, not both")
+		}
 	case "source":
 		i, err := index()
 		if err != nil || len(parts) < 2 {
 			return l, fmt.Errorf("unknown region")
 		}
-		page.Regions[i].Source = strings.TrimSpace(strings.Join(parts[1:], ","))
+		source := strings.TrimSpace(strings.Join(parts[1:], ","))
+		if i < len(page.Regions) {
+			page.Regions[i].Source = source
+		} else {
+			page.DialRegions[i-len(page.Regions)].Source = source
+		}
 	case "remove":
 		i, err := index()
 		if err != nil {
 			return l, err
 		}
-		page.Regions = slices.Delete(page.Regions, i, i+1)
+		if i < len(page.Regions) {
+			page.Regions = slices.Delete(page.Regions, i, i+1)
+		} else {
+			page.DialRegions = slices.Delete(page.DialRegions, i-len(page.Regions), i-len(page.Regions)+1)
+		}
 	default:
 		return l, fmt.Errorf("unknown region edit %q", op)
 	}

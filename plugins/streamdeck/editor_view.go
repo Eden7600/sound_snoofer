@@ -28,11 +28,12 @@ type EditorCollection struct {
 }
 
 // EditorRegion is a page region with its editor label. Legacy marks the
-// whole-page region implied by an automatic prefix.
+// whole-page region implied by an automatic prefix; Dials marks a dial
+// region, whose First and Last are dial indexes.
 type EditorRegion struct {
 	Source, Label string
 	First, Last   int
-	Legacy        bool
+	Legacy, Dials bool
 }
 
 func editorView(draft Layout, page string, selected int, dirty bool, controls []snoofer.Control) EditorView {
@@ -73,8 +74,18 @@ func editorView(draft Layout, page string, selected int, dirty bool, controls []
 	for n, b := range effective.Keys {
 		view.Keys = append(view.Keys, slot(b, base.Keys[n], draft.SharedKeys[n], region[n]))
 	}
+	dialRegion := make([]int, Dials)
+	for n := range dialRegion {
+		dialRegion[n] = -1
+	}
+	for _, r := range base.DialRegions {
+		for _, dial := range r.dialCells() {
+			dialRegion[dial] = len(view.Regions)
+		}
+		view.Regions = append(view.Regions, EditorRegion{Source: r.Source, Label: collectionLabel(fill{Region: r}, controls), First: r.First, Last: r.Last, Dials: true})
+	}
 	for n, b := range effective.Dials {
-		view.Dials = append(view.Dials, slot(b, base.Dials[n], draft.SharedDials[n], -1))
+		view.Dials = append(view.Dials, slot(b, base.Dials[n], draft.SharedDials[n], dialRegion[n]))
 	}
 	return view
 }
