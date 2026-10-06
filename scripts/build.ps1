@@ -3,6 +3,7 @@ $ErrorActionPreference = "Stop"
 Push-Location (Split-Path $PSScriptRoot -Parent)
 $previousCache = $env:GOCACHE
 try {
+    & ./scripts/stop.ps1
     # Check before compiling the companion or touching either deployed binary.
     foreach ($name in @("snoofer.exe", "snoofer-audio-monitor.dll", "snoofer-soundboard.dll")) {
         $path = Join-Path (Get-Location) "bin/$name"
@@ -11,7 +12,7 @@ try {
                 $probe = [IO.File]::Open($path, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
                 $probe.Dispose()
             } catch {
-                throw "Cannot replace bin/$name. Exit Snoofer from the tray, then run scripts/build.ps1 again. No alternate output will be created."
+                throw "Cannot replace bin/$name. Graceful shutdown did not release the file; inspect Snoofer before retrying. No alternate output will be created."
             }
         }
     }
