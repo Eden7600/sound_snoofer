@@ -29,7 +29,7 @@ The GUI uses the installed Microsoft WebView2 runtime. HTML/CSS/JavaScript asset
 
 Optional `-GUI` checks use the development Playwright dependency and installed Chrome, plus Windows UI Automation for the packaged WebView2 window. Run `npm ci` once for development dependencies. No browser download is performed by these scripts.
 
-Keep `snoofer-audio-monitor.dll` beside audio-enabled executables and `snoofer-soundboard.dll` beside soundboard-enabled executables. Build scripts use the Windows GUI subsystem to avoid a blank terminal. They do not stop an in-use application.
+Keep `snoofer-audio-monitor.dll` beside audio-enabled executables and `snoofer-soundboard.dll` beside soundboard-enabled executables. Build scripts use the Windows GUI subsystem to avoid a blank terminal. Before replacement, scripts/build.ps1 calls scripts/stop.ps1 to request normal tray shutdown and wait for cleanup. A timeout aborts the build without killing the host. You can also run scripts/stop.ps1 directly.
 
 For interactive development preview, copy the envelope and audio sidecars into a repository-local scratch directory, update state_path, and use `--dry-run --config <copied-envelope>`. Preview avoids audio writes but can save UI settings; do not interactively smoke-test against personal state.
 
@@ -49,7 +49,3 @@ Callback progress proves processing, not audible output. Physical Volt/VR/Stream
 ## License
 
 [GNU AGPL version 3](LICENSE), AGPL-3.0-only.
-
-## Build
-
-Run ./scripts/build.ps1 from PowerShell (Go, MSVC and Windows SDK required for the default audio build). Exit Snoofer first. The only app output is bin/snoofer.exe. Run ./scripts/check.ps1 for tests, vet, OpenSpec validation and that same build; no duplicate build commands.
