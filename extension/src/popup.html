@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Snoofer Media</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; width: 260px; padding: 14px; background: #0e141b; color: #e3edf3; font: 13px system-ui, sans-serif; }
+  header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  header img { width: 28px; height: 28px; }
+  h1 { margin: 0; font-size: 14px; font-weight: 600; }
+  p { margin: 6px 0; }
+  .muted { color: #8797a3; }
+  .ok { color: #3ac6e1; }
+  .warn { color: #eeb74c; }
+  label { display: block; margin-top: 12px; color: #8797a3; }
+  .row { display: flex; gap: 6px; margin-top: 4px; }
+  input { flex: 1; min-width: 0; padding: 5px 7px; border: 1px solid #2e414f; border-radius: 6px; background: #121c25; color: inherit; font: inherit; }
+  button { padding: 5px 10px; border: 1px solid #2e414f; border-radius: 6px; background: #192a36; color: inherit; font: inherit; cursor: pointer; }
+  button.primary { border-color: transparent; background: #3ac6e1; color: #06232b; font-weight: 600; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header><img src="icons/icon-32.png" alt=""><h1>Snoofer Media</h1></header>
+<p id="status" class="muted">Checking…</p>
+<p id="playing" class="muted"></p>
+<div id="access" hidden>
+  <p class="warn">Allow access to all sites so tabs can report their media.</p>
+  <button id="grant" class="primary" type="button">Allow on all sites</button>
+</div>
+<label for="port">Snoofer port</label>
+<div class="row"><input id="port" type="number" min="1024" max="65535" step="1"><button id="save" type="button">Save</button></div>
+<script src="logic.js"></script>
+<script src="popup.js"></script>
+</body>
+</html>

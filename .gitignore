@@ -12,3 +12,4 @@ coverage.out
 *.vr-ownership.json
 /app/web/dist/*
 !/app/web/dist/.gitkeep
+/extension/dist/

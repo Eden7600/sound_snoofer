@@ -1,13 +1,25 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { backoff, browserName, route, sessions } from "./logic.js";
+import "./logic.js";
+
+const { PROTOCOL, DEFAULT_PORT, backoff, browserName, route, sessions, validPort } = globalThis.SnooferLogic;
+
+test("protocol and port match Snoofer", () => {
+  assert.equal(PROTOCOL, 1);
+  assert.equal(DEFAULT_PORT, 47815);
+  assert.equal(validPort("50000"), 50000);
+  assert.equal(validPort(80), 0);
+  assert.equal(validPort("x"), 0);
+  assert.equal(validPort(70000), 0);
+});
 
 test("browser names pair with Windows sessions", () => {
-  assert.equal(browserName([{ brand: "Chromium" }, { brand: "Brave" }], false), "Brave");
-  assert.equal(browserName([{ brand: "Chromium" }], true), "Brave");
-  assert.equal(browserName([{ brand: "Microsoft Edge" }, { brand: "Chromium" }], false), "Edge");
-  assert.equal(browserName([{ brand: "Google Chrome" }], false), "Chrome");
-  assert.equal(browserName(undefined, false), "Chrome");
+  assert.equal(browserName([{ brand: "Chromium" }, { brand: "Brave" }], false, ""), "Brave");
+  assert.equal(browserName([{ brand: "Chromium" }], true, ""), "Brave");
+  assert.equal(browserName([{ brand: "Microsoft Edge" }, { brand: "Chromium" }], false, ""), "Edge");
+  assert.equal(browserName([{ brand: "Google Chrome" }], false, ""), "Chrome");
+  assert.equal(browserName(undefined, false, "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0"), "Firefox");
+  assert.equal(browserName(undefined, false, ""), "Chrome");
 });
 
 test("sessions merge frame reports with tab details", () => {

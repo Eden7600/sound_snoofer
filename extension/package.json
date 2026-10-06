@@ -1,0 +1,12 @@
+{
+  "name": "snoofer-media",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Browser extension that lets Snoofer show and control media in each tab.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test src/logic.test.mjs build.test.mjs",
+    "build": "node build.mjs",
+    "package": "node build.mjs --package"
+  }
+}
