@@ -54,7 +54,16 @@ view.Keys[9]={Control:"soundboard.clip-fah",Label:"fah",Source:"Auto"};
 view.Keys[31]={Control:"core.open-controls",Label:"Controls",Source:"Shared"};
 ["audio.gain-playback","audio.gain-mic",""].forEach((Control,i)=>view.Dials[i]={Control,Label:"",Source:""});
 controls.find(c=>c.ID==="streamdeck.preview").ViewData=view;
-const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",streamdeck:"Running",vr:"Running",media:"Disabled",hue:"Running"},Enabled:{audio:true,soundboard:true,streamdeck:true,vr:true,media:false,hue:true}};
+// App audio: Discord pinned first, Chrome heard, Spotify pinned but closed; Voicemeeter hidden by default.
+const appMeter={Present:true,Known:true,DB:-18,At:new Date().toISOString()};
+[["discord","Discord","40%"],["chrome","Google Chrome","Mixed"],["spotify","Spotify","Closed"]].forEach(([id,label,value],n)=>add("appaudio.app-"+id,label,"numeric",value,{ShortLabel:label,Group:"App audio",Collection:"appaudio.apps",CollectionLabel:"Apps",Order:n+1,Icon:"app-audio",Operations:["press","adjust","set"],Meter:value==="Closed"?{Present:true}:appMeter}));
+add("appaudio.status","App audio","status","3 apps",{ViewData:{RecentMinutes:5,Apps:[
+ {ID:"appaudio.app-discord",Name:"Discord",Picked:true,Open:true,Sessions:2,Executables:["C:\\Discord\\Discord.exe"],Devices:["Voicemeeter Input"],PIDs:[11,12]},
+ {ID:"appaudio.app-chrome",Name:"Google Chrome",Open:true,Sessions:3,Executables:["C:\\Chrome\\chrome.exe"],Devices:["Voicemeeter Input"],PIDs:[21],LastHeard:new Date().toISOString()},
+ {ID:"appaudio.app-spotify",Name:"Spotify",Picked:true,Open:false},
+ {ID:"appaudio.app-vm",Name:"Voicemeeter",Hidden:true,Open:true,Sessions:1,Rule:"Hidden by default ((^|\\\\)voicemeeter[^\\\\]*\\.exe$)"}]}});
+add("appaudio.edit","App audio edit","text","abc");
+const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",streamdeck:"Running",vr:"Running",media:"Disabled",hue:"Running",appaudio:"Running"},Enabled:{audio:true,soundboard:true,streamdeck:true,vr:true,media:false,hue:true,appaudio:true}};
 (async()=>{
  const server=http.createServer((req,res)=>{
   if(req.url==="/logo.ico"){res.setHeader("Content-Type","image/x-icon");res.end(fs.readFileSync(path.join(root,"app/tray.ico")));return;}
@@ -82,11 +91,11 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
     const view=window.fixture.Controls.find(c=>c.ID==="streamdeck.preview").ViewData;
     if(r.ID==="streamdeck.slot"){view.Selected=Number(r.Value.split(" ")[1])-1;}
     if(r.ID.startsWith("streamdeck.region-")){
-     if(r.ID==="streamdeck.region-add"){const [first,last,source]=r.Value.split(",");view.Regions.push({Source:source,Label:view.Collections.find(x=>x.ID===source)?.Label||source,First:Number(first),Last:Number(last)});}
+     if(r.ID==="streamdeck.region-add"){const [first,last,source]=r.Value.split(","),dials=Number(first)>=36;view.Regions.push({Source:source,Label:view.Collections.find(x=>x.ID===source)?.Label||source,First:Number(first)-(dials?36:0),Last:Number(last)-(dials?36:0),Dials:dials});}
      if(r.ID==="streamdeck.region-source"){const [i,source]=r.Value.split(",");Object.assign(view.Regions[Number(i)],{Source:source,Label:view.Collections.find(x=>x.ID===source)?.Label||source});}
      if(r.ID==="streamdeck.region-remove")view.Regions.splice(Number(r.Value),1);
-     view.Keys.forEach(k=>{k.Region=-1;});
-     view.Regions.forEach((g,n)=>{const rows=[Math.floor(g.First/9),Math.floor(g.Last/9)].sort((a,b)=>a-b),cols=[g.First%9,g.Last%9].sort((a,b)=>a-b);for(let row=rows[0];row<=rows[1];row++)for(let col=cols[0];col<=cols[1];col++)view.Keys[row*9+col].Region=n;});
+     view.Keys.forEach(k=>{k.Region=-1;});view.Dials.forEach(d=>{d.Region=-1;});
+     view.Regions.forEach((g,n)=>{if(g.Dials){for(let d=Math.min(g.First,g.Last);d<=Math.max(g.First,g.Last);d++)view.Dials[d].Region=n;return;}const rows=[Math.floor(g.First/9),Math.floor(g.Last/9)].sort((a,b)=>a-b),cols=[g.First%9,g.Last%9].sort((a,b)=>a-b);for(let row=rows[0];row<=rows[1];row++)for(let col=cols[0];col<=cols[1];col++)view.Keys[row*9+col].Region=n;});
      view.Dirty=true;window.fixture.Controls.find(c=>c.ID==="streamdeck.preview").Revision++;
     }
     if(r.Operation==="set")target.Value=r.Value;
@@ -147,6 +156,24 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.screenshot({path:path.join(root,".local/gui-deck-regions.png"),fullPage:true});
   await page.getByRole("button",{name:"Remove region 1",exact:true}).click();
   assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Value];}),["streamdeck.region-remove","0"]);
+  await page.locator("[data-part=region]").waitFor({state:"detached"});
+  // Dial regions: select a span of dials and add a region from it.
+  await page.waitForTimeout(300);
+  await page.getByRole("button",{name:/^Dial 3: /}).click();
+  await page.waitForTimeout(300);
+  const beforeDials=await page.evaluate(()=>window.sent.length);
+  await page.getByRole("button",{name:/^Dial 5: /}).click({modifiers:["Shift"]});
+  assert.equal(await page.evaluate(()=>window.sent.length),beforeDials,"dial range selection dispatched");
+  assert.equal(await page.locator("[data-part=dial][data-range=true]").count(),3);
+  assert.equal(await addRegion.textContent(),"Add region · Dials 3–5");
+  await page.getByLabel("New region source").selectOption("soundboard.clips");
+  await addRegion.click();
+  assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Value];}),["streamdeck.region-add","38,40,soundboard.clips"]);
+  await page.locator("[data-part=region]").waitFor();
+  assert.equal(await page.locator("[data-part=dial][data-region=true]").count(),3);
+  assert.match(await page.locator("[data-part=region]").textContent(),/Dials 3–5/);
+  await page.waitForTimeout(300);
+  await page.getByRole("button",{name:"Remove region 1",exact:true}).click();
   await page.locator("[data-part=region]").waitFor({state:"detached"});
   await page.waitForTimeout(300);
   await page.evaluate(()=>{window.fixture.Controls.find(c=>c.ID==="streamdeck.preview").ViewData.Dirty=false;});
@@ -212,6 +239,29 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.waitForTimeout(300);
   await page.getByRole("button",{name:"Start sync",exact:true}).click();
   assert.equal(await page.evaluate(()=>window.sent.at(-1).Request.ID),"hue.sync");
+  await page.getByRole("button",{name:"App audio",exact:true}).click();
+  await page.locator("[data-part=app]").first().waitFor();
+  assert.deepEqual(await page.locator("[data-part=app] h3").allTextContents(),["Discord","Google Chrome","Spotify"]);
+  assert.equal(await page.getByRole("slider",{name:"Spotify volume"}).isVisible(),false,"closed app adjustable");
+  await page.waitForTimeout(300);
+  await page.getByRole("slider",{name:"Discord volume"}).fill("60");
+  assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Operation,r.Value];}),["appaudio.app-discord","set","60"]);
+  await page.waitForTimeout(300);
+  await page.locator("[data-part=app]").nth(1).locator("[data-part=mute]").click();
+  assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Operation];}),["appaudio.app-chrome","press"]);
+  await page.waitForTimeout(300);
+  await page.getByRole("button",{name:"Pin Google Chrome",exact:true}).click();
+  assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,JSON.parse(r.Value)];}),["appaudio.edit",{op:"pick",app:"Google Chrome",value:""}]);
+  await page.evaluate(()=>{const e=window.fixture.Controls.find(c=>c.ID==="appaudio.edit");e.Revision++;});
+  await page.waitForTimeout(300);
+  await page.locator("[data-part=app]").nth(1).locator("summary").click();
+  await page.locator("[data-part=app]").nth(1).locator("[data-part=hide]").click();
+  assert.deepEqual(await page.evaluate(()=>JSON.parse(window.sent.at(-1).Request.Value)),{op:"hide",app:"Google Chrome",value:""});
+  await page.evaluate(()=>{const e=window.fixture.Controls.find(c=>c.ID==="appaudio.edit");e.Revision++;});
+  await page.waitForTimeout(300);
+  await page.locator("[data-part=hidden-apps]").getByRole("button",{name:"Unhide"}).click();
+  assert.deepEqual(await page.evaluate(()=>JSON.parse(window.sent.at(-1).Request.Value)),{op:"unhide",app:"Voicemeeter",value:""});
+  await page.screenshot({path:path.join(root,".local/gui-appaudio.png"),fullPage:true});
   await page.getByRole("button",{name:"Third-party apps",exact:false}).click();
   await page.getByRole("heading",{name:"Hue",exact:true}).waitFor();
   assert.equal(await page.locator("[data-part=app-card]").count(),4);
@@ -233,7 +283,7 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   assert.equal((await page.evaluate(()=>window.copied[1])).split("\n\n").length,4);
   assert.deepEqual(await page.locator("[data-part=not-monitored] li").allTextContents(),["media — Disabled"]);
   await page.screenshot({path:path.join(root,".local/gui-apps.png"),fullPage:true});
-  await page.getByRole("button",{name:"Audio",exact:false}).click();
+  await page.getByRole("button",{name:"Audio",exact:true}).click();
   await page.setViewportSize({width:800,height:600});
   await page.screenshot({path:path.join(root,".local/gui-narrow.png"),fullPage:true});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,"horizontal overflow");

@@ -3,6 +3,7 @@ package appaudio
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -406,7 +407,9 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 	}
 	controls = append(controls,
 		snoofer.Control{ID: "appaudio.status", Label: "App audio", Group: "App audio", Kind: "status", Value: value, Status: firstNonEmpty(w.backendErr, w.editErr), ViewData: data, Available: true},
-		snoofer.Control{ID: "appaudio.edit", Label: "App audio edit", Group: "App audio", Kind: "text", Operations: []string{"set"}, Available: true})
+		// The edit control changes with every saved or failed edit, so a GUI waiting on it settles.
+		snoofer.Control{ID: "appaudio.edit", Label: "App audio edit", Group: "App audio", Kind: "text", Value: fmt.Sprintf("%x", sha256.Sum256(w.raw))[:12], Status: w.editErr,
+			Operations: []string{"set"}, Available: w.services.SaveSettings != nil})
 	_ = w.services.Controls.Publish("appaudio", controls, func(ctx context.Context, r snoofer.Request) error {
 		select {
 		case commands <- r:

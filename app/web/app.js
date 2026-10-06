@@ -6,7 +6,7 @@ const root=$("#content");
 let state={Controls:[],Plugins:{},Enabled:{}}, controls=new Map(), screen="audio", signature="", pending=null;
 let localError="", dismissedNotice="";
 const widgets=[], updaters=[];
-const titles={audio:["AUDIO","Audio"],soundboard:["LIBRARY","Soundboard"],lights:["LIGHTING","Lights"],deck:["CONTROL SURFACE","Stream Deck"],plugins:["SYSTEM","Plugins"],apps:["SYSTEM","Third-party apps"],diagnostics:["SYSTEM","Diagnostics"]};
+const titles={audio:["AUDIO","Audio"],soundboard:["LIBRARY","Soundboard"],lights:["LIGHTING","Lights"],appaudio:["MIXER","App audio"],deck:["CONTROL SURFACE","Stream Deck"],plugins:["SYSTEM","Plugins"],apps:["SYSTEM","Third-party apps"],diagnostics:["SYSTEM","Diagnostics"]};
 
 // Utility groups reused across screens. They are plain Tailwind utility
 // literals (no component classes), kept complete so the CSS build finds them.
@@ -136,15 +136,10 @@ function control(id,parent,label,{layout="row",hideLabel=false}={}) {
  parent.append(row);
  widgets.push({id,row,title,note,input,initial});
 }
-function mixer(id,parent,title) {
- if(!c(id))return;
- const node=el("div",ui.strip), value=el("div",ui.readout),text=el("div",ui.meterLabel),actions=el("div",ui.gainButtons);
- const device=el("div",ui.meterLabel);
- // Position track: where the gain sits in its range, with the 0 dB mark.
- const track=el("div","relative mt-2 h-1 rounded-full bg-[#283542]"),fillTrack=el("div","h-full rounded-full bg-active transition-[width] duration-[120ms]"),zero=el("div","absolute -top-1 h-3 w-0.5 -translate-x-1/2 bg-ink");
- track.dataset.part="position";track.append(fillTrack,zero);
- // Meter: a dimmed full gradient as the unlit track, the lit level clipped
- // over it with a short transition, and a held peak marker.
+// meterBar is a level meter: a dimmed full gradient as the unlit track, the
+// lit level clipped over it with a short transition, a held peak marker and a
+// dBFS scale. update returns the reading, or null when unknown.
+function meterBar(){
  const bar=el("div","relative mt-3 h-2.5 rounded-[3px] bg-[#283542]"),unlit=el("div",ui.meterGradient+" rounded-[3px] opacity-20"),signal=el("div",ui.meterGradient+" rounded-[3px] transition-[clip-path] duration-[120ms] ease-out [clip-path:inset(0_100%_0_0)]"),peakMark=el("div","absolute -top-0.5 -bottom-0.5 w-0.5 -translate-x-1/2 bg-ink data-[tone=critical]:bg-meter-red");
  bar.dataset.part="meter";peakMark.dataset.part="peak";bar.append(unlit,signal,peakMark);
  const scale=el("div","relative mt-1 h-3 text-[10px] text-muted tabular-nums");
@@ -153,6 +148,25 @@ function mixer(id,parent,title) {
   mark.style.left=((db+60)/60*100)+"%";scale.append(mark);
  }
  let meterState=null;
+ return {nodes:[bar,scale],update(control){
+  const db=meterValue(control?.Meter);
+  meterState=meterBallistics(meterState,db,Date.now());
+  const level=meterState.level;
+  signal.style.clipPath="inset(0 "+(level===null?100:-(level/60)*100)+"% 0 0)";
+  peakMark.hidden=level===null||meterState.peak<=-60;
+  if(level!==null)peakMark.style.left=((meterState.peak+60)/60*100)+"%";
+  peakMark.dataset.tone=meterState.peak>=-3?"critical":"";
+  return db;
+ }};
+}
+function mixer(id,parent,title) {
+ if(!c(id))return;
+ const node=el("div",ui.strip), value=el("div",ui.readout),text=el("div",ui.meterLabel),actions=el("div",ui.gainButtons);
+ const device=el("div",ui.meterLabel);
+ // Position track: where the gain sits in its range, with the 0 dB mark.
+ const track=el("div","relative mt-2 h-1 rounded-full bg-[#283542]"),fillTrack=el("div","h-full rounded-full bg-active transition-[width] duration-[120ms]"),zero=el("div","absolute -top-1 h-3 w-0.5 -translate-x-1/2 bg-ink");
+ track.dataset.part="position";track.append(fillTrack,zero);
+ const meter=meterBar(),[bar,scale]=meter.nodes;
  node.dataset.part="strip";
  node.append(el("h3",ui.stripTitle,title),device,value,track,bar,scale,text,actions);
  actions.append(iconButton("minus",title+" down",()=>request(c(id),"adjust","",-1)),button("0 dB",()=>press(id),ui.toggle),iconButton("plus",title+" up",()=>request(c(id),"adjust","",1)));
@@ -161,13 +175,7 @@ function mixer(id,parent,title) {
  parent.append(node);
  updaters.push(()=>{
   const control=c(id);device.textContent=id==="audio.gain-playback"?(c("audio.playback-device")?.Value||""):id==="audio.gain-mic"?(c("audio.mic-device")?.Value||""):"";device.hidden=!device.textContent;value.textContent=control ? display(control) : "Unavailable";
-  const db=meterValue(control?.Meter);
-  meterState=meterBallistics(meterState,db,Date.now());
-  const level=meterState.level;
-  signal.style.clipPath="inset(0 "+(level===null?100:-(level/60)*100)+"% 0 0)";
-  peakMark.hidden=level===null||meterState.peak<=-60;
-  if(level!==null)peakMark.style.left=((meterState.peak+60)/60*100)+"%";
-  peakMark.dataset.tone=meterState.peak>=-3?"critical":"";
+  const db=meter.update(control);
   text.textContent=db===null?"LEVEL N/A":db.toFixed(1)+" dBFS";
   const position=control?.Available?gainPosition(control.Value):null;
   track.hidden=!position;
@@ -367,14 +375,88 @@ function buildLights(){
  });
  roomsCard(grid);
 }
-// deckRange is the GUI-local key rectangle for creating regions; selecting it
-// never dispatches anything. It resets when the edited page changes.
+// appEdit sends a pick or rule change for an app.
+function appEdit(op,app,value=""){request(c("appaudio.edit"),"set",JSON.stringify({op,app,value}));}
+function appStrip(id,parent){
+ const initial=c(id),node=el("div",ui.strip+" flex flex-col"),head=el("div","mb-3 flex items-center gap-3"),art=el("div","grid size-10 shrink-0 place-items-center text-active"),name=el("h3","min-w-0 flex-1 truncate text-sm font-semibold",initial.Label);
+ node.dataset.part="app";parent.append(node);
+ const info=()=>(c("appaudio.status")?.ViewData?.Apps||[]).find(a=>a.ID===id)||{};
+ const pin=iconButton("pin","Pin "+initial.Label,()=>appEdit(info().Picked?"unpick":"pick",initial.Label));pin.dataset.part="pin";pin.className+=" "+ui.toggle+" min-w-0 px-2";
+ const earlier=iconButton("chevron-left","Move "+initial.Label+" earlier",()=>appEdit("move",initial.Label,"up")),later=iconButton("chevron-right","Move "+initial.Label+" later",()=>appEdit("move",initial.Label,"down"));
+ head.append(art,name,earlier,later,pin);
+ const value=el("div",ui.readout),status=el("div",ui.meterLabel);
+ const slider=el("input","mt-3 w-full accent-active");slider.type="range";slider.min="0";slider.max="100";slider.step="1";slider.setAttribute("aria-label",initial.Label+" volume");slider.dataset.part="volume";
+ slider.onchange=()=>request(c(id),"set",slider.value);
+ const meter=meterBar(),mute=button("Mute",()=>press(id),ui.toggle+" mt-3 self-start");mute.dataset.part="mute";
+ const more=el("details","mt-3 text-[13px]"),summary=el("summary","cursor-pointer text-muted","More");more.append(summary);
+ const rename=el("input","min-w-0 flex-1");rename.type="text";rename.placeholder="New name";rename.setAttribute("aria-label","Rename "+initial.Label);
+ const renameRow=el("div","mt-2 flex gap-2"),renameApply=button("Rename",()=>{if(rename.value.trim())appEdit("rename",initial.Label,rename.value.trim());},ui.small);renameRow.append(rename,renameApply);
+ const combine=el("select","min-w-0 flex-1");combine.setAttribute("aria-label","Combine "+initial.Label+" into");
+ const combineRow=el("div","mt-2 flex gap-2"),combineApply=button("Combine",()=>{if(combine.value)appEdit("combine",initial.Label,combine.value);},ui.small);combineRow.append(combine,combineApply);
+ for(const other of (c("appaudio.status")?.ViewData?.Apps||[]).filter(a=>!a.Hidden&&a.ID!==id)){const option=el("option","","Into "+other.Name);option.value=other.Name;combine.append(option);}
+ const hide=button("Hide",()=>appEdit("hide",initial.Label),ui.small+" "+ui.danger);hide.dataset.part="hide";
+ const details=el("dl","mt-3 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-1 text-[12px] text-muted");
+ more.append(renameRow,combineRow,el("div",ui.actions+" mt-2"),details);more.children[3].append(hide);
+ node.append(head,value,status,slider,...meter.nodes,mute,more);
+ updaters.push(()=>{
+  const item=c(id);if(!item)return;
+  const a=info(),closed=item.Value==="Closed",percent=numericValue(item.Value);
+  setArt(art,item.Artwork,()=>icon("app-window","size-7"),"size-10");
+  value.textContent=display(item);status.textContent=item.Status||(closed?"Not running":"");status.className=ui.meterLabel+" "+tc(tone(item));
+  if(document.activeElement!==slider&&percent!==null)slider.value=String(percent);
+  meter.update(item);
+  const muted=item.Value==="Muted";mute.textContent=muted?"Muted":"Mute";mute.setAttribute("aria-pressed",String(muted));mute.dataset.tone=muted?"critical":"";
+  pin.setAttribute("aria-pressed",String(!!a.Picked));pin.title=a.Picked?"Unpin":"Pin";
+  earlier.hidden=later.hidden=!a.Picked;
+  for(const b of [slider,mute])b.disabled=!!pending||!item.Available||closed;
+  for(const n of [slider,mute,...meter.nodes])n.hidden=closed;
+  for(const b of [pin,earlier,later,renameApply,combineApply,hide,rename,combine])b.disabled=!!pending||!c("appaudio.edit")?.Available;
+  for(const b of [renameApply,combineApply,hide,rename,combine])b.disabled||=closed;
+  details.replaceChildren();
+  for(const [label,text] of [["Programs",(a.Executables||[]).join("\n")],["Devices",(a.Devices||[]).join("\n")],["Processes",(a.PIDs||[]).join(", ")],["Sessions",String(a.Sessions||0)],["Rule",a.Rule||"None"],["Heard",a.LastHeard?relativeTime(a.LastHeard):"Not yet"]]){
+   details.append(el("dt","",label),el("dd","whitespace-pre-wrap break-all text-ink",text||"—"));
+  }
+ });
+}
+function buildAppAudio(){
+ if(!(state.Plugins||{}).appaudio){empty(root,"App audio is not part of this build.");return;}
+ if(!state.Enabled?.appaudio){
+  const card=panel("App audio is off",root,"mb-[18px] border-[#345365]");card.dataset.part="setup";card.append(el("p","mt-2 mb-3.5 text-muted","Control the volume and mute of individual apps."));
+  const actions=el("div",ui.actions);actions.append(button("Enable App audio",()=>send({Kind:"selection",Plugin:"appaudio",Enable:true}),ui.primary));card.append(actions);return;
+ }
+ const note=el("p","mb-[18px] text-[13px]");note.dataset.part="appaudio-note";root.append(note);
+ updaters.push(()=>{
+  const s=c("appaudio.status");
+  note.textContent=s?.Status||(s?.Value==="Preview"?"Preview: volumes are read, never changed.":"Pinned apps first, then apps heard in the last "+(s?.ViewData?.RecentMinutes||5)+" minutes.");
+  note.className="mb-[18px] text-[13px] "+(s?.Status?"text-critical":"text-muted");
+ });
+ const apps=[...controls.values()].filter(v=>v.Collection==="appaudio.apps").sort((a,b)=>(a.Order||0)-(b.Order||0));
+ if(!apps.length)empty(root,"No app has played sound recently. Play something, or pin an app to keep it here.");
+ else{const grid=el("div","grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-[18px]");root.append(grid);for(const item of apps)appStrip(item.ID,grid);}
+ const hidden=(c("appaudio.status")?.ViewData?.Apps||[]).filter(a=>a.Hidden&&a.Open);
+ if(hidden.length){
+  const card=panel("Hidden",root,"mt-[18px]");card.dataset.part="hidden-apps";
+  for(const a of hidden){
+   const row=el("div","flex items-center justify-between gap-3 border-t border-[#25323e] py-2.5 first:border-t-0"),text=el("div","min-w-0");
+   text.append(el("div","",a.Name),el("small","block break-all text-[11px] text-muted",a.Rule||""));
+   const unhide=button("Unhide",()=>appEdit("unhide",a.Name),ui.small);row.append(text,unhide);card.append(row);
+   updaters.push(()=>{unhide.disabled=!!pending||!c("appaudio.edit")?.Available;});
+  }
+ }
+}
+// deckRange is the GUI-local key rectangle, or dial span (dials: true, slot
+// indexes from 36), for creating regions; selecting it never dispatches
+// anything. It resets when the edited page changes.
 let deckRange=null;
 function rangeKeys(range){
  if(!range)return [];
+ if(range.dials){const out=[];for(let i=Math.min(range.anchor,range.end);i<=Math.max(range.anchor,range.end);i++)out.push(i);return out;}
  const top=Math.min(Math.floor(range.anchor/9),Math.floor(range.end/9)),bottom=Math.max(Math.floor(range.anchor/9),Math.floor(range.end/9));
  const left=Math.min(range.anchor%9,range.end%9),right=Math.max(range.anchor%9,range.end%9);
  const out=[];for(let row=top;row<=bottom;row++)for(let col=left;col<=right;col++)out.push(row*9+col);return out;
+}
+function regionDialsLabel(first,last){
+ const a=Math.min(first,last)+1,b=Math.max(first,last)+1;return a===b?"Dial "+a:"Dials "+a+"–"+b;
 }
 function regionKeysLabel(first,last){
  const keys=rangeKeys({anchor:first,end:last});return keys.length===1?"Key "+(keys[0]+1):"Keys "+(keys[0]+1)+"–"+(keys.at(-1)+1);
@@ -391,23 +473,23 @@ function buildDeck(){
  const frame=el("div","mb-5 rounded-[18px] border border-[#2e414f] bg-deck p-[19px]"),keys=el("div","grid grid-cols-9 gap-[7px]"),dials=el("div","mt-[22px] grid grid-cols-6 gap-2");frame.append(keys,dials);left.append(frame);
  keys.setAttribute("aria-label","Deck keys");dials.setAttribute("aria-label","Deck dials");
  const keyClass="relative flex aspect-square min-w-0 flex-col items-center justify-center overflow-hidden rounded-[7px] bg-key px-[3px] py-[5px] text-[9px] data-[empty=true]:border-[#1c2a36] data-[empty=true]:bg-key-empty data-[region=true]:bg-active-bg data-[range=true]:outline-2 data-[range=true]:outline-dashed data-[range=true]:outline-active aria-pressed:border-2 aria-pressed:border-active aria-pressed:shadow-[0_0_0_2px_#183a46] min-[1500px]:text-xs max-[1120px]:text-[11px]";
- const dialClass="flex min-h-[62px] min-w-0 flex-col items-center justify-center bg-key px-1 py-[7px] text-[10px] before:mb-[5px] before:size-[18px] before:rounded-full before:border-2 before:border-[#60798a] before:content-[''] aria-pressed:border-2 aria-pressed:border-active aria-pressed:shadow-[0_0_0_2px_#183a46] *:max-w-full *:truncate";
+ const dialClass="relative data-[region=true]:bg-active-bg data-[range=true]:outline-2 data-[range=true]:outline-dashed data-[range=true]:outline-active flex min-h-[62px] min-w-0 flex-col items-center justify-center bg-key px-1 py-[7px] text-[10px] before:mb-[5px] before:size-[18px] before:rounded-full before:border-2 before:border-[#60798a] before:content-[''] aria-pressed:border-2 aria-pressed:border-active aria-pressed:shadow-[0_0_0_2px_#183a46] *:max-w-full *:truncate";
  function slotButton(index,dial){
   const b=button("",e=>{
    // Shift extends the region selection without selecting a binding.
-   if(!dial&&e.shiftKey&&deckRange){deckRange.end=index;update();return;}
-   if(!dial)deckRange={page:c("streamdeck.page")?.Value,anchor:index,end:index};
+   if(e.shiftKey&&deckRange&&!!deckRange.dials===dial){deckRange.end=index;update();return;}
+   deckRange={page:c("streamdeck.page")?.Value,anchor:index,end:index,dials:dial};
    request(c("streamdeck.slot"),"set",(dial?"Dial ":"Key ")+(dial?index-36+1:index+1));
   },dial?dialClass:keyClass);
   b.dataset.part=dial?"dial":"deck-key";
   const number=el("small","absolute top-0.5 left-1 text-[8px] text-muted",String(dial?index-36+1:index+1)),glyph=el("span","leading-tight text-active"),name=el("span","max-w-full truncate"),source=el("span","text-[8px] text-attention"),regionTag=el("small","absolute right-1 bottom-0.5 text-[8px] text-active");
-  if(!dial)b.append(number,glyph,regionTag);b.append(name,source);(dial?dials:keys).append(b);
+  if(!dial)b.append(number,glyph);b.append(regionTag);b.append(name,source);(dial?dials:keys).append(b);
   b.onkeydown=e=>{
    if(!e.key.startsWith("Arrow"))return;e.preventDefault();
-   if(!dial&&e.shiftKey){
-    deckRange??={page:c("streamdeck.page")?.Value,anchor:index,end:index};
-    deckRange.end=gridMove(deckRange.end,e.key,9,36);update();
-    keys.children[deckRange.end]?.focus();return;
+   if(e.shiftKey){
+    if(!deckRange||!!deckRange.dials!==dial)deckRange={page:c("streamdeck.page")?.Value,anchor:index,end:index,dials:dial};
+    deckRange.end=dial?36+gridMove(deckRange.end-36,e.key,5,5):gridMove(deckRange.end,e.key,9,36);update();
+    (dial?dials:keys).children[dial?deckRange.end-36:deckRange.end]?.focus();return;
    }
    const list=[...(dial?dials:keys).querySelectorAll("button:not(:disabled)")];
    const next=gridMove(list.indexOf(b),e.key,dial?5:9,list.length);list[next]?.focus();
@@ -416,9 +498,9 @@ function buildDeck(){
    const view=c("streamdeck.preview")?.ViewData;if(!view)return;
    const slot=dial?view.Dials[index-36]:view.Keys[index],item=c(slot.Control);
    b.setAttribute("aria-pressed",String(view.Selected===index));
-   const region=slot.Region??-1,inRange=!dial&&rangeKeys(deckRange).includes(index);
+   const region=slot.Region??-1,inRange=rangeKeys(deckRange).includes(index);
    b.dataset.region=String(region>=0);b.dataset.range=String(inRange);
-   if(!dial)regionTag.textContent=region>=0?"R"+(region+1):"";
+   regionTag.textContent=region>=0?"R"+(region+1):"";
    b.setAttribute("aria-label",(dial?"Dial "+(index-35):"Key "+(index+1))+": "+(item?.Label||slot.Label||"Empty")+(slot.Source?" · "+slot.Source:"")+(region>=0?" · Region "+(region+1):"")+(inRange?" · In selection":""));
    b.title=b.getAttribute("aria-label");b.disabled=!!pending;
    b.dataset.empty=String(!slot.Control);
@@ -434,7 +516,7 @@ function buildDeck(){
  }
  for(let i=0;i<36;i++)slotButton(i,false);
  for(let i=36;i<41;i++)slotButton(i,true);
- const reserved=el("div",dialClass.replace(/aria-pressed:\S+ ?/g,"")+" rounded-[7px] border border-line");reserved.append(el("span","","Pages"),el("small","text-muted","Reserved"));dials.append(reserved);
+ const reserved=el("div",dialClass.replace(/(aria-pressed|data-\[\w+=true\]):\S+ ?/g,"")+" rounded-[7px] border border-line");reserved.append(el("span","","Pages"),el("small","text-muted","Reserved"));dials.append(reserved);
  const tools=panel("Page",left,"grid gap-3");
  control("streamdeck.name",tools,"Name");
  const commands=el("div",ui.actions+" justify-end");tools.append(commands);
@@ -496,10 +578,10 @@ function regionsPanel(parent){
   select.value=value||collections[0]?.ID||"";return select;
  };
  const regions=view.Regions||[];
- if(!regions.length)card.append(el("p",ui.note,"No regions. Select keys (Shift+click or Shift+arrows) and add one."));
+ if(!regions.length)card.append(el("p",ui.note,"No regions. Select keys or dials (Shift+click or Shift+arrows) and add one."));
  regions.forEach((region,i)=>{
   const row=el("div","flex flex-wrap items-center gap-2.5");row.dataset.part="region";
-  const name=el("strong","w-7 text-xs text-active","R"+(i+1)),select=sourceSelect(region.Source,region.Label),keysLabel=el("small","text-muted",region.Legacy?"Whole page · prefix":regionKeysLabel(region.First,region.Last));
+  const name=el("strong","w-7 text-xs text-active","R"+(i+1)),select=sourceSelect(region.Source,region.Label),keysLabel=el("small","text-muted",region.Legacy?"Whole page · prefix":region.Dials?regionDialsLabel(region.First,region.Last):regionKeysLabel(region.First,region.Last));
   select.setAttribute("aria-label","Region "+(i+1)+" source");
   select.onfocus=()=>{select.editRevision=c("streamdeck.region-source")?.Revision;};
   select.onchange=()=>{request(c("streamdeck.region-source"),"set",i+","+select.value,0,select.editRevision);select.blur();};
@@ -517,10 +599,10 @@ function regionsPanel(parent){
  updaters.push(()=>{
   if(deckRange&&deckRange.page!==c("streamdeck.page")?.Value)deckRange=null;
   const keysInRange=rangeKeys(deckRange),current=c("streamdeck.preview")?.ViewData;
-  const overlaps=keysInRange.some(k=>(current?.Keys[k]?.Region??-1)>=0);
-  create.textContent=deckRange?"Add region · "+regionKeysLabel(deckRange.anchor,deckRange.end):"Add region";
+  const overlaps=keysInRange.some(k=>((k>=36?current?.Dials[k-36]:current?.Keys[k])?.Region??-1)>=0);
+  create.textContent=deckRange?"Add region · "+(deckRange.dials?regionDialsLabel(deckRange.anchor-36,deckRange.end-36):regionKeysLabel(deckRange.anchor,deckRange.end)):"Add region";
   create.disabled=!!pending||!deckRange||overlaps||!collections.length;
-  create.title=overlaps?"The selection overlaps a region":!deckRange?"Select keys first":"";
+  create.title=overlaps?"The selection overlaps a region":!deckRange?"Select keys or dials first":"";
   source.disabled=!collections.length;
  });
 }
@@ -611,13 +693,13 @@ function buildDiagnostics(){
 function layoutKey(){
  // Values and telemetry are updated in place. Only structure/context rebuilds a screen.
  const list=[...controls.values()].map(v=>[v.ID,v.Label,v.Kind,v.Group,v.Options,v.OptionLabels]);
- return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="lights"?[state.Enabled?.hue,c("hue.group")?.Value,c("hue.rooms")?.ViewData]:null,screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value,c("streamdeck.preview")?.ViewData?.Regions,c("streamdeck.preview")?.ViewData?.Collections]:null]);
+ return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="lights"?[state.Enabled?.hue,c("hue.group")?.Value,c("hue.rooms")?.ViewData]:null,screen==="appaudio"?[state.Enabled?.appaudio,(c("appaudio.status")?.ViewData?.Apps||[]).map(a=>[a.ID,a.Name,a.Hidden,a.Picked,a.Open])]:null,screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value,c("streamdeck.preview")?.ViewData?.Regions,c("streamdeck.preview")?.ViewData?.Collections]:null]);
 }
 function build(){
  widgets.length=0;updaters.length=0;root.replaceChildren();
  for(const b of document.querySelectorAll("[data-screen]")){if(b.dataset.screen===screen)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current");}
  $("#eyebrow").textContent=titles[screen][0];$("#title").textContent=titles[screen][1];
- ({audio:buildAudio,soundboard:buildSoundboard,lights:buildLights,deck:buildDeck,plugins:buildPlugins,apps:buildApps,diagnostics:buildDiagnostics})[screen]();
+ ({audio:buildAudio,soundboard:buildSoundboard,lights:buildLights,appaudio:buildAppAudio,deck:buildDeck,plugins:buildPlugins,apps:buildApps,diagnostics:buildDiagnostics})[screen]();
 }
 function update(){
  if(pending&&(Date.now()>pending.until || state.Notice!==pending.notice || (pending.id&&c(pending.id)?.Revision!==pending.revision) || (!pending.id&&state.Confirmation)))pending=null;
@@ -652,7 +734,7 @@ function receive(next){
  }
  update();
 }
-const navIcons={audio:"audio-waveform",soundboard:"music",lights:"lightbulb",deck:"layout-grid",plugins:"puzzle",apps:"plug",diagnostics:"activity"};
+const navIcons={audio:"audio-waveform",soundboard:"music",lights:"lightbulb",appaudio:"app-window",deck:"layout-grid",plugins:"puzzle",apps:"plug",diagnostics:"activity"};
 for(const b of document.querySelectorAll("[data-screen]")){
  b.className=ui.nav;
  b.prepend(icon(navIcons[b.dataset.screen],"size-5 shrink-0"));
@@ -668,6 +750,6 @@ async function poll(){
   const next=await window.go.app.Desktop.State();receive(next);
  }catch(error){showError(error);update();}
  // Meters need a faster refresh than the rest of the GUI.
- setTimeout(poll,screen==="audio"||screen==="soundboard"?100:200);
+ setTimeout(poll,screen==="audio"||screen==="soundboard"||screen==="appaudio"?100:200);
 }
 poll();
