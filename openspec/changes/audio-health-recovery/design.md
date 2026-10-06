@@ -70,3 +70,6 @@ A second incident reproduced the stall with `Speakers (3- SteelSeries Arena 9)` 
   - **with Auto-recover:** the existing bounded automatic restart (cooldown, budget, recorder deferral, pre-dispatch recheck) runs unchanged.
 - **GUI access.** Restart audio engine (and Confirm when required) appears on the Audio screen's Routing & recovery card and on Diagnostics, alongside Automatic recovery. Stream Deck and tray access remain.
 - **Personal configuration:** Auto-recover enabled at the user's request (2026-10-06), through the GUI toggle.
+
+### Health wording (2026-10-06)
+User decision: the UI states what the callback monitor actually establishes. While buffers advance, health reads "No stall detected". After a verified restart, it reads "Engine restarted; no stall detected". The audibility hedge ("audible output unverified") is dropped from the UI: the monitor reports processing progress, and "no stall" is exactly that claim. Callback progress is still never treated as proof of audible output in logic or acceptance criteria.

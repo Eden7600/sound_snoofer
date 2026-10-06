@@ -116,7 +116,7 @@ func TestRecoveryRequiresAdvancingCallbacksAndPersistsUnknown(t *testing.T) {
 	s.Callback.Buffers++
 	s.Callback.Synced++
 	r.observe(s, now.Add(5*time.Second))
-	if r.pending || !strings.Contains(r.status, "processing resumed") {
+	if r.pending || r.status != "Engine restarted; no stall detected" {
 		t.Fatal(r.status)
 	}
 	b.fail = true

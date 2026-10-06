@@ -141,7 +141,7 @@ func (r *recovery) observe(s model.Snapshot, now time.Time) string {
 			r.pending = false
 			r.status = "Engine responding; audio continuity unverified"
 			if r.verifyCallbacks {
-				r.status = "Audio processing resumed; audible output unverified"
+				r.status = "Engine restarted; no stall detected"
 			}
 		}
 		return r.status

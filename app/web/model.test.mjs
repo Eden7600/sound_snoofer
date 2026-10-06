@@ -46,5 +46,5 @@ test("connection report helpers",async()=>{
 });
 test("stalled engine health is critical",()=>{
  assert.equal(tone({ID:"audio.health",Available:true,Value:"Audio engine stalled: no callback buffers · restart required"}),"critical");
- assert.equal(tone({ID:"audio.health",Available:true,Value:"Audio processing active; audible output unverified"}),"");
+ assert.equal(tone({ID:"audio.health",Available:true,Value:"No stall detected"}),"");
 });

@@ -13,6 +13,10 @@ import (
 // StallMessage is the health text for a qualified callback stall.
 const StallMessage = "Audio engine stalled: no callback buffers"
 
+// NoStallMessage is the health text while callback buffers advance. It claims
+// processing progress only, which is what the monitor observes.
+const NoStallMessage = "No stall detected"
+
 // callbackHealth qualifies progress, not sample amplitude. Time gaps reset grace.
 type callbackHealth struct {
 	identity                                   string
@@ -129,7 +133,7 @@ func (h *callbackHealth) update(cfg config.Config, s model.Snapshot, now time.Ti
 		return false, "Waiting for audio transition to settle"
 	}
 	if progress && syncProgress {
-		return false, "Audio processing active; audible output unverified"
+		return false, NoStallMessage
 	}
 	if now.Sub(h.progressed) < 2*time.Second {
 		return false, "Waiting for callback progress"
