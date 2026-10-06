@@ -35,6 +35,9 @@ type Client struct {
 	closed           bool
 	inventory        []model.Device
 	inventoryEdition int
+	dllPath          string
+	login            int32
+	version          string
 }
 
 func connect(api native) (*Client, error) {
@@ -43,7 +46,27 @@ func connect(api native) (*Client, error) {
 		api.Release()
 		return nil, fmt.Errorf("VBVMR_Login returned %d", code)
 	}
-	return &Client{api: api}, nil
+	return &Client{api: api, login: code}, nil
+}
+
+// versioner is implemented by native APIs exposing VBVMR_GetVoicemeeterVersion.
+type versioner interface {
+	Version() (int32, int32)
+}
+
+// RemoteInfo reports the loaded DLL, login result and Voicemeeter version.
+// The version is read lazily because it is only available while Voicemeeter runs.
+func (c *Client) RemoteInfo() model.RemoteInfo {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.version == "" && !c.closed {
+		if v, ok := c.api.(versioner); ok {
+			if raw, code := v.Version(); code == 0 && raw != 0 {
+				c.version = fmt.Sprintf("%d.%d.%d.%d", raw>>24&0xff, raw>>16&0xff, raw>>8&0xff, raw&0xff)
+			}
+		}
+	}
+	return model.RemoteInfo{DLLPath: c.dllPath, Login: c.login, Version: c.version}
 }
 func status(op string, code int32) error {
 	if code == 0 {

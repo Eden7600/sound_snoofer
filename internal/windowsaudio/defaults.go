@@ -28,6 +28,11 @@ const (
 type Result struct {
 	Status string
 	Kind   StatusKind
+	// Diagnostics: resolved target endpoint names, contention suspension and
+	// the most recent correction. They never affect the policy decision.
+	Playback, Capture string
+	Suspended         bool
+	LastCorrection    time.Time
 }
 type Endpoint struct{ ID, Name string }
 type Backend interface {

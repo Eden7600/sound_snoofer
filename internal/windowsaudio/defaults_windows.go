@@ -166,6 +166,14 @@ func resolve(endpoints []Endpoint, want string, flow int) string {
 	}
 	return found
 }
+func endpointName(endpoints []Endpoint, id string) string {
+	for _, e := range endpoints {
+		if id != "" && e.ID == id {
+			return e.Name
+		}
+	}
+	return ""
+}
 func run(ctx context.Context, requests <-chan Request, results chan Result) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -186,7 +194,7 @@ func run(ctx context.Context, requests <-chan Request, results chan Result) {
 	defer ticker.Stop()
 	request := Request{}
 	guard := Guard{}
-	var targets [2]string
+	var targets, names [2]string
 	var scan time.Time
 	for {
 		select {
@@ -211,7 +219,7 @@ func run(ctx context.Context, requests <-chan Request, results chan Result) {
 			for flow := 0; flow < 2; flow++ {
 				endpoints, e := b.Endpoints(flow)
 				if e != nil {
-					targets[flow] = ""
+					targets[flow], names[flow] = "", ""
 					continue
 				}
 				want := request.Playback
@@ -219,9 +227,19 @@ func run(ctx context.Context, requests <-chan Request, results chan Result) {
 					want = request.Capture
 				}
 				targets[flow] = resolve(endpoints, want, flow)
+				names[flow] = endpointName(endpoints, targets[flow])
 			}
 		}
 		status := guard.Reconcile(b, request, targets, time.Now())
+		status.Playback, status.Capture = names[0], names[1]
+		status.Suspended = guard.Suspended[0] || guard.Suspended[1]
+		for _, times := range guard.Last {
+			for _, at := range times {
+				if at.After(status.LastCorrection) {
+					status.LastCorrection = at
+				}
+			}
+		}
 		select {
 		case results <- status:
 		default:

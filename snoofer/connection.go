@@ -57,6 +57,7 @@ type ConnectionTracker struct {
 	activity    time.Time
 	lastError   string
 	lastErrorAt time.Time
+	recovered   bool // A healthy state was observed after lastError.
 }
 
 // Observe records the current state, starting Since when it changes.
@@ -65,17 +66,27 @@ func (t *ConnectionTracker) Observe(state ConnectionState, now time.Time) {
 		t.state = state
 		t.since = now
 	}
+	if state == ConnectionConnected || state == ConnectionReady {
+		t.recovered = true
+	}
 }
 
 // Activity records a successful exchange with the peer.
 func (t *ConnectionTracker) Activity(at time.Time) { t.activity = at }
 
-// Fail records a failure; an empty message is ignored.
+// Fail records a failure; an empty message is ignored. A persistent failure
+// reported repeatedly keeps the time it was first seen; a new message, or the
+// same message after recovery, records a new occurrence.
 func (t *ConnectionTracker) Fail(message string, at time.Time) {
-	if message != "" {
-		t.lastError = message
-		t.lastErrorAt = at
+	if message == "" {
+		return
 	}
+	if message == t.lastError && !t.recovered {
+		return
+	}
+	t.lastError = message
+	t.lastErrorAt = at
+	t.recovered = false
 }
 
 // Report builds a report for the observed state.

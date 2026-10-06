@@ -143,12 +143,14 @@ func start(ctx context.Context, services snoofer.Services, raw json.RawMessage, 
 	go func() {
 		defer close(i.done)
 		defer services.Controls.Remove("audio")
+		var reports reporter
 		for s := range states {
 			i.mu.Lock()
 			i.state = s
 			i.mu.Unlock()
 			snapshot := s
-			_ = services.Controls.Publish("audio", controls(snapshot), func(ctx context.Context, r snoofer.Request) error {
+			published := append(controls(snapshot), reports.reports(snapshot, time.Now())...)
+			_ = services.Controls.Publish("audio", published, func(ctx context.Context, r snoofer.Request) error {
 				action, err := action(snapshot, r)
 				if err != nil {
 					return err

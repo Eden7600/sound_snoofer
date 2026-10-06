@@ -58,3 +58,23 @@ func TestConnectionTrackerSinceAndRetainedError(t *testing.T) {
 		t.Fatalf("report %+v", r)
 	}
 }
+
+func TestConnectionTrackerPersistentFailureKeepsFirstTime(t *testing.T) {
+	var tracker ConnectionTracker
+	t0 := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
+	tracker.Observe(ConnectionDisconnected, t0)
+	tracker.Fail("refused", t0)
+	tracker.Fail("refused", t0.Add(time.Minute))
+	if r := tracker.Report(""); !r.LastErrorAt.Equal(t0) {
+		t.Fatalf("persistent failure moved: %v", r.LastErrorAt)
+	}
+	tracker.Fail("timeout", t0.Add(2*time.Minute))
+	if r := tracker.Report(""); r.LastError != "timeout" || !r.LastErrorAt.Equal(t0.Add(2*time.Minute)) {
+		t.Fatalf("new failure not recorded: %+v", r)
+	}
+	tracker.Observe(ConnectionConnected, t0.Add(3*time.Minute))
+	tracker.Fail("timeout", t0.Add(4*time.Minute))
+	if r := tracker.Report(""); !r.LastErrorAt.Equal(t0.Add(4 * time.Minute)) {
+		t.Fatalf("recurrence after recovery not recorded: %v", r.LastErrorAt)
+	}
+}

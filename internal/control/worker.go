@@ -46,6 +46,8 @@ type State struct {
 	ChoiceLabels                        map[string]string
 	VRMicAvailable, VRPlaybackAvailable bool
 	DefaultKind                         windowsaudio.StatusKind
+	DefaultsDetail                      windowsaudio.Result // Latest full defaults observation, for diagnostics.
+	Remote                              model.RemoteInfo    // Native Remote API identity, for diagnostics.
 	RecoveryOutcome                     string
 	RecoveryPending                     bool
 	VRMic                               string
@@ -341,6 +343,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 			if ok {
 				state.Defaults = v.Status
 				state.DefaultKind = v.Kind
+				state.DefaultsDetail = v
 			}
 		default:
 		}
@@ -764,6 +767,9 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		state.Recorder = backend.snapshot.Recorder
 		// Routing/write diagnostics do not mean the native observation was lost.
 		state.Connected = backend.readError == nil
+		if describer, ok := backend.Client.(interface{ RemoteInfo() model.RemoteInfo }); ok {
+			state.Remote = describer.RemoteInfo()
+		}
 		if !state.Connected {
 			revision++
 			state.Recorder = &model.RecorderSnapshot{Error: backend.readError.Error()}

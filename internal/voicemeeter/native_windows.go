@@ -52,9 +52,14 @@ func Open(path string) (*Client, error) {
 	if p, err := dll.FindProc("VBVMR_GetLevel"); err == nil {
 		a.procs["GetLevel"] = p
 	}
+	// The version export is optional and only used for diagnostics.
+	if p, err := dll.FindProc("VBVMR_GetVoicemeeterVersion"); err == nil {
+		a.procs["GetVoicemeeterVersion"] = p
+	}
 	client, err := connect(a)
 	if err == nil {
 		client.processList = processNames
+		client.dllPath = path
 	}
 	return client, err
 }
@@ -91,6 +96,17 @@ func result(r uintptr) int32     { return int32(uint32(r)) }
 func (a *winAPI) Login() int32   { r, _, _ := a.procs["Login"].Call(); return result(r) }
 func (a *winAPI) Logout() int32  { r, _, _ := a.procs["Logout"].Call(); return result(r) }
 func (a *winAPI) Refresh() int32 { r, _, _ := a.procs["IsParametersDirty"].Call(); return result(r) }
+
+// Version returns the packed Voicemeeter version, or -3 when the export is absent.
+func (a *winAPI) Version() (int32, int32) {
+	p := a.procs["GetVoicemeeterVersion"]
+	if p == nil {
+		return 0, -3
+	}
+	var v int32
+	r, _, _ := p.Call(uintptr(unsafe.Pointer(&v)))
+	return v, result(r)
+}
 func (a *winAPI) Edition() (int32, int32) {
 	var v int32
 	r, _, _ := a.procs["GetVoicemeeterType"].Call(uintptr(unsafe.Pointer(&v)))
