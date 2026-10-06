@@ -102,7 +102,8 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 		})
 		defer func() { i.err = errors.Join(i.err, voices.close()) }()
 		commands := make(chan command, 1)
-		clips, scanErr := catalogue(settings.Folder)
+		art := artworkCache{} // Owned by this goroutine, which scans the folder.
+		clips, scanErr := catalogue(settings.Folder, art)
 		ticker := time.NewTicker(200 * time.Millisecond)
 		defer ticker.Stop()
 		scan := time.NewTicker(5 * time.Second)
@@ -149,7 +150,7 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 				if c.ID == failed {
 					status = diagnostic
 				}
-				controls = append(controls, snoofer.Control{Artwork: c.Artwork, ID: c.ID, Label: c.Label, Group: "Soundboard", Collection: "soundboard.clips", CollectionLabel: "Soundboard clips", Kind: "command", Icon: "soundboard-play", Value: value, Status: status, Operations: []string{"press"}, Available: s.Live && ready == nil && scanErr == nil})
+				controls = append(controls, snoofer.Control{Artwork: c.Artwork, Animation: c.Animation, ID: c.ID, Label: c.Label, Group: "Soundboard", Collection: "soundboard.clips", CollectionLabel: "Soundboard clips", Kind: "command", Icon: "soundboard-play", Value: value, Status: status, Operations: []string{"press"}, Available: s.Live && ready == nil && scanErr == nil})
 			}
 			if err := s.Controls.Publish("soundboard", controls, func(ctx context.Context, r snoofer.Request) error {
 				if r.ID == volume.ID {
@@ -181,7 +182,7 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 			case <-runCtx.Done():
 				return
 			case <-scan.C:
-				clips, scanErr = catalogue(settings.Folder)
+				clips, scanErr = catalogue(settings.Folder, art)
 				if scanErr == nil && s.Live {
 					if err := pruneNormalized(cacheFolder, clips, voices.paths()); err != nil {
 						diagnostic = err.Error()

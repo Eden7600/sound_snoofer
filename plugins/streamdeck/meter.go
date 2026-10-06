@@ -60,6 +60,26 @@ func controlTile(c snoofer.Control, value string, now time.Time) device.Tile {
 	if !known {
 		m.DB = 0
 	}
-	return device.Tile{Artwork: c.Artwork, Label: label, Value: value, Icon: c.Icon, Meter: m.Present,
+	return device.Tile{Artwork: artworkAt(c, now), Label: label, Value: value, Icon: c.Icon, Meter: m.Present,
 		LevelKnown: known, LevelDB: m.DB}
+}
+
+// artworkAt is the animation frame shown at now. Every key runs on the same
+// clock, so equal animations stay in step; static artwork is returned as is.
+func artworkAt(c snoofer.Control, now time.Time) string {
+	var loop time.Duration
+	for _, f := range c.Animation {
+		loop += f.Delay
+	}
+	if loop <= 0 {
+		return c.Artwork
+	}
+	at := time.Duration(now.UnixNano() % int64(loop))
+	for _, f := range c.Animation {
+		if at < f.Delay {
+			return f.Artwork
+		}
+		at -= f.Delay
+	}
+	return c.Artwork
 }

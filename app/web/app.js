@@ -204,11 +204,25 @@ function buildAudio() {
   const engine=el("div",ui.actions+" mt-3");card.append(engine);command("audio.engine-restart","Restart audio engine",engine,"","refresh-cw");
  }
 }
-function setArt(art,artwork,fallback,size){
+function setArt(art,artwork,fallback,size,animated){
  if(art.dataset.art===(artwork||""))return;
  art.dataset.art=artwork||"";art.replaceChildren();
- if(artwork){const image=el("img",size+" object-contain");image.src="data:image/png;base64,"+artwork;image.alt="";art.append(image);}
+ if(artwork){const image=el("img",size+" object-contain");image.src="data:image/png;base64,"+artwork;image.alt="";art.append(image);if(animated)animate(art,image,animated,artwork);}
  else art.append(fallback());
+}
+// animate plays a control's artwork frames, fetched once per artwork; frames
+// for older artwork are ignored, and playback stops when the image is replaced.
+async function animate(art,image,id,artwork){
+ const desktop=window.go?.app?.Desktop;if(!desktop?.Animation)return;
+ let frames;try{frames=await desktop.Animation(id);}catch{return;}
+ if(!frames||frames.length<2||frames[0].Artwork!==artwork)return;
+ let n=0;
+ const step=()=>{
+  if(!image.isConnected||art.dataset.art!==artwork)return;
+  n=(n+1)%frames.length;image.src="data:image/png;base64,"+frames[n].Artwork;
+  setTimeout(step,frames[n].Delay/1e6);
+ };
+ setTimeout(step,frames[0].Delay/1e6);
 }
 function clipState(item,active){return item.Value===active?"playing":item.Value==="Wait"||item.Status==="Pending"?"wait":tone(item)==="critical"?"error":"";}
 function buildSoundboard(){
@@ -225,7 +239,7 @@ function buildSoundboard(){
    const item=c(initial.ID);if(!item)return;
    b.disabled=!!pending||!item.Available;b.dataset.state=clipState(item,"Playing");
    status.textContent=item.Status||display(item);status.className="mt-[5px] text-[11px] "+(tc(tone(item))||"text-muted");
-   setArt(art,item.Artwork,()=>icon("play","size-9"),"size-16");
+   setArt(art,item.Artwork,()=>icon("play","size-9"),"size-16",item.ID);
    b.hidden=!item.Label.toLocaleLowerCase().includes(search.value.toLocaleLowerCase());
   });
  }

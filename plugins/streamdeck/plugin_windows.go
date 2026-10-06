@@ -72,8 +72,8 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 		generation := uint64(1)
 		dirty := false
 		editorEpoch := uint64(1)
-		// Dial meters refresh faster than static tiles; the cadence follows
-		// whether the shown page has any meter.
+		// Dial meters and animated keys refresh faster than static tiles; the
+		// cadence follows whether the shown page has either.
 		ticker := time.NewTicker(idleRefresh)
 		defer ticker.Stop()
 		refresh := idleRefresh
@@ -125,11 +125,13 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 				c, ok := shown[b.Control]
 				return bindingTile(b, c, ok, time.Now())
 			}
+			// Meters and animated artwork refresh at the meter cadence.
+			metered := false
 			for n, b := range p.Keys {
 				frame.Keys[n] = tile(b)
+				metered = metered || len(shown[b.Control].Animation) > 1
 			}
 			now := time.Now()
-			metered := false
 			for n, b := range p.Dials {
 				frame.Dials[n] = vus[n].apply(b.Control, withPosition(tile(b)), now)
 				metered = metered || frame.Dials[n].Meter

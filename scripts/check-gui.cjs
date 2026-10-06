@@ -23,6 +23,8 @@ add("soundboard.volume","Volume","numeric","0.0 dB");
 add("soundboard.stop","Stop","command","");
 add("soundboard.status","Soundboard","status","Ready");
 for(const name of ["fah","sadge","instinct","airhorn","ping"])add("soundboard.clip-"+name,name,"command","Ready");
+// sadge has animated artwork: two frames served by Desktop.Animation.
+const dot="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 for(const [id,label,kind,value,options]of [["profile","Device","selection","Default",["Default"]],["page","Page","selection","home",["home","soundboard"]],["slot","Position","selection","Key 1",Array.from({length:36},(_,i)=>"Key "+(i+1))],["shared","Shared","toggle","Off"],["binding","Binding","selection","audio.mic-stack",["","audio.mic-stack","audio.mic-mute"]],["name","Name","text","Home"],["add","New page","text",""],["region-add","Add region","text",""],["region-source","Region source","text",""],["region-remove","Remove region","text",""],["preview","Preview","status",""],["status","Layout status","status","Connected"]])add("streamdeck."+id,label,kind,value,{Options:options});
 for(const id of ["save","cancel","delete","earlier","later","home"])add("streamdeck."+id,id,"command","");
 add("hue.status","Hue","status","Not paired",{ViewData:{bridge:"172.16.102.3"}});
@@ -32,6 +34,8 @@ add("hue.brightness","Hue brightness","numeric","62%",{ShortLabel:"Brightness"})
 add("hue.motion","Hue motion sensors","toggle","On",{ShortLabel:"Motion",Icon:"hue-motion"});
 add("hue.rooms","Hue rooms","text","",{ViewData:[{ID:"room-1",Name:"Studio",Kind:"room",Chosen:true},{ID:"zone-1",Name:"Desk",Kind:"zone",Chosen:true}]});
 const sceneArt=fs.readFileSync(path.join(root,"docs/design/hue-scene-art.png")).toString("base64");
+controls.find(c=>c.ID==="soundboard.clip-sadge").Artwork=sceneArt;
+const animations={"soundboard.clip-sadge":[{Artwork:sceneArt,Delay:50e6},{Artwork:dot,Delay:50e6}]};
 for(const [room,name,value] of [["Studio","Bright","Ready"],["Studio","Relax","Active"],["Studio","Concentrate","Ready"],["Desk","Focus","Ready"],["Kitchen","Cook","Ready"]])add("hue.scene-"+room.toLowerCase()+"-"+name.toLowerCase(),room+" "+name,"command",value,{ShortLabel:name,Group:"Hue scenes",Artwork:name==="Relax"?sceneArt:""});
 add("hue.sync-status","Hue Sync","status","Ready");
 add("hue.sync","Hue Sync","toggle","Off",{ShortLabel:"Sync"});
@@ -63,15 +67,15 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
  try{
   const page=await browser.newPage({viewport:{width:1280,height:820}});
   const errors=[];page.on("pageerror",e=>errors.push(String(e)));
-  await page.addInitScript(fixture=>{
-   window.fixture=fixture;window.sent=[];window.copied=[];
+  await page.addInitScript(([fixture,animations])=>{
+   window.fixture=fixture;window.animations=animations;window.sent=[];window.copied=[];
    Object.defineProperty(navigator,"clipboard",{value:{writeText:async text=>{window.copied.push(text);}}});
    window.go={app:{Desktop:{State:async()=>{
     // Meter readings expire after 500 ms; keep the fixture's readings live.
     const next=structuredClone(window.fixture);
     for(const c of next.Controls)if(c.Meter)c.Meter.At=new Date().toISOString();
     return next;
-   },Send:async action=>{
+   },Animation:async id=>window.animations[id]||null,Send:async action=>{
     window.sent.push(action);
     const r=action.Request;if(!r)return;
     const target=window.fixture.Controls.find(c=>c.ID===r.ID);
@@ -88,7 +92,7 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
     if(r.Operation==="set")target.Value=r.Value;
     target.Revision++;
    }}}};
-  },fixture);
+  },[fixture,animations]);
   await page.goto("http://127.0.0.1:"+server.address().port);
   await page.getByRole("heading",{name:"Live controls"}).waitFor();
   await page.waitForFunction(()=>document.querySelector("[data-part=brandmark]").naturalWidth>0);
@@ -166,6 +170,8 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.getByRole("searchbox",{name:"Search clips"}).fill("sad");
   await page.waitForTimeout(600);
   assert.equal(await page.locator("[data-part=clip]:visible").count(),1);
+  // Animated artwork cycles its frames.
+  await page.waitForFunction(dot=>document.querySelector("[data-part=clip]:not([hidden]) img")?.src.endsWith(dot),dot);
   await page.screenshot({path:path.join(root,".local/gui-soundboard.png"),fullPage:true});
   await page.getByRole("button",{name:"Lights",exact:false}).click();
   await page.getByRole("heading",{name:"Bridge found at 172.16.102.3"}).waitFor();

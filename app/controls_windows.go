@@ -24,6 +24,7 @@ type controls struct {
 	input, output *os.File
 	closeOnce     sync.Once
 	exitErr       error
+	animations    animationSender // Used only by the tray goroutine that publishes.
 }
 
 func startControls(ctx context.Context, state ViewState, actions chan<- UIAction) (*controls, error) {
@@ -100,7 +101,7 @@ func (c *controls) stop() {
 	}
 }
 func (c *controls) publish(state ViewState) error {
-	data, err := json.Marshal(frame{State: &state})
+	data, err := json.Marshal(frame{State: &state, Animations: c.animations.changed(state.Controls)})
 	if err != nil {
 		return fmt.Errorf("encode controls state: %w", err)
 	}

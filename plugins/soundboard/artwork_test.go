@@ -42,7 +42,7 @@ func TestMatchingArtworkRefreshAndFallback(t *testing.T) {
 	}
 	get := func() clip {
 		t.Helper()
-		clips, err := catalogue(dir)
+		clips, err := catalogue(dir, nil)
 		if err != nil || len(clips) != 1 {
 			t.Fatalf("%v %v", clips, err)
 		}

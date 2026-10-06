@@ -17,7 +17,7 @@ func TestWebPWithPNGExtension(t *testing.T) {
 	if err := os.WriteFile(path, data, 0600); err != nil {
 		t.Fatal(err)
 	}
-	artwork, err := loadArtwork(path)
+	artwork, _, err := loadArtwork(path)
 	if err != nil || artwork == "" {
 		t.Fatalf("WebP named PNG rejected: %v", err)
 	}
@@ -28,7 +28,7 @@ func TestReportedArtwork(t *testing.T) {
 	if folder == "" {
 		t.Skip("set SNOOFER_ARTWORK_TEST_FOLDER to check reported files")
 	}
-	clips, err := catalogue(folder)
+	clips, err := catalogue(folder, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

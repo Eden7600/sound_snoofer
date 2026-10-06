@@ -16,7 +16,7 @@ func TestCatalogueAndChangedClip(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(dir, "folder.mp3"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	clips, err := catalogue(dir)
+	clips, err := catalogue(dir, nil)
 	if err != nil || len(clips) != 2 || clips[0].Label != "a" {
 		t.Fatalf("%v %v", clips, err)
 	}
@@ -30,11 +30,11 @@ func TestCatalogueAndChangedClip(t *testing.T) {
 	if clips[0].unchanged() == nil {
 		t.Fatal("changed clip accepted")
 	}
-	next, err := catalogue(dir)
+	next, err := catalogue(dir, nil)
 	if err != nil || next[0].ID != id {
 		t.Fatal("identity changed")
 	}
-	if _, err := catalogue(filepath.Join(dir, "missing")); err == nil {
+	if _, err := catalogue(filepath.Join(dir, "missing"), nil); err == nil {
 		t.Fatal("missing folder accepted")
 	}
 }

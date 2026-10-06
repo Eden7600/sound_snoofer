@@ -55,3 +55,36 @@ func TestClosedAndCancelledTransport(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestAnimationsCrossOnce(t *testing.T) {
+	clip := snoofer.Control{ID: "soundboard.clip-a", Artwork: "a", Animation: []snoofer.ArtworkFrame{{Artwork: "a", Delay: 1}, {Artwork: "b", Delay: 1}}}
+	var sender animationSender
+	first := sender.changed([]snoofer.Control{clip, {ID: "still", Artwork: "s"}})
+	if len(first) != 1 || len(first[clip.ID]) != 2 {
+		t.Fatal("first state lacks animations", first)
+	}
+	clip.Value = "Playing"
+	if again := sender.changed([]snoofer.Control{clip}); again != nil {
+		t.Fatal("unchanged animations sent again")
+	}
+	clip.Artwork, clip.Animation[0].Artwork = "c", "c"
+	if replaced := sender.changed([]snoofer.Control{clip}); replaced == nil {
+		t.Fatal("changed artwork not sent")
+	}
+
+	// A frame carrying animations keeps them when newer state replaces it.
+	updates := make(chan []byte, 1)
+	state := ViewState{Notice: "old"}
+	data, _ := json.Marshal(frame{State: &state, Animations: first})
+	offer(updates, data)
+	state.Notice = "new"
+	next, _ := json.Marshal(frame{State: &state})
+	offer(updates, next)
+	var f frame
+	if err := json.Unmarshal(<-updates, &f); err != nil {
+		t.Fatal(err)
+	}
+	if f.State.Notice != "new" || len(f.Animations[clip.ID]) != 2 || f.Focus {
+		t.Fatal("merged frame", f.State.Notice, len(f.Animations), f.Focus)
+	}
+}

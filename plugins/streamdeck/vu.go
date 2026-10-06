@@ -18,7 +18,7 @@ const (
 	gainMin    = -60.0
 	gainMax    = 12.0
 
-	meterRefresh = 60 * time.Millisecond  // While a shown dial has a meter.
+	meterRefresh = 60 * time.Millisecond  // While a shown dial has a meter or a key animates.
 	idleRefresh  = 150 * time.Millisecond // Otherwise.
 )
 
