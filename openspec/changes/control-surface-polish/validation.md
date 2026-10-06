@@ -12,5 +12,6 @@
 - `docs/design/dial-meters.png` is a native-size render of the dial strip (upright): metered gain, a near-clip mic with red peak tick, an unknown reading (`LEVEL N/A`) and Hue brightness with a percentage track.
 - `docs/design/gui-audio.png` shows the redesigned mixer strips.
 
-## Not yet verified
-Hardware acceptance (task 8) on the Stream Deck + XL remains open.
+## Hardware acceptance (2026-10-06)
+Confirmed by the user on the Stream Deck + XL: meter motion and peak hold look right at the new refresh rate, mic keys blank and return with the stack toggle, and overlapping clips play together.
+Pending: Stop silencing every overlapping clip has not been confirmed.
