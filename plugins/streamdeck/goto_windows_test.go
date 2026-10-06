@@ -4,6 +4,7 @@ package streamdeck
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -80,4 +81,74 @@ func TestGotoPageKeys(t *testing.T) {
 	// The page dial's press returns Home.
 	events <- device.Event{Encoder: 5, Press: true, Generation: lights.Generation}
 	frame("Home", nil)
+}
+
+func TestScrollKeys(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	registry := snoofer.NewControls()
+	var clips []snoofer.Control
+	for n := 0; n < 10; n++ {
+		clips = append(clips, snoofer.Control{ID: fmt.Sprintf("soundboard.clip-%02d", n), Label: fmt.Sprintf("Clip %02d", n), Collection: "soundboard.clips", Kind: "command", Operations: []string{"press"}, Available: true})
+	}
+	if err := registry.Publish("soundboard", clips, func(context.Context, snoofer.Request) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	sounds := Page{ID: "sounds", Name: "Soundboard", Regions: []Region{{Source: "soundboard.clips", First: 0, Last: 8}}}
+	sounds.Keys[0] = Binding{Control: scrollPrefix + "up"}
+	sounds.Keys[8] = Binding{Control: scrollPrefix + "down"}
+	layout := Layout{Home: "sounds", Pages: []Page{sounds, {ID: "lights", Name: "Lights"}}}
+	frames := make(chan device.Frame, 1)
+	events := make(chan device.Event, 16)
+	done := make(chan struct{})
+	surface := func(ctx context.Context) (chan device.Frame, <-chan device.Event, <-chan struct{}) {
+		go func() { <-ctx.Done(); close(done) }()
+		return frames, events, done
+	}
+	instance, err := startWithSurface(ctx, snoofer.Services{Controls: registry}, snoofer.MarshalSettings(Settings{Layout: layout}), surface)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		cancel()
+		stop, release := context.WithTimeout(context.Background(), time.Second)
+		defer release()
+		if err := instance.Stop(stop); err != nil {
+			t.Error(err)
+		}
+	}()
+	frame := func(page string) device.Frame {
+		t.Helper()
+		deadline := time.NewTimer(2 * time.Second)
+		defer deadline.Stop()
+		for {
+			select {
+			case f := <-frames:
+				if f.Dials[5].Value == page {
+					return f
+				}
+			case <-deadline.C:
+				t.Fatal("page not shown:", page)
+				return device.Frame{}
+			}
+		}
+	}
+	first := frame("Soundboard")
+	if first.Keys[8].Label != "Down" || first.Keys[8].Value != "1/2" || first.Keys[1].Label != "Clip 00" {
+		t.Fatalf("first set %+v %+v", first.Keys[8], first.Keys[1])
+	}
+	events <- device.Event{Encoder: -1, Key: 8, Press: true, Generation: first.Generation}
+	second := frame("Soundboard 2")
+	if second.Keys[0].Value != "2/2" || second.Keys[1].Label != "Clip 07" {
+		t.Fatalf("second set %+v %+v", second.Keys[0], second.Keys[1])
+	}
+	// The page dial skips the second set; Down wraps to the first.
+	events <- device.Event{Encoder: 5, Delta: 1, Generation: second.Generation}
+	lights := frame("Lights")
+	events <- device.Event{Encoder: 5, Delta: 1, Generation: lights.Generation}
+	back := frame("Soundboard")
+	events <- device.Event{Encoder: -1, Key: 0, Press: true, Generation: back.Generation}
+	wrapped := frame("Soundboard 2")
+	events <- device.Event{Encoder: -1, Key: 8, Press: true, Generation: wrapped.Generation}
+	frame("Soundboard")
 }

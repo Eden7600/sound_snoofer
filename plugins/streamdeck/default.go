@@ -3,7 +3,8 @@ package streamdeck
 // DefaultLayout preserves the useful Studio keys and adjacent Playback and Mic
 // dials on Home, and adds Soundboard and Lights pages: a fixed frame of keys
 // around a region of clips or the selected room's scenes. Home reaches both
-// in one press; the page dial's press returns Home.
+// in one press; the page dial's press returns Home. Up and Down page through
+// soundboard overflow.
 func DefaultLayout() Layout {
 	home := Page{ID: "home", Name: "Home"}
 	for n, id := range map[int]string{0: "audio.mic-mute", 1: "audio.speaker-mute", 2: "audio.monitor", 3: "audio.mode", 8: "core.open-controls", 9: "audio.record-toggle", 11: "audio.record-mic", 12: "audio.record-computer", 13: "audio.record-tap", 27: "media.prev", 28: "media.play", 29: "media.next",
@@ -14,9 +15,9 @@ func DefaultLayout() Layout {
 		home.Dials[n] = Binding{Control: id, Label: id}
 	}
 
-	// Clips fill r1–r4 c1–c8; Overlap and Stop hold column 9.
+	// Clips fill r1–r4 c1–c8; Overlap, Up, Down and Stop hold column 9.
 	sounds := Page{ID: "soundboard", Name: "Soundboard", Regions: []Region{{Source: "soundboard.clips", First: 0, Last: 34}}}
-	for n, id := range map[int]string{8: "soundboard.overlap", 35: "soundboard.stop"} {
+	for n, id := range map[int]string{8: "soundboard.overlap", 17: scrollPrefix + "up", 26: scrollPrefix + "down", 35: "soundboard.stop"} {
 		sounds.Keys[n] = Binding{Control: id, Label: id}
 	}
 	sounds.Dials[0] = Binding{Control: "soundboard.volume", Label: "soundboard.volume"}

@@ -217,6 +217,15 @@ func drawIcon(im *image.RGBA, icon string, ink color.RGBA) bool {
 		line(86, 29, 86, 58)
 		line(26, 58, 86, 58)
 		line(26, 36, 86, 36)
+	case "deck-up", "deck-down":
+		// Chevron over a short shaft: scroll the page's sets.
+		tip, wing := 18, 38
+		if icon == "deck-down" {
+			tip, wing = 62, 42
+		}
+		line(56, tip, 34, wing)
+		line(56, tip, 78, wing)
+		line(56, tip, 56, 80-tip)
 	case "huesync-sync":
 		// Screen casting light to both sides.
 		line(38, 22, 74, 22)

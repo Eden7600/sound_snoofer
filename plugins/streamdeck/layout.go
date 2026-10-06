@@ -80,16 +80,61 @@ func (l Layout) effective(id string) Page {
 	}
 	return p
 }
+
+// next is the page dial order. A page that binds a scroll key is one stop:
+// its overflow sets are skipped, and leaving any of them counts from the page.
 func (l Layout) next(id string, delta int) string {
-	n := l.index(id)
-	if n < 0 {
-		n = l.index(l.Home)
+	var stops []string
+	for _, p := range l.Pages {
+		if base, _, overflow := strings.Cut(p.ID, "~auto~"); overflow && l.scrolls(base) {
+			continue
+		}
+		stops = append(stops, p.ID)
 	}
-	if len(l.Pages) == 0 {
+	if len(stops) == 0 {
 		return ""
 	}
-	n = ((n+delta)%len(l.Pages) + len(l.Pages)) % len(l.Pages)
-	return l.Pages[n].ID
+	if base, _, overflow := strings.Cut(id, "~auto~"); overflow && l.scrolls(base) {
+		id = base
+	}
+	n := slices.Index(stops, id)
+	if n < 0 {
+		n = max(0, slices.Index(stops, l.Home))
+	}
+	n = ((n+delta)%len(stops) + len(stops)) % len(stops)
+	return stops[n]
+}
+
+// scrolls reports whether a page binds a scroll key.
+func (l Layout) scrolls(id string) bool {
+	for _, b := range l.effective(id).Keys {
+		if strings.HasPrefix(b.Control, scrollPrefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// sets lists the shown page and its overflow sets in order.
+func (l Layout) sets(shown string) []string {
+	base, _, _ := strings.Cut(shown, "~auto~")
+	var out []string
+	for _, p := range l.Pages {
+		if p.ID == base || strings.HasPrefix(p.ID, base+"~auto~") {
+			out = append(out, p.ID)
+		}
+	}
+	return out
+}
+
+// scroll returns the set delta steps from shown, wrapping at either end.
+func (l Layout) scroll(shown string, delta int) string {
+	sets := l.sets(shown)
+	n := slices.Index(sets, shown)
+	if n < 0 {
+		return shown
+	}
+	return sets[((n+delta)%len(sets)+len(sets))%len(sets)]
 }
 func (l *Layout) remove(id string) error {
 	if len(l.Pages) <= 1 {
@@ -191,6 +236,30 @@ func (l Layout) Validate(controls []snoofer.Control) error {
 func (l Layout) pageNames(id string) [3]string {
 	current := l.effective(id).ID
 	return [3]string{l.effective(l.next(current, -1)).Name, l.effective(current).Name, l.effective(l.next(current, 1)).Name}
+}
+
+// scrollPrefix identifies the keys that page through overflow sets.
+const scrollPrefix = "streamdeck.scroll-"
+
+// scrollControls describes the expanded page being drawn: its set position,
+// or Hidden when it has a single set.
+func scrollControls(l Layout, shown string) []snoofer.Control {
+	sets := l.sets(shown)
+	value := fmt.Sprintf("%d/%d", slices.Index(sets, shown)+1, len(sets))
+	out := []snoofer.Control{}
+	for _, key := range []struct{ id, label, short string }{{"up", "Scroll up", "Up"}, {"down", "Scroll down", "Down"}} {
+		out = append(out, snoofer.Control{ID: scrollPrefix + key.id, Label: key.label, ShortLabel: key.short, Group: "Stream Deck pages",
+			Kind: "command", Icon: "deck-" + key.id, Value: value, Hidden: len(sets) < 2, Operations: []string{"press"}, Available: true})
+	}
+	return out
+}
+
+// scrollDelta is the set step of a scroll key.
+func scrollDelta(id string) int {
+	if id == scrollPrefix+"up" {
+		return -1
+	}
+	return 1
 }
 
 // gotoPrefix identifies go-to page controls; the page ID follows it.

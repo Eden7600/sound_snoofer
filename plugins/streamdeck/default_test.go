@@ -27,12 +27,16 @@ func TestDefaultLayoutPages(t *testing.T) {
 		controls = append(controls, snoofer.Control{ID: fmt.Sprintf("hue.room-scene-%d", n), Label: fmt.Sprintf("Scene %d", n), Collection: "hue.room-scenes", Operations: []string{"press"}})
 	}
 	expanded := l.expanded(controls)
-	// 32 clip cells: 40 clips overflow to a second Soundboard page.
+	// 31 clip cells: 40 clips overflow to a second Soundboard set, which the
+	// page dial skips because the page binds scroll keys.
 	if len(expanded.Pages) != 4 || expanded.Pages[2].ID != "soundboard~auto~2" {
 		t.Fatal("expanded pages", len(expanded.Pages))
 	}
+	if expanded.next("soundboard", 1) != "lights" || expanded.next("soundboard~auto~2", -1) != "home" || expanded.next("lights", -1) != "soundboard" {
+		t.Fatal("page dial visits overflow sets")
+	}
 	for _, p := range expanded.Pages[1:3] {
-		if p.Keys[35].Control != "soundboard.stop" || p.Keys[8].Control != "soundboard.overlap" || p.Keys[26].Control != "" {
+		if p.Keys[35].Control != "soundboard.stop" || p.Keys[8].Control != "soundboard.overlap" || p.Keys[17].Control != scrollPrefix+"up" || p.Keys[26].Control != scrollPrefix+"down" {
 			t.Fatal("soundboard frame moved on", p.ID)
 		}
 	}

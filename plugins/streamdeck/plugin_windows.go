@@ -106,7 +106,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			page = p.ID
 			// This plugin's go-to keys describe the page being drawn now rather than
 			// the previous snapshot; deck presses on them are handled locally.
-			for _, g := range gotoControls(active(), p.ID) {
+			for _, g := range append(gotoControls(active(), p.ID), scrollControls(l, p.ID)...) {
 				shown[g.ID] = g
 			}
 			var signature strings.Builder
@@ -171,8 +171,8 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			}
 			ids := []string{""}
 			for _, c := range all {
-				// Go-to keys are the only Stream Deck controls offered as bindings.
-				if strings.HasPrefix(c.ID, "streamdeck.") && !strings.HasPrefix(c.ID, gotoPrefix) {
+				// Go-to and scroll keys are the only Stream Deck controls offered as bindings.
+				if strings.HasPrefix(c.ID, "streamdeck.") && !strings.HasPrefix(c.ID, gotoPrefix) && !strings.HasPrefix(c.ID, scrollPrefix) {
 					continue
 				}
 				if c.Kind == "text" {
@@ -265,6 +265,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 				}
 			}
 			list = append(list, gotoControls(active(), displayedPage.ID)...)
+			list = append(list, scrollControls(displayed, displayedPage.ID)...)
 			list = append(list, hardware.report(time.Now()))
 			_ = s.Controls.Publish("streamdeck", list, func(ctx context.Context, r snoofer.Request) error {
 				select {
@@ -345,6 +346,12 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					publish()
 					continue
 				}
+				if c.ID == scrollPrefix+"up" || c.ID == scrollPrefix+"down" {
+					page = displayed.scroll(page, scrollDelta(c.ID))
+					generation++
+					publish()
+					continue
+				}
 				r := snoofer.Request{ID: c.ID, Revision: c.Revision, Operation: "press"}
 				if event.Delta != 0 {
 					r.Operation = "adjust"
@@ -380,6 +387,12 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 						generation++
 						publish()
 					}
+					continue
+				}
+				if r.ID == scrollPrefix+"up" || r.ID == scrollPrefix+"down" {
+					page = displayed.scroll(page, scrollDelta(r.ID))
+					generation++
+					publish()
 					continue
 				}
 				editorEpoch++
