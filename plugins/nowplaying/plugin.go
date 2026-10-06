@@ -22,7 +22,7 @@ import (
 // Settings configure the browser bridge.
 type Settings struct {
 	Port  int    `json:"port,omitempty"`  // Zero means 47815.
-	Token string `json:"token,omitempty"` // Created on first start.
+	Token string `json:"token,omitempty"` // Legacy from the first build; ignored.
 }
 
 const defaultPort = 47815
@@ -106,12 +106,9 @@ type pendingCommand struct {
 type worker struct {
 	services  snoofer.Services
 	timing    timing
-	raw       json.RawMessage
 	settings  Settings
 	bridge    *bridge // Nil when the port could not be opened.
 	bridgeErr string
-	saved     bool // The saved extension matches this version, port and token.
-	saveErr   string
 
 	openWindows func() (windowsSource, error)
 	win         windowsSource
@@ -143,24 +140,13 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, open fu
 		return nil, err
 	}
 	w := newWorker(s, open, t)
-	w.raw, w.settings = raw, settings
-	// The first token is used at once and saved from the worker: the host
-	// holds its lock while starting plugins, so saving here would deadlock.
-	unsaved := settings.Token == ""
-	if unsaved {
-		token, err := newToken()
-		if err != nil {
-			return nil, fmt.Errorf("create browser bridge token: %w", err)
-		}
-		w.settings.Token = token
-	}
-	w.saved = w.extensionSaved()
+	w.settings = settings
 	runCtx, cancel := context.WithCancel(ctx)
 	i := &instance{cancel: cancel, done: make(chan struct{})}
 	updates := make(chan browserUpdate, 16)
 	commands := make(chan snoofer.Request, 8)
 	// A busy port leaves Windows sessions working; the GUI shows why tabs are missing.
-	if b, err := listen(runCtx, w.settings.port(), w.settings.Token, updates); err != nil {
+	if b, err := listen(runCtx, w.settings.port(), updates); err != nil {
 		w.bridgeErr = err.Error()
 	} else {
 		w.bridge, w.send = b, b.send
@@ -175,11 +161,6 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, open fu
 		defer close(i.done)
 		defer s.Controls.Remove("nowplaying")
 		defer w.closeWindows()
-		if unsaved {
-			if err := w.saveSettings(w.settings); err != nil {
-				w.bridgeErr = "Save the browser token: " + err.Error()
-			}
-		}
 		ticker := time.NewTicker(t.poll)
 		defer ticker.Stop()
 		for {
@@ -279,9 +260,18 @@ func (w *worker) merge(now time.Time) {
 	for name := range w.browsers {
 		connected[name] = true
 	}
+	tabTitles := map[string]bool{}
+	for _, u := range w.browsers {
+		for _, s := range u.Sessions {
+			if s.Title != "" {
+				tabTitles[s.Title] = true
+			}
+		}
+	}
 	var all []session
 	for _, s := range w.winSessions {
-		if s.Status == "closed" || shadowed(s.App, connected) {
+		// A browser's own Windows session repeats one of its tabs.
+		if s.Status == "closed" || shadowed(s.App, connected) || (s.Title != "" && tabTitles[s.Title]) {
 			continue
 		}
 		all = append(all, fromWindows(s, w.winArt[s.ID+"\x00"+s.ArtKey]))
@@ -382,20 +372,6 @@ func (w *worker) find(key string) (session, bool) {
 func (w *worker) handle(r snoofer.Request, now time.Time) {
 	focused, ok := w.find(w.focus)
 	switch r.ID {
-	case "nowplaying.token-reset":
-		w.bridgeErr = ""
-		if err := w.resetToken(); err != nil {
-			w.bridgeErr = err.Error()
-		}
-		w.saved = w.extensionSaved()
-		return
-	case "nowplaying.extension-save":
-		w.saveErr = ""
-		if err := w.saveExtension(); err != nil {
-			w.saveErr = err.Error()
-		}
-		w.saved = w.extensionSaved()
-		return
 	case "nowplaying.focus":
 		for _, s := range w.sessions {
 			if controlID(s.Key) == r.Value {
@@ -440,39 +416,6 @@ func (w *worker) handle(r snoofer.Request, now time.Time) {
 		w.command(s, "toggle", 0, now)
 		return
 	}
-}
-
-// resetToken saves a new bridge token and drops connections that used the
-// old one; the extension must be saved and reloaded to reconnect.
-func (w *worker) resetToken() error {
-	token, err := newToken()
-	if err != nil {
-		return err
-	}
-	next := w.settings
-	next.Token = token
-	if err := w.saveSettings(next); err != nil {
-		return err
-	}
-	if w.bridge != nil {
-		w.bridge.setToken(token)
-	}
-	return nil
-}
-
-// saveSettings persists next. It must not run during Start.
-func (w *worker) saveSettings(next Settings) error {
-	raw, err := json.Marshal(next)
-	if err != nil {
-		return err
-	}
-	if w.services.SaveSettings != nil {
-		if err := w.services.SaveSettings("nowplaying", w.raw, raw); err != nil {
-			return err
-		}
-	}
-	w.raw, w.settings = raw, next
-	return nil
 }
 
 // command sends op to a session's source and records what to observe.

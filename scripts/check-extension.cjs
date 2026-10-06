@@ -4,7 +4,7 @@
 const { chromium } = require("playwright");
 const fs = require("node:fs"), path = require("node:path"), http = require("node:http"), assert = require("node:assert/strict");
 const root = path.resolve(__dirname, "..");
-const pageScript = fs.readFileSync(path.join(root, "plugins/nowplaying/extension/page.js"), "utf8");
+const pageScript = fs.readFileSync(path.join(root, "extension/src/page.js"), "utf8");
 
 // Three seconds of silent 8 kHz mono 16-bit PCM.
 function silence(seconds) {

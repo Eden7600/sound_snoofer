@@ -2,9 +2,6 @@ package nowplaying
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/subtle"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,21 +22,22 @@ const (
 	writeTimeout = 2 * time.Second
 )
 
-// newToken returns 32 random bytes in hex.
-func newToken() (string, error) {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(b), nil
-}
+// protocol is the bridge message format version this build speaks.
+const protocol = 1
 
 // hello is the extension's first message.
 type hello struct {
-	Type    string `json:"type"`
-	Token   string `json:"token"`
-	Version string `json:"version"`
-	Browser string `json:"browser"`
+	Type     string `json:"type"`
+	Protocol int    `json:"protocol"`
+	Version  string `json:"version"` // The extension's version, for display.
+	Browser  string `json:"browser"`
+}
+
+// refusal is sent before closing a connection Snoofer cannot serve, so the
+// extension can say which side to update.
+type refusal struct {
+	Type   string `json:"type"` // "refused".
+	Reason string `json:"reason"`
 }
 
 type report struct {
@@ -64,15 +62,16 @@ func (c *bridgeConn) write(v any) error {
 	return c.ws.WriteJSON(v)
 }
 
-// bridge accepts extension connections on localhost. It owns its listener
-// and connection goroutines; close stops them and waits.
+// bridge accepts extension connections on localhost. Loopback keeps other
+// machines out and the origin check keeps web pages out, so no secret is
+// needed. It owns its listener and connection goroutines; close stops them
+// and waits.
 type bridge struct {
 	updates chan<- browserUpdate
 	ctx     context.Context
 
 	mu      sync.Mutex
 	closed  bool // Set before waiting, so no handler joins the wait group late.
-	token   string
 	conns   map[string]*bridgeConn
 	refused string // Why the last connection was refused, for the GUI.
 
@@ -82,12 +81,12 @@ type bridge struct {
 
 // listen starts the bridge on 127.0.0.1:port. Updates are delivered until ctx
 // ends; the caller then calls close.
-func listen(ctx context.Context, port int, token string, updates chan<- browserUpdate) (*bridge, error) {
+func listen(ctx context.Context, port int, updates chan<- browserUpdate) (*bridge, error) {
 	listener, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
 	if err != nil {
 		return nil, fmt.Errorf("browser bridge port %d: %w", port, err)
 	}
-	b := &bridge{updates: updates, ctx: ctx, token: token, conns: map[string]*bridgeConn{}}
+	b := &bridge{updates: updates, ctx: ctx, conns: map[string]*bridgeConn{}}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/nowplaying", b.serve)
 	b.server = &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second}
@@ -127,14 +126,6 @@ func (b *bridge) dropAll() {
 	}
 }
 
-// setToken replaces the token and drops connections made with the old one.
-func (b *bridge) setToken(token string) {
-	b.mu.Lock()
-	b.token = token
-	b.mu.Unlock()
-	b.dropAll()
-}
-
 func (b *bridge) lastRefusal() string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -160,8 +151,11 @@ func (b *bridge) send(browser string, c browserCommand) error {
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize: 4096, WriteBufferSize: 4096,
-	// Only extensions: web pages cannot present a chrome-extension origin.
-	CheckOrigin: func(r *http.Request) bool { return strings.HasPrefix(r.Header.Get("Origin"), "chrome-extension://") },
+	// Only extensions: web pages cannot present an extension origin.
+	CheckOrigin: func(r *http.Request) bool {
+		origin := r.Header.Get("Origin")
+		return strings.HasPrefix(origin, "chrome-extension://") || strings.HasPrefix(origin, "moz-extension://")
+	},
 }
 
 func (b *bridge) serve(w http.ResponseWriter, r *http.Request) {
@@ -191,16 +185,20 @@ func (b *bridge) serve(w http.ResponseWriter, r *http.Request) {
 	if err := ws.ReadJSON(&h); err != nil || h.Type != "hello" {
 		return
 	}
-	b.mu.Lock()
-	token := b.token
-	b.mu.Unlock()
 	browser := strings.TrimSpace(h.Browser)
-	if subtle.ConstantTimeCompare([]byte(h.Token), []byte(token)) != 1 {
-		b.refuse("Refused " + browser + ": the extension's token is out of date. Save the extension files and reload it.")
-		_ = ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(4001, "token"), time.Now().Add(writeTimeout))
+	if browser == "" || len(browser) > 32 {
 		return
 	}
-	if browser == "" || len(browser) > 32 {
+	if h.Protocol != protocol {
+		reason := "Update the Snoofer Media extension in " + browser
+		if h.Protocol > protocol {
+			reason = "Update Snoofer: " + browser + "'s extension is newer"
+		}
+		b.refuse(reason)
+		if ws.SetWriteDeadline(time.Now().Add(writeTimeout)) == nil {
+			_ = ws.WriteJSON(refusal{Type: "refused", Reason: reason}) // Best effort; the close follows.
+		}
+		_ = ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(4002, "protocol"), time.Now().Add(writeTimeout))
 		return
 	}
 	conn := &bridgeConn{browser: browser, ws: ws}

@@ -8,22 +8,20 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/gorilla/websocket"
 
+	"sound-snoofer/internal/mediasessions"
 	"sound-snoofer/snoofer"
 )
 
 type bridgeRig struct {
 	t        *testing.T
 	controls *snoofer.Controls
+	windows  *fakeWindows
 	port     int
-	mu       sync.Mutex
-	saved    Settings
-	instance snoofer.Instance
 }
 
 func freePort(t *testing.T) int {
@@ -38,29 +36,18 @@ func freePort(t *testing.T) int {
 
 func startBridgeRig(t *testing.T) *bridgeRig {
 	t.Helper()
-	r := &bridgeRig{t: t, controls: snoofer.NewControls(), port: freePort(t)}
-	raw, _ := json.Marshal(Settings{Port: r.port})
-	// Like the real host, saving during Start fails (there it would deadlock).
-	var starting sync.Mutex
-	starting.Lock()
-	services := snoofer.Services{Controls: r.controls, Live: true, SaveSettings: func(id string, _, next json.RawMessage) error {
-		if !starting.TryLock() {
-			t.Error("settings saved during Start")
-			return errors.New("host lock held")
-		}
-		starting.Unlock()
-		r.mu.Lock()
-		defer r.mu.Unlock()
-		r.saved = Settings{}
-		return json.Unmarshal(next, &r.saved)
+	r := &bridgeRig{t: t, controls: snoofer.NewControls(), windows: &fakeWindows{}, port: freePort(t)}
+	// The legacy token from the first build still loads, and is ignored.
+	raw, _ := json.Marshal(Settings{Port: r.port, Token: "legacy"})
+	services := snoofer.Services{Controls: r.controls, Live: true, SaveSettings: func(string, json.RawMessage, json.RawMessage) error {
+		t.Error("settings saved; the bridge needs none")
+		return errors.New("unexpected save")
 	}}
-	open := func() (windowsSource, error) { return &fakeWindows{}, nil }
+	open := func() (windowsSource, error) { return r.windows, nil }
 	instance, err := start(context.Background(), services, raw, open, timing{poll: 5 * time.Millisecond, windows: 20 * time.Millisecond, observe: time.Second, retry: time.Second})
 	if err != nil {
 		t.Fatal(err)
 	}
-	starting.Unlock()
-	r.instance = instance
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
@@ -71,19 +58,6 @@ func startBridgeRig(t *testing.T) *bridgeRig {
 	return r
 }
 
-// token waits for the worker to save the first token.
-func (r *bridgeRig) token() string {
-	for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); time.Sleep(2 * time.Millisecond) {
-		r.mu.Lock()
-		token := r.saved.Token
-		r.mu.Unlock()
-		if token != "" {
-			return token
-		}
-	}
-	return ""
-}
-
 func (r *bridgeRig) dial(origin string) (*websocket.Conn, *http.Response, error) {
 	header := http.Header{}
 	if origin != "" {
@@ -92,13 +66,13 @@ func (r *bridgeRig) dial(origin string) (*websocket.Conn, *http.Response, error)
 	return websocket.DefaultDialer.Dial(fmt.Sprintf("ws://127.0.0.1:%d/nowplaying", r.port), header)
 }
 
-func (r *bridgeRig) connect(browser string) *websocket.Conn {
+func (r *bridgeRig) connect(origin, browser string, version int) *websocket.Conn {
 	r.t.Helper()
-	ws, _, err := r.dial("chrome-extension://abcdefghijklmnop")
+	ws, _, err := r.dial(origin)
 	if err != nil {
 		r.t.Fatal(err)
 	}
-	if err := ws.WriteJSON(hello{Type: "hello", Token: r.token(), Version: "1", Browser: browser}); err != nil {
+	if err := ws.WriteJSON(hello{Type: "hello", Protocol: version, Version: "1.0.0", Browser: browser}); err != nil {
 		r.t.Fatal(err)
 	}
 	r.t.Cleanup(func() { ws.Close() })
@@ -130,42 +104,50 @@ func (r *bridgeRig) wait(what string, ready func(statusView) bool) statusView {
 	}
 }
 
-func TestBridgeRefusesPagesAndBadTokens(t *testing.T) {
+func TestBridgeAcceptsOnlyExtensions(t *testing.T) {
 	r := startBridgeRig(t)
-	deadline := time.Now().Add(2 * time.Second)
-	for len(r.token()) != 64 {
-		if time.Now().After(deadline) {
-			t.Fatal("token not saved after first start", r.token())
+	for _, origin := range []string{"https://evil.example", "http://127.0.0.1", ""} {
+		if _, resp, err := r.dial(origin); err == nil || resp == nil || resp.StatusCode != http.StatusForbidden {
+			t.Errorf("origin %q accepted: %v", origin, err)
 		}
-		time.Sleep(2 * time.Millisecond)
 	}
-	if _, resp, err := r.dial("https://evil.example"); err == nil || resp == nil || resp.StatusCode != http.StatusForbidden {
-		t.Fatal("page origin accepted", err)
+	// Chrome-family and Firefox extensions connect without any setup.
+	r.connect("chrome-extension://abcdefghijklmnop", "Brave", protocol)
+	r.connect("moz-extension://0b3c9d1e-1111-2222-3333-444455556666", "Firefox", protocol)
+	r.wait("both connected", func(v statusView) bool { return len(v.Browsers) == 2 })
+}
+
+func TestBridgeRefusesOtherProtocols(t *testing.T) {
+	r := startBridgeRig(t)
+	for version, want := range map[int]string{protocol + 1: "Update Snoofer", 0: "Update the Snoofer Media extension"} {
+		ws := r.connect("chrome-extension://abc", "Chrome", version)
+		if err := ws.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
+			t.Fatal(err)
+		}
+		var m refusal
+		if err := ws.ReadJSON(&m); err != nil || m.Type != "refused" || !strings.HasPrefix(m.Reason, want) {
+			t.Fatalf("protocol %d: %+v %v", version, m, err)
+		}
+		var closeErr *websocket.CloseError
+		if _, _, err := ws.ReadMessage(); !errors.As(err, &closeErr) || closeErr.Code != 4002 {
+			t.Fatal("not closed with 4002:", err)
+		}
+		r.wait("refusal reported", func(v statusView) bool { return strings.HasPrefix(v.Bridge.Refused, want) && len(v.Browsers) == 0 })
 	}
-	ws, _, err := r.dial("chrome-extension://abc")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ws.Close()
-	if err := ws.WriteJSON(hello{Type: "hello", Token: "stale", Browser: "Brave"}); err != nil {
-		t.Fatal(err)
-	}
-	var closeErr *websocket.CloseError
-	if _, _, err := ws.ReadMessage(); !errors.As(err, &closeErr) || closeErr.Code != 4001 {
-		t.Fatal("stale token not closed with 4001:", err)
-	}
-	r.wait("refusal reported", func(v statusView) bool { return strings.Contains(v.Bridge.Refused, "token is out of date") })
 }
 
 func TestBridgeSessionsCommandsAndReplacement(t *testing.T) {
 	r := startBridgeRig(t)
-	ws := r.connect("Brave")
-	r.wait("connected", func(v statusView) bool { return len(v.Browsers) == 1 && v.Browsers[0].Name == "Brave" })
+	// Firefox's own Windows session has an unrecognisable app ID; its title
+	// matching a tab hides it.
+	r.windows.sessions = []mediasessions.Session{{ID: "308046B0AF4A39CB", App: "308046B0AF4A39CB", Title: "Video", Status: "playing", CanPlay: true}}
+	ws := r.connect("moz-extension://x", "Firefox", protocol)
+	r.wait("connected", func(v statusView) bool { return len(v.Browsers) == 1 && v.Browsers[0].Name == "Firefox" })
 	if err := ws.WriteJSON(report{Type: "sessions", Sessions: []browserSession{{ID: "7:0", Tab: 7, Site: "youtube.com", Title: "Video", State: "playing", CanNext: true}}}); err != nil {
 		t.Fatal(err)
 	}
-	v := r.wait("session", func(v statusView) bool { return len(v.Sessions) == 1 })
-	if v.Sessions[0].Title != "Video" || v.Sessions[0].App != "Brave · youtube.com" || !v.Sessions[0].CanMute {
+	v := r.wait("session", func(v statusView) bool { return len(v.Sessions) == 1 && v.Sessions[0].Source == "Firefox" })
+	if v.Sessions[0].App != "Firefox · youtube.com" || !v.Sessions[0].CanMute {
 		t.Fatalf("%+v", v.Sessions[0])
 	}
 	// Next goes to the focused tab over the WebSocket.
@@ -186,12 +168,13 @@ func TestBridgeSessionsCommandsAndReplacement(t *testing.T) {
 		t.Fatal("command", cmd, err)
 	}
 	// A newer connection from the same browser replaces the first.
-	second := r.connect("Brave")
+	second := r.connect("moz-extension://x", "Firefox", protocol)
 	if _, _, err := ws.ReadMessage(); err == nil {
 		t.Fatal("replaced connection still open")
 	}
 	r.wait("second connection", func(v statusView) bool { return len(v.Browsers) == 1 })
-	// Too many sessions closes the connection and drops its tabs.
+	// Too many sessions closes the connection and drops its tabs; the
+	// Windows session returns.
 	many := make([]browserSession, maxBrowserSessions+1)
 	for n := range many {
 		many[n] = browserSession{ID: fmt.Sprintf("%d:0", n), State: "paused"}
@@ -199,28 +182,7 @@ func TestBridgeSessionsCommandsAndReplacement(t *testing.T) {
 	if err := second.WriteJSON(report{Type: "sessions", Sessions: many}); err != nil {
 		t.Fatal(err)
 	}
-	r.wait("oversized report refused", func(v statusView) bool { return len(v.Browsers) == 0 && strings.Contains(v.Bridge.Refused, "at most") })
-}
-
-func TestBridgeTokenResetDropsConnections(t *testing.T) {
-	r := startBridgeRig(t)
-	old := r.token()
-	ws := r.connect("Chrome")
-	r.wait("connected", func(v statusView) bool { return len(v.Browsers) == 1 })
-	var reset snoofer.Control
-	for _, c := range r.controls.Snapshot() {
-		if c.ID == "nowplaying.token-reset" {
-			reset = c
-		}
-	}
-	if err := r.controls.Dispatch(context.Background(), snoofer.Request{ID: reset.ID, Revision: reset.Revision, Operation: "press"}); err != nil {
-		t.Fatal(err)
-	}
-	r.wait("dropped", func(v statusView) bool { return len(v.Browsers) == 0 })
-	if _, _, err := ws.ReadMessage(); err == nil {
-		t.Fatal("connection survived the token reset")
-	}
-	if r.token() == old || len(r.token()) != 64 {
-		t.Fatal("token not replaced")
-	}
+	r.wait("oversized report refused", func(v statusView) bool {
+		return len(v.Browsers) == 0 && strings.Contains(v.Bridge.Refused, "at most") && len(v.Sessions) == 1 && v.Sessions[0].Source == "windows"
+	})
 }
