@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/sound-snoofer-painterly.png" alt="Sound Snoofer: golden protogen mascot with headphones and a yellow digital visor" width="360">
+</p>
+
 # Snoofer
 
 A Windows tray application with optional compiled Audio, VR, Stream Deck, Soundboard and Windows media plugins. Core owns the tray, desktop controls, plugin lifecycle and semantic controls. Audio retains Sound Snoofer's Voicemeeter routing, recording and recovery behavior.
