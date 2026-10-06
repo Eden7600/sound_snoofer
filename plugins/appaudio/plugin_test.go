@@ -440,3 +440,62 @@ func TestExcludePatterns(t *testing.T) {
 		t.Error("system sounds not excludable")
 	}
 }
+
+func TestDeckAppsFilter(t *testing.T) {
+	h := startHarness(t, studio(), Settings{Picked: []string{"Discord"}}, true)
+	h.wait("apps", func(l []snoofer.Control) bool { return len(apps(l)) == 3 })
+	shown := func(l []snoofer.Control) []string {
+		var out []string
+		for _, c := range l {
+			if c.Collection == "appaudio.apps" && !c.Hidden {
+				out = append(out, c.Label)
+			}
+		}
+		slices.Sort(out)
+		return out
+	}
+	filter := func(l []snoofer.Control) snoofer.Control {
+		for _, c := range l {
+			if c.ID == "appaudio.deck-apps" {
+				return c
+			}
+		}
+		return snoofer.Control{}
+	}
+	set := func(value string) {
+		t.Helper()
+		c := filter(h.controls.Snapshot())
+		if err := h.controls.Dispatch(context.Background(), snoofer.Request{ID: c.ID, Revision: c.Revision, Operation: "set", Value: value}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if f := filter(h.controls.Snapshot()); f.Value != "all" || f.OptionLabels["pinned"] != "Pinned" {
+		t.Fatalf("filter %+v", f)
+	}
+	set("pinned")
+	list := h.wait("pinned only", func(l []snoofer.Control) bool { return slices.Equal(shown(l), []string{"Discord"}) })
+	if len(apps(list)) != 3 {
+		t.Fatal("filtered apps left the published list; the GUI needs them", apps(list))
+	}
+	set("off")
+	h.wait("none", func(l []snoofer.Control) bool { return len(shown(l)) == 0 })
+	// A GUI edit keeps the deck filter.
+	h.edit("pick", "Google Chrome", "")
+	h.wait("pick saved", func([]snoofer.Control) bool {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		return len(h.saved.Picked) == 2
+	})
+	h.mu.Lock()
+	if h.saved.DeckApps != "off" {
+		t.Error("edit reset the deck filter", h.saved.DeckApps)
+	}
+	h.mu.Unlock()
+	set("all")
+	h.wait("all", func(l []snoofer.Control) bool { return len(shown(l)) == 3 })
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.saved.DeckApps != "" {
+		t.Fatal("all is stored as the default", h.saved.DeckApps)
+	}
+}

@@ -27,6 +27,21 @@ type Settings struct {
 	Exclude       []string `json:"exclude"`
 	Rules         []Rule   `json:"rules,omitempty"`
 	RecentMinutes int      `json:"recent_minutes,omitempty"` // Zero means 5.
+	DeckApps      string   `json:"deck_apps,omitempty"`      // Deck filter: "" (all), "pinned" or "off".
+}
+
+// deckApps lists the deck filter's choices; "" is shown as all.
+var deckApps = []string{"all", "pinned", "off"}
+
+// onDeck reports whether the deck filter shows an app.
+func (s Settings) onDeck(picked bool) bool {
+	switch s.DeckApps {
+	case "off":
+		return false
+	case "pinned":
+		return picked
+	}
+	return true
 }
 
 func (s Settings) window() time.Duration {
@@ -60,6 +75,9 @@ func validate(raw json.RawMessage) error {
 	var s Settings
 	if err := snoofer.DecodeSettings(raw, &s); err != nil {
 		return err
+	}
+	if s.DeckApps != "" && !slices.Contains(deckApps, s.DeckApps) {
+		return fmt.Errorf("deck_apps must be all, pinned or off")
 	}
 	if s.RecentMinutes < 0 || s.RecentMinutes > 24*60 {
 		return fmt.Errorf("recent_minutes must be 0–1440")
@@ -256,6 +274,18 @@ func (w *worker) handle(r snoofer.Request, now time.Time) {
 		w.edit(r.Value)
 		return
 	}
+	if r.ID == "appaudio.deck-apps" {
+		next := w.settings
+		next.DeckApps = r.Value
+		if r.Value == "all" {
+			next.DeckApps = ""
+		}
+		w.editErr = ""
+		if err := w.save(next); err != nil {
+			w.editErr = err.Error()
+		}
+		return
+	}
 	var target *app
 	for _, a := range w.apps {
 		if !a.Hidden && controlID(a.Name) == r.ID {
@@ -372,10 +402,18 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 			meter.Known = true
 			meter.DB = max(-120, 20*math.Log10(max(peak, 1e-6)))
 		}
+		// The deck filter hides apps from surfaces only; the GUI lists them all.
+		picked := slices.ContainsFunc(w.settings.Picked, func(p string) bool { return key(p) == key(a.Name) })
 		controls = append(controls, snoofer.Control{ID: controlID(a.Name), Label: a.Name, ShortLabel: a.Name, Group: "App audio",
 			Collection: "appaudio.apps", CollectionLabel: "Apps", Order: n + 1, Kind: "numeric", Icon: "app-audio", Artwork: a.Icon,
-			Value: value, Status: status, Meter: meter, Operations: []string{"press", "adjust", "set"}, Available: true})
+			Value: value, Status: status, Meter: meter, Operations: []string{"press", "adjust", "set"}, Hidden: !w.settings.onDeck(picked), Available: true})
 	}
+	filter := w.settings.DeckApps
+	if filter == "" {
+		filter = "all"
+	}
+	controls = append(controls, snoofer.Control{ID: "appaudio.deck-apps", Label: "Apps on the deck", ShortLabel: "Apps", Group: "App audio", Kind: "selection", Icon: "app-audio",
+		Value: filter, Options: deckApps, OptionLabels: map[string]string{"all": "All", "pinned": "Pinned", "off": "Off"}, Operations: []string{"set"}, Available: w.services.SaveSettings != nil})
 	view := statusView{Exclude: w.settings.excluded(), RecentMinutes: int(w.settings.window() / time.Minute)}
 	listed := map[string]bool{}
 	for _, a := range append(append([]*app{}, w.apps...), shown...) {

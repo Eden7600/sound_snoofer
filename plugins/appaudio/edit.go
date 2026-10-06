@@ -36,7 +36,8 @@ func (w *worker) edit(raw string) {
 
 func (w *worker) applyEdit(e edit) (Settings, error) {
 	// The first edit materializes the default exclusions so they can be removed.
-	next := Settings{Picked: slices.Clone(w.settings.Picked), Exclude: w.settings.excluded(), Rules: slices.Clone(w.settings.Rules), RecentMinutes: w.settings.RecentMinutes}
+	next := w.settings
+	next.Picked, next.Exclude, next.Rules = slices.Clone(w.settings.Picked), w.settings.excluded(), slices.Clone(w.settings.Rules)
 	pickIndex := slices.IndexFunc(next.Picked, func(p string) bool { return key(p) == key(e.App) })
 	switch e.Op {
 	case "pick":
