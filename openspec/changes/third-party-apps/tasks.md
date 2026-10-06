@@ -10,7 +10,7 @@ Each numbered block is one reviewable commit.
 - [x] 6. `feat(vr)`: SteamVR report with check timestamps.
 - [x] 7. `feat(streamdeck)`: separate device state from layout status, plus a device report. Tests use the surface fake.
 - [x] 8. `feat(soundboard)`: playback companion/renderer report.
-- [ ] 9. `feat(media)`: media keys report.
+- [x] 9. `feat(media)`: media keys report.
 - [ ] 10. Validate (gofmt, vet, test, GUI checks, OpenSpec, canonical build), relaunch, inspect the live screen against the real integrations and record the results.
 
 ## Acceptance (real environment)

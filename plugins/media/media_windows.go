@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -42,11 +43,14 @@ func Plugin() snoofer.Plugin {
 		for _, name := range []string{"prev", "play", "next", "stop"} {
 			controls = append(controls, snoofer.Control{ID: "media." + name, Label: "Media " + name, ShortLabel: name, Group: "Media", SurfaceOnly: true, Kind: "command", Icon: "media-" + name, Available: s.Live, Operations: []string{"press"}})
 		}
+		// keys is owned by Start and then by the worker goroutine, never concurrently.
+		var keys mediaKeys
 		publish := func(status string) {
 			for n := range controls {
 				controls[n].Status = status
 			}
-			_ = s.Controls.Publish("media", controls, func(ctx context.Context, r snoofer.Request) error {
+			published := append(append([]snoofer.Control(nil), controls...), keys.report(s.Live, time.Now()))
+			_ = s.Controls.Publish("media", published, func(ctx context.Context, r snoofer.Request) error {
 				select {
 				case queue <- r:
 					return nil
@@ -69,7 +73,9 @@ func Plugin() snoofer.Plugin {
 					if runCtx.Err() != nil {
 						return
 					}
-					if err := send(r.ID); err != nil {
+					err := send(r.ID)
+					keys.sent(r.ID, err, time.Now())
+					if err != nil {
 						publish(err.Error())
 					} else {
 						publish("")
