@@ -64,7 +64,12 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.addInitScript(fixture=>{
    window.fixture=fixture;window.sent=[];window.copied=[];
    Object.defineProperty(navigator,"clipboard",{value:{writeText:async text=>{window.copied.push(text);}}});
-   window.go={app:{Desktop:{State:async()=>structuredClone(window.fixture),Send:async action=>{
+   window.go={app:{Desktop:{State:async()=>{
+    // Meter readings expire after 500 ms; keep the fixture's readings live.
+    const next=structuredClone(window.fixture);
+    for(const c of next.Controls)if(c.Meter)c.Meter.At=new Date().toISOString();
+    return next;
+   },Send:async action=>{
     window.sent.push(action);
     const r=action.Request;if(!r)return;
     const target=window.fixture.Controls.find(c=>c.ID===r.ID);
@@ -82,6 +87,13 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   assert.equal(await page.getByText("Plugin host").count(),0,"sidebar host footer still shown");
   assert.equal(await page.getByRole("heading",{name:"PLAYBACK",exact:true}).count(),1);
   assert.equal(await page.getByText("A1 OUTPUT",{exact:true}).count(),0);
+  const strip=page.locator("[data-part=strip]").first();
+  await strip.locator("[data-part=peak]").waitFor();
+  assert.equal(await strip.getByText("LEVEL N/A").count(),0,"live meter shown as unavailable");
+  assert.equal(await strip.getByText("-15.0 dBFS").count(),1);
+  const fillWidth=await strip.locator("[data-part=position] > div").first().evaluate(e=>e.style.width);
+  assert.equal(fillWidth,"75%","gain position track");
+  for(const mark of ["-60","-30","-12","-3","0"])assert.equal(await strip.getByText(mark,{exact:true}).count(),1,"meter scale "+mark);
   await page.screenshot({path:path.join(root,".local/gui-audio.png"),fullPage:true});
   await page.getByRole("button",{name:"Stream Deck",exact:false}).click();
   await page.getByRole("heading",{name:"Binding",exact:true}).waitFor();

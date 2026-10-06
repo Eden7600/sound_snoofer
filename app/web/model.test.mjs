@@ -48,3 +48,19 @@ test("stalled engine health is critical",()=>{
  assert.equal(tone({ID:"audio.health",Available:true,Value:"Audio engine stalled: no callback buffers · restart required"}),"critical");
  assert.equal(tone({ID:"audio.health",Available:true,Value:"No stall detected"}),"");
 });
+test("meter ballistics and gain position",async()=>{
+ const {meterBallistics,gainPosition}=await import("./model.mjs");
+ let s=meterBallistics(null,-10,0);
+ assert.deepEqual([s.level,s.peak],[-10,-10]);
+ s=meterBallistics(s,-40,500);
+ assert.ok(Math.abs(s.level+22)<0.01);
+ assert.equal(s.peak,-10);
+ s=meterBallistics(s,-5,600);
+ assert.deepEqual([s.level,s.peak],[-5,-5]);
+ s=meterBallistics(s,-50,2600);
+ assert.ok(s.peak<-5&&s.peak>=s.level);
+ assert.deepEqual(meterBallistics(s,null,2700),{level:null,peak:null});
+ assert.deepEqual(gainPosition("-6.0 dB"),{position:54/72,zero:60/72});
+ assert.deepEqual(gainPosition("62%"),{position:0.62,zero:null});
+ assert.equal(gainPosition("Off"),null);
+});

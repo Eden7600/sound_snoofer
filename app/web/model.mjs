@@ -85,3 +85,25 @@ export function connectionText(control) {
  for (const d of c.Details||[]) lines.push(d.Label+": "+d.Value);
  return lines.join("\n");
 }
+// meterBallistics mirrors the deck dial: instant attack, 24 dB/s release and a
+// 1.5 s peak hold falling at 18 dB/s. A null reading resets the state, so an
+// expired meter never decays into fake silence.
+export function meterBallistics(state, db, now) {
+ if (db===null) return {level:null,peak:null};
+ if (state?.level==null) return {level:db,peak:db,at:now,peakFrom:now};
+ const dt=(now-state.at)/1000;
+ const level=db>=state.level?db:Math.max(db,state.level-24*dt);
+ let {peak,peakFrom}=state;
+ if (level>=peak) {peak=level;peakFrom=now;}
+ else if (now-peakFrom>1500) peak=Math.max(level,peak-18*dt);
+ return {level,peak,at:now,peakFrom};
+}
+// gainPosition places a displayed value within its range: dB gain over
+// -60…+12 (with the 0 dB mark) or a percentage. Unparsed values have none.
+export function gainPosition(value) {
+ const db=/^(-?\d+(?:\.\d+)?) dB$/.exec(value||"");
+ if (db) return {position:Math.min(1,Math.max(0,(Number(db[1])+60)/72)),zero:60/72};
+ const pct=/(\d+(?:\.\d+)?)%/.exec(value||"");
+ if (pct) return {position:Math.min(1,Math.max(0,Number(pct[1])/100)),zero:null};
+ return null;
+}

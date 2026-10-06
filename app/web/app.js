@@ -1,4 +1,4 @@
-import {controlsByID,compatible,tone,meterValue,display,gridMove,numericValue,sceneRoom,relativeTime,timeValue,stale,connectionTone,connectionText} from "./model.mjs";
+import {controlsByID,compatible,tone,meterValue,meterBallistics,gainPosition,display,gridMove,numericValue,sceneRoom,relativeTime,timeValue,stale,connectionTone,connectionText} from "./model.mjs";
 import {icon} from "./icons.mjs";
 
 const $=s=>document.querySelector(s);
@@ -29,6 +29,8 @@ const ui={
  stripTitle:"mb-3 text-xs font-bold text-muted",
  readout:"text-[27px] tracking-[-.5px] tabular-nums max-[850px]:text-[23px]",
  meterLabel:"mt-[5px] text-[10px] text-muted tabular-nums",
+ // Gradient stops follow the dBFS scale: green below -12, amber to -3, red above.
+ meterGradient:"absolute inset-0 bg-[linear-gradient(90deg,var(--color-meter-green)_0%,var(--color-meter-green)_70%,var(--color-meter-amber)_80%,var(--color-meter-amber)_90%,var(--color-meter-red)_96%)]",
  gainButtons:"mt-3.5 flex gap-[7px] *:flex-1",
  clipGrid:"grid grid-cols-[repeat(auto-fill,minmax(145px,1fr))] gap-3.5 min-[1500px]:grid-cols-[repeat(auto-fill,minmax(170px,1fr))]",
  sceneGrid:"mt-[18px] grid grid-cols-[repeat(auto-fill,minmax(118px,1fr))] gap-2.5",
@@ -136,10 +138,23 @@ function control(id,parent,label,{layout="row",hideLabel=false}={}) {
 }
 function mixer(id,parent,title) {
  if(!c(id))return;
- const node=el("div",ui.strip), value=el("div",ui.readout),bar=el("div","relative mt-3 h-2 overflow-hidden rounded-[3px] bg-[#283542]"),signal=el("div","h-full w-full bg-[linear-gradient(90deg,var(--color-meter-green)_0%,var(--color-meter-green)_76%,var(--color-meter-amber)_80%,var(--color-meter-red)_98%)] [clip-path:inset(0_100%_0_0)]"),text=el("div",ui.meterLabel),actions=el("div",ui.gainButtons);
+ const node=el("div",ui.strip), value=el("div",ui.readout),text=el("div",ui.meterLabel),actions=el("div",ui.gainButtons);
  const device=el("div",ui.meterLabel);
+ // Position track: where the gain sits in its range, with the 0 dB mark.
+ const track=el("div","relative mt-2 h-1 rounded-full bg-[#283542]"),fillTrack=el("div","h-full rounded-full bg-active transition-[width] duration-[120ms]"),zero=el("div","absolute -top-1 h-3 w-0.5 -translate-x-1/2 bg-ink");
+ track.dataset.part="position";track.append(fillTrack,zero);
+ // Meter: a dimmed full gradient as the unlit track, the lit level clipped
+ // over it with a short transition, and a held peak marker.
+ const bar=el("div","relative mt-3 h-2.5 rounded-[3px] bg-[#283542]"),unlit=el("div",ui.meterGradient+" rounded-[3px] opacity-20"),signal=el("div",ui.meterGradient+" rounded-[3px] transition-[clip-path] duration-[120ms] ease-out [clip-path:inset(0_100%_0_0)]"),peakMark=el("div","absolute -top-0.5 -bottom-0.5 w-0.5 -translate-x-1/2 bg-ink data-[tone=critical]:bg-meter-red");
+ bar.dataset.part="meter";peakMark.dataset.part="peak";bar.append(unlit,signal,peakMark);
+ const scale=el("div","relative mt-1 h-3 text-[10px] text-muted tabular-nums");
+ for(const db of [-60,-30,-12,-3,0]){
+  const mark=el("span","absolute "+(db===-60?"":db===0?"-translate-x-full":"-translate-x-1/2"),String(db));
+  mark.style.left=((db+60)/60*100)+"%";scale.append(mark);
+ }
+ let meterState=null;
  node.dataset.part="strip";
- node.append(el("h3",ui.stripTitle,title),device,value);bar.append(signal);node.append(bar,text,actions);
+ node.append(el("h3",ui.stripTitle,title),device,value,track,bar,scale,text,actions);
  actions.append(iconButton("minus",title+" down",()=>request(c(id),"adjust","",-1)),button("0 dB",()=>press(id),ui.toggle),iconButton("plus",title+" up",()=>request(c(id),"adjust","",1)));
  // Only soundboard's press means reset; audio gain press retains its existing mute behavior.
  if(id!=="soundboard.volume"){actions.children[1].textContent="Mute";actions.children[1].title="Toggle mute";}
@@ -147,8 +162,16 @@ function mixer(id,parent,title) {
  updaters.push(()=>{
   const control=c(id);device.textContent=id==="audio.gain-playback"?(c("audio.playback-device")?.Value||""):id==="audio.gain-mic"?(c("audio.mic-device")?.Value||""):"";device.hidden=!device.textContent;value.textContent=control ? display(control) : "Unavailable";
   const db=meterValue(control?.Meter);
-  signal.style.clipPath="inset(0 "+(db===null?100:-(db/60)*100)+"% 0 0)";
+  meterState=meterBallistics(meterState,db,Date.now());
+  const level=meterState.level;
+  signal.style.clipPath="inset(0 "+(level===null?100:-(level/60)*100)+"% 0 0)";
+  peakMark.hidden=level===null||meterState.peak<=-60;
+  if(level!==null)peakMark.style.left=((meterState.peak+60)/60*100)+"%";
+  peakMark.dataset.tone=meterState.peak>=-3?"critical":"";
   text.textContent=db===null?"LEVEL N/A":db.toFixed(1)+" dBFS";
+  const position=control?.Available?gainPosition(control.Value):null;
+  track.hidden=!position;
+  if(position){fillTrack.style.width=(position.position*100)+"%";zero.hidden=position.zero===null;zero.style.left=((position.zero||0)*100)+"%";}
   const muteID={"audio.gain-mic":"audio.mic-mute","audio.gain-playback":"audio.speaker-mute"}[id];
   if(muteID){
    const muted=c(muteID)?.Value==="On";
@@ -540,6 +563,7 @@ async function poll(){
   if(!window.go?.app?.Desktop)throw new Error("Desktop connection unavailable");
   const next=await window.go.app.Desktop.State();receive(next);
  }catch(error){showError(error);update();}
- setTimeout(poll,200);
+ // Meters need a faster refresh than the rest of the GUI.
+ setTimeout(poll,screen==="audio"||screen==="soundboard"?100:200);
 }
 poll();
