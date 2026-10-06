@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -415,11 +416,19 @@ func (w *worker) handle(r snoofer.Request, now time.Time) {
 		return
 	}
 	for _, s := range w.sessions {
-		if controlID(s.Key) == r.ID {
-			w.focus, w.pressed = s.Key, now
-			w.command(s, "toggle", 0, now)
+		if controlID(s.Key) != r.ID {
+			continue
+		}
+		w.focus, w.pressed = s.Key, now
+		if r.Operation == "set" { // The GUI seek slider: an absolute position in ms.
+			position, err := strconv.ParseInt(r.Value, 10, 64)
+			if err == nil && s.CanSeek && position >= 0 && (s.DurationMs == 0 || position <= s.DurationMs) {
+				w.command(s, "seek", position, now)
+			}
 			return
 		}
+		w.command(s, "toggle", 0, now)
+		return
 	}
 }
 

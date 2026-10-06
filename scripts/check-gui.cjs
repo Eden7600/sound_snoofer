@@ -66,7 +66,17 @@ add("appaudio.status","App audio","status","3 apps",{ViewData:{RecentMinutes:5,A
  {ID:"appaudio.app-rule",Name:"Launcher",Hidden:true,Open:true,Sessions:1,Rule:"Hidden (launcher)"}],
  Exclude:["snoofer.exe","voicemeeter*.exe","audiodg.exe","huesync.exe"]}});
 add("appaudio.edit","App audio edit","text","abc");
-const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",streamdeck:"Running",vr:"Running",media:"Disabled",hue:"Running",appaudio:"Running"},Enabled:{audio:true,soundboard:true,streamdeck:true,vr:true,media:false,hue:true,appaudio:true}};
+// Now playing: a focused YouTube tab and a paused Windows player.
+add("nowplaying.s-tab","Video A","command","Playing",{ShortLabel:"Video A",Group:"Now playing",Collection:"nowplaying.sessions",CollectionLabel:"Media sessions",Order:1,Icon:"media-play",Operations:["press","set"]});
+add("nowplaying.s-spotify","Song","command","Paused",{ShortLabel:"Song",Group:"Now playing",Collection:"nowplaying.sessions",CollectionLabel:"Media sessions",Order:2,Icon:"media-play",Operations:["press","set"]});
+add("nowplaying.focus","Media focus","selection","nowplaying.s-tab",{Options:["nowplaying.s-tab","nowplaying.s-spotify"]});
+for(const [id,label] of [["prev","Previous track"],["next","Next track"],["toggle","Play or pause"],["mute","Mute tab"],["extension-save","Save extension files"],["token-reset","Reset browser token"]])add("nowplaying."+id,label,"command","");
+add("nowplaying.dial","Now playing","numeric","1:05 / 4:45",{Operations:["adjust","press"]});
+add("nowplaying.status","Now playing","status","2 sessions",{ViewData:{Windows:"Connected",Bridge:{Port:47815,Error:"",Refused:""},Extension:{Path:"C:\\Snoofer\\bin\\browser-extension",Version:"1.0.0",Saved:false,Error:""},
+ Browsers:[{Name:"Brave",Version:"0.9.0",Sessions:1,Outdated:true}],
+ Sessions:[{ID:"nowplaying.s-tab",Source:"Brave",App:"Brave · youtube.com",Title:"Video A",Artist:"Channel",Status:"Playing",PositionMs:65000,DurationMs:285000,Focused:true,CanToggle:true,CanNext:true,CanSeek:true,CanMute:true},
+  {ID:"nowplaying.s-spotify",Source:"windows",App:"Spotify",Title:"Song",Artist:"Band",Album:"Album",Status:"Paused",PositionMs:0,DurationMs:200000,CanToggle:true,CanNext:true,CanPrev:true,CanSeek:true}]}});
+const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",streamdeck:"Running",vr:"Running",media:"Disabled",hue:"Running",appaudio:"Running",nowplaying:"Running"},Enabled:{audio:true,soundboard:true,streamdeck:true,vr:true,media:false,hue:true,appaudio:true,nowplaying:true}};
 (async()=>{
  const server=http.createServer((req,res)=>{
   if(req.url==="/logo.ico"){res.setHeader("Content-Type","image/x-icon");res.end(fs.readFileSync(path.join(root,"app/tray.ico")));return;}
@@ -288,6 +298,32 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await excluded.getByRole("button",{name:"Unhide Launcher",exact:true}).click();
   assert.deepEqual(await page.evaluate(()=>JSON.parse(window.sent.at(-1).Request.Value)),{op:"unhide",app:"Launcher",value:""});
   await page.screenshot({path:path.join(root,".local/gui-appaudio.png"),fullPage:true});
+  await page.getByRole("button",{name:"Media",exact:true}).click();
+  await page.locator("[data-part=media-session]").first().waitFor();
+  assert.deepEqual(await page.locator("[data-part=media-session] h3").allTextContents(),["Video A","Song"]);
+  const [tab,song]=[page.locator("[data-part=media-session]").nth(0),page.locator("[data-part=media-session]").nth(1)];
+  assert.equal(await tab.getAttribute("data-focused"),"true");
+  assert.equal(await tab.getByRole("button",{name:"Next"}).isVisible(),true,"focused card lacks Next");
+  assert.equal(await song.getByRole("button",{name:"Next"}).isVisible(),false,"unfocused card shows Next");
+  assert.equal(await tab.locator("[data-part=focus]").isVisible(),false);
+  await song.locator("[data-part=play]").click();
+  assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Operation];}),["nowplaying.s-spotify","press"]);
+  await page.waitForTimeout(300);
+  await song.locator("[data-part=seek]").fill("90000");
+  assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Operation,r.Value];}),["nowplaying.s-spotify","set","90000"]);
+  await page.waitForTimeout(300);
+  await song.locator("[data-part=focus]").click();
+  assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Value];}),["nowplaying.focus","nowplaying.s-spotify"]);
+  await page.waitForTimeout(300);
+  await tab.locator("[data-part=mute]").click();
+  assert.equal(await page.evaluate(()=>window.sent.at(-1).Request.ID),"nowplaying.mute");
+  const extension=page.locator("[data-part=extension]");
+  assert.match(await extension.textContent(),/Brave connected · 1 playing · extension 0\.9\.0 is older than 1\.0\.0/);
+  assert.match(await extension.textContent(),/Not saved/);
+  await page.waitForTimeout(300);
+  await extension.locator("[data-part=extension-save]").click();
+  assert.equal(await page.evaluate(()=>window.sent.at(-1).Request.ID),"nowplaying.extension-save");
+  await page.screenshot({path:path.join(root,".local/gui-media.png"),fullPage:true});
   await page.getByRole("button",{name:"Third-party apps",exact:false}).click();
   await page.getByRole("heading",{name:"Hue",exact:true}).waitFor();
   assert.equal(await page.locator("[data-part=app-card]").count(),4);

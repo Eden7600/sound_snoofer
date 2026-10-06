@@ -71,7 +71,7 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 			status = "Pending"
 		}
 		controls = append(controls, snoofer.Control{ID: id, Label: title, ShortLabel: title, Group: "Now playing", Collection: "nowplaying.sessions", CollectionLabel: "Media sessions",
-			Order: n + 1, Kind: "command", Icon: "media-play", Artwork: s.Art, Value: s.Status, Status: status, Operations: []string{"press"}, Available: s.CanToggle})
+			Order: n + 1, Kind: "command", Icon: "media-play", Artwork: s.Art, Value: s.Status, Status: status, Operations: []string{"press", "set"}, Available: s.CanToggle || s.CanSeek})
 		options = append(options, id)
 		labels[id] = title + " · " + s.App
 		_, pending := w.pending[s.Key]

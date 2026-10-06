@@ -280,3 +280,15 @@ func thumbFor(t *testing.T) string {
 	}
 	return art
 }
+
+func TestSessionSeekFromGUI(t *testing.T) {
+	r := newRig(t, true)
+	r.win.sessions = []mediasessions.Session{spotify("paused", 0, r.now)}
+	r.tick(0)
+	id := r.members()[0].ID
+	r.w.handle(snoofer.Request{ID: id, Operation: "set", Value: "90000"}, r.now)
+	r.w.handle(snoofer.Request{ID: id, Operation: "set", Value: "999999"}, r.now) // Past the end: ignored.
+	if len(r.win.commands) != 1 || r.win.commands[0] != "Spotify.exe:seek:90µs" {
+		t.Fatal(r.win.commands)
+	}
+}

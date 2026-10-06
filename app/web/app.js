@@ -6,7 +6,7 @@ const root=$("#content");
 let state={Controls:[],Plugins:{},Enabled:{}}, controls=new Map(), screen="audio", signature="", pending=null;
 let localError="", dismissedNotice="";
 const widgets=[], updaters=[];
-const titles={audio:["AUDIO","Audio"],soundboard:["LIBRARY","Soundboard"],lights:["LIGHTING","Lights"],appaudio:["MIXER","App audio"],deck:["CONTROL SURFACE","Stream Deck"],plugins:["SYSTEM","Plugins"],apps:["SYSTEM","Third-party apps"],diagnostics:["SYSTEM","Diagnostics"]};
+const titles={audio:["AUDIO","Audio"],soundboard:["LIBRARY","Soundboard"],lights:["LIGHTING","Lights"],appaudio:["MIXER","App audio"],media:["NOW PLAYING","Media"],deck:["CONTROL SURFACE","Stream Deck"],plugins:["SYSTEM","Plugins"],apps:["SYSTEM","Third-party apps"],diagnostics:["SYSTEM","Diagnostics"]};
 
 // Utility groups reused across screens. They are plain Tailwind utility
 // literals (no component classes), kept complete so the CSS build finds them.
@@ -476,6 +476,71 @@ function excludedCard(view){
  updaters.push(()=>{for(const b of buttons)b.disabled=!editable();apply.disabled=!editable()||!input.value.trim();});
  input.addEventListener("input",update);
 }
+// mediaCard shows one session: artwork, title, source, progress with a seek
+// slider, play/pause and focus; the focused card adds Previous, Next and Mute.
+function mediaCard(id,parent){
+ const info=()=>(c("nowplaying.status")?.ViewData?.Sessions||[]).find(s=>s.ID===id)||{};
+ const card=el("article",ui.strip+" flex flex-col gap-2 data-[focused=true]:border-active"),head=el("div","flex items-center gap-3"),art=el("div","grid size-16 shrink-0 place-items-center text-active"),text=el("div","min-w-0 flex-1");
+ const title=el("h3","truncate text-sm font-semibold"),artist=el("div","truncate text-[13px]"),source=el("div","truncate text-[11px] text-muted");
+ card.dataset.part="media-session";text.append(title,artist,source);head.append(art,text);
+ const seek=el("input","w-full accent-active");seek.type="range";seek.min="0";seek.step="1000";seek.dataset.part="seek";
+ const times=el("div","flex justify-between text-[11px] text-muted tabular-nums"),elapsed=el("span"),length=el("span");times.append(elapsed,length);
+ seek.onchange=()=>request(c(id),"set",seek.value);
+ const actions=el("div",ui.actions),status=el("small","text-[11px]");
+ const prev=iconButton("skip-back","Previous",()=>press("nowplaying.prev")),play=iconButton("play","Play or pause",()=>press(id)),next=iconButton("skip-forward","Next",()=>press("nowplaying.next"));
+ const mute=button("Mute",()=>press("nowplaying.mute"),ui.toggle+" "+ui.small),focus=button("Focus",()=>request(c("nowplaying.focus"),"set",id),ui.small);
+ play.dataset.part="play";focus.dataset.part="focus";mute.dataset.part="mute";
+ actions.append(prev,play,next,mute,focus,status);card.append(head,seek,times,actions);parent.append(card);
+ const clock=ms=>{const s=Math.max(0,Math.floor((ms||0)/1000));return s>=3600?Math.floor(s/3600)+":"+String(Math.floor(s/60)%60).padStart(2,"0")+":"+String(s%60).padStart(2,"0"):Math.floor(s/60)+":"+String(s%60).padStart(2,"0");};
+ updaters.push(()=>{
+  const item=c(id),s=info();if(!item)return;
+  setArt(art,item.Artwork,()=>icon("disc-3","size-9"),"size-16");
+  title.textContent=s.Title||s.App||item.Label;artist.textContent=[s.Artist,s.Album].filter(Boolean).join(" · ");artist.hidden=!artist.textContent;
+  source.textContent=s.App||"";card.dataset.focused=String(!!s.Focused);
+  play.replaceChildren(icon(s.Status==="Playing"?"pause":"play","size-4 shrink-0"));play.setAttribute("aria-label",(s.Status==="Playing"?"Pause ":"Play ")+(s.Title||s.App||""));
+  seek.hidden=times.hidden=!s.DurationMs;seek.max=String(s.DurationMs||0);seek.setAttribute("aria-label","Seek "+(s.Title||s.App||""));
+  if(document.activeElement!==seek)seek.value=String(s.PositionMs||0);
+  elapsed.textContent=clock(s.PositionMs);length.textContent=clock(s.DurationMs);
+  prev.hidden=!s.Focused||!s.CanPrev;next.hidden=!s.Focused||!s.CanNext;mute.hidden=!s.Focused||!s.CanMute;focus.hidden=!!s.Focused;
+  mute.textContent=s.Muted?"Muted":"Mute";mute.setAttribute("aria-pressed",String(!!s.Muted));mute.dataset.tone=s.Muted?"critical":"";
+  status.textContent=s.Pending?"Wait":s.Failure||"";status.className="text-[11px] "+(s.Failure?"text-critical":"text-attention");
+  seek.disabled=!!pending||!s.CanSeek;play.disabled=!!pending||!s.CanToggle;
+  for(const b of [prev,next,mute,focus])b.disabled=!!pending;
+ });
+}
+// extensionCard explains and maintains the browser extension that reports
+// each tab: connection status, saving its files and resetting its token.
+function extensionCard(parent){
+ const card=panel("Browser extension",parent,"mt-[18px]");card.dataset.part="extension";
+ const intro=el("p","-mt-2 text-[13px] text-muted","Browsers show Windows only one session for all their tabs. The Snoofer extension reports each tab separately, so every video or song can be paused and sought on its own.");
+ const browsers=el("div","mt-3 grid gap-1 text-[13px]"),problem=el("p","mt-2 text-[13px] text-critical"),saved=el("p","mt-3 text-[13px]"),where=el("code","block break-all rounded-md bg-sidebar px-2.5 py-1.5 text-[12px]");
+ const steps=el("ol","mt-2 list-decimal space-y-1 pl-5 text-[13px] text-muted");
+ for(const step of ["Save the extension files (below).","Open brave://extensions (or chrome://extensions) and turn on Developer mode.","Choose Load unpacked and pick the folder shown.","After saving again, press the extension's reload button."])steps.append(el("li","",step));
+ const actions=el("div",ui.actions+" mt-3"),save=button("Save extension files",()=>press("nowplaying.extension-save"),ui.primary),reset=button("Reset token",()=>{if(window.confirm("Reset the token? Connected browsers disconnect until you save the extension files again and reload the extension."))press("nowplaying.token-reset");},ui.danger);
+ save.dataset.part="extension-save";actions.append(save,reset);
+ card.append(intro,browsers,problem,saved,where,steps,actions);
+ updaters.push(()=>{
+  const v=c("nowplaying.status")?.ViewData||{},ext=v.Extension||{};
+  browsers.replaceChildren();
+  for(const b of v.Browsers||[])browsers.append(el("div",b.Outdated?"text-attention":"text-active",b.Name+" connected · "+b.Sessions+" playing"+(b.Outdated?" · extension "+(b.Version||"?")+" is older than "+ext.Version+": save and reload it":"")));
+  if(!(v.Browsers||[]).length)browsers.append(el("div","text-muted","No browser connected."));
+  problem.textContent=[v.Bridge?.Error,v.Bridge?.Refused,ext.Error,v.Windows&&v.Windows!=="Connected"?"Windows media sessions: "+v.Windows:""].filter(Boolean).join(" · ");problem.hidden=!problem.textContent;
+  saved.textContent=ext.Saved?"Saved and up to date ("+ext.Version+").":"Not saved, or saved by an older version or token.";saved.className="mt-3 text-[13px] "+(ext.Saved?"text-muted":"text-attention");
+  where.textContent=ext.Path||"";where.hidden=!ext.Path;
+  save.disabled=!!pending||!c("nowplaying.extension-save")?.Available;reset.disabled=!!pending||!c("nowplaying.token-reset")?.Available;
+ });
+}
+function buildMedia(){
+ if(!(state.Plugins||{}).nowplaying){empty(root,"Now playing is not part of this build.");return;}
+ if(!state.Enabled?.nowplaying){
+  const card=panel("Now playing is off",root,"mb-[18px] border-[#345365]");card.dataset.part="setup";card.append(el("p","mt-2 mb-3.5 text-muted","Show and control what is playing in each app and browser tab."));
+  const actions=el("div",ui.actions);actions.append(button("Enable Now playing",()=>send({Kind:"selection",Plugin:"nowplaying",Enable:true}),ui.primary));card.append(actions);return;
+ }
+ const sessions=[...controls.values()].filter(v=>v.Collection==="nowplaying.sessions").sort((a,b)=>(a.Order||0)-(b.Order||0));
+ if(!sessions.length)empty(root,"Nothing is playing. Start music or a video in any app or browser tab.");
+ else{const grid=el("div","grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-[18px]");root.append(grid);for(const item of sessions)mediaCard(item.ID,grid);}
+ extensionCard(root);
+}
 // deckRange is the GUI-local key rectangle, or dial span (dials: true, slot
 // indexes from 36), for creating regions; selecting it never dispatches
 // anything. It resets when the edited page changes.
@@ -725,13 +790,13 @@ function buildDiagnostics(){
 function layoutKey(){
  // Values and telemetry are updated in place. Only structure/context rebuilds a screen.
  const list=[...controls.values()].map(v=>[v.ID,v.Label,v.Kind,v.Group,v.Options,v.OptionLabels]);
- return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="lights"?[state.Enabled?.hue,c("hue.group")?.Value,c("hue.rooms")?.ViewData]:null,screen==="appaudio"?[state.Enabled?.appaudio,(c("appaudio.status")?.ViewData?.Apps||[]).map(a=>[a.ID,a.Name,a.Hidden,a.Picked,a.Open,a.Rule]),c("appaudio.status")?.ViewData?.Exclude]:null,screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value,c("streamdeck.preview")?.ViewData?.Regions,c("streamdeck.preview")?.ViewData?.Collections]:null]);
+ return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="lights"?[state.Enabled?.hue,c("hue.group")?.Value,c("hue.rooms")?.ViewData]:null,screen==="media"?[state.Enabled?.nowplaying,(c("nowplaying.status")?.ViewData?.Sessions||[]).map(s=>[s.ID,s.CanSeek,s.CanMute]),(c("nowplaying.status")?.ViewData?.Browsers||[]).map(b=>[b.Name,b.Outdated]),c("nowplaying.status")?.ViewData?.Extension?.Saved]:null,screen==="appaudio"?[state.Enabled?.appaudio,(c("appaudio.status")?.ViewData?.Apps||[]).map(a=>[a.ID,a.Name,a.Hidden,a.Picked,a.Open,a.Rule]),c("appaudio.status")?.ViewData?.Exclude]:null,screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value,c("streamdeck.preview")?.ViewData?.Regions,c("streamdeck.preview")?.ViewData?.Collections]:null]);
 }
 function build(){
  widgets.length=0;updaters.length=0;root.replaceChildren();
  for(const b of document.querySelectorAll("[data-screen]")){if(b.dataset.screen===screen)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current");}
  $("#eyebrow").textContent=titles[screen][0];$("#title").textContent=titles[screen][1];
- ({audio:buildAudio,soundboard:buildSoundboard,lights:buildLights,appaudio:buildAppAudio,deck:buildDeck,plugins:buildPlugins,apps:buildApps,diagnostics:buildDiagnostics})[screen]();
+ ({audio:buildAudio,soundboard:buildSoundboard,lights:buildLights,appaudio:buildAppAudio,media:buildMedia,deck:buildDeck,plugins:buildPlugins,apps:buildApps,diagnostics:buildDiagnostics})[screen]();
 }
 function update(){
  if(pending&&(Date.now()>pending.until || state.Notice!==pending.notice || (pending.id&&c(pending.id)?.Revision!==pending.revision) || (!pending.id&&state.Confirmation)))pending=null;
@@ -766,7 +831,7 @@ function receive(next){
  }
  update();
 }
-const navIcons={audio:"audio-waveform",soundboard:"music",lights:"lightbulb",appaudio:"app-window",deck:"layout-grid",plugins:"puzzle",apps:"plug",diagnostics:"activity"};
+const navIcons={audio:"audio-waveform",soundboard:"music",lights:"lightbulb",appaudio:"app-window",media:"disc-3",deck:"layout-grid",plugins:"puzzle",apps:"plug",diagnostics:"activity"};
 for(const b of document.querySelectorAll("[data-screen]")){
  b.className=ui.nav;
  b.prepend(icon(navIcons[b.dataset.screen],"size-5 shrink-0"));
@@ -782,6 +847,6 @@ async function poll(){
   const next=await window.go.app.Desktop.State();receive(next);
  }catch(error){showError(error);update();}
  // Meters need a faster refresh than the rest of the GUI.
- setTimeout(poll,screen==="audio"||screen==="soundboard"||screen==="appaudio"?100:200);
+ setTimeout(poll,screen==="audio"||screen==="soundboard"||screen==="appaudio"||screen==="media"?100:200);
 }
 poll();
