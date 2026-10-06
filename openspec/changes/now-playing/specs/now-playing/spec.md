@@ -10,6 +10,14 @@ Snoofer SHALL list every Windows media session and, when the browser extension i
 - **WHEN** the extension is not connected
 - **THEN** Brave appears as the single session Windows reports
 
+#### Scenario: Tab the extension cannot see
+- **WHEN** the extension is connected but does not report the tab that Brave's Windows session describes
+- **THEN** Brave's Windows session stays visible
+
+#### Scenario: Media playing before install
+- **WHEN** the extension is installed while a tab is already playing
+- **THEN** that tab is reported without being reloaded
+
 ### Requirement: Per-session control and focus
 Snoofer SHALL control each session individually and SHALL direct the media dial and transport keys to the focused session.
 
@@ -20,6 +28,10 @@ Snoofer SHALL control each session individually and SHALL direct the media dial 
 #### Scenario: Seeking with the dial
 - **WHEN** the media dial turns three detents clockwise on a seekable session at 1:00
 - **THEN** the session seeks to 1:15, and the dial shows Pending until the new position is observed
+
+#### Scenario: Only one session playing
+- **WHEN** the user focused a session that is now paused and another session is the only one playing
+- **THEN** focus moves to the playing session even within 30 seconds of the press
 
 #### Scenario: Focus follows playback
 - **WHEN** a new session starts playing and no session was pressed in the last 30 seconds

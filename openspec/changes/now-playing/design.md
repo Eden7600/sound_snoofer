@@ -37,10 +37,14 @@ Revised after review: the extension is a standalone codebase published to the Ch
 - **API namespace:** code uses `globalThis.browser ?? chrome` with promises.
 - **Policy:** `content_security_policy.extension_pages` is `script-src 'self'; object-src 'self'`, so the local `ws://` connection is never upgraded.
 
-**Permissions:** `tabs` (titles, mute), `storage` (the port setting) and host access to `<all_urls>` (content scripts and artwork fetches). There is no remote code, and data goes only to `127.0.0.1`.
+**Permissions:** `tabs` (titles, mute), `storage` (the port setting), `scripting` (open tabs at install) and host access to `<all_urls>` (content scripts and artwork fetches). There is no remote code, and data goes only to `127.0.0.1`.
+
+**Existing tabs:** browsers inject content scripts only into pages loaded after install. On `runtime.onInstalled` and `runtime.onStartup`, the background therefore injects `page.js` (main world) and `bridge.js` into every open http(s) tab and frame, using the `scripting` permission. Both scripts guard against running twice.
 
 **Scripts:**
-- **`page.js`** (all frames, from `document_start`):
+- **`page.js`** (all frames, from `document_start`, or injected later):
+  - At start it adopts `<audio>`/`<video>` already in the document and reports at once if one is playing.
+  - `timeupdate` from an unknown element adopts it too, so media that was already playing is found.
   - It wraps `navigator.mediaSession.setActionHandler` to remember page handlers such as YouTube's `nexttrack`.
   - It tracks `<audio>` and `<video>` elements through captured media events and reads `navigator.mediaSession` metadata and state.
   - It reports through a `CustomEvent` on changes, and every second while playing.
@@ -64,11 +68,11 @@ Revised after review: the extension is a standalone codebase published to the Ch
 - **Legacy setting:** `Settings.Token` from the first build is accepted and ignored, so saved configurations still load.
 
 ### De-duplication
-While a browser's extension is connected, Windows sessions from that browser are hidden:
-- **By app ID:** Brave is `Brave` or `Brave.*`, Chrome is `Chrome` or `Chrome.*`, Edge is `MSEdge` or `MSEdge.*`.
-- **By title:** a Windows session whose non-empty title equals a connected browser tab's title is also hidden. This covers Firefox, whose app ID is an install-specific hash.
+A Windows session is hidden only when its non-empty title equals the title of a tab that a connected extension reports. It is never hidden by app ID alone, so a session cannot vanish when the extension cannot see its tab.
 
-Without the extension, the browser's single Windows session appears as usual.
+(Revised after review: hiding Brave's session as soon as its extension connected removed a video that was already playing in a tab opened before the extension was installed.)
+
+The browser's single Windows session repeats one of its tabs, so title matching removes the duplicate for every browser, Firefox included.
 
 ## 3. Sessions and focus (`plugins/nowplaying`)
 - **Session control:** each session gets `nowplaying.s-<hash of source and id>`.
@@ -76,7 +80,10 @@ Without the extension, the browser's single Windows session appears as usual.
   - **Value:** Playing, Paused or Stopped. Status is Pending until a command is observed, or Failed.
   - **Artwork and grouping:** Artwork is the cover, or the favicon for tabs. Icon is `media-play`. Collection is `nowplaying.sessions` ("Media sessions"), with Order by most recently started first.
   - **Press:** toggles play/pause and focuses the session.
-- **Focus rule:** the session that most recently changed to Playing, unless you pressed a session or a transport control within the last 30 s. A focused session that disappears gives way to the next by the same rule.
+- **Focus rule:**
+  - **Default:** focus goes to the session that most recently changed to Playing, unless you pressed a session or a transport control within the last 30 s.
+  - **Single playing session:** when exactly one session is playing and the focused one is not, focus moves to the playing one at once, regardless of the 30 s hold (revised after review).
+  - **Disappearing focus:** a focused session that disappears gives way to the next by the same rules.
 - **`nowplaying.focus`:** a selection of session IDs with option labels, for GUI focus and the deck's cycling key. It is Hidden with fewer than two sessions.
 - **`nowplaying.dial`:**
   - **Kind and operations:** numeric; `adjust` seeks ±5 s per detent from the interpolated position, and `press` toggles play/pause.
@@ -94,9 +101,8 @@ Without the extension, the browser's single Windows session appears as usual.
 - **Dial artwork:** when a dial's tile carries Artwork, the touch-strip panel draws it at 56 px on the left. The label, value and position track then move to the right column (x 72–192).
 - **Progress:** `withPosition` accepts `m:ss / m:ss` values and turns them into a 0…1 progress track with no zero mark.
 - **Default Media page:**
-  - a session region on r1 c1–c8;
-  - Previous, Play/Pause, Next and Mute at keys 10–13 (r2 c1–c4);
-  - Focus at key 14;
+  - a session region on r1–r3 c1–c8;
+  - Previous, Play/Pause, Next, Mute and Focus on the bottom row, keys 28–32 (r4 c1–c5; revised after review);
   - Up/Down at 18 and 27 for more sessions;
   - the media dial on dial 1 and Playback gain on dial 2.
 - **Home:** a go-to key for Media and the media dial on dial 3.
