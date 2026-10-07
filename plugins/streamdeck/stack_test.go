@@ -135,3 +135,32 @@ func TestMirroredControlNotRepeatedOnDials(t *testing.T) {
 		t.Fatal("hidden stand-in still excluded the app", page.Dials)
 	}
 }
+
+func TestClippedRegionsNeverOverflow(t *testing.T) {
+	home := DefaultLayout().Pages[0]
+	l := Layout{Home: "home", Pages: []Page{home}}
+	expanded := l.expanded(append(members("nowplaying.sessions", 6), members("appaudio.apps", 9)...))
+	if len(expanded.Pages) != 1 {
+		t.Fatal("clipped Home strips added overflow sets", len(expanded.Pages))
+	}
+	page := expanded.Pages[0]
+	if page.Keys[18].Control != "nowplaying.sessions-01" || page.Keys[21].Control != "nowplaying.sessions-04" || page.Keys[22].Control != "appaudio.apps-01" || page.Keys[25].Control != "appaudio.apps-04" {
+		t.Fatal("strips", page.Keys[18:26])
+	}
+	for n, id := range map[int]string{27: "nowplaying.prev", 28: "nowplaying.toggle", 29: "nowplaying.next", 30: "hue.brightness", 31: "hue.motion"} {
+		if page.Keys[n].Control != id {
+			t.Errorf("key %d is %q, want %q", n+1, page.Keys[n].Control, id)
+		}
+	}
+	for _, b := range page.Keys {
+		if b.Control == "core.open-controls" || strings.HasPrefix(b.Control, "hue.sync") {
+			t.Error("removed control still on Home", b.Control)
+		}
+	}
+	// A clipped region beside an unclipped one of the same source does not
+	// stop the unclipped one from paging.
+	p := Page{ID: "p", Name: "P", Regions: []Region{{Source: "a.s", First: 0, Last: 1, Clip: true}, {Source: "a.s", First: 9, Last: 10}}}
+	if got := (Layout{Home: "p", Pages: []Page{p}}).expanded(members("a.s", 9)); len(got.Pages) != 3 {
+		t.Fatal("mixed regions", len(got.Pages))
+	}
+}

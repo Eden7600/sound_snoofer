@@ -9,6 +9,7 @@ func TestEditorPreviewOwnership(t *testing.T) {
 	l := DefaultLayout()
 	p := l.Pages[0].ID
 	l.Pages[0].Keys = [Keys]Binding{}
+	l.Pages[0].Regions = nil // The legacy prefix applies only without regions.
 	l.Pages[0].AutoControls = "clips."
 	l.SharedKeys[3] = Binding{Control: "shared.x", Label: "Shared"}
 	l.Pages[0].Keys[7] = Binding{Control: "manual.x", Label: "Manual"}

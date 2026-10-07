@@ -21,6 +21,7 @@ type Region struct {
 	Sources []string `json:"sources,omitempty"`
 	First   int      `json:"first"` // Zero-based key indexes of opposite corners.
 	Last    int      `json:"last"`
+	Clip    bool     `json:"clip,omitempty"` // Show only what fits; never add overflow sets.
 }
 
 // cells lists the rectangle's keys in row-major order.

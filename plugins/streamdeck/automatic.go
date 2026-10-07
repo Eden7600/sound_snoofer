@@ -12,6 +12,7 @@ import (
 // source and position kind; such regions fill in sequence.
 type stream struct {
 	dials   bool
+	clip    bool // Every region of the stream is clipped: no overflow sets.
 	cells   []int
 	matches []snoofer.Control
 }
@@ -144,9 +145,11 @@ func (l Layout) expanded(controls []snoofer.Control) Layout {
 				} else {
 					s = &stream{matches: candidates(f, controls, boundKeys, "press")}
 				}
+				s.clip = true
 				bySource[key] = s
 				streams = append(streams, s)
 			}
+			s.clip = s.clip && f.Clip
 			return s
 		}
 		for _, f := range fills {
@@ -186,7 +189,7 @@ func (l Layout) expanded(controls []snoofer.Control) Layout {
 		}
 		pages := 1
 		for _, s := range streams {
-			if len(s.cells) > 0 {
+			if len(s.cells) > 0 && !s.clip {
 				pages = max(pages, (len(s.matches)+len(s.cells)-1)/len(s.cells))
 			}
 		}
@@ -202,6 +205,9 @@ func (l Layout) expanded(controls []snoofer.Control) Layout {
 				generated.Name = fmt.Sprintf("%s %d", page.Name, number)
 			}
 			for _, s := range streams {
+				if s.clip && number > 1 {
+					continue
+				}
 				offset := (number - 1) * len(s.cells)
 				for n, cell := range s.cells {
 					if offset+n >= len(s.matches) {

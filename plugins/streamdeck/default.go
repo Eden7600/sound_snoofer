@@ -7,8 +7,12 @@ package streamdeck
 // app a dial and a mute key. Up and Down page through
 // soundboard overflow.
 func DefaultLayout() Layout {
-	home := Page{ID: "home", Name: "Home"}
-	for n, id := range map[int]string{0: "audio.mic-mute", 1: "audio.speaker-mute", 2: "audio.monitor", 3: "audio.mode", 8: "core.open-controls", 9: "audio.record-toggle", 11: "audio.record-mic", 12: "audio.record-computer", 13: "audio.record-tap", 27: "nowplaying.prev", 28: "nowplaying.toggle", 29: "nowplaying.next",
+	// Home: audio and recording on rows 1–2, strips of sessions and apps on
+	// row 3 (clipped, since Home has no Up/Down), transport, Brightness and
+	// Motion on the bottom row beside the go-to keys.
+	home := Page{ID: "home", Name: "Home", Regions: []Region{{Source: "nowplaying.sessions", First: 18, Last: 21, Clip: true}, {Source: "appaudio.apps", First: 22, Last: 25, Clip: true}}}
+	for n, id := range map[int]string{0: "audio.mic-mute", 1: "audio.speaker-mute", 2: "audio.monitor", 3: "audio.mode", 9: "audio.record-toggle", 11: "audio.record-mic", 12: "audio.record-computer", 13: "audio.record-tap",
+		27: "nowplaying.prev", 28: "nowplaying.toggle", 29: "nowplaying.next", 30: "hue.brightness", 31: "hue.motion",
 		33: gotoPrefix + "media", 34: gotoPrefix + "soundboard", 35: gotoPrefix + "lights"} {
 		home.Keys[n] = Binding{Control: id, Label: id}
 	}
