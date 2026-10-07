@@ -6,7 +6,7 @@ const root=$("#content");
 let state={Controls:[],Plugins:{},Enabled:{}}, controls=new Map(), screen="audio", signature="", pending=null;
 let localError="", dismissedNotice="";
 const widgets=[], updaters=[];
-const titles={audio:["AUDIO","Audio"],soundboard:["LIBRARY","Soundboard"],lights:["LIGHTING","Lights"],appaudio:["MIXER","App audio"],media:["NOW PLAYING","Media"],deck:["CONTROL SURFACE","Stream Deck"],plugins:["SYSTEM","Plugins"],apps:["SYSTEM","Third-party apps"],diagnostics:["SYSTEM","Diagnostics"]};
+const titles={audio:["AUDIO","Audio"],soundboard:["LIBRARY","Soundboard"],lights:["LIGHTING","Lights"],appaudio:["MIXER","App audio"],meetings:["CALLS","Meetings"],media:["NOW PLAYING","Media"],deck:["CONTROL SURFACE","Stream Deck"],plugins:["SYSTEM","Plugins"],apps:["SYSTEM","Third-party apps"],diagnostics:["SYSTEM","Diagnostics"]};
 
 // Utility groups reused across screens. They are plain Tailwind utility
 // literals (no component classes), kept complete so the CSS build finds them.
@@ -563,6 +563,38 @@ function buildMedia(){
  else{const grid=el("div","grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-[18px]");root.append(grid);for(const item of sessions)mediaCard(item.ID,grid);}
  extensionCard(root);
 }
+// pluginOff renders the card for a plugin that is missing or disabled, and
+// reports whether it did.
+function pluginOff(id,title,text,parent){
+ if(!(state.Plugins||{})[id]){const card=panel(title,parent);card.append(el("p","text-muted",title+" is not part of this build."));return true;}
+ if(state.Enabled?.[id])return false;
+ const card=panel(title+" is off",parent,"border-[#345365]");card.dataset.part="setup";card.append(el("p","mt-2 mb-3.5 text-muted",text));
+ const actions=el("div",ui.actions);actions.append(button("Enable "+title,()=>send({Kind:"selection",Plugin:id,Enable:true}),ui.primary));card.append(actions);return true;
+}
+// stateLine shows a status control's value under a card title, toned by its state.
+function stateLine(id,parent){
+ const line=el("p","-mt-1.5 mb-3 text-[13px]");line.dataset.part="state";parent.append(line);
+ updaters.push(()=>{const item=c(id);line.textContent=item?display(item):"";line.className="-mt-1.5 mb-3 text-[13px] "+(item?tc(tone(item)):"");});
+}
+function buildMeetings(){
+ const grid=el("div",ui.grid);grid.dataset.part="meetings";root.append(grid);
+ if(!pluginOff("insta360","Camera","Insta360 Link 2 privacy, tracking and framing.",grid)){
+  const card=panel("Camera",grid);card.dataset.part="camera";
+  if(!c("insta360.privacy"))card.append(el("p","text-muted","Camera: "+(state.Plugins.insta360||"Starting")));
+  else{stateLine("insta360.state",card);control("insta360.privacy",card,"Privacy");control("insta360.tracking",card,"Tracking");control("insta360.framing",card,"Framing");control("insta360.reset",card,"Reset position");}
+ }
+ if(!pluginOff("discord","Discord","Discord mute, deafen, camera and screen share.",grid)){
+  const card=panel("Discord",grid);card.dataset.part="discord";
+  if(!c("discord.channel"))card.append(el("p","text-muted","Discord: "+(state.Plugins.discord||"Starting")));
+  else{
+   stateLine("discord.channel",card);
+   const setup=el("p","mb-3 text-attention","Add your Discord application's client_id and client_secret to snoofer.json.");setup.dataset.part="discord-setup";card.append(setup);
+   const connect=el("div",ui.actions+" mb-3");connect.dataset.part="discord-connect";command("discord.connect","Connect",connect,ui.primary);card.append(connect);
+   updaters.push(()=>{setup.hidden=c("discord.mute")?.Status!=="Setup needed";connect.hidden=!c("discord.connect")?.Available&&c("discord.connect")?.Status!=="Pending";});
+   control("discord.mute",card,"Mute");control("discord.deafen",card,"Deafen");control("discord.video",card,"Camera");control("discord.screenshare",card,"Screen share");control("discord.leave",card,"Leave call");
+  }
+ }
+}
 // deckRange is the GUI-local key rectangle, or dial span (dials: true, slot
 // indexes from 36), for creating regions; selecting it never dispatches
 // anything. It resets when the edited page changes.
@@ -726,7 +758,7 @@ function regionsPanel(parent){
  });
 }
 // Deck key previews map a control's deck icon to the closest Lucide icon.
-const deckIcons={"mic-mute":"mic","record-mic":"mic","vr-mic":"mic","speaker-mute":"volume-2","vr-playback":"volume-2","record-computer":"monitor","monitor":"headphones","mic-stack":"power","mode-direct":"audio-lines","mode-element":"audio-lines","tap-pre":"audio-lines","tap-post":"audio-lines","record-toggle":"circle-dot","record-start":"circle-dot","record-stop":"square","soundboard-play":"play","soundboard-stop":"square","soundboard-overlap":"layers","media-prev":"skip-back","media-next":"skip-forward","media-play":"play","open-controls":"sliders-horizontal","defaults":"sliders-horizontal","engine-restart":"refresh-cw","hue-scene":"lightbulb","hue-brightness":"sun","hue-pair":"link","huesync-sync":"monitor","huesync-mode":"layers","huesync-intensity":"waves","hue-motion":"radar","hue-motion-off":"radar","deck-page":"folder","app-audio":"app-window","focus-reset":"crosshair","echo":"audio-lines","tape-play":"play","tape-pause":"pause","tape-stop":"square","tape-rew":"rewind","tape-ff":"fast-forward","deck-up":"chevron-up","deck-down":"chevron-down"};
+const deckIcons={"mic-mute":"mic","camera-privacy":"video","camera-privacy-muted":"eye-off","tracking":"scan-face","framing":"frame","camera-reset":"rotate-ccw","call":"phone","call-leave":"phone-off","discord-deafen":"headphones","discord-deafen-muted":"headphone-off","discord-video":"video","discord-video-off":"video-off","screen-share":"screen-share","discord-connect":"link","record-mic":"mic","vr-mic":"mic","speaker-mute":"volume-2","vr-playback":"volume-2","record-computer":"monitor","monitor":"headphones","mic-stack":"power","mode-direct":"audio-lines","mode-element":"audio-lines","tap-pre":"audio-lines","tap-post":"audio-lines","record-toggle":"circle-dot","record-start":"circle-dot","record-stop":"square","soundboard-play":"play","soundboard-stop":"square","soundboard-overlap":"layers","media-prev":"skip-back","media-next":"skip-forward","media-play":"play","open-controls":"sliders-horizontal","defaults":"sliders-horizontal","engine-restart":"refresh-cw","hue-scene":"lightbulb","hue-brightness":"sun","hue-pair":"link","huesync-sync":"monitor","huesync-mode":"layers","huesync-intensity":"waves","hue-motion":"radar","hue-motion-off":"radar","deck-page":"folder","app-audio":"app-window","focus-reset":"crosshair","echo":"audio-lines","tape-play":"play","tape-pause":"pause","tape-stop":"square","tape-rew":"rewind","tape-ff":"fast-forward","deck-up":"chevron-up","deck-down":"chevron-down"};
 function symbolIcon(id){
  const mapped=deckIcons[c(id)?.Icon];
  const name=mapped||(/mute/.test(id)?"volume-2":/mic|source|mode/.test(id)?"mic":/play|clip/.test(id)?"play":/stop/.test(id)?"square":/record/.test(id)?"circle-dot":/prev/.test(id)?"skip-back":/next/.test(id)?"skip-forward":/scene/.test(id)?"lightbulb":"circle");
@@ -812,13 +844,13 @@ function buildDiagnostics(){
 function layoutKey(){
  // Values and telemetry are updated in place. Only structure/context rebuilds a screen.
  const list=[...controls.values()].map(v=>[v.ID,v.Label,v.Kind,v.Group,v.Options,v.OptionLabels]);
- return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="lights"?[state.Enabled?.hue,c("hue.group")?.Value,c("hue.rooms")?.ViewData]:null,screen==="media"?[state.Enabled?.nowplaying,(c("nowplaying.status")?.ViewData?.Sessions||[]).map(s=>[s.ID,s.CanSeek,s.CanMute]),(c("nowplaying.status")?.ViewData?.Browsers||[]).map(b=>b.Name)]:null,screen==="appaudio"?[state.Enabled?.appaudio,(c("appaudio.status")?.ViewData?.Apps||[]).map(a=>[a.ID,a.Name,a.Hidden,a.Picked,a.Open,a.Rule]),c("appaudio.status")?.ViewData?.Exclude]:null,screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value,c("streamdeck.preview")?.ViewData?.Regions,c("streamdeck.preview")?.ViewData?.Collections]:null]);
+ return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="lights"?[state.Enabled?.hue,c("hue.group")?.Value,c("hue.rooms")?.ViewData]:null,screen==="meetings"?[state.Enabled?.insta360,state.Enabled?.discord]:null,screen==="media"?[state.Enabled?.nowplaying,(c("nowplaying.status")?.ViewData?.Sessions||[]).map(s=>[s.ID,s.CanSeek,s.CanMute]),(c("nowplaying.status")?.ViewData?.Browsers||[]).map(b=>b.Name)]:null,screen==="appaudio"?[state.Enabled?.appaudio,(c("appaudio.status")?.ViewData?.Apps||[]).map(a=>[a.ID,a.Name,a.Hidden,a.Picked,a.Open,a.Rule]),c("appaudio.status")?.ViewData?.Exclude]:null,screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value,c("streamdeck.preview")?.ViewData?.Regions,c("streamdeck.preview")?.ViewData?.Collections]:null]);
 }
 function build(){
  widgets.length=0;updaters.length=0;root.replaceChildren();
  for(const b of document.querySelectorAll("[data-screen]")){if(b.dataset.screen===screen)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current");}
  $("#eyebrow").textContent=titles[screen][0];$("#title").textContent=titles[screen][1];
- ({audio:buildAudio,soundboard:buildSoundboard,lights:buildLights,appaudio:buildAppAudio,media:buildMedia,deck:buildDeck,plugins:buildPlugins,apps:buildApps,diagnostics:buildDiagnostics})[screen]();
+ ({audio:buildAudio,soundboard:buildSoundboard,lights:buildLights,appaudio:buildAppAudio,meetings:buildMeetings,media:buildMedia,deck:buildDeck,plugins:buildPlugins,apps:buildApps,diagnostics:buildDiagnostics})[screen]();
 }
 function update(){
  if(pending&&(Date.now()>pending.until || state.Notice!==pending.notice || (pending.id&&c(pending.id)?.Revision!==pending.revision) || (!pending.id&&state.Confirmation)))pending=null;
@@ -855,7 +887,7 @@ function receive(next){
  }
  update();
 }
-const navIcons={audio:"audio-waveform",soundboard:"music",lights:"lightbulb",appaudio:"app-window",media:"disc-3",deck:"layout-grid",plugins:"puzzle",apps:"plug",diagnostics:"activity"};
+const navIcons={audio:"audio-waveform",soundboard:"music",lights:"lightbulb",appaudio:"app-window",meetings:"video",media:"disc-3",deck:"layout-grid",plugins:"puzzle",apps:"plug",diagnostics:"activity"};
 for(const b of document.querySelectorAll("[data-screen]")){
  b.className=ui.nav;
  b.prepend(icon(navIcons[b.dataset.screen],"size-5 shrink-0"));

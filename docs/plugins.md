@@ -65,6 +65,19 @@ Sync: in Hue Sync, open Settings and turn on Third-party control. Snoofer connec
 
 The halves work together. While syncing, the Brightness dial adjusts the sync brightness (shown as Sync 62%), because the stream controls the lights; a Brightness press still toggles the room. Pressing a scene while syncing stops sync first and recalls the scene once Hue Sync confirms; if it does not stop within 3 seconds, the scene shows Error and nothing is recalled.
 
+## Meetings
+
+The Meetings screen holds the Camera and Discord cards. Each plugin is off until enabled there or on the Plugins page.
+
+Insta360 (`insta360`): controls an Insta360 Link 2 through its camera driver (snoofer-camera.dll beside snoofer.exe). Nothing else needs installing, and it works while Discord, a browser or Insta360 Link Controller uses the camera, because it only sends camera properties and never opens the video. Privacy turns the camera away; Tracking follows one person (Single) or frames everyone (Group); Framing sets head, half-body or full-body composition (full body is unavailable while tracking a group); Reset position re-centres the gimbal, or the composition while tracking. Changes the camera does not report within 3 seconds show Failed and are not retried. Preview never writes to the camera.
+
+Discord (`discord`): uses your own Discord application, because Discord only lets an application's owner and testers use voice control without approval.
+1. In the Discord Developer Portal, create an application. Under OAuth2, add the redirect `http://127.0.0.1` and copy the Client ID and Client Secret.
+2. With Snoofer stopped, set `client_id` and `client_secret` in the discord settings in snoofer.json (and `redirect_uri` if you registered a different redirect).
+3. Start Snoofer, open Meetings and press Connect, then approve Snoofer in Discord's popup. Snoofer saves a refresh token (`refresh_token`) and reconnects on its own afterwards; it never asks again unless you revoke access.
+
+The secret and token are credentials: keep snoofer.json private (it is ignored by git); they never appear in Diagnostics or Third-party apps. Discord mute follows Snoofer's Mic mute: muting in either place mutes both, and Snoofer's setting wins when Discord connects or you undeafen. Camera, Screen share and Leave call work while you are in a voice channel.
+
 ## Stream Deck layout
 
 Pages contain 36 keys and five assignable dials. The sixth dial shows previous/current/next page names, highlights the current page, rotates pages and presses Home. Shared bindings reserve positions across every page. Clear a page binding before assigning its position globally; collisions are rejected.

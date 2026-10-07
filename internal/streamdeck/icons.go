@@ -119,7 +119,7 @@ func drawIcon(im *image.RGBA, icon string, ink color.RGBA) bool {
 		line(29, 51, 83, 51)
 		line(56, 51, 56, 62)
 		line(43, 62, 69, 62)
-	case "monitor":
+	case "monitor", "discord-deafen":
 		for a := 180; a <= 360; a++ {
 			r := float64(a) * math.Pi / 180
 			dot(56+int(26*math.Cos(r)), 40+int(26*math.Sin(r)), 2)
@@ -194,7 +194,7 @@ func drawIcon(im *image.RGBA, icon string, ink color.RGBA) bool {
 			c, s := math.Cos(r), math.Sin(r)
 			line(56+int(17*c), 39+int(17*s), 56+int(25*c), 39+int(25*s))
 		}
-	case "hue-pair":
+	case "hue-pair", "discord-connect":
 		// Link: two interlocking rings.
 		for a := 0; a < 360; a++ {
 			r := float64(a) * math.Pi / 180
@@ -315,6 +315,68 @@ func drawIcon(im *image.RGBA, icon string, ink color.RGBA) bool {
 			y := 39 + int(float64(amplitude)*math.Sin(float64(x-20)*math.Pi/12))
 			dot(x, y, 2)
 		}
+	case "camera-privacy", "discord-video":
+		// Video camera: body and lens wedge; slashed while hidden or off.
+		line(24, 26, 64, 26)
+		line(24, 54, 64, 54)
+		line(24, 26, 24, 54)
+		line(64, 26, 64, 54)
+		line(64, 36, 86, 24)
+		line(86, 24, 86, 56)
+		line(86, 56, 64, 44)
+		if off {
+			line(25, 14, 87, 67)
+		}
+	case "tracking", "framing":
+		// Corner brackets of a frame around its subject.
+		for _, c := range [][4]int{{24, 18, 1, 1}, {88, 18, -1, 1}, {24, 62, 1, -1}, {88, 62, -1, -1}} {
+			line(c[0], c[1], c[0]+12*c[2], c[1])
+			line(c[0], c[1], c[0], c[1]+10*c[3])
+		}
+		if icon == "tracking" {
+			// A person, followed by the frame.
+			dot(56, 32, 7)
+			for a := 180; a <= 360; a++ {
+				r := float64(a) * math.Pi / 180
+				dot(56+int(14*math.Cos(r)), 58+int(10*math.Sin(r)), 2)
+			}
+		} else {
+			// The composition: a smaller frame inside.
+			line(42, 30, 70, 30)
+			line(42, 50, 70, 50)
+			line(42, 30, 42, 50)
+			line(70, 30, 70, 50)
+		}
+	case "camera-reset":
+		// Arrow turning back to the start.
+		for a := 50; a <= 320; a++ {
+			r := float64(a) * math.Pi / 180
+			dot(56+int(22*math.Cos(r)), 40+int(22*math.Sin(r)), 2)
+		}
+		line(73, 26, 72, 12)
+		line(73, 26, 87, 25)
+	case "screen-share":
+		// Screen with an arrow rising out of it.
+		line(26, 18, 86, 18)
+		line(26, 18, 26, 56)
+		line(86, 18, 86, 56)
+		line(26, 56, 86, 56)
+		line(56, 66, 56, 56)
+		line(44, 66, 68, 66)
+		line(56, 47, 56, 27)
+		line(56, 27, 46, 36)
+		line(56, 27, 66, 36)
+	case "call-leave":
+		// Hung-up handset with a downward arrow.
+		for a := 200; a <= 340; a++ {
+			r := float64(a) * math.Pi / 180
+			dot(56+int(30*math.Cos(r)), 50+int(22*math.Sin(r)), 2)
+		}
+		rect(24, 40, 12, 10)
+		rect(76, 40, 12, 10)
+		line(56, 46, 56, 66)
+		line(56, 66, 48, 58)
+		line(56, 66, 64, 58)
 	default:
 		return false
 	}

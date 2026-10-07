@@ -13,7 +13,7 @@ Fast recognition, truthful state, predictable actions. Users know Snoofer. Use s
 | --- | --- |
 | Deck key | Short label, recognizable icon, current state or local status. One or two words where possible; max 16 ASCII characters for built-ins. No explanatory sentences, action IDs or profile suffix on active-profile controls. |
 | Deck dial | Target, large value, position track (gain over -60..+12 dB with a 0 dB mark, or a percentage), live meter; page dial shows previous/current/next page names on three lines, with the current name larger and cyan; neighboring names are smaller and neutral. Press still returns Home. No repeated gain label when dB is visible. |
-| GUI | Task-oriented Audio, Soundboard, Lights, Stream Deck, Plugins, Third-party apps and Diagnostics screens. Plugins only enables, disables and retries; no settings or plugin controls appear there. Native controls, keyboard focus, spatial deck editor and persistent local feedback. |
+| GUI | Task-oriented Audio, Soundboard, Lights, App audio, Meetings, Media, Stream Deck, Plugins, Third-party apps and Diagnostics screens. Plugins only enables, disables and retries; no settings or plugin controls appear there. Native controls, keyboard focus, spatial deck editor and persistent local feedback. |
 | Tray | Open controls, lifecycle actions, concise state. No tutorials. |
 
 Provider Label identifies an action without an icon. Optional ShortLabel is for compact icon-bearing surfaces. Shortening presentation must never change IDs, layout bindings, command semantics or saved settings. Fixed-profile bindings retain Normal/VR qualifiers. Custom plugin labels remain intact.
@@ -111,6 +111,13 @@ Scene keys show generated artwork: a disc of wedges in the scene's dominant colo
 Lights screen: setup banner only while something needs doing (Enable, Pair with the found bridge, link-button instruction, errors). Room card with the room picker in its header, a Brightness (On/Off) readout with slider and −/+, a Motion sensors row (only while the room has sensors), the room's scene cards and Other rooms (chosen rooms only). A Rooms card lists every room and zone with a checkbox; the last chosen one cannot be unchecked. Hue Sync card with Start/Stop sync, segmented Mode and Intensity (disabled with a reason while not syncing) and the Third-party control instruction when unreachable.
 
 ![Lights screen](design/gui-lights.png)
+
+## Meetings
+Camera card (Insta360 Link 2): the tracking state (Idle, Detecting, Working, Lost or Privacy) under the title, then Privacy, Tracking (Off / Single / Group), Framing (Head / Half body / Full body) and Reset position. Privacy disables the others with the reason Privacy. Discord card: the voice channel (or Not in a call) under the title, the setup hint while credentials are missing, Connect while Discord needs approval, then Mute, Deafen, Camera, Screen share and Leave call; Camera, Screen share and Leave need a call. Discord mute is the Mic mute preference, so its key reuses the mic symbol and mirrors Mic mute in automatic layouts. Deck symbols: a video camera for Privacy (slashed and red while private, like a mute) and Discord camera (slashed and neutral while off), frame corners around a person for Tracking and around a smaller frame for Framing, a return arrow for Reset, headphones for Deafen (slashed and red while deafened), a screen with a rising arrow for Share, and a hung-up handset for Leave. Selection keys show option labels.
+
+![Meetings keys](design/meetings.png)
+
+![Meetings screen](design/gui-meetings.png)
 
 ## Third-party apps
 One card per connection report, grouped by plugin: app name, state badge, endpoint (monospace), "Since" and "Last activity" as relative times (amber "stale" when activity is older than three report intervals), the last error with its age (critical while it is the current state; muted "Last error:" after recovery), details and Copy details. A summary shows OK / Attention / Problems / Idle counts and Copy all. Tone: connected and ready are active; connecting and attention are attention; error, and disconnected when the peer is required, are critical; disconnected optional peers and off, unconfigured and unknown stay neutral. Plugins that are not running are listed as Not monitored. Reports are read-only and never appear on the deck. Copied text uses absolute ISO timestamps and never contains credentials.

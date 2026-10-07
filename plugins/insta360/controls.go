@@ -47,9 +47,10 @@ func (w *worker) controls(now time.Time) []snoofer.Control {
 	if gated == "" && w.status.Privacy {
 		gated = "Privacy"
 	}
-	privacyIcon := "camera-privacy-off"
+	// Privacy on is a slashed camera, drawn like a mute.
+	privacyIcon := "camera-privacy"
 	if w.status.Privacy {
-		privacyIcon = "camera-privacy"
+		privacyIcon = "camera-privacy-muted"
 	}
 	tracking := w.observed("insta360.tracking")
 	framing := w.observed("insta360.framing")

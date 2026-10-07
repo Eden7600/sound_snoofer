@@ -131,9 +131,8 @@ func (w *worker) controls(now time.Time) []snoofer.Control {
 	}
 	toggle := func(id, label, short, icon string, blocked string, known bool) snoofer.Control {
 		value := w.observed(id)
-		if value == "On" {
-			icon += "-on"
-		}
+		// Deafened is slashed headphones, drawn like a mute; camera off is a slashed camera.
+		icon += map[string]map[string]string{"discord.deafen": {"On": "-muted"}, "discord.video": {"Off": "-off"}}[id][value]
 		return snoofer.Control{ID: id, Label: label, ShortLabel: short, Group: "Discord", Kind: "toggle", Icon: icon, Value: value,
 			Status: w.controlStatus(id, blocked), Operations: []string{"press"}, Available: blocked == "" && known}
 	}

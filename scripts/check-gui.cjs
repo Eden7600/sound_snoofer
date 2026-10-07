@@ -85,7 +85,16 @@ add("nowplaying.status","Now playing","status","2 sessions",{ViewData:{Windows:"
  Browsers:[{Name:"Brave",Version:"1.0.0",Sessions:1}],
  Sessions:[{ID:"nowplaying.s-tab",Source:"Brave",App:"Brave · youtube.com",Title:"Video A",Artist:"Channel",Status:"Playing",PositionMs:65000,AtMs:Date.now(),Rate:1,DurationMs:285000,Focused:true,CanToggle:true,CanNext:true,CanSeek:true,CanMute:true},
   {ID:"nowplaying.s-spotify",Source:"windows",App:"Spotify",Title:"Song",Artist:"Band",Album:"Album",Status:"Paused",PositionMs:0,DurationMs:200000,CanToggle:true,CanNext:true,CanPrev:true,CanSeek:true}]}});
-const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",streamdeck:"Running",vr:"Running",media:"Disabled",hue:"Running",appaudio:"Running",nowplaying:"Running"},Enabled:{audio:true,soundboard:true,streamdeck:true,vr:true,media:false,hue:true,appaudio:true,nowplaying:true}};
+add("insta360.privacy","Camera privacy","toggle","Off",{Group:"Camera",Icon:"camera-privacy"});
+add("insta360.tracking","Camera tracking","selection","group",{Group:"Camera",Options:["off","single","group"],OptionLabels:{off:"Off",single:"Single",group:"Group"}});
+add("insta360.framing","Camera framing","selection","half",{Group:"Camera",Options:["head","half","full"],OptionLabels:{head:"Head",half:"Half body",full:"Full body"}});
+add("insta360.reset","Reset camera position","command","",{Group:"Camera"});
+add("insta360.state","Camera tracking state","status","Working",{Group:"Camera"});
+add("discord.channel","Discord channel","status","General",{Group:"Discord"});
+for(const [id,label,value] of [["mute","Discord mute","On"],["deafen","Discord deafen","Off"],["video","Discord camera","Off"],["screenshare","Discord screen share","Off"]])add("discord."+id,label,"toggle",value,{Group:"Discord"});
+add("discord.leave","Leave Discord call","command","",{Group:"Discord"});
+add("discord.connect","Connect Discord","command","",{Group:"Discord",Available:false});
+const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",streamdeck:"Running",vr:"Running",media:"Disabled",hue:"Running",appaudio:"Running",nowplaying:"Running",insta360:"Running",discord:"Running"},Enabled:{insta360:true,discord:true,audio:true,soundboard:true,streamdeck:true,vr:true,media:false,hue:true,appaudio:true,nowplaying:true}};
 (async()=>{
  const server=http.createServer((req,res)=>{
   if(req.url==="/logo.ico"){res.setHeader("Content-Type","image/x-icon");res.end(fs.readFileSync(path.join(root,"app/tray.ico")));return;}
@@ -357,6 +366,28 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   assert.match(await extension.textContent(),/Update the Snoofer Media extension in Firefox/);
   assert.equal(await extension.getByRole("button").count(),0,"extension card offers export or token actions");
   await page.screenshot({path:path.join(root,".local/gui-media.png"),fullPage:true});
+  await page.getByRole("button",{name:"Meetings",exact:true}).click();
+  const camera=page.locator("[data-part=camera]"),discord=page.locator("[data-part=discord]");
+  await camera.waitFor();
+  assert.equal(await camera.locator("[data-part=state]").textContent(),"Working");
+  assert.equal(await discord.locator("[data-part=state]").textContent(),"General");
+  assert.equal(await page.locator("[data-part=discord-setup]").isVisible(),false,"setup hint while configured");
+  assert.equal(await page.locator("[data-part=discord-connect]").isVisible(),false,"Connect while connected");
+  assert.equal(await camera.locator("select").first().inputValue(),"group");
+  await page.screenshot({path:path.join(root,".local/gui-meetings.png"),fullPage:true});
+  await camera.getByRole("button",{name:"Privacy",exact:true}).click();
+  assert.equal(await page.evaluate(()=>window.sent.at(-1).Request.ID),"insta360.privacy");
+  await discord.getByRole("button",{name:"Mute",exact:true}).click();
+  assert.equal(await page.evaluate(()=>window.sent.at(-1).Request.ID),"discord.mute");
+  await discord.getByRole("button",{name:"Leave call",exact:true}).click();
+  assert.equal(await page.evaluate(()=>window.sent.at(-1).Request.ID),"discord.leave");
+  await page.evaluate(()=>{const s=window.fixture.Controls.find(c=>c.ID==="discord.mute");s.Available=false;s.Status="Setup needed";});
+  await page.locator("[data-part=discord-setup]").waitFor();
+  await page.evaluate(()=>{const s=window.fixture.Controls.find(c=>c.ID==="discord.mute");s.Available=true;s.Status="";window.fixture.Enabled.discord=false;});
+  await page.getByRole("button",{name:"Enable Discord",exact:true}).click();
+  assert.deepEqual(await page.evaluate(()=>{const a=window.sent.at(-1);return [a.Kind,a.Plugin,a.Enable];}),["selection","discord",true]);
+  await page.evaluate(()=>{window.fixture.Enabled.discord=true;});
+  await discord.waitFor();
   await page.getByRole("button",{name:"Third-party apps",exact:false}).click();
   await page.getByRole("heading",{name:"Hue",exact:true}).waitFor();
   assert.equal(await page.locator("[data-part=app-card]").count(),4);
@@ -386,6 +417,8 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,"deck horizontal overflow");
   await page.getByRole("button",{name:"Lights",exact:false}).click();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,"lights horizontal overflow");
+  await page.getByRole("button",{name:"Meetings",exact:true}).click();
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,"meetings horizontal overflow");
   await page.getByRole("button",{name:"Third-party apps",exact:false}).click();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,"apps horizontal overflow");
   await page.getByRole("button",{name:"Diagnostics",exact:false}).click();
@@ -402,7 +435,7 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.getByRole("button",{name:"Cancel",exact:true}).click();
   assert.equal(await page.evaluate(()=>window.sent.at(-1).Kind),"cancel");
   assert.deepEqual(errors,[]);
-  console.log("PASS: GUI screens, deck selection, draft text, search, lights, third-party apps, responsive bounds and enable-only plugins");
+  console.log("PASS: GUI screens, deck selection, draft text, search, lights, meetings, third-party apps, responsive bounds and enable-only plugins");
  }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(e=>{console.error(e);process.exitCode=1;});
 
