@@ -58,8 +58,20 @@ func drawIcon(im *image.RGBA, icon string, ink color.RGBA) bool {
 		// Two offset play triangles: clips layered over each other.
 		triangle(26, 30, 28, 1)
 		triangle(50, 46, 28, 1)
-	case "record-stop", "soundboard-stop":
+	case "record-stop", "soundboard-stop", "tape-stop":
 		rect(36, 18, 40, 40)
+	case "tape-play":
+		triangle(40, 38, 36, 1)
+	case "tape-pause":
+		rect(38, 20, 12, 36)
+		rect(62, 20, 12, 36)
+	case "tape-rew":
+		// Wind: two triangles without the skip bar of media Previous.
+		triangle(54, 38, 26, -1)
+		triangle(82, 38, 26, -1)
+	case "tape-ff":
+		triangle(30, 38, 26, 1)
+		triangle(58, 38, 26, 1)
 	case "media-prev":
 		rect(25, 20, 5, 36)
 		triangle(51, 38, 23, -1)

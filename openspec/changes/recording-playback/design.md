@@ -18,7 +18,7 @@
 ## Planner ownership
 - **What changes:** `addRehearsal` already owns the tape sends (A1–A5, B1, B3) under ToVST or `TapeRoutingManaged`. Its desired value for the Playback destination's bus becomes 1 when either:
   - pre monitoring is in VST rehearsal (as today), or
-  - listening playback is in progress (new).
+  - listening playback that Snoofer's Play started is in progress (new). The controller keeps a runtime `TapeListening` flag: it is set by a successful Play, carried across controller resets, and cleared once the recorder stops playing. Playback started elsewhere, or still running when VST rehearsal is turned off, is not routed. After a Snoofer restart mid-playback, the tape send is cleared.
   
   Every other tape send is 0.
 - **When the tape stops:** the plan clears the send on the next reconciliation.
@@ -39,7 +39,7 @@
   - `tape-rew` and `tape-ff`: double triangles.
 - **Key text and availability:**
   - Labels are Play, Stop, Rew and FF.
-  - Play shows Playing (cyan), Paused (attention) or Ready.
+  - Play shows Playing (cyan, with pause bars), Paused or Ready (neutral), Rec or N/A.
   - Stop, Rew and FF are unavailable while recording, and Stop also while nothing is playing.
 - **Echo keys on Home:** `aec.mode` and `aec.strength`; selection keys cycle.
 - **GUI:** the Recording card gains a transport row (Record, Play/Pause, Stop, Rew, FF) beside the capture toggles. The UI contract's "transport stays off the Audio page" rule gains this exception.

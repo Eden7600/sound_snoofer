@@ -11,7 +11,10 @@ func DefaultLayout() Layout {
 	// row 3 (clipped, since Home has no Up/Down), transport, Brightness and
 	// Motion on the bottom row beside the go-to keys.
 	home := Page{ID: "home", Name: "Home", Regions: []Region{{Source: "nowplaying.sessions", First: 18, Last: 21, Clip: true}, {Source: "appaudio.apps", First: 22, Last: 25, Clip: true}}}
-	for n, id := range map[int]string{0: "audio.mic-mute", 1: "audio.speaker-mute", 2: "audio.monitor", 3: "audio.mode", 9: "audio.record-toggle", 11: "audio.record-mic", 12: "audio.record-computer", 13: "audio.record-tap",
+	// Row 1 is the mic path then echo cancellation; row 2 is recording, left
+	// to right: capture choices, Record, then tape playback.
+	for n, id := range map[int]string{0: "audio.mic-mute", 1: "audio.speaker-mute", 2: "audio.monitor", 3: "audio.mode", 4: "aec.mode", 5: "aec.strength",
+		9: "audio.record-mic", 10: "audio.record-computer", 11: "audio.record-tap", 12: "audio.record-toggle", 13: "audio.tape-play", 14: "audio.tape-stop", 15: "audio.tape-rew", 16: "audio.tape-ff",
 		26: resetFocusID, 27: "nowplaying.prev", 28: "nowplaying.toggle", 29: "nowplaying.next", 30: "hue.brightness", 31: "hue.motion",
 		33: gotoPrefix + "media", 34: gotoPrefix + "soundboard", 35: gotoPrefix + "lights"} {
 		home.Keys[n] = Binding{Control: id, Label: id}
