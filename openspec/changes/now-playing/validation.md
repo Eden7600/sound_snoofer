@@ -141,3 +141,14 @@ Restarting an unpacked extension after `runtime.reload()` does not work under au
   - **Media page:** dials are media, Playback and the focused app; no Focus key. Across the four filter states: both on gives 2 app dials (4–5); Apps off gives none; Media off gives 3 (1, 4, 5); both off gives none.
 - `scripts/check-gui.cjs` (no Focus button on media cards) and `scripts/check-desktop.cjs`: pass.
 - **Build and personal layout:** built with `scripts/build.ps1`. The personal Media page lost the Focus key (key 32), and its dials became media, Playback and the focused app (backup `snoofer.json.before-focus`). `snoofer.exe --check` passes, and Snoofer was relaunched.
+
+## Revision: Playback first, no duplicate dials, transport on Home (commits 862ba64 through ebd8038)
+- `go test ./...`: pass.
+  - **Mirrored control:** a visible stand-in dial keeps its mirrored control off the page's region dials, and the next app takes the dial. A hidden stand-in yields its dial and mirrors nothing. `appaudio.focus` mirrors the focused app.
+  - **Media page dials:** Playback, media, focused app. With media off, the app dials are 2, 4 and 5.
+  - **Home:** keys 28–30 are the Now playing transport.
+- `scripts/check-gui.cjs` and `scripts/check-desktop.cjs`: pass.
+- **Build and personal layout:** built with `scripts/build.ps1`.
+  - The personal Media page's first two dials were swapped (Playback first).
+  - Home's blind media keys were replaced by `nowplaying.prev`, `nowplaying.toggle` and `nowplaying.next` (backup `snoofer.json.before-home-transport`).
+  - `snoofer.exe --check` passes, and Snoofer was relaunched.
