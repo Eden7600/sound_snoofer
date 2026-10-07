@@ -17,6 +17,11 @@ for(const prefix of ["normal-","vr-profile-"]){
  add("audio."+prefix+id,label,"selection",value,{Options:opts,OptionLabels:{lav:"Lavalier · Volt",auto:"Automatic"},Subdued:prefix==="normal-",Status:prefix==="normal-"?"VR override":""});
 }
 add("audio.record-mic","Record microphone","toggle","On",{Group:"Recording"});
+add("audio.record-toggle","Record","command","Stopped",{Group:"Transport",SurfaceOnly:true,Icon:"record-toggle"});
+add("audio.tape-play","Play recording","command","Playing",{Group:"Transport",SurfaceOnly:true,Icon:"tape-pause"});
+add("audio.tape-stop","Stop playback","command","",{Group:"Transport",SurfaceOnly:true,Icon:"tape-stop"});
+add("audio.tape-rew","Rewind","command","",{Group:"Transport",SurfaceOnly:true,Icon:"tape-rew",Available:false});
+add("audio.tape-ff","Fast-forward","command","",{Group:"Transport",SurfaceOnly:true,Icon:"tape-ff"});
 add("audio.auto-recover","Automatic recovery","toggle","On",{Group:"Shared audio"});
 add("audio.pause-devices","Disable device manipulation","toggle","Off",{Group:"Shared audio"});
 add("audio.pause-sends","Disable send manipulation","toggle","On",{Group:"Shared audio",Status:"3 held"});
@@ -140,6 +145,14 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   const recovery=page.locator("section",{has:page.getByRole("heading",{name:"Routing & recovery"})});
   assert.equal(await recovery.getByText("Disable send manipulation").count(),1);
   assert.equal(await recovery.getByText("3 held").count(),1);
+  const tape=page.locator("[data-part=tape]");
+  assert.deepEqual(await tape.getByRole("button").allTextContents(),["Record","Pause","Stop","",""]);
+  assert.equal(await tape.getByRole("button",{name:"Fast-forward"}).count(),1);
+  assert.equal(await page.getByText("Play recording").count(),0,"tape commands leaked into Routing & recovery");
+  assert.equal(await tape.getByRole("button",{name:"Rewind"}).isDisabled(),true,"unavailable tape control enabled");
+  await tape.getByRole("button",{name:"Stop"}).click();
+  await page.waitForFunction(()=>window.sent.some(a=>a.Request?.ID==="audio.tape-stop"));
+  await page.evaluate(()=>{window.sent.length=0;scrollTo(0,0);});
   const echo=page.locator("[data-part=echo]");
   assert.equal(await echo.getByRole("heading",{name:"Echo cancellation"}).count(),1);
   assert.equal(await echo.getByText("Active",{exact:true}).count(),1,"echo status value");
