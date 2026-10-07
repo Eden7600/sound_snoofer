@@ -96,10 +96,16 @@ func collectionLabel(f fill, controls []snoofer.Control) string {
 	if f.prefix {
 		return f.Source
 	}
-	for _, c := range controls {
-		if c.Collection == f.Source && c.CollectionLabel != "" {
-			return c.CollectionLabel
+	labels := []string{}
+	for _, source := range append([]string{f.Source}, f.Sources...) {
+		label := source
+		for _, c := range controls {
+			if c.Collection == source && c.CollectionLabel != "" {
+				label = c.CollectionLabel
+				break
+			}
 		}
+		labels = append(labels, label)
 	}
-	return f.Source
+	return strings.Join(labels, " + ")
 }

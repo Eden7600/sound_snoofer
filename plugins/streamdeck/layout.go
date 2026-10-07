@@ -50,6 +50,9 @@ func (l Layout) clone() Layout {
 	l.Pages = slices.Clone(l.Pages)
 	for n := range l.Pages {
 		l.Pages[n].Regions = slices.Clone(l.Pages[n].Regions)
+		for r := range l.Pages[n].Regions {
+			l.Pages[n].Regions[r].Sources = slices.Clone(l.Pages[n].Regions[r].Sources)
+		}
 		l.Pages[n].DialRegions = slices.Clone(l.Pages[n].DialRegions)
 	}
 	return l

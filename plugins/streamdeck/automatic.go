@@ -16,13 +16,94 @@ type stream struct {
 	matches []snoofer.Control
 }
 
+// stack is a region whose rows several sources share by need (Region.Sources).
+type stack struct {
+	rows    [][]int             // Free cells by row, top to bottom.
+	sources [][]snoofer.Control // Candidates of each source, in order.
+}
+
+// sets places a stack's sources set by set. In each set every source with
+// members left gets one row while rows last, then leftover rows go to sources
+// in order up to what they need; each source fills its rows in reading order.
+func (s stack) sets() []map[int]snoofer.Control {
+	if len(s.rows) == 0 {
+		return nil
+	}
+	width := 0
+	for _, row := range s.rows {
+		width = max(width, len(row))
+	}
+	remaining := make([][]snoofer.Control, len(s.sources))
+	copy(remaining, s.sources)
+	var out []map[int]snoofer.Control
+	for {
+		var active []int
+		for n, members := range remaining {
+			if len(members) > 0 {
+				active = append(active, n)
+			}
+		}
+		if len(active) == 0 {
+			return out
+		}
+		rows := make([]int, len(s.sources))
+		left := len(s.rows)
+		for _, n := range active {
+			if left > 0 {
+				rows[n]++
+				left--
+			}
+		}
+		for _, n := range active {
+			need := (len(remaining[n]) + width - 1) / width
+			extra := min(left, need-rows[n])
+			if extra > 0 {
+				rows[n] += extra
+				left -= extra
+			}
+		}
+		placed := map[int]snoofer.Control{}
+		row := 0
+		for n := range s.sources {
+			for r := 0; r < rows[n]; r++ {
+				for _, cell := range s.rows[row] {
+					if len(remaining[n]) == 0 {
+						break
+					}
+					placed[cell] = remaining[n][0]
+					remaining[n] = remaining[n][1:]
+				}
+				row++
+			}
+		}
+		out = append(out, placed)
+	}
+}
+
 // expanded fills regions' free keys and dials; saved, manual and shared
-// bindings remain intact. Overflow adds pages that repeat the page's fixed
-// bindings, each showing the next chunk of every region, so key and dial
-// regions of one collection page in step.
+// bindings remain intact unless their control is Hidden, which frees the
+// position for a covering region. Overflow adds pages that repeat the page's
+// fixed bindings, each showing the next chunk of every region, so key and
+// dial regions of one collection page in step.
 func (l Layout) expanded(controls []snoofer.Control) Layout {
 	result := l.clone()
 	result.Pages = nil
+	hidden := map[string]bool{}
+	for _, c := range controls {
+		// Stream Deck's own keys never yield: their visibility depends on
+		// this expansion.
+		if c.Hidden && !strings.HasPrefix(c.ID, "streamdeck.") {
+			hidden[c.ID] = true
+		}
+	}
+	free := func(bindings ...Binding) bool {
+		for _, b := range bindings {
+			if b.Control != "" && !hidden[b.Control] {
+				return false
+			}
+		}
+		return true
+	}
 	for _, page := range l.Pages {
 		fills := page.fills()
 		if len(fills) == 0 && len(page.DialRegions) == 0 {
@@ -43,6 +124,7 @@ func (l Layout) expanded(controls []snoofer.Control) Layout {
 			prefix, dials bool
 		}
 		var streams []*stream
+		var stacks []stack
 		bySource := map[sourceKey]*stream{}
 		add := func(f fill, dials bool) *stream {
 			key := sourceKey{f.Source, f.prefix, dials}
@@ -59,9 +141,28 @@ func (l Layout) expanded(controls []snoofer.Control) Layout {
 			return s
 		}
 		for _, f := range fills {
+			if len(f.Sources) > 0 {
+				st := stack{}
+				for _, source := range append([]string{f.Source}, f.Sources...) {
+					st.sources = append(st.sources, candidates(fill{Region: Region{Source: source}}, controls, boundKeys, "press"))
+				}
+				for _, row := range f.rows() {
+					var cells []int
+					for _, cell := range row {
+						if free(page.Keys[cell], l.SharedKeys[cell]) {
+							cells = append(cells, cell)
+						}
+					}
+					if len(cells) > 0 {
+						st.rows = append(st.rows, cells)
+					}
+				}
+				stacks = append(stacks, st)
+				continue
+			}
 			s := add(f, false)
 			for _, cell := range f.cells() {
-				if page.Keys[cell].Control == "" && l.SharedKeys[cell].Control == "" {
+				if free(page.Keys[cell], l.SharedKeys[cell]) {
 					s.cells = append(s.cells, cell)
 				}
 			}
@@ -69,7 +170,7 @@ func (l Layout) expanded(controls []snoofer.Control) Layout {
 		for _, r := range page.DialRegions {
 			s := add(fill{Region: r}, true)
 			for _, dial := range r.dialCells() {
-				if page.Dials[dial].Control == "" && l.SharedDials[dial].Control == "" {
+				if free(page.Dials[dial], l.SharedDials[dial]) {
 					s.cells = append(s.cells, dial)
 				}
 			}
@@ -79,6 +180,11 @@ func (l Layout) expanded(controls []snoofer.Control) Layout {
 			if len(s.cells) > 0 {
 				pages = max(pages, (len(s.matches)+len(s.cells)-1)/len(s.cells))
 			}
+		}
+		stacked := make([][]map[int]snoofer.Control, len(stacks))
+		for n, st := range stacks {
+			stacked[n] = st.sets()
+			pages = max(pages, len(stacked[n]))
 		}
 		for number := 1; number <= pages; number++ {
 			generated := page
@@ -98,6 +204,14 @@ func (l Layout) expanded(controls []snoofer.Control) Layout {
 					} else {
 						generated.Keys[cell] = Binding{Control: c.ID, Label: c.Label}
 					}
+				}
+			}
+			for _, sets := range stacked {
+				if number > len(sets) {
+					continue
+				}
+				for cell, c := range sets[number-1] {
+					generated.Keys[cell] = Binding{Control: c.ID, Label: c.Label}
 				}
 			}
 			result.Pages = append(result.Pages, generated)

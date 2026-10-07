@@ -12,11 +12,15 @@ import (
 // Columns is the key grid width; regions are rectangles on this grid.
 const Columns = 9
 
-// Region fills a rectangle of keys from a control collection.
+// Region fills a rectangle of keys from a control collection. Sources, when
+// set, are further collections that share the rectangle's rows after Source,
+// each taking rows by need, so a source with nothing to show leaves its rows
+// to the others.
 type Region struct {
-	Source string `json:"source"` // Collection ID, or a legacy ID prefix ending in "-".
-	First  int    `json:"first"`  // Zero-based key indexes of opposite corners.
-	Last   int    `json:"last"`
+	Source  string   `json:"source"` // Collection ID, or a legacy ID prefix ending in "-".
+	Sources []string `json:"sources,omitempty"`
+	First   int      `json:"first"` // Zero-based key indexes of opposite corners.
+	Last    int      `json:"last"`
 }
 
 // cells lists the rectangle's keys in row-major order.
@@ -28,6 +32,18 @@ func (r Region) cells() []int {
 		for column := left; column <= right; column++ {
 			out = append(out, row*Columns+column)
 		}
+	}
+	return out
+}
+
+// rows lists the rectangle's keys row by row.
+func (r Region) rows() [][]int {
+	var out [][]int
+	for _, cell := range r.cells() {
+		if len(out) == 0 || out[len(out)-1][0]/Columns != cell/Columns {
+			out = append(out, nil)
+		}
+		out[len(out)-1] = append(out[len(out)-1], cell)
 	}
 	return out
 }
@@ -89,6 +105,11 @@ func (l Layout) validateRegions(p Page) error {
 		}
 		if !strings.Contains(r.Source, ".") {
 			return fmt.Errorf("%s region %d needs a provider source", p.Name, n+1)
+		}
+		for _, source := range r.Sources {
+			if !strings.Contains(source, ".") || strings.HasSuffix(source, "-") || source == r.Source {
+				return fmt.Errorf("%s region %d shares rows with an invalid source %q", p.Name, n+1, source)
+			}
 		}
 		free := 0
 		for _, key := range r.cells() {
