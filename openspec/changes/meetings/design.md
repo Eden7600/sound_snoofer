@@ -71,3 +71,6 @@ A new `meetings` screen between App audio and Media, with two cards.
 - A disabled plugin shows its card with an Enable button, as on Lights and Media.
 
 Deck icons, all code-drawn: `camera-privacy` (and `-off`), `tracking`, `framing`, `camera-reset`, `discord-deafen` (and `-off`), `discord-video`, `screen-share` and `call-leave`. Discord mute reuses the mic-mute icon. No default deck layout changes.
+
+## Live read (2026-10-07)
+The opt-in test read the Link 2 through the DLL without writing: a 56-byte status packet (mode Normal, pan −35, tilt −849, zoom 100, flags 0x2A20 with privacy bit 0 clear), privacy control XU2 0x0F = `02 00`, and framing `01` (Head). Value 2 on the privacy control is not one of the plugin's documented states, and tilt −849 lies below the plugin's tilt range, so privacy state is read only from the status flags, as the official plugin does, until hardware acceptance establishes the control's meaning.
