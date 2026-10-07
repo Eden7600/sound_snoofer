@@ -8,3 +8,7 @@ Commits: 60ed57a (design), 4c79dd2 (camera access), 5bd5066 (insta360), 304826e 
 - Strict OpenSpec validation passed. `scripts/build.ps1` built bin/snoofer.exe and bin/snoofer-camera.dll after a graceful stop; `--check` accepted the personal snoofer.json, where both new plugins are absent and therefore disabled. Snoofer was relaunched with no arguments.
 - Not verified: any camera write, Discord RPC against the real client (authorization, token exchange with the redirect, video and screen-share event payloads), and the mute link in a real call. These remain hardware acceptance tasks 8 and 9. The privacy control's value 2 is unexplained; privacy state is read from the status flags only.
 - Race detector unavailable: CGO is disabled. No toolchain changes.
+
+## Stream Deck page — 2026-10-07
+- 650a69a adds the Meetings page and the Home go-to key to the default layout; default-layout tests cover the page, its dials, Leave standing apart, the Home key and the page dial reaching Meetings after Media. `go vet` passed; `go test ./...` passed except `internal/config` TestVoiceExample, which loads config.voice.json, deleted from the working tree outside this change (not committed).
+- Personal layout: with Snoofer stopped, the Meetings page and the Home key at r4c6 (key 32, previously empty) were added to bin/snoofer.json. Nothing else in the file changed (174 lines added, the Home key's 2 lines replaced). `--check` passed and Snoofer was relaunched with no arguments. Until insta360 and discord are enabled, the page's camera and Discord keys show N/A.

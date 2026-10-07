@@ -17,4 +17,4 @@ Each numbered block is one reviewable commit.
 ## Revision: Stream Deck page
 - [x] 10. `docs(meetings)`: specify the Meetings deck page and the Home go-to key.
 - [x] 11. `feat(streamdeck)`: the Meetings page and go-to key in the default layout; update default-layout tests, the UI contract and the personal-layout section.
-- [ ] 12. Add the page and key to the personal layout with Snoofer stopped, check the envelope, relaunch and record.
+- [x] 12. Add the page and key to the personal layout with Snoofer stopped, check the envelope, relaunch and record.
