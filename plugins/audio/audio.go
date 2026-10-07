@@ -17,6 +17,7 @@ import (
 	"sound-snoofer/internal/control"
 	"sound-snoofer/internal/controller"
 	"sound-snoofer/internal/ownership"
+	"sound-snoofer/internal/routing"
 	"sound-snoofer/internal/voicemeeter"
 	"sound-snoofer/snoofer"
 )
@@ -338,7 +339,7 @@ func controls(s control.State) []snoofer.Control {
 			value = fmt.Sprintf("%.1f dB", gain)
 		}
 		add("gain-"+target, map[string]string{"playback": "Playback", "mic": "Mic"}[target], "Shared audio", "numeric", value, nil, "adjust", "press")
-		level, known := s.Levels[parameter]
+		level, known := s.Levels[meterSource(s.Plan, target, parameter)]
 		known = known && controller.GainIdentity(s.Plan, s.Snapshot, target) != "" && level >= 0 && !math.IsNaN(float64(level)) && !math.IsInf(float64(level), 0)
 		db := -60.0
 		if known && level > 0 {
@@ -514,4 +515,13 @@ func microphoneTargets(options []string, saved string) []string {
 		}
 	}
 	return result
+}
+
+// meterSource is the level reading for a gain target's meter. While Element
+// processes the mic, the mic meter shows its return on the AUX strip.
+func meterSource(p *routing.Plan, target, gainParameter string) string {
+	if target == "mic" && p != nil && p.Topology != nil && p.Topology.Voice != nil && p.Topology.Voice.EffectiveMode == "element" {
+		return "Strip[6].Gain"
+	}
+	return gainParameter
 }

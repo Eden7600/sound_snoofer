@@ -28,7 +28,7 @@ func TestGainLevelsMappingAndFailures(t *testing.T) {
 	if levels["Bus[0].Gain"] != 0.5 || levels["Bus[1].Gain"] != 0.25 || levels["Strip[3].Gain"] != 1.2 {
 		t.Fatal(levels)
 	}
-	if len(a.calls) != 42 || a.calls[40] != [2]int{2, 6} || a.calls[41] != [2]int{2, 7} {
+	if len(a.calls) != 44 || a.calls[40] != [2]int{2, 6} || a.calls[41] != [2]int{2, 7} || a.calls[42] != [2]int{2, 18} || a.calls[43] != [2]int{2, 19} {
 		t.Fatal(a.calls)
 	}
 	a.failure = [2]int{3, 7}
@@ -49,7 +49,7 @@ func TestGainLevelsMappingAndFailures(t *testing.T) {
 	a.failure = [2]int{-1, -1}
 	a.values = nil
 	levels = c.GainLevels(-1)
-	if len(levels) != 5 || levels["Bus[0].Gain"] != 0 {
+	if len(levels) != 6 || levels["Bus[0].Gain"] != 0 || levels["Strip[6].Gain"] != 0 {
 		t.Fatal("silence/off", levels)
 	}
 	a.edition = 2

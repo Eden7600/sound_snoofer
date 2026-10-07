@@ -50,3 +50,26 @@ func TestGainMeterFollowsMicSource(t *testing.T) {
 	s.Connected = false
 	check(false)
 }
+
+func TestMicMeterShowsElementReturn(t *testing.T) {
+	voice := &routing.VoiceStatus{Strip: 0, EffectiveMode: "element"}
+	s := control.State{Connected: true, Intent: &config.Intent{Enabled: true, Source: "desk", Mode: "element"},
+		LevelsAt: time.Now(), Levels: map[string]float32{"Strip[0].Gain": 1, "Strip[6].Gain": 0.1},
+		Plan: &routing.Plan{Topology: &routing.Topology{Voice: voice}}}
+	meter := func() float64 {
+		for _, c := range controls(s) {
+			if c.ID == "audio.gain-mic" {
+				return c.Meter.DB
+			}
+		}
+		t.Fatal("mic control missing")
+		return 0
+	}
+	if db := meter(); db < -20.01 || db > -19.99 {
+		t.Fatal("Element mic meter should read the AUX return", db)
+	}
+	voice.EffectiveMode = "direct"
+	if db := meter(); db != 0 {
+		t.Fatal("Direct mic meter should read the source strip", db)
+	}
+}

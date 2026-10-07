@@ -6,7 +6,8 @@ import (
 	"sound-snoofer/internal/model"
 )
 
-// GainLevels observes physical playback buses and the active hardware mic on the caller's native
+// GainLevels observes physical playback buses, the active hardware mic and, on
+// Potato, the AUX strip (Element's processed return) on the caller's native
 // worker thread. Missing entries are unknown, never a fabricated zero reading.
 func (c *Client) GainLevels(micStrip int) map[string]float32 {
 	c.mu.Lock()
@@ -46,6 +47,10 @@ func (c *Client) GainLevels(micStrip int) map[string]float32 {
 	}
 	if micStrip >= 0 && micStrip < physical {
 		read(fmt.Sprintf("Strip[%d].Gain", micStrip), 2, micStrip*2, 2)
+	}
+	if edition == 3 {
+		// AUX is the second virtual strip: 5 physical strips x 2, then 8 per virtual.
+		read("Strip[6].Gain", 2, physical*2+8, 2)
 	}
 	return levels
 }
