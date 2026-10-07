@@ -33,6 +33,10 @@ Snoofer SHALL control each session individually and SHALL direct the media dial 
 - **WHEN** the dial is turned while the session plays and its progress advances
 - **THEN** every detent is applied; none is rejected as stale
 
+#### Scenario: Hold an app to adjust it
+- **WHEN** the user holds the key of an app far down the list
+- **THEN** the focused-app dial controls that app's volume and mute, and a tap on the key still mutes
+
 #### Scenario: Hold to focus
 - **WHEN** the user holds a session key for half a second
 - **THEN** that session becomes focused and does not toggle; a tap still plays or pauses it

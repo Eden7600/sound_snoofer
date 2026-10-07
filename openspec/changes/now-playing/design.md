@@ -168,7 +168,13 @@ Review found that filters only blanked keys. The space should go to whatever is 
 - **Session keys:** a tap plays or pauses (and focuses); a hold focuses without toggling.
 - **Focus key removed:** the `nowplaying.focus` control, its deck key and the GUI card's Focus button are removed. Focus comes from newly started playback, taps, holds, the dial and transport keys.
 - **Single-playing focus rule reverted:** focus no longer jumps to the only playing session.
-- **Dials:** the Media page's dials are media, Playback (`audio.gain-playback`), then apps. The app dial region still covers all five dials, so the media dial's position goes to an app when media is off.
+- **App focus (revised again):** app keys also offer `hold`. A tap mutes, as before; a hold focuses the app.
+  - **`appaudio.focus`:** a dial control (volume and mute) for the focused app, wherever the app sits in the list, so programs far down can be adjusted. It shows the app's name, artwork, volume and meter.
+  - **Default and lifetime:** focus defaults to the first app shown on the deck, and moves there if the focused app disappears. It lives in memory only.
+  - **Filter:** the dial is Hidden when the Apps filter is Off.
+- **Dials:** the Media page's dials are media, Playback (`audio.gain-playback`), the focused app, then apps.
+  - The app dial region still covers all five dials, so the media dial's position goes to an app when media is off.
+  - The focused app may also appear on a region dial; both control the same app.
 
 ## 4c. Placeholder artwork (revised after review)
 Programs without a logo get a colour that is random-looking but fixed for each program, so they can be told apart at a glance.
