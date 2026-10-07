@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"sound-snoofer/internal/mediasessions"
+	"sound-snoofer/internal/placeholder"
 	"sound-snoofer/snoofer"
 )
 
@@ -143,7 +144,8 @@ type worker struct {
 	pressed  time.Time // The last time the user chose what to control.
 	pending  map[string]pendingCommand
 	failure  map[string]string
-	scrub    *scrub // The dial seek being gathered, if any.
+	scrub    *scrub            // The dial seek being gathered, if any.
+	tiles    map[string]string // Player or site to placeholder artwork.
 }
 
 func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, open func() (windowsSource, error), t timing) (snoofer.Instance, error) {
@@ -199,7 +201,7 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, open fu
 func newWorker(s snoofer.Services, open func() (windowsSource, error), t timing) *worker {
 	return &worker{services: s, timing: t, openWindows: open, winArt: map[string]string{}, browsers: map[string]browserUpdate{}, browserArt: map[string]string{},
 		send:    func(string, browserCommand) error { return errors.New("browser bridge unavailable") },
-		started: map[string]time.Time{}, playing: map[string]bool{}, pending: map[string]pendingCommand{}, failure: map[string]string{}}
+		started: map[string]time.Time{}, playing: map[string]bool{}, pending: map[string]pendingCommand{}, failure: map[string]string{}, tiles: map[string]string{}}
 }
 
 func (w *worker) closeWindows() {
@@ -396,6 +398,20 @@ func (w *worker) observe(now time.Time) {
 			w.failure[k] = "No response"
 		}
 	}
+}
+
+// artwork is the session's cover, or a placeholder in its player's or
+// site's own colour.
+func (w *worker) artwork(s session) string {
+	if s.Art != "" {
+		return s.Art
+	}
+	tile, ok := w.tiles[s.App]
+	if !ok {
+		tile = placeholder.Art(s.App, placeholder.Media)
+		w.tiles[s.App] = tile
+	}
+	return tile
 }
 
 // progress is what surfaces show for a session: the dial seek being

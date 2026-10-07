@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"sound-snoofer/internal/placeholder"
 	"sound-snoofer/internal/windowsaudio"
 	"sound-snoofer/snoofer"
 )
@@ -497,5 +498,19 @@ func TestDeckAppsFilter(t *testing.T) {
 	defer h.mu.Unlock()
 	if h.saved.DeckApps != "" {
 		t.Fatal("all is stored as the default", h.saved.DeckApps)
+	}
+}
+
+func TestAppsWithoutIconsGetColouredTiles(t *testing.T) {
+	backend := studio()
+	backend.sessions[3].Icon = "icon-data" // Discord has an icon; the others do not.
+	h := startHarness(t, backend, Settings{}, true)
+	list := h.wait("apps", func(l []snoofer.Control) bool { return len(apps(l)) == 3 })
+	if find(list, "Discord").Artwork != "icon-data" {
+		t.Fatal("real icon replaced")
+	}
+	chrome := find(list, "Google Chrome").Artwork
+	if chrome != placeholder.Art("Google Chrome", placeholder.App) || chrome == find(list, "Stubborn").Artwork {
+		t.Fatal("placeholder missing or shared")
 	}
 }

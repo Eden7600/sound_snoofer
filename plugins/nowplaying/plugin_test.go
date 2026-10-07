@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"sound-snoofer/internal/mediasessions"
+	"sound-snoofer/internal/placeholder"
 	"sound-snoofer/snoofer"
 )
 
@@ -219,8 +220,12 @@ func TestBrowserTabsReplaceItsWindowsSession(t *testing.T) {
 	if len(members) != 3 {
 		t.Fatalf("members %d", len(members))
 	}
-	for _, m := range members {
-		if m.Label == "Video A" && m.Artwork == "" {
+	var view statusView
+	if err := json.Unmarshal(r.control("nowplaying.status").ViewData, &view); err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range view.Sessions {
+		if s.Title == "Video A" && s.Source == "windows" {
 			t.Fatal("Brave's Windows session shown alongside the tab it repeats")
 		}
 	}
@@ -398,5 +403,15 @@ func TestDeckMediaFilter(t *testing.T) {
 	r.tick(0)
 	if saved.DeckMediaOff || r.control("nowplaying.dial").Hidden {
 		t.Fatal("media not restored")
+	}
+}
+
+func TestSessionsWithoutArtGetColouredTiles(t *testing.T) {
+	r := newRig(t, true)
+	r.win.sessions = []mediasessions.Session{{ID: "VLC", App: "vlc.exe", Title: "Clip", Status: "playing", CanPlay: true}}
+	r.tick(0)
+	want := placeholder.Art("vlc", placeholder.Media)
+	if r.members()[0].Artwork != want || r.control("nowplaying.dial").Artwork != want {
+		t.Fatal("placeholder missing for a session without art")
 	}
 }

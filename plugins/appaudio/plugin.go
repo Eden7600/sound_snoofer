@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"sound-snoofer/internal/placeholder"
 	"sound-snoofer/internal/windowsaudio"
 	"sound-snoofer/snoofer"
 )
@@ -134,6 +135,7 @@ type worker struct {
 	pending map[string]request   // App key to the latest write.
 	ignored map[string]bool      // App key: a write was not observed in time.
 	editErr string
+	tiles   map[string]string // App name to placeholder artwork, for apps without an icon.
 }
 
 func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, open func() (windowsaudio.SessionBackend, error), t timing) (snoofer.Instance, error) {
@@ -405,7 +407,7 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 		// The deck filter hides apps from surfaces only; the GUI lists them all.
 		picked := slices.ContainsFunc(w.settings.Picked, func(p string) bool { return key(p) == key(a.Name) })
 		controls = append(controls, snoofer.Control{ID: controlID(a.Name), Label: a.Name, ShortLabel: a.Name, Group: "App audio",
-			Collection: "appaudio.apps", CollectionLabel: "Apps", Order: n + 1, Kind: "numeric", Icon: "app-audio", Artwork: a.Icon,
+			Collection: "appaudio.apps", CollectionLabel: "Apps", Order: n + 1, Kind: "numeric", Icon: "app-audio", Artwork: w.artwork(a),
 			Value: value, Status: status, Meter: meter, Operations: []string{"press", "adjust", "set"}, Hidden: !w.settings.onDeck(picked), Available: true})
 	}
 	filter := w.settings.DeckApps
@@ -467,6 +469,22 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 			return fmt.Errorf("app audio busy")
 		}
 	})
+}
+
+// artwork is the app's icon, or a placeholder in the app's own colour.
+func (w *worker) artwork(a *app) string {
+	if a.Icon != "" {
+		return a.Icon
+	}
+	if w.tiles == nil {
+		w.tiles = map[string]string{}
+	}
+	tile, ok := w.tiles[a.Name]
+	if !ok {
+		tile = placeholder.Art(a.Name, placeholder.App)
+		w.tiles[a.Name] = tile
+	}
+	return tile
 }
 
 func firstNonEmpty(values ...string) string {

@@ -35,7 +35,7 @@ Each numbered block is one reviewable commit.
 - [x] 30. `docs(media)`: filters free space (§4b).
 - [x] 31. `feat(streamdeck)`: stacked regions, Hidden bindings yielding, and the editor label. Tests cover row allotment, overflow sets, yielding and the Stream Deck control exception.
 - [x] 32. `feat(streamdeck)`: the Media page uses the stacked region and the five-dial app region (default and personal). Tests cover all four filter states.
-- [ ] 34. `feat(placeholder)`: coloured placeholder artwork for apps and sessions without a logo (§4c). Tests cover determinism, distinct colours, the artwork contract and plugin use.
+- [x] 34. `feat(placeholder)`: coloured placeholder artwork for apps and sessions without a logo (§4c). Tests cover determinism, distinct colours, the artwork contract and plugin use.
 - [ ] 33. Validate: all checks and the canonical build; migrate the personal Media page; relaunch.
 
 ## Hardware acceptance
