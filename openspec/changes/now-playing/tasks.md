@@ -58,6 +58,7 @@ Each numbered block is one reviewable commit.
 - [x] 49. `feat(nowplaying)`, `feat(appaudio)`: sticky focus and `reset`; taps no longer focus. Includes tests.
 - [x] 50. `feat(streamdeck)`: Reset focus at Home r3c9 and Media r4c5 (default and personal). Includes tests.
 - [x] 51. Validate: all checks and the canonical build; relaunch.
+- [x] 52. `feat(streamdeck)`: focused-app dial on Home dial 4 (default and personal). The default test is updated.
 
 ## Hardware acceptance
 - [ ] 9. With Brave and a Windows player:

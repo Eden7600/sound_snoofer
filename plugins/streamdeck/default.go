@@ -16,7 +16,7 @@ func DefaultLayout() Layout {
 		33: gotoPrefix + "media", 34: gotoPrefix + "soundboard", 35: gotoPrefix + "lights"} {
 		home.Keys[n] = Binding{Control: id, Label: id}
 	}
-	for n, id := range map[int]string{0: "audio.gain-playback", 1: "audio.gain-mic", 2: "nowplaying.dial"} {
+	for n, id := range map[int]string{0: "audio.gain-playback", 1: "audio.gain-mic", 2: "nowplaying.dial", 3: "appaudio.focus"} {
 		home.Dials[n] = Binding{Control: id, Label: id}
 	}
 

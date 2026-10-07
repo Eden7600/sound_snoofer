@@ -17,6 +17,9 @@ func TestDefaultLayoutPages(t *testing.T) {
 	if len(l.Pages) != 4 || l.Pages[0].ID != "home" || l.Pages[1].ID != "soundboard" || l.Pages[2].ID != "lights" || l.Pages[3].ID != "media" {
 		t.Fatal("default pages", l.Pages)
 	}
+	if l.Pages[0].Dials[2].Control != "nowplaying.dial" || l.Pages[0].Dials[3].Control != "appaudio.focus" {
+		t.Fatal("Home focus dials", l.Pages[0].Dials)
+	}
 	for n, id := range []string{resetFocusID, "nowplaying.prev", "nowplaying.toggle", "nowplaying.next"} {
 		if l.Pages[0].Keys[26+n].Control != id {
 			t.Fatal("Home transport", l.Pages[0].Keys[27:30])
