@@ -12,7 +12,7 @@
 /* Mirrors internal/aec/native/aec.cpp. */
 typedef struct AEC AEC;
 typedef struct {
-    int mic[2], reference[2], strength, bypass;
+    int mic[2], reference[8], strength, bypass;
 } AECConfig;
 typedef struct {
     int active, sample_rate, erle_centi_db, delay_ms;
@@ -31,7 +31,7 @@ static ConfigureFn configure;
 static StatsFn stats;
 static InsertStage inputInsert, outputInsert;
 
-enum { Channels = 8, MaxSamples = 1024, MicLeft = 2, MicRight = 3, RefLeft = 0, RefRight = 1 };
+enum { Channels = 8, MaxSamples = 4096, MicLeft = 2, MicRight = 3, RefLeft = 0, RefRight = 1 };
 enum { EchoDelay = 40, EchoTaps = 2400 }; /* ms; 50 ms of decay at 48 kHz */
 
 static unsigned seed;
@@ -42,22 +42,19 @@ static float noise(void) {
 
 /* Room renders speech-like far-end audio and its echo at the microphone. */
 typedef struct {
-    int rate;
+    int rate, deviceBuffer;
     long t;
     float lowpass;
-    float *history; /* far-end samples, ring of `size` */
+    float history[48000]; /* far-end samples */
     long size;
     float taps[EchoTaps];
 } Room;
 
-static void room_init(Room *r, int rate) {
-    static float history[48000];
+static void room_init(Room *r, int rate, int channel) {
     memset(r, 0, sizeof(*r));
     r->rate = rate;
-    r->history = history;
     r->size = 48000;
-    memset(history, 0, sizeof(history));
-    seed = 12345;
+    seed = 12345 + 100u * (unsigned)channel;
     for (int i = 0; i < EchoTaps; ++i) {
         r->taps[i] = 0.5f * noise() * expf(-(float)i / (rate * 0.008f));
     }
@@ -78,7 +75,7 @@ static float room_far(Room *r) {
 
 /* echo is what the microphone hears now: delayed far-end through the room. */
 static float room_echo(Room *r) {
-    long delay = (long)r->rate * EchoDelay / 1000;
+    long delay = (long)r->rate * EchoDelay / 1000 + r->deviceBuffer;
     float sum = 0.0f;
     for (int i = 0; i < EchoTaps; i += 4) { /* sparse taps keep the probe fast */
         long at = r->t - 1 - delay - i;
@@ -108,6 +105,9 @@ typedef struct {
     double echoIn, echoOut; /* mic energy in and out while only the speakers play, final 5 s */
     double nearIn, nearOut; /* mic energy in and out while only the local voice speaks, final 5 s */
     int otherChannelsIdentical, micIdentical;
+    double doubleSin, doubleCos, doubleEchoIn, doubleOutEnergy;
+    long doubleSamples;
+    unsigned expectedFrames;
     AECStats stats;
 } Result;
 
@@ -117,29 +117,48 @@ static double phase(long t, int rate) { return fmod((double)t / rate, 2.5); }
 
 /* run plays `seconds` of the room at one rate and buffer size. Voicemeeter
    calls the input insert before the output insert in each cycle. */
-static int run(int rate, int samples, int seconds, int bypass, Result *res) {
-    static Room room;
+static int run(int rate, int samples, int seconds, int bypass, int scenario, int strength, Result *res) {
+    static Room room[6];
     AEC *aec = NULL;
     AudioBuffer in, out;
-    AECConfig config = {{MicLeft, MicRight}, {RefLeft, RefRight}, 0, bypass};
+    AECConfig config = {{MicLeft, MicRight}, {0, 1, 2, 3, 4, 5, 6, 7}, strength, bypass};
     long total = (long)rate * seconds, measureFrom = total - (long)rate * 5;
     long t = 0;
 
     memset(res, 0, sizeof(*res));
     res->otherChannelsIdentical = res->micIdentical = 1;
     if (create(&aec) != S_OK || configure(aec, &config) != S_OK) return 0;
-    room_init(&room, rate);
+    for (int c = 0; c < 6; ++c) { room_init(&room[c], rate, c); room[c].deviceBuffer = (scenario == 5 ? 2048 : scenario == 7 ? 512 : samples) + c * rate / 1000; }
     buffers(&in, &out, rate, samples);
     while (t < total) {
+        if (scenario == 7) samples = t < total / 2 ? 256 : 512;
+        if (scenario == 5) {
+            const int sizes[] = {64, 127, 256, 480, 512, 1024, 2048};
+            samples = sizes[(t / 64) % 7];
+        }
+        if (samples > total - t) samples = (int)(total - t);
+        in.samples = out.samples = samples;
         for (int i = 0; i < samples; ++i) {
-            float speaker = room_far(&room);
-            float echo = room_echo(&room);
+            float speaker[6], echo = 0;
+            for (int c = 0; c < 6; ++c) {
+                speaker[c] = room_far(&room[c]);
+                if (scenario >= 4) echo += 0.35f * room_echo(&room[c]);
+            }
+            if (scenario < 4) echo = room_echo(&room[0]);
             for (int c = 0; c < Channels; ++c) {
                 readMic[c][i] = 0.01f * noise(); /* unrelated strip audio */
-                readOut[c][i] = c == RefLeft || c == RefRight ? speaker : 0.02f * noise();
+                readOut[c][i] = 0;
+            }
+            if (scenario == 0 || scenario == 1) {
+                readOut[0][i] = speaker[0];
+                readOut[1][i] = scenario == 1 ? -speaker[0] : speaker[0];
+            } else if (scenario == 2 || scenario == 3) {
+                readOut[scenario == 2 ? 2 : 4][i] = speaker[0];
+            } else {
+                for (int c = 0; c < 6; ++c) readOut[c][i] = speaker[c];
             }
             double p = phase(t + i, rate);
-            float voice = p >= 2.0 && p < 2.4 ? 0.1f * (float)sin(2.0 * 3.14159265 * 440.0 * (t + i) / rate) : 0.0f;
+            float voice = ((p >= 2.0 && p < 2.4) || (scenario == 6 && p >= 0.3 && p < 1.5)) ? 0.1f * (float)sin(2.0 * 3.14159265 * 440.0 * (t + i) / rate) : 0.0f;
             readMic[MicLeft][i] = echo + voice;
             readMic[MicRight][i] = 0.9f * echo + voice;
         }
@@ -159,6 +178,15 @@ static int run(int rate, int samples, int seconds, int bypass, Result *res) {
             double in2 = (double)readMic[MicLeft][i] * readMic[MicLeft][i];
             double out2 = (double)writeMic[MicLeft][i] * writeMic[MicLeft][i];
             if (t < measureFrom) continue;
+            if (scenario == 6 && p >= 0.5 && p < 1.4) {
+                double angle = 2.0 * 3.14159265 * 440.0 * t / rate;
+                res->doubleSin += writeMic[MicLeft][i] * sin(angle);
+                res->doubleCos += writeMic[MicLeft][i] * cos(angle);
+                double echo = readMic[MicLeft][i] - 0.1 * sin(angle);
+                res->doubleEchoIn += echo * echo;
+                res->doubleOutEnergy += out2;
+                res->doubleSamples++;
+            }
             if (p < 1.8) {
                 res->echoIn += in2;
                 res->echoOut += out2;
@@ -168,6 +196,7 @@ static int run(int rate, int samples, int seconds, int bypass, Result *res) {
             }
         }
     }
+    res->expectedFrames = (unsigned)(t / (rate / 100));
     stats(aec, &res->stats);
     destroy(aec);
     return 1;
@@ -194,7 +223,7 @@ int main(int argc, char **argv) {
     }
     create = (CreateFn)(void *)GetProcAddress(dll, "AECCreate");
     destroy = (DestroyFn)(void *)GetProcAddress(dll, "AECDestroy");
-    configure = (ConfigureFn)(void *)GetProcAddress(dll, "AECConfigure");
+    configure = (ConfigureFn)(void *)GetProcAddress(dll, "AECConfigureV2");
     stats = (StatsFn)(void *)GetProcAddress(dll, "AECReadStats");
     inputInsert = (InsertStage)(void *)GetProcAddress(dll, "AECInputInsert");
     outputInsert = (InsertStage)(void *)GetProcAddress(dll, "AECOutputInsert");
@@ -203,27 +232,67 @@ int main(int argc, char **argv) {
         return 2;
     }
 
-    for (int samples = 256; samples <= 512; samples *= 2) {
+    const struct { int rate, samples, scenario, strength; const char *name; } cases[] = {
+        {48000, 256, 0, 0, "stereo 256"}, {48000, 512, 0, 0, "stereo 512"},
+        {48000, 480, 1, 0, "phase-opposed stereo"},
+        {48000, 256, 2, 0, "center only"}, {48000, 512, 3, 0, "surround only"},
+        {48000, 256, 4, 0, "discrete 5.1"}, {48000, 2048, 4, 0, "large callback 5.1"},
+        {48000, 256, 5, 0, "extreme callback jitter 5.1"},
+        {48000, 256, 7, 0, "buffer transition 256 to 512"},
+        {32000, 256, 4, 0, "32 kHz 5.1"}, {16000, 127, 4, 0, "16 kHz 5.1"},
+        {48000, 256, 6, 0, "double-talk Strong"},
+        {48000, 256, 6, 1, "double-talk Balanced"},
+        {48000, 256, 6, 2, "double-talk Gentle"}
+    };
+    for (size_t c = 0; c < sizeof(cases)/sizeof(cases[0]); ++c) {
         char what[160];
-        if (!run(48000, samples, 20, 0, &r)) return 2;
-        printf("48 kHz, %d-sample buffers: reduction %.1f dB, voice %+.1f dB, engine ERLE %.2f dB, delay %d ms, frames %u, failed %d\n",
-               samples, reduction(&r), 10.0 * log10(r.nearOut / r.nearIn), r.stats.erle_centi_db / 100.0, r.stats.delay_ms, r.stats.frames, r.stats.failed);
-        snprintf(what, sizeof(what), "%d-sample buffers: active and reduces echo by at least 20 dB", samples);
-        check(r.stats.active && !r.stats.failed && reduction(&r) >= 20.0, what);
-        snprintf(what, sizeof(what), "%d-sample buffers: local voice kept within 6 dB", samples);
-        check(10.0 * log10(r.nearIn / r.nearOut) <= 6.0, what);
-        snprintf(what, sizeof(what), "%d-sample buffers: other channels bit-identical", samples);
-        check(r.otherChannelsIdentical, what);
-        snprintf(what, sizeof(what), "%d-sample buffers: every 10 ms frame processed", samples);
-        check(r.stats.frames >= 20 * 100 - 2, what);
+        if (!run(cases[c].rate, cases[c].samples, 20, 0, cases[c].scenario, cases[c].strength, &r)) return 2;
+        double voiceDB = 10.0 * log10(r.nearOut / r.nearIn);
+        printf("%s: reduction %.1f dB, voice %+.1f dB, estimated delay %d ms, frames %u/%u, failed %d\n",
+               cases[c].name, reduction(&r), voiceDB, r.stats.delay_ms, r.stats.frames, r.expectedFrames, r.stats.failed);
+        snprintf(what, sizeof(what), "%s: active, no lost frames, other channels identical", cases[c].name);
+        check(r.stats.active && !r.stats.failed && r.stats.frames == r.expectedFrames && r.otherChannelsIdentical, what);
+        snprintf(what, sizeof(what), "%s: local voice within 6 dB", cases[c].name);
+        check(isfinite(voiceDB) && fabs(voiceDB) <= 6.0, what);
+        if (cases[c].scenario != 6) {
+            snprintf(what, sizeof(what), "%s: at least 20 dB echo reduction", cases[c].name);
+            check(reduction(&r) >= 20.0, what);
+        } else {
+            double amp = 2.0 * sqrt(r.doubleSin*r.doubleSin + r.doubleCos*r.doubleCos) / r.doubleSamples;
+            double db = 20.0 * log10(amp / 0.1);
+            double residual = r.doubleOutEnergy - (r.doubleSin*r.doubleSin + r.doubleCos*r.doubleCos) * 2.0 / r.doubleSamples;
+            double echoDB = 10.0 * log10(r.doubleEchoIn / fmax(residual, 1e-20));
+            printf("Double-talk voice amplitude: %+.1f dB, residual reduction %.1f dB (tone-based estimate)\n", db, echoDB);
+            check(isfinite(db) && fabs(db) <= 6.0, "simultaneous local voice within 6 dB");
+            check(isfinite(echoDB) && echoDB >= 10.0, "double-talk residual reduction at least 10 dB");
+        }
+        fflush(stdout);
     }
-
-    if (!run(44100, 441, 2, 0, &r)) return 2;
+    if (!run(44100, 441, 2, 0, 0, 0, &r)) return 2;
     check(!r.stats.active && r.stats.sample_rate == 44100 && r.micIdentical && r.otherChannelsIdentical,
           "44.1 kHz: inactive, every channel bit-identical");
-
-    if (!run(48000, 512, 2, 1, &r)) return 2;
-    check(!r.stats.active && r.micIdentical && r.otherChannelsIdentical, "bypass: inactive, every channel bit-identical");
+    if (!run(48000, 512, 2, 1, 0, 0, &r)) return 2;
+    check(!r.stats.active && r.micIdentical && r.otherChannelsIdentical, "bypass: every channel bit-identical");
+    for (int fault = 0; fault < 5; ++fault) {
+        AEC *aec = NULL;
+        AudioBuffer in, out;
+        AECStats report;
+        AECConfig config = {{MicLeft, MicRight}, {0, 1, 2, 3, 4, 5, 6, 7}, 0, 0};
+        if (create(&aec) != S_OK || configure(aec, &config) != S_OK) return 2;
+        buffers(&in, &out, 48000, 256);
+        inputInsert(aec, &in);
+        if (fault == 0) inputInsert(aec, &in); /* Missing output. */
+        if (fault == 1) { out.samples = 128; outputInsert(aec, &out); }
+        if (fault == 2) { out.sr = 32000; outputInsert(aec, &out); }
+        if (fault == 3) { out.read[4] = NULL; outputInsert(aec, &out); }
+        if (fault == 4) { outputInsert(aec, &out); outputInsert(aec, &out); }
+        inputInsert(aec, &in);
+        stats(aec, &report);
+        int same = 1;
+        for (int c = 0; c < Channels; ++c) same &= memcmp(readMic[c], writeMic[c], 256*sizeof(float)) == 0;
+        check(report.failed && !report.active && same, "callback fault latches failure and passes mic through");
+        destroy(aec);
+    }
 
     FreeLibrary(dll);
     return failures ? 1 : 0;

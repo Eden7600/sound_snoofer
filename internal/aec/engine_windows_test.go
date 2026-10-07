@@ -26,6 +26,9 @@ func TestNativeEngine(t *testing.T) {
 	if unsafe.Sizeof(audioBuffer{}) != 2064 {
 		t.Fatal("AudioBuffer layout", unsafe.Sizeof(audioBuffer{}))
 	}
+	if unsafe.Sizeof(nativeConfig{}) != 48 {
+		t.Fatal("AECConfig V2 layout", unsafe.Sizeof(nativeConfig{}))
+	}
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		t.Fatal(err)
@@ -42,17 +45,31 @@ func TestNativeEngine(t *testing.T) {
 	if s, err := e.Stats(); err != nil || s.Active || s.ERLEKnown || s.DelayKnown {
 		t.Fatal(s, err)
 	}
-	if err := e.Configure(Config{Mic: [2]int{0, 1}, Reference: [2]int{0, 1}, Strength: Balanced}); err != nil {
+	if err := e.Configure(Config{Mic: [2]int{0, 1}, Reference: [8]int{0, 1, 2, 3, 4, 5, 6, 7}, Strength: Balanced}); err != nil {
 		t.Fatal(err)
 	}
+	for _, bad := range []Config{
+		{Mic: [2]int{-1, 1}, Reference: [8]int{0, 1, 2, 3, 4, 5, 6, 7}},
+		{Mic: [2]int{0, 1}, Reference: [8]int{0, 1, 2, 3, 4, 5, 6, 128}},
+		{Mic: [2]int{0, 1}, Reference: [8]int{0, 1, 2, 3, 4, 5, 6, 6}},
+		{Mic: [2]int{0, 1}, Reference: [8]int{0, 1, 2, 3, 4, 5, 6, 7}, Strength: Strength(3)},
+	} {
+		if e.Configure(bad) == nil {
+			t.Fatalf("accepted invalid config: %+v", bad)
+		}
+	}
+	if _, err := e.dll.FindProc("AECConfigure"); err == nil {
+		t.Fatal("unversioned config ABI still exported")
+	}
 	const samples = 480
-	channels := make([][]float32, 4)
+	channels := make([][]float32, 16)
 	for c := range channels {
 		channels[c] = make([]float32, samples)
 	}
-	b := &audioBuffer{sr: 48000, samples: samples, inputs: 2, outputs: 2}
-	b.read[0], b.read[1] = &channels[0][0], &channels[1][0]
-	b.write[0], b.write[1] = &channels[2][0], &channels[3][0]
+	b := &audioBuffer{sr: 48000, samples: samples, inputs: 8, outputs: 8}
+	for c := range 8 {
+		b.read[c], b.write[c] = &channels[c][0], &channels[c+8][0]
+	}
 	hook := e.Hook()
 	for cycle := 0; cycle < 100; cycle++ {
 		for i := range samples {
@@ -70,7 +87,7 @@ func TestNativeEngine(t *testing.T) {
 	if !s.Active || s.SampleRate != 48000 || s.Frames < 98 || s.Failed {
 		t.Fatal(s)
 	}
-	if err := e.Configure(Config{Mic: [2]int{0, 1}, Reference: [2]int{0, 1}, Bypass: true}); err != nil {
+	if err := e.Configure(Config{Mic: [2]int{0, 1}, Reference: [8]int{0, 1, 2, 3, 4, 5, 6, 7}, Bypass: true}); err != nil {
 		t.Fatal(err)
 	}
 	e.inputInsert.Call(hook.Context, uintptr(unsafe.Pointer(b)))

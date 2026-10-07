@@ -16,7 +16,7 @@ import (
 // 8 per virtual strip; output inserts carry 8 channels per bus.
 type EchoTargets struct {
 	Mic       [2]int // Input-insert channels of the managed mic strip; -1 when unused.
-	Reference [2]int // Output-insert channels of the playback bus; -1 when unused.
+	Reference [8]int // Output-insert channels of the playback bus; -1 when unused.
 	Playback  string // Device assigned to the playback bus, for speaker matching.
 	Reason    string // Why echo cancellation cannot run now; empty when it can.
 }
@@ -31,7 +31,7 @@ func (i *Instance) EchoTargets() EchoTargets {
 const physicalStrips = 5
 
 func echoTargets(s control.State) EchoTargets {
-	t := EchoTargets{Mic: [2]int{-1, -1}, Reference: [2]int{-1, -1}}
+	t := EchoTargets{Mic: [2]int{-1, -1}, Reference: [8]int{-1, -1, -1, -1, -1, -1, -1, -1}}
 	if !s.Live || !s.Connected {
 		t.Reason = "Not live"
 		return t
@@ -63,7 +63,9 @@ func echoTargets(s control.State) EchoTargets {
 		first = 2*physicalStrips + 8*(voice.Strip-physicalStrips)
 	}
 	t.Mic = [2]int{first, first + 1}
-	t.Reference = [2]int{8 * (bus - 1), 8*(bus-1) + 1}
+	for c := range t.Reference {
+		t.Reference[c] = 8*(bus-1) + c
+	}
 	t.Playback = s.Snapshot.Assignments[topology.PlaybackTarget]
 	return t
 }

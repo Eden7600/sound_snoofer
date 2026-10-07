@@ -22,9 +22,10 @@ type Engine struct {
 	inputInsert, outputInsert *windows.Proc
 }
 
-// nativeConfig mirrors AECConfig: six 32-bit ints.
+// nativeConfig mirrors AECConfig: twelve 32-bit ints.
 type nativeConfig struct {
-	mic, reference   [2]int32
+	mic              [2]int32
+	reference        [8]int32
 	strength, bypass int32
 }
 
@@ -51,7 +52,7 @@ func Open(path string) (*Engine, error) {
 	e := &Engine{dll: dll}
 	var create *windows.Proc
 	procs := map[string]**windows.Proc{
-		"AECCreate": &create, "AECDestroy": &e.destroy, "AECConfigure": &e.configure, "AECReadStats": &e.stats,
+		"AECCreate": &create, "AECDestroy": &e.destroy, "AECConfigureV2": &e.configure, "AECReadStats": &e.stats,
 		"AECInputInsert": &e.inputInsert, "AECOutputInsert": &e.outputInsert,
 	}
 	for name, target := range procs {
@@ -69,9 +70,11 @@ func Open(path string) (*Engine, error) {
 // Configure publishes a new setup to the audio thread.
 func (e *Engine) Configure(c Config) error {
 	native := nativeConfig{
-		mic:       [2]int32{int32(c.Mic[0]), int32(c.Mic[1])},
-		reference: [2]int32{int32(c.Reference[0]), int32(c.Reference[1])},
-		strength:  int32(c.Strength),
+		mic:      [2]int32{int32(c.Mic[0]), int32(c.Mic[1])},
+		strength: int32(c.Strength),
+	}
+	for i, channel := range c.Reference {
+		native.reference[i] = int32(channel)
 	}
 	if c.Bypass {
 		native.bypass = 1

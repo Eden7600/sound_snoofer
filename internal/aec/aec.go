@@ -15,7 +15,7 @@ const (
 // Voicemeeter insert buffers; -1 marks an unused channel.
 type Config struct {
 	Mic       [2]int // Input-insert channels of the mic strip.
-	Reference [2]int // Output-insert channels of the speaker bus.
+	Reference [8]int // Output-insert channels of the speaker bus.
 	Strength  Strength
 	Bypass    bool // Pass the mic through untouched.
 }

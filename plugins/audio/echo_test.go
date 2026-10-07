@@ -31,20 +31,21 @@ func TestEchoTargets(t *testing.T) {
 	banana.Snapshot.Edition = 2
 	for name, test := range map[string]struct {
 		state     control.State
-		mic, ref  [2]int
+		mic       [2]int
+		ref       [8]int
 		playback  string
 		reasonSet bool
 	}{
-		"desk to A2":       {state: echoState(0, "desk", "A2"), mic: [2]int{0, 1}, ref: [2]int{8, 9}, playback: "Speakers (Realtek)"},
-		"lav to A1":        {state: echoState(1, "lav", "A1"), mic: [2]int{2, 3}, ref: [2]int{0, 1}},
-		"VR strip 5 to A5": {state: echoState(4, "vr:quest", "A5"), mic: [2]int{8, 9}, ref: [2]int{32, 33}},
-		"virtual strip":    {state: echoState(6, "element", "A1"), mic: [2]int{18, 19}, ref: [2]int{0, 1}},
-		"mic off":          {state: echoState(-1, "off", "A2"), mic: [2]int{-1, -1}, ref: [2]int{-1, -1}, reasonSet: true},
-		"no mic":           {state: echoState(-1, "unavailable", "A2"), mic: [2]int{-1, -1}, ref: [2]int{-1, -1}, reasonSet: true},
-		"no playback":      {state: echoState(0, "desk", ""), mic: [2]int{-1, -1}, ref: [2]int{-1, -1}, reasonSet: true},
-		"virtual playback": {state: echoState(0, "desk", "B1"), mic: [2]int{-1, -1}, ref: [2]int{-1, -1}, reasonSet: true},
-		"not live":         {state: notLive, mic: [2]int{-1, -1}, ref: [2]int{-1, -1}, reasonSet: true},
-		"not Potato":       {state: banana, mic: [2]int{-1, -1}, ref: [2]int{-1, -1}, reasonSet: true},
+		"desk to A2":       {state: echoState(0, "desk", "A2"), mic: [2]int{0, 1}, ref: [8]int{8, 9, 10, 11, 12, 13, 14, 15}, playback: "Speakers (Realtek)"},
+		"lav to A1":        {state: echoState(1, "lav", "A1"), mic: [2]int{2, 3}, ref: [8]int{0, 1, 2, 3, 4, 5, 6, 7}},
+		"VR strip 5 to A5": {state: echoState(4, "vr:quest", "A5"), mic: [2]int{8, 9}, ref: [8]int{32, 33, 34, 35, 36, 37, 38, 39}},
+		"virtual strip":    {state: echoState(6, "element", "A1"), mic: [2]int{18, 19}, ref: [8]int{0, 1, 2, 3, 4, 5, 6, 7}},
+		"mic off":          {state: echoState(-1, "off", "A2"), mic: [2]int{-1, -1}, ref: [8]int{-1, -1, -1, -1, -1, -1, -1, -1}, reasonSet: true},
+		"no mic":           {state: echoState(-1, "unavailable", "A2"), mic: [2]int{-1, -1}, ref: [8]int{-1, -1, -1, -1, -1, -1, -1, -1}, reasonSet: true},
+		"no playback":      {state: echoState(0, "desk", ""), mic: [2]int{-1, -1}, ref: [8]int{-1, -1, -1, -1, -1, -1, -1, -1}, reasonSet: true},
+		"virtual playback": {state: echoState(0, "desk", "B1"), mic: [2]int{-1, -1}, ref: [8]int{-1, -1, -1, -1, -1, -1, -1, -1}, reasonSet: true},
+		"not live":         {state: notLive, mic: [2]int{-1, -1}, ref: [8]int{-1, -1, -1, -1, -1, -1, -1, -1}, reasonSet: true},
+		"not Potato":       {state: banana, mic: [2]int{-1, -1}, ref: [8]int{-1, -1, -1, -1, -1, -1, -1, -1}, reasonSet: true},
 	} {
 		got := echoTargets(test.state)
 		if got.Mic != test.mic || got.Reference != test.ref || got.Playback != test.playback || (got.Reason != "") != test.reasonSet {

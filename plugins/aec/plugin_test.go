@@ -73,7 +73,7 @@ func (m *fakeMixer) SetEchoInsert(ctx context.Context, hook *voicemeeter.InsertH
 	return nil
 }
 
-var speakers = audio.EchoTargets{Mic: [2]int{0, 1}, Reference: [2]int{8, 9}, Playback: "Speakers (Realtek)"}
+var speakers = audio.EchoTargets{Mic: [2]int{0, 1}, Reference: [8]int{8, 9, 10, 11, 12, 13, 14, 15}, Playback: "Speakers (Realtek)"}
 
 func newWorker(settings Settings, m *fakeMixer, e *fakeEngine) *worker {
 	raw, _ := json.Marshal(settings)

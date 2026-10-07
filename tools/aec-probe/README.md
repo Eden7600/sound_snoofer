@@ -1,20 +1,11 @@
 # Echo cancellation probe
 
-Run from the repository root on Windows x64 after building the DLL:
+Run ./tools/aec-probe/run.ps1 from the repository root after scripts/build.ps1. Requires MSVC and the Windows SDK. Test executable and objects stay in .local/aec-probe; no audio device or Voicemeeter registration is used.
 
-```powershell
-./tools/aec-probe/run.ps1                                   # tests bin/snoofer-aec.dll
-./tools/aec-probe/run.ps1 -Dll .local/aec-out/snoofer-aec.dll
-```
+The V2 native config carries all eight bus slots. Tests include stereo, phase-opposed stereo, center-only, surround-only, independent six-channel playback with different room responses, 16/32/48 kHz, 256/512/2048-sample buffers and an ordinary buffer-size transition. Synthetic room delay is 40 ms plus device buffering and per-channel offsets; this models output-before-echo causality. Echo reduction must reach 20 dB after convergence; a local 440 Hz tone must stay within 6 dB. This is an acoustic regression test, not perceptual speech-quality certification.
 
-Requires the Visual Studio C++ tools and a Windows SDK. The executable and objects stay in `.local/aec-probe`. Nothing touches Voicemeeter or an audio device.
+Double-talk runs all three strengths and measures tone preservation via sine/cosine projection, reporting residual energy after removing that tone. The summary's overall energy reduction during double-talk includes the wanted voice and must not be read as echo reduction.
 
-The probe loads the DLL and calls its insert stages exactly as the monitor callback does, input insert before output insert in each cycle, on an 8-channel buffer with a stereo mic at channels 2–3 and the speaker reference at 0–1. A synthetic room plays speech-like noise (syllables, 1.8 s phrases, 0.7 s pauses) and returns it to the mic after 40 ms through a 50 ms decaying response; a local 440 Hz voice speaks in the pauses.
+An adversarial per-callback 64-to-2048 size-jitter case verifies exact frame counts, preservation of non-mic channels and the same 20 dB echo reduction threshold. Double-talk also requires at least 10 dB residual reduction in the tone-based estimate. All cases are deterministic synthetic regression checks, not a guarantee under arbitrary device jitter or nonlinear speaker processing.
 
-Checks, over the final 5 s of a 20 s run at 256- and 512-sample buffers (48 kHz):
-- echo energy falls by at least 20 dB while only the speakers play;
-- the local voice stays within 6 dB once the echo tail has decayed;
-- every non-mic channel is bit-identical;
-- every 10 ms frame is processed.
-
-At 44.1 kHz and in bypass, the engine reports inactive and every channel is bit-identical.
+Missing/repeated output, mismatched size/rate and missing surround reference checks require latched failure and exact mic pass-through. Unsupported 44.1 kHz and explicit bypass preserve all channels. ABI validation is also exercised by SNOOFER_AEC_DLL=bin/snoofer-aec.dll go test ./internal/aec.

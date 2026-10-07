@@ -30,7 +30,14 @@ constexpr int kMaxFrame = 480;  // 10 ms at 48 kHz, the largest supported rate.
 // Strength presets relax AEC3's suppressor: higher masking thresholds keep
 // more near-end signal. Strong is AEC3's default.
 webrtc::EchoCanceller3Config ConfigFor(int strength) {
-    webrtc::EchoCanceller3Config c;
+    auto c = webrtc::EchoCanceller3::CreateDefaultMultichannelConfig();
+    // The bundled detector compares only L/R; center/surround-only audio must
+    // retain its own filters even when the front pair is identical or silent.
+    c.multi_channel.detect_stereo_content = false;
+    // One of six independent speakers cannot explain 80% of capture energy.
+    // Keep lag aggregation, but allow a 10% contribution to establish delay.
+    c.delay.delay_candidate_detection_threshold = 0.9f;
+    c.delay.render_alignment_mixing.prefer_first_two_channels = false;
     using M = webrtc::EchoCanceller3Config::Suppressor::MaskingThresholds;
     if (strength == 1) {
         c.suppressor.normal_tuning.mask_lf = M(.5f, .6f, .3f);
@@ -64,10 +71,7 @@ class Fifo {
     }
     size_t Size() const { return size_; }
     void Push(float v) {
-        if (size_ == data_.size()) {  // Full: drop the oldest.
-            head_ = (head_ + 1) % data_.size();
-            --size_;
-        }
+        if (size_ == data_.size()) throw std::runtime_error("capture output overflow");
         data_[(head_ + size_) % data_.size()] = v;
         ++size_;
     }
@@ -88,7 +92,7 @@ class Fifo {
 // AECConfig is the control thread's request; -1 marks an unused channel.
 struct AECConfig {
     int mic[2];        // Input-insert channels of the managed mic strip.
-    int reference[2];  // Output-insert channels of the speaker bus.
+    int reference[8];  // Output-insert channels of the speaker bus.
     int strength;      // 0 strong, 1 balanced, 2 gentle.
     int bypass;        // Non-zero: pass the mic through untouched.
 };
@@ -105,7 +109,8 @@ struct AECStats {
 
 struct AEC {
     // Requested configuration, written by the control thread.
-    std::atomic<int> mic0{kNone}, mic1{kNone}, ref0{kNone}, ref1{kNone}, strength{0}, bypass{1};
+    std::atomic<int> mic0{kNone}, mic1{kNone}, strength{0}, bypass{1};
+    std::atomic<int> refs[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
     std::atomic<unsigned> generation{0};
     // Reported state, written by the audio thread.
     std::atomic<int> active{0}, rate{0}, erle{-1}, delay{-1}, failed{0};
@@ -115,11 +120,13 @@ struct AEC {
     unsigned applied = ~0u;
     int sample_rate = 0;
     int micChannels = 0;
-    int mic[2] = {kNone, kNone}, ref[2] = {kNone, kNone};
+    int mic[2] = {kNone, kNone}, ref[8] = {};
+    int captureFill = 0, renderFill = 0;
+    long expectedReferenceSamples = 0;
     bool processing = false;
     rtc::scoped_refptr<webrtc::AudioProcessing> apm;
-    Fifo micIn[2], micOut[2], refIn;
-    float capture[2][kMaxFrame], render[kMaxFrame];
+    Fifo micOut[2];
+    float capture[2][kMaxFrame], render[8][kMaxFrame];
 };
 
 namespace {
@@ -132,8 +139,9 @@ void Configure(AEC* a, int rate) {
     a->applied = a->generation.load(std::memory_order_acquire);
     a->mic[0] = a->mic0.load();
     a->mic[1] = a->mic1.load();
-    a->ref[0] = a->ref0.load();
-    a->ref[1] = a->ref1.load();
+    for (int c = 0; c < 8; ++c) a->ref[c] = a->refs[c].load();
+    a->captureFill = a->renderFill = 0;
+    a->expectedReferenceSamples = 0;
     a->sample_rate = rate;
     a->micChannels = (a->mic[0] != kNone) + (a->mic[1] != kNone && a->mic[1] != a->mic[0]);
     a->processing = !a->bypass.load() && Supported(rate) && a->micChannels > 0 && a->ref[0] != kNone;
@@ -145,6 +153,8 @@ void Configure(AEC* a, int rate) {
     if (!a->processing) return;
     webrtc::AudioProcessing::Config config;
     config.pipeline.maximum_internal_processing_rate = 48000;
+    config.pipeline.multi_channel_render = true;
+    config.pipeline.multi_channel_capture = true;
     config.high_pass_filter.enabled = true;
     config.echo_canceller.enabled = true;
     config.noise_suppression.enabled = false;
@@ -155,12 +165,10 @@ void Configure(AEC* a, int rate) {
                  .SetEchoControlFactory(std::make_unique<Factory>(a->strength.load()))
                  .Create();
     const size_t frame = static_cast<size_t>(rate / 100);
-    for (auto& f : a->micIn) f.Reset(frame * 4);
     for (auto& f : a->micOut) {
-        f.Reset(frame * 4);
+        f.Reset(frame + 1);
         for (size_t i = 0; i < frame; ++i) f.Push(0.0f);  // One frame of latency.
     }
-    a->refIn.Reset(frame * 16);
 }
 
 void PassThrough(AudioBuffer* b) {
@@ -185,40 +193,38 @@ void Process(AEC* a, AudioBuffer* b) {
     }
     if (!a->processing) return;
     const int frame = a->sample_rate / 100;
-    const webrtc::StreamConfig renderConfig(a->sample_rate, 1);
+    if (a->expectedReferenceSamples != 0) throw std::runtime_error("missing output callback");
+    for (int ch = 0; ch < a->micChannels; ++ch) {
+        if (!Has(b, a->mic[ch])) throw std::runtime_error("missing microphone channel");
+    }
+    a->expectedReferenceSamples = b->samples;
     const webrtc::StreamConfig captureConfig(a->sample_rate, static_cast<size_t>(a->micChannels));
-    // Render (the speaker reference) is analysed before capture, frame by frame.
-    float* renderPtr[1] = {a->render};
-    while (a->refIn.Size() >= static_cast<size_t>(frame)) {
-        for (int i = 0; i < frame; ++i) a->render[i] = a->refIn.Pop();
-        a->apm->ProcessReverseStream(renderPtr, renderConfig, renderConfig, renderPtr);
-    }
-    for (int ch = 0; ch < a->micChannels; ++ch) {
-        if (!Has(b, a->mic[ch])) return;
-        const float* in = b->read[a->mic[ch]];
-        for (long i = 0; i < b->samples; ++i) a->micIn[ch].Push(in[i]);
-    }
     float* capturePtr[2] = {a->capture[0], a->capture[1]};
-    while (a->micIn[0].Size() >= static_cast<size_t>(frame)) {
+    // Complete and consume frames incrementally: even large callbacks cannot
+    // overflow a four-frame FIFO or introduce buffer-size-dependent latency.
+    for (long i = 0; i < b->samples; ++i) {
         for (int ch = 0; ch < a->micChannels; ++ch) {
-            for (int i = 0; i < frame; ++i) a->capture[ch][i] = a->micIn[ch].Pop();
+            a->capture[ch][a->captureFill] = b->read[a->mic[ch]][i];
         }
-        if (a->apm->ProcessStream(capturePtr, captureConfig, captureConfig, capturePtr) != 0) {
-            throw std::runtime_error("ProcessStream failed");
+        if (++a->captureFill == frame) {
+            if (a->apm->ProcessStream(capturePtr, captureConfig, captureConfig, capturePtr) != 0) {
+                throw std::runtime_error("ProcessStream failed");
+            }
+            for (int ch = 0; ch < a->micChannels; ++ch) {
+                for (int j = 0; j < frame; ++j) a->micOut[ch].Push(a->capture[ch][j]);
+            }
+            a->captureFill = 0;
+            unsigned n = a->frames.fetch_add(1) + 1;
+            if (n % 50 == 0) {
+                webrtc::AudioProcessingStats s = a->apm->GetStatistics();
+                a->erle.store(s.echo_return_loss_enhancement ? static_cast<int>(std::lround(*s.echo_return_loss_enhancement * 100)) : -1);
+                a->delay.store(s.delay_ms ? static_cast<int>(*s.delay_ms) : -1);
+            }
         }
         for (int ch = 0; ch < a->micChannels; ++ch) {
-            for (int i = 0; i < frame; ++i) a->micOut[ch].Push(a->capture[ch][i]);
+            if (!a->micOut[ch].Size()) throw std::runtime_error("capture output underflow");
+            b->write[a->mic[ch]][i] = a->micOut[ch].Pop();
         }
-        unsigned n = a->frames.fetch_add(1) + 1;
-        if (n % 50 == 0) {  // Twice a second.
-            webrtc::AudioProcessingStats s = a->apm->GetStatistics();
-            a->erle.store(s.echo_return_loss_enhancement ? static_cast<int>(std::lround(*s.echo_return_loss_enhancement * 100)) : -1);
-            a->delay.store(s.delay_ms ? static_cast<int>(*s.delay_ms) : -1);
-        }
-    }
-    for (int ch = 0; ch < a->micChannels; ++ch) {
-        float* out = b->write[a->mic[ch]];
-        for (long i = 0; i < b->samples; ++i) out[i] = a->micOut[ch].Size() ? a->micOut[ch].Pop() : 0.0f;
     }
 }
 
@@ -242,12 +248,16 @@ __declspec(dllexport) HRESULT __cdecl AECDestroy(AEC* a) {
     return S_OK;
 }
 
-__declspec(dllexport) HRESULT __cdecl AECConfigure(AEC* a, const AECConfig* c) {
-    if (!a || !c) return E_INVALIDARG;
+__declspec(dllexport) HRESULT __cdecl AECConfigureV2(AEC* a, const AECConfig* c) {
+    if (!a || !c || c->mic[0] < 0 || c->mic[0] >= 128 || c->mic[1] < -1 || c->mic[1] >= 128 ||
+        c->strength < 0 || c->strength > 2 || (c->bypass != 0 && c->bypass != 1)) return E_INVALIDARG;
+    for (int i = 0; i < 8; ++i) {
+        if (c->reference[i] < 0 || c->reference[i] >= 128) return E_INVALIDARG;
+        for (int j = 0; j < i; ++j) if (c->reference[i] == c->reference[j]) return E_INVALIDARG;
+    }
     a->mic0.store(c->mic[0]);
     a->mic1.store(c->mic[1]);
-    a->ref0.store(c->reference[0]);
-    a->ref1.store(c->reference[1]);
+    for (int i = 0; i < 8; ++i) a->refs[i].store(c->reference[i]);
     a->strength.store(c->strength);
     a->bypass.store(c->bypass);
     a->generation.fetch_add(1, std::memory_order_release);
@@ -284,11 +294,31 @@ __declspec(dllexport) void __stdcall AECInputInsert(void* context, AudioBuffer* 
 __declspec(dllexport) void __stdcall AECOutputInsert(void* context, AudioBuffer* b) {
     AEC* a = static_cast<AEC*>(context);
     if (!a || !Valid(b) || !a->processing || a->failed.load()) return;
-    const int r0 = a->ref[0], r1 = a->ref[1];
-    if (!Has(b, r0)) return;
-    const float* left = b->read[r0];
-    const float* right = Has(b, r1) ? b->read[r1] : nullptr;
-    for (long i = 0; i < b->samples; ++i) a->refIn.Push(right ? 0.5f * (left[i] + right[i]) : left[i]);
+    try {
+        if (b->sr != a->sample_rate || b->samples != a->expectedReferenceSamples) {
+            throw std::runtime_error("unpaired output callback");
+        }
+        for (int c = 0; c < 8; ++c) {
+            if (!Has(b, a->ref[c])) throw std::runtime_error("missing reference channel");
+        }
+        const int frame = a->sample_rate / 100;
+        const webrtc::StreamConfig renderConfig(a->sample_rate, 8);
+        float* renderPtr[8];
+        for (int c = 0; c < 8; ++c) renderPtr[c] = a->render[c];
+        for (long i = 0; i < b->samples; ++i) {
+            for (int c = 0; c < 8; ++c) a->render[c][a->renderFill] = b->read[a->ref[c]][i];
+            if (++a->renderFill == frame) {
+                if (a->apm->ProcessReverseStream(renderPtr, renderConfig, renderConfig, renderPtr) != 0) {
+                    throw std::runtime_error("ProcessReverseStream failed");
+                }
+                a->renderFill = 0;
+            }
+        }
+        a->expectedReferenceSamples = 0;
+    } catch (...) {
+        a->failed.store(1);
+        a->active.store(0);
+    }
 }
 
 }  // extern "C"
