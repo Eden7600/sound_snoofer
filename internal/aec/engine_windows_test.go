@@ -87,9 +87,15 @@ func TestNativeEngine(t *testing.T) {
 	if !s.Active || s.SampleRate != 48000 || s.Frames < 98 || s.Failed {
 		t.Fatal(s)
 	}
-	// A stream that ends between the inserts latches a failure with its reason.
+	// A transient gap re-primes; only prolonged absence latches failure.
 	e.inputInsert.Call(hook.Context, uintptr(unsafe.Pointer(b)))
 	e.inputInsert.Call(hook.Context, uintptr(unsafe.Pointer(b)))
+	if s, err := e.Stats(); err != nil || s.Failed || s.Active {
+		t.Fatal("transient gap failed", s, err)
+	}
+	for range 510 {
+		e.inputInsert.Call(hook.Context, uintptr(unsafe.Pointer(b)))
+	}
 	if s, err := e.Stats(); err != nil || !s.Failed || s.Active || s.Reason != "missing output callback" {
 		t.Fatal("fault not latched with its reason", s, err)
 	}

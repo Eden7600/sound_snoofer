@@ -303,9 +303,9 @@ int main(int argc, char **argv) {
         stats(aec, &report);
         int same = 1;
         for (int c = 0; c < Channels; ++c) same &= memcmp(readMic[c], writeMic[c], 256*sizeof(float)) == 0;
-        check(report.failed && !report.active && same, "callback fault latches failure and passes mic through");
+        check(report.failed == (fault == 3) && !report.active && same, "transient gaps re-prime; invalid reference fails open");
         /* Missing output, three unpaired outputs, missing reference, unpaired output. */
-        const int reasons[] = {1, 5, 5, 6, 5};
+        const int reasons[] = {0, 0, 0, 6, 0};
         int reason = 0;
         readFailure(aec, &reason);
         check(reason == reasons[fault], "callback fault reports its reason");
@@ -320,6 +320,26 @@ int main(int argc, char **argv) {
         stats(aec, &report);
         readFailure(aec, &reason);
         check(report.active && !report.failed && report.frames > 0 && reason == 0, "reset resumes processing on paired callbacks");
+        destroy(aec);
+    }
+
+    /* Frequent gaps retain a bounded budget despite repeated APM rebuilds. */
+    {
+        AEC *aec = NULL;
+        AudioBuffer in, out;
+        AECStats report;
+        AECConfig config = {{MicLeft, MicRight}, {0,1,2,3,4,5,6,7},0,0};
+        if(create(&aec)!=S_OK || configure(aec,&config)!=S_OK)return 2;
+        setup_buffers(&in,&out,48000,256);
+        int earlyFailure=0;
+        for(int n=0;n<2800;++n){
+            if(n==900) for(int stable=0;stable<50;++stable){inputInsert(aec,&in);outputInsert(aec,&out);}
+            inputInsert(aec,&in);
+            if(n%3==0)outputInsert(aec,&out);
+            stats(aec,&report);
+            if(n<2600 && report.failed)earlyFailure=1;
+        }
+        check(!earlyFailure && report.failed,"250 ms stable pairs clear budget; repeated gaps still fail by ten seconds");
         destroy(aec);
     }
 
@@ -353,11 +373,15 @@ int main(int argc, char **argv) {
         stats(aec, &report);
         check(report.active && !report.failed && report.frames > 0, "first reference starts cancellation after pre-roll");
         inputInsert(aec, NULL);
-        for (int cycle = 0; cycle < 94; ++cycle) inputInsert(aec, &in);
+        for (int cycle = 0; cycle < 470; ++cycle) {
+            inputInsert(aec, &in);
+            stats(aec, &report);
+            if(cycle < 400) check(!report.failed, "startup tolerates gaps beyond one second");
+        }
         stats(aec, &report);
         int reason = 0;
         readFailure(aec, &reason);
-        check(report.failed && !report.active && reason == 1, "missing startup reference fails within one second");
+        check(report.failed && !report.active && reason == 1, "missing startup reference fails after five seconds");
         destroy(aec);
     }
 
@@ -376,7 +400,7 @@ int main(int argc, char **argv) {
             observe(NULL, 10, &in, 1);
             observe(NULL, 11, &out, 1);
             observe(NULL, 10, &in, 1); /* Leave an input waiting for output. */
-            if (failed) observe(NULL, 10, &in, 1); /* Already latched. */
+            if (failed) for(int n=0;n<940;++n) observe(NULL, 10, &in, 1); /* Prolonged absence latches. */
             observe(NULL, event, NULL, 0);
             observe(NULL, event, NULL, 0); /* Repeated events are harmless. */
             if (failed) observe(NULL, 11, &out, 1); /* Late output cannot use old state. */

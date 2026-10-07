@@ -143,6 +143,8 @@ struct AEC {
     long expectedReferenceSamples = 0;
     bool processing = false, referenceReady = false;
     long startupSamples = 0;
+    bool recovering = false, resync = false;
+    long recoverySamples = 0, stableSamples = 0;
     rtc::scoped_refptr<webrtc::AudioProcessing> apm;
     Fifo micOut[2];
     float capture[2][kMaxFrame], render[8][kMaxFrame];
@@ -153,8 +155,13 @@ namespace {
 bool Supported(int rate) { return rate == 48000 || rate == 32000 || rate == 16000; }
 
 // Configure (re)creates the engine for the current request and rate; it runs
-// on the audio thread only when the request or the rate changes.
-void Configure(AEC* a, int rate) {
+// on the audio thread when settings, rate or callback framing changes.
+void Configure(AEC* a, int rate, bool preserveRecovery = false) {
+    if (!preserveRecovery) {
+        a->recovering = false;
+        a->recoverySamples = a->stableSamples = 0;
+    }
+    a->resync = false;
     a->applied = a->generation.load(std::memory_order_acquire);
     a->mic[0] = a->mic0.load();
     a->mic[1] = a->mic1.load();
@@ -208,13 +215,23 @@ bool Has(AudioBuffer* b, int channel) {
     return channel >= 0 && channel < b->inputs && b->read[channel] && b->write[channel];
 }
 
+void Discontinuity(AEC* a) {
+    if (!a->recovering) a->recoverySamples = 0;
+    a->recovering = a->resync = true;
+    a->stableSamples = 0;
+    a->active.store(0);
+}
+
 void Process(AEC* a, AudioBuffer* b) {
     if (a->applied != a->generation.load(std::memory_order_acquire) || a->sample_rate != b->sr) {
         Configure(a, b->sr);
     }
     if (!a->processing) return;
     const int frame = a->sample_rate / 100;
-    if (a->referenceReady && a->expectedReferenceSamples != 0) throw Fault{kMissingOutput};
+    if (a->referenceReady && a->expectedReferenceSamples != 0) Discontinuity(a);
+    if (a->resync) Configure(a, b->sr, true);
+    if (a->recovering && (a->recoverySamples += b->samples) >= 10 * a->sample_rate)
+        throw Fault{kMissingOutput};
     for (int ch = 0; ch < a->micChannels; ++ch) {
         if (!Has(b, a->mic[ch])) throw Fault{kMissingMic};
     }
@@ -223,7 +240,7 @@ void Process(AEC* a, AudioBuffer* b) {
         // Voicemeeter pre-rolls input before its first output callback.
         // Keep capture framing on the same sample timeline as render.
         a->startupSamples += b->samples;
-        if (a->startupSamples >= a->sample_rate) throw Fault{kMissingOutput};
+        if (a->startupSamples >= 5 * a->sample_rate) throw Fault{kMissingOutput};
     }
     a->active.store(a->referenceReady ? 1 : 0);
     const webrtc::StreamConfig captureConfig(a->sample_rate, static_cast<size_t>(a->micChannels));
@@ -365,10 +382,11 @@ __declspec(dllexport) void __stdcall AECOutputInsert(void* context, AudioBuffer*
     AEC* a = static_cast<AEC*>(context);
     if (!a || !Valid(b) || !a->processing || a->failed.load()) return;
     // After a reset, wait for the input insert to rebuild the engine.
-    if (a->applied != a->generation.load(std::memory_order_acquire)) return;
+    if (a->resync || a->applied != a->generation.load(std::memory_order_acquire)) return;
     try {
         if (b->sr != a->sample_rate || b->samples != a->expectedReferenceSamples) {
-            throw Fault{kUnpairedOutput};
+            Discontinuity(a);
+            return;
         }
         for (int c = 0; c < 8; ++c) {
             if (!Has(b, a->ref[c])) throw Fault{kMissingReference};
@@ -388,6 +406,8 @@ __declspec(dllexport) void __stdcall AECOutputInsert(void* context, AudioBuffer*
         }
         a->expectedReferenceSamples = 0;
         a->referenceReady = true;
+        if (a->recovering && (a->stableSamples += b->samples) >= a->sample_rate / 4)
+            a->recovering = false;
     } catch (const Fault& f) {
         Fail(a, f.reason);
     } catch (...) {
@@ -396,3 +416,4 @@ __declspec(dllexport) void __stdcall AECOutputInsert(void* context, AudioBuffer*
 }
 
 }  // extern "C"
+
