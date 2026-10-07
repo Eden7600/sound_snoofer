@@ -44,7 +44,7 @@ Each numbered block is one reviewable commit.
 - [x] 38. `feat(streamdeck)`: Media page dials (media, Playback, focused app, apps) and no Focus key (default and personal). Tests are updated.
 - [x] 39. Validate: all checks and the canonical build; relaunch.
 - [x] 40. `docs(media)`: dial order, no duplicate dials and transport on Home (§4e).
-- [ ] 41. `feat(streamdeck)`: the `Mirrors` field, which keeps the focused app off region dials, with `appaudio.focus` setting it. Includes tests.
+- [x] 41. `feat(streamdeck)`: the `Mirrors` field, which keeps the focused app off region dials, with `appaudio.focus` setting it. Includes tests.
 - [ ] 42. `feat(streamdeck)`: Playback first on the Media page, and Now playing transport on Home (default and personal). Tests are updated.
 - [ ] 43. Validate: all checks and the canonical build; relaunch.
 

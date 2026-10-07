@@ -89,7 +89,11 @@ func (l Layout) expanded(controls []snoofer.Control) Layout {
 	result := l.clone()
 	result.Pages = nil
 	hidden := map[string]bool{}
+	mirrors := map[string]string{} // Stand-in control ID to the control it mirrors.
 	for _, c := range controls {
+		if c.Mirrors != "" && !c.Hidden {
+			mirrors[c.ID] = c.Mirrors
+		}
 		// Stream Deck's own keys never yield: their visibility depends on
 		// this expansion.
 		if c.Hidden && !strings.HasPrefix(c.ID, "streamdeck.") {
@@ -118,7 +122,12 @@ func (l Layout) expanded(controls []snoofer.Control) Layout {
 		for n, b := range page.Dials {
 			boundDials[b.Control] = true
 			boundDials[l.SharedDials[n].Control] = true
+			// A dial standing in for a control keeps that control off the
+			// page's other dials.
+			boundDials[mirrors[b.Control]] = true
+			boundDials[mirrors[l.SharedDials[n].Control]] = true
 		}
+		delete(boundDials, "")
 		type sourceKey struct {
 			source        string
 			prefix, dials bool

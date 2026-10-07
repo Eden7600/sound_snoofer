@@ -528,7 +528,7 @@ func TestHoldGivesAnAppTheFocusDial(t *testing.T) {
 		return snoofer.Control{}
 	}
 	// By default the focus dial follows the first app on the deck.
-	if f := control(h.controls.Snapshot(), "appaudio.focus"); f.ShortLabel != "Discord" || f.Hidden {
+	if f := control(h.controls.Snapshot(), "appaudio.focus"); f.ShortLabel != "Discord" || f.Hidden || f.Mirrors != controlID("Discord") {
 		t.Fatalf("default focus %+v", f)
 	}
 	// Holding the last app's key gives it the dial, without muting it.

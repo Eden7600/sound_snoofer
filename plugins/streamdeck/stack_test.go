@@ -114,3 +114,24 @@ func TestStackedRegionValidationAndLabel(t *testing.T) {
 		t.Fatal("clone shares Sources")
 	}
 }
+
+func TestMirroredControlNotRepeatedOnDials(t *testing.T) {
+	p := Page{ID: "p", Name: "P", DialRegions: []Region{{Source: "a.s", First: 0, Last: 4}}}
+	p.Dials[0] = Binding{Control: "x.focus"}
+	l := Layout{Home: "p", Pages: []Page{p}}
+	focus := snoofer.Control{ID: "x.focus", Mirrors: "a.s-01", Operations: []string{"adjust"}}
+	page := l.expanded(append(members("a.s", 5), focus)).effective("p")
+	for n, b := range page.Dials[1:] {
+		if b.Control == "a.s-01" {
+			t.Fatal("mirrored app repeated on dial", n+2)
+		}
+	}
+	if page.Dials[1].Control != "a.s-02" {
+		t.Fatal("next app does not take the dial", page.Dials)
+	}
+	// A hidden stand-in yields its dial and mirrors nothing.
+	focus.Hidden = true
+	if page := l.expanded(append(members("a.s", 5), focus)).effective("p"); page.Dials[0].Control != "a.s-01" {
+		t.Fatal("hidden stand-in still excluded the app", page.Dials)
+	}
+}

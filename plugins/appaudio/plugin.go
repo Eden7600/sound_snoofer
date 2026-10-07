@@ -416,6 +416,7 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 	if a := w.focusedApp(shown); a != nil {
 		value, status := w.appValue(a)
 		focus.ShortLabel, focus.Value, focus.Status, focus.Meter, focus.Artwork = a.Name, value, status, w.meter(a, now), w.artwork(a)
+		focus.Mirrors = controlID(a.Name)
 		focus.Hidden, focus.Available = false, len(a.Sessions) > 0
 	}
 	controls = append(controls, focus)

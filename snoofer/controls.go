@@ -21,6 +21,7 @@ type Control struct {
 	ShortLabel                                  string          // Optional label for icon-bearing compact surfaces.
 	Collection                                  string          // Optional stable ID of a set of similar controls, which deck regions fill.
 	CollectionLabel                             string          // Optional editor name for Collection.
+	Mirrors                                     string          // Optional ID of the control this one stands in for, such as a focus dial; surfaces avoid showing both.
 	Order                                       int             // Optional position within Collection; regions fill by Order, then label.
 	Meter                                       Meter
 	Progress                                    Progress    // Optional playback position; display only, like Meter.
