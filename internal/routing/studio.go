@@ -29,7 +29,9 @@ type Topology struct {
 	PlaybackTarget  string           `json:"playback_target,omitempty"`
 	Operations      []Operation      `json:"operations"`
 	Unresolved      []string         `json:"unresolved,omitempty"`
-	InventoryKey    string           `json:"-"`
+	// PlaybackUnavailable explains a voice-profile plan without a playback output.
+	PlaybackUnavailable []string `json:"playback_unavailable,omitempty"`
+	InventoryKey        string   `json:"-"`
 	// HeldDevices and HeldSends count changes the intent's pauses hold back.
 	HeldDevices int `json:"held_devices,omitempty"`
 	HeldSends   int `json:"held_sends,omitempty"`
@@ -153,9 +155,15 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 		playback = c.ProfilePlayback
 	}
 	if playback == nil {
-		t.Unresolved = append(t.Unresolved, reasons...)
 		if c.ProfileResolved {
-			t.Unresolved = append(t.Unresolved, "No eligible playback device in active profile")
+			reasons = append(reasons, "No eligible playback device in active profile")
+		}
+		// The voice profile still routes the mic stack without a playback output;
+		// the reasons remain diagnostic rather than blocking apply or recovery.
+		if profile.Voice != nil {
+			t.PlaybackUnavailable = reasons
+		} else {
+			t.Unresolved = append(t.Unresolved, reasons...)
 		}
 	}
 	oldBuses := []string{}

@@ -182,11 +182,19 @@ func TestVoiceNoPlaybackAndDisabledApp(t *testing.T) {
 		t.Fatal("disabled app")
 	}
 	s.Devices[3].Available = false
+	a1 := s.Assignments["A1"]
 	p, e = Build(c, s)
 	if e != nil {
 		t.Fatal(e)
 	}
+	// Booting before outputs connect: the mic stack still applies and the plan settles.
+	if p.HasUnresolved() || p.Topology.PlaybackTarget != "" || len(p.Topology.PlaybackUnavailable) == 0 {
+		t.Fatal("missing playback blocked the plan", p.Topology.Unresolved, p.Topology.PlaybackUnavailable)
+	}
 	applyPlan(&s, p)
+	if s.Assignments["A1"] != a1 {
+		t.Fatal("A1 changed without a playback output", s.Assignments["A1"])
+	}
 	if s.Numbers["Strip[0].B2"] != 1 || s.Numbers["Strip[6].B3"] != 1 || s.Numbers["Strip[6].A2"] != 0 {
 		t.Fatal(s.Numbers)
 	}

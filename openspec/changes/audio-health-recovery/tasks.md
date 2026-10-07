@@ -28,7 +28,7 @@
 - [ ] Check prolonged silence, ordinary hotplug, VR transitions and suspend/resume cause no spurious restarts.
 
 ## 6. Boot without outputs and monitor continuity (2026-10-07)
-- [ ] `fix(routing)`: under the voice profile, no eligible playback device is a resolved no-output plan that still applies the mic stack and keeps A1; reasons stay diagnostic. Tests cover voice and non-voice profiles.
+- [x] `fix(routing)`: under the voice profile, no eligible playback device is a resolved no-output plan that still applies the mic stack and keeps A1; reasons stay diagnostic. Tests cover voice and non-voice profiles.
 - [ ] `fix(audio)`: automatic restart ignores unresolved routing, defers on pending changes for at most ten seconds after qualification, and names the pending target. Tests cover the deferral, its bound and unresolved items.
 - [ ] `fix(audio)`: restart the callback monitor after a stream end or change, at most every five seconds, on the live owner. Tests cover end, change, rate limit and preview.
 - [ ] Validate, build and relaunch.
