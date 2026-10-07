@@ -162,6 +162,16 @@ Review found that filters only blanked keys. The space should go to whatever is 
 - **Keys and dials:** app keys and app dials are independent; logos identify apps. (Review confirmed that key-to-dial alignment does not matter.)
 - **Editor:** a stacked region is labelled with all its sources ("Media sessions + Apps"). The source picker changes the first source; further sources are edited in the configuration.
 
+## 4c. Placeholder artwork (revised after review)
+Programs without a logo get a colour that is random-looking but fixed for each program, so they can be told apart at a glance.
+- **Package:** `internal/placeholder`. `Art(name, glyph)` returns a 64 px PNG in the `Artwork` contract: a rounded tile with a light glyph.
+  - **Colour:** the hue comes from FNV-1a of the lower-cased name. Saturation 0.55 and lightness 0.45 keep every hue readable on the dark deck.
+  - **Glyphs:** `App` is a window; `Media` is a play triangle.
+- **Users:**
+  - `appaudio` uses it for apps whose executable has no icon, keyed by the app name.
+  - `nowplaying` uses it for sessions without cover art, keyed by the player or "browser · site", so a site keeps its colour across tabs.
+- **Caching:** each plugin caches the result per name, so publishing never redraws it.
+
 ## 5. GUI
 - **Media screen** (sidebar, after App audio):
   - **Session cards:** artwork, title, artist, source (app or browser · site), a progress bar with a seek slider, Previous/Play/Next, Mute for tabs and a Focus marker (click to focus).
