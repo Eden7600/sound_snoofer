@@ -118,3 +118,17 @@ Restarting an unpacked extension after `runtime.reload()` does not work under au
 - The Media page was rebuilt to the combined layout. Its Playback dial gave way to the app dials, and Playback stays on Home.
 - Home key 34 now goes to Media, and key 33 is free.
 - `snoofer.exe --check` passes.
+
+## Revision: filters free space, and coloured placeholders (commits 6516d30 through ffac3d4)
+- `go test ./...`: pass.
+  - **Stacked regions:** rows shared by need in five member mixes; overflow continuing each source; validation; the "Media sessions + Apps" label; clone independence.
+  - **Yielding:** hidden bindings yield to covering key and dial regions, while Stream Deck keys never do.
+  - **Media page, four filter states:**
+    - both on: sessions row 1, apps row 2, app dials 2–5;
+    - Apps off: sessions take rows 1–3;
+    - Media off: apps take rows 1–3 and all five dials;
+    - both off: empty.
+  - **Placeholders:** deterministic and distinct per name; a 64 px PNG with a transparent corner; used for apps without an icon and sessions without art, while real icons are kept.
+- **Native-size preview:** six placeholder keys, each name in its own colour with a window or play glyph. Similar hues can still occur for different names.
+- `scripts/check-gui.cjs` and `scripts/check-desktop.cjs`: pass.
+- **Build and personal layout:** built with `scripts/build.ps1`. The personal Media page was migrated to the stacked region and the five-dial app region (backup `snoofer.json.before-stacked`); `snoofer.exe --check` passes. Snoofer was relaunched.
