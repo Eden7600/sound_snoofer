@@ -514,3 +514,66 @@ func TestAppsWithoutIconsGetColouredTiles(t *testing.T) {
 		t.Fatal("placeholder missing or shared")
 	}
 }
+
+func TestHoldGivesAnAppTheFocusDial(t *testing.T) {
+	backend := studio()
+	h := startHarness(t, backend, Settings{}, true)
+	h.wait("apps", func(l []snoofer.Control) bool { return len(apps(l)) == 3 })
+	control := func(l []snoofer.Control, id string) snoofer.Control {
+		for _, c := range l {
+			if c.ID == id {
+				return c
+			}
+		}
+		return snoofer.Control{}
+	}
+	// By default the focus dial follows the first app on the deck.
+	if f := control(h.controls.Snapshot(), "appaudio.focus"); f.ShortLabel != "Discord" || f.Hidden {
+		t.Fatalf("default focus %+v", f)
+	}
+	// Holding the last app's key gives it the dial, without muting it.
+	h.dispatch("Stubborn", "hold", "", 0)
+	h.wait("focus moved", func(l []snoofer.Control) bool { return control(l, "appaudio.focus").ShortLabel == "Stubborn" })
+	backend.mu.Lock()
+	writes := backend.writes
+	backend.mu.Unlock()
+	if writes != 0 {
+		t.Fatal("hold wrote to the app", writes)
+	}
+	// The focus dial adjusts the focused app.
+	for attempt := 0; ; attempt++ {
+		f := control(h.controls.Snapshot(), "appaudio.focus")
+		if err := h.controls.Dispatch(context.Background(), snoofer.Request{ID: f.ID, Revision: f.Revision, Operation: "press"}); err == nil {
+			break
+		}
+		if attempt > 50 {
+			t.Fatal("focus dial press rejected")
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+	// The worker applies queued input asynchronously.
+	h.wait("Stubborn muted", func([]snoofer.Control) bool {
+		backend.mu.Lock()
+		defer backend.mu.Unlock()
+		return backend.writes > 0
+	})
+	backend.mu.Lock()
+	defer backend.mu.Unlock()
+	for _, s := range backend.sessions {
+		if s.Key == "d1" && s.Muted {
+			t.Fatal("focus dial muted the wrong app")
+		}
+	}
+}
+
+func TestFocusDialFollowsTheDeckFilter(t *testing.T) {
+	h := startHarness(t, studio(), Settings{Picked: []string{"Stubborn"}, DeckApps: "pinned"}, true)
+	h.wait("focus on the only pinned app", func(l []snoofer.Control) bool {
+		for _, c := range l {
+			if c.ID == "appaudio.focus" {
+				return c.ShortLabel == "Stubborn" && !c.Hidden
+			}
+		}
+		return false
+	})
+}

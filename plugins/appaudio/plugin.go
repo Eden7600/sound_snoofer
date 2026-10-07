@@ -136,6 +136,7 @@ type worker struct {
 	ignored map[string]bool      // App key: a write was not observed in time.
 	editErr string
 	tiles   map[string]string // App name to placeholder artwork, for apps without an icon.
+	focus   string            // Key of the app the focus dial controls; chosen by holding its key.
 }
 
 func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, open func() (windowsaudio.SessionBackend, error), t timing) (snoofer.Instance, error) {
@@ -289,10 +290,17 @@ func (w *worker) handle(r snoofer.Request, now time.Time) {
 		return
 	}
 	var target *app
+	if r.ID == "appaudio.focus" {
+		target = w.focusedApp(visible(w.apps, w.settings.Picked, w.heard, w.settings.window(), now))
+	}
 	for _, a := range w.apps {
 		if !a.Hidden && controlID(a.Name) == r.ID {
 			target = a
 		}
+	}
+	if target != nil && r.Operation == "hold" {
+		w.focus = key(target.Name) // A held key gives its app the focus dial.
+		return
 	}
 	if target == nil || len(target.Sessions) == 0 || !w.services.Live || w.backend == nil {
 		return // Closed apps and preview ignore input.
@@ -395,21 +403,22 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 	var controls []snoofer.Control
 	for n, a := range shown {
 		value, status := w.appValue(a)
-		meter := snoofer.Meter{Present: true, At: now}
-		if len(a.Sessions) > 0 {
-			peak := 0.0
-			for _, s := range a.Sessions {
-				peak = max(peak, w.peaks[s.Key])
-			}
-			meter.Known = true
-			meter.DB = max(-120, 20*math.Log10(max(peak, 1e-6)))
-		}
+		meter := w.meter(a, now)
 		// The deck filter hides apps from surfaces only; the GUI lists them all.
 		picked := slices.ContainsFunc(w.settings.Picked, func(p string) bool { return key(p) == key(a.Name) })
 		controls = append(controls, snoofer.Control{ID: controlID(a.Name), Label: a.Name, ShortLabel: a.Name, Group: "App audio",
 			Collection: "appaudio.apps", CollectionLabel: "Apps", Order: n + 1, Kind: "numeric", Icon: "app-audio", Artwork: w.artwork(a),
-			Value: value, Status: status, Meter: meter, Operations: []string{"press", "adjust", "set"}, Hidden: !w.settings.onDeck(picked), Available: true})
+			Value: value, Status: status, Meter: meter, Operations: []string{"press", "hold", "adjust", "set"}, Hidden: !w.settings.onDeck(picked), Available: true})
 	}
+	// The focus dial follows the focused app wherever it sits in the list.
+	focus := snoofer.Control{ID: "appaudio.focus", Label: "Focused app", ShortLabel: "Focused app", Group: "App audio", Kind: "numeric", Icon: "app-audio",
+		Operations: []string{"press", "adjust"}, Hidden: true}
+	if a := w.focusedApp(shown); a != nil {
+		value, status := w.appValue(a)
+		focus.ShortLabel, focus.Value, focus.Status, focus.Meter, focus.Artwork = a.Name, value, status, w.meter(a, now), w.artwork(a)
+		focus.Hidden, focus.Available = false, len(a.Sessions) > 0
+	}
+	controls = append(controls, focus)
 	filter := w.settings.DeckApps
 	if filter == "" {
 		filter = "all"
@@ -469,6 +478,40 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 			return fmt.Errorf("app audio busy")
 		}
 	})
+}
+
+// focusedApp is the app the focus dial controls: the held app while the deck
+// shows it, otherwise the first app the deck shows. It is nil when the deck
+// shows no apps.
+func (w *worker) focusedApp(shown []*app) *app {
+	var first *app
+	for _, a := range shown {
+		picked := slices.ContainsFunc(w.settings.Picked, func(p string) bool { return key(p) == key(a.Name) })
+		if !w.settings.onDeck(picked) {
+			continue
+		}
+		if key(a.Name) == w.focus {
+			return a
+		}
+		if first == nil {
+			first = a
+		}
+	}
+	return first
+}
+
+// meter is the app's loudest session.
+func (w *worker) meter(a *app, now time.Time) snoofer.Meter {
+	meter := snoofer.Meter{Present: true, At: now}
+	if len(a.Sessions) > 0 {
+		peak := 0.0
+		for _, s := range a.Sessions {
+			peak = max(peak, w.peaks[s.Key])
+		}
+		meter.Known = true
+		meter.DB = max(-120, 20*math.Log10(max(peak, 1e-6)))
+	}
+	return meter
 }
 
 // artwork is the app's icon, or a placeholder in the app's own colour.
