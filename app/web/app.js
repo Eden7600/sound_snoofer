@@ -477,7 +477,8 @@ function excludedCard(view){
  input.addEventListener("input",update);
 }
 // mediaCard shows one session: artwork, title, source, progress with a seek
-// slider, play/pause and focus; the focused card adds Previous, Next and Mute.
+// slider and play/pause, which also focuses it; the focused card adds Previous,
+// Next and Mute.
 function mediaCard(id,parent){
  const info=()=>(c("nowplaying.status")?.ViewData?.Sessions||[]).find(s=>s.ID===id)||{};
  const card=el("article",ui.strip+" flex flex-col gap-2 data-[focused=true]:border-active"),head=el("div","flex items-center gap-3"),art=el("div","grid size-16 shrink-0 place-items-center text-active"),text=el("div","min-w-0 flex-1");
@@ -493,9 +494,9 @@ function mediaCard(id,parent){
  seek.onchange=()=>{dragging=false;request(c(id),"set",seek.value);};
  const actions=el("div",ui.actions),status=el("small","text-[11px]");
  const prev=iconButton("skip-back","Previous",()=>press("nowplaying.prev")),play=iconButton("play","Play or pause",()=>press(id)),next=iconButton("skip-forward","Next",()=>press("nowplaying.next"));
- const mute=button("Mute",()=>press("nowplaying.mute"),ui.toggle+" "+ui.small),focus=button("Focus",()=>request(c("nowplaying.focus"),"set",id),ui.small);
- play.dataset.part="play";focus.dataset.part="focus";mute.dataset.part="mute";
- actions.append(prev,play,next,mute,focus,status);card.append(head,seek,times,actions);parent.append(card);
+ const mute=button("Mute",()=>press("nowplaying.mute"),ui.toggle+" "+ui.small);
+ play.dataset.part="play";mute.dataset.part="mute";
+ actions.append(prev,play,next,mute,status);card.append(head,seek,times,actions);parent.append(card);
  const clock=ms=>{const s=Math.max(0,Math.floor((ms||0)/1000));return s>=3600?Math.floor(s/3600)+":"+String(Math.floor(s/60)%60).padStart(2,"0")+":"+String(s%60).padStart(2,"0"):Math.floor(s/60)+":"+String(s%60).padStart(2,"0");};
  updaters.push(()=>{
   const item=c(id),s=info();if(!item)return;
@@ -507,11 +508,11 @@ function mediaCard(id,parent){
   const position=dragging?Number(seek.value):progressAt(s);
   if(!dragging)seek.value=String(position);
   elapsed.textContent=clock(position);length.textContent=clock(s.DurationMs);
-  prev.hidden=!s.Focused||!s.CanPrev;next.hidden=!s.Focused||!s.CanNext;mute.hidden=!s.Focused||!s.CanMute;focus.hidden=!!s.Focused;
+  prev.hidden=!s.Focused||!s.CanPrev;next.hidden=!s.Focused||!s.CanNext;mute.hidden=!s.Focused||!s.CanMute;
   mute.textContent=s.Muted?"Muted":"Mute";mute.setAttribute("aria-pressed",String(!!s.Muted));mute.dataset.tone=s.Muted?"critical":"";
   status.textContent=s.Pending?"Wait":s.Failure||"";status.className="text-[11px] "+(s.Failure?"text-critical":"text-attention");
   seek.disabled=!!pending||!s.CanSeek;play.disabled=!!pending||!s.CanToggle;
-  for(const b of [prev,next,mute,focus])b.disabled=!!pending;
+  for(const b of [prev,next,mute])b.disabled=!!pending;
  });
 }
 // extensionCard explains the Snoofer Media extension, which reports each

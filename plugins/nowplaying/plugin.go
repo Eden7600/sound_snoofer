@@ -348,19 +348,6 @@ func (w *worker) merge(now time.Time) {
 			w.focus = all[0].Key
 		}
 	}
-	// With exactly one session playing, a focused session that is not playing
-	// gives way to it, even within the hold after a press.
-	var only []string
-	for _, s := range all {
-		if s.playing() {
-			only = append(only, s.Key)
-		}
-	}
-	if len(only) == 1 && only[0] != w.focus {
-		if focused, ok := sessionByKey(all, w.focus); !ok || !focused.playing() {
-			w.focus = only[0]
-		}
-	}
 	w.sessions = all
 	w.observe(now)
 }
@@ -453,13 +440,6 @@ func (w *worker) handle(r snoofer.Request, now time.Time) {
 			w.saveErr = err.Error()
 		}
 		return
-	case "nowplaying.focus":
-		for _, s := range w.sessions {
-			if controlID(s.Key) == r.Value {
-				w.focus, w.pressed = s.Key, now
-			}
-		}
-		return
 	case "nowplaying.dial":
 		if !ok {
 			return
@@ -491,6 +471,9 @@ func (w *worker) handle(r snoofer.Request, now time.Time) {
 			continue
 		}
 		w.focus, w.pressed = s.Key, now
+		if r.Operation == "hold" { // Held key: focus only.
+			return
+		}
 		if r.Operation == "set" { // The GUI seek slider: an absolute position in ms.
 			position, err := strconv.ParseInt(r.Value, 10, 64)
 			if err == nil && s.CanSeek && position >= 0 && (s.DurationMs == 0 || position <= s.DurationMs) {

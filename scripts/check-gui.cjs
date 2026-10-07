@@ -69,7 +69,6 @@ add("appaudio.edit","App audio edit","text","abc");
 // Now playing: a focused YouTube tab and a paused Windows player.
 add("nowplaying.s-tab","Video A","command","Playing",{ShortLabel:"Video A",Group:"Now playing",Collection:"nowplaying.sessions",CollectionLabel:"Media sessions",Order:1,Icon:"media-play",Operations:["press","set"]});
 add("nowplaying.s-spotify","Song","command","Paused",{ShortLabel:"Song",Group:"Now playing",Collection:"nowplaying.sessions",CollectionLabel:"Media sessions",Order:2,Icon:"media-play",Operations:["press","set"]});
-add("nowplaying.focus","Media focus","selection","nowplaying.s-tab",{Options:["nowplaying.s-tab","nowplaying.s-spotify"]});
 for(const [id,label] of [["prev","Previous track"],["next","Next track"],["toggle","Play or pause"],["mute","Mute tab"]])add("nowplaying."+id,label,"command","");
 add("nowplaying.dial","Now playing","numeric","1:05 / 4:45",{Operations:["adjust","press"]});
 add("nowplaying.status","Now playing","status","2 sessions",{ViewData:{Windows:"Connected",Bridge:{Port:47815,Error:"",Refused:"Update the Snoofer Media extension in Firefox"},
@@ -305,7 +304,7 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   assert.equal(await tab.getAttribute("data-focused"),"true");
   assert.equal(await tab.getByRole("button",{name:"Next"}).isVisible(),true,"focused card lacks Next");
   assert.equal(await song.getByRole("button",{name:"Next"}).isVisible(),false,"unfocused card shows Next");
-  assert.equal(await tab.locator("[data-part=focus]").isVisible(),false);
+  assert.equal(await page.locator("[data-part=media-session] button",{hasText:"Focus"}).count(),0,"Focus button still offered");
   await song.locator("[data-part=play]").click();
   assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Operation];}),["nowplaying.s-spotify","press"]);
   await page.waitForTimeout(300);
@@ -318,9 +317,6 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   const first=Number(await tab.locator("[data-part=seek]").inputValue());
   await page.waitForTimeout(1200);
   assert.ok(Number(await tab.locator("[data-part=seek]").inputValue())>=first+1000,"playing progress did not advance");
-  await page.waitForTimeout(300);
-  await song.locator("[data-part=focus]").click();
-  assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Value];}),["nowplaying.focus","nowplaying.s-spotify"]);
   await page.waitForTimeout(300);
   await tab.locator("[data-part=mute]").click();
   assert.equal(await page.evaluate(()=>window.sent.at(-1).Request.ID),"nowplaying.mute");

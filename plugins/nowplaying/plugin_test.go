@@ -237,8 +237,8 @@ func TestBrowserTabsReplaceItsWindowsSession(t *testing.T) {
 		}
 	}
 	r.press(episode.ID, "press", 0)
-	if len(r.sent) != 1 || r.sent[0].ID != "2:0" || r.sent[0].Op != "toggle" || r.control("nowplaying.focus").Value != episode.ID {
-		t.Fatal("tab press", r.sent, r.control("nowplaying.focus").Value)
+	if len(r.sent) != 1 || r.sent[0].ID != "2:0" || r.sent[0].Op != "toggle" || r.control("nowplaying.dial").ShortLabel != "Episode" {
+		t.Fatal("tab press", r.sent, r.control("nowplaying.dial").ShortLabel)
 	}
 	if r.control("nowplaying.mute").Hidden {
 		t.Fatal("tabs can mute")
@@ -274,8 +274,14 @@ func TestFocusFollowsNewPlaybackUnlessChosen(t *testing.T) {
 		t.Fatal("focus did not follow new playback", focus())
 	}
 	// Choosing A holds focus against new playback for 30 s.
-	r.press("nowplaying.focus", "set", 0)
-	r.w.handle(snoofer.Request{ID: "nowplaying.focus", Operation: "set", Value: controlID("windows:A")}, r.now)
+	// Holding A's key focuses it without toggling.
+	r.press(controlID("windows:A"), "hold", 0)
+	if len(r.win.commands) != 0 {
+		t.Fatal("hold toggled", r.win.commands)
+	}
+	if r.control("nowplaying.focus").ID != "" {
+		t.Fatal("the Focus control still exists")
+	}
 	b.Status = "paused"
 	r.win.sessions = []mediasessions.Session{a, b}
 	r.tick(time.Second)
@@ -340,36 +346,6 @@ func TestWindowsSessionKeptWhenTabUnseen(t *testing.T) {
 	r.tick(0)
 	if m := r.members(); len(m) != 1 || m[0].Label != "Old video" {
 		t.Fatalf("members %+v", m)
-	}
-}
-
-func TestFocusMovesToTheOnlyPlayingSession(t *testing.T) {
-	r := newRig(t, true)
-	a := mediasessions.Session{ID: "A", App: "A.exe", Title: "A", Status: "playing", CanPlay: true}
-	b := mediasessions.Session{ID: "B", App: "B.exe", Title: "B", Status: "paused", CanPlay: true}
-	r.win.sessions = []mediasessions.Session{a, b}
-	r.tick(0)
-	// Choose B (paused) just now; A is the only one playing, so focus returns to A.
-	r.w.handle(snoofer.Request{ID: "nowplaying.focus", Operation: "set", Value: controlID("windows:B")}, r.now)
-	r.tick(time.Second)
-	if f := r.control("nowplaying.dial").ShortLabel; f != "A" {
-		t.Fatal("focus stayed on a paused session while only A plays", f)
-	}
-	// With both playing, the chosen session keeps focus within the hold.
-	b.Status = "playing"
-	r.win.sessions = []mediasessions.Session{a, b}
-	r.tick(time.Second)
-	r.w.handle(snoofer.Request{ID: "nowplaying.focus", Operation: "set", Value: controlID("windows:A")}, r.now)
-	r.tick(time.Second)
-	if f := r.control("nowplaying.dial").ShortLabel; f != "A" {
-		t.Fatal("chosen focus lost while two play", f)
-	}
-	// Nothing playing: focus stays where it is.
-	a.Status, b.Status = "paused", "paused"
-	r.win.sessions = []mediasessions.Session{a, b}
-	r.tick(time.Second)
-	if f := r.control("nowplaying.dial").ShortLabel; f != "A" {
-		t.Fatal("focus moved with nothing playing", f)
 	}
 }
 

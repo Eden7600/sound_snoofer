@@ -42,8 +42,6 @@ type statusView struct {
 
 func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 	var controls []snoofer.Control
-	var options []string
-	labels := map[string]string{}
 	view := statusView{Windows: "Connected", Bridge: bridgeView{Port: w.settings.port(), Error: w.bridgeErr}}
 	if w.bridge != nil {
 		view.Bridge.Refused = w.bridge.lastRefusal()
@@ -62,9 +60,7 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 			status = "Pending"
 		}
 		controls = append(controls, snoofer.Control{ID: id, Label: title, ShortLabel: title, Group: "Now playing", Collection: "nowplaying.sessions", CollectionLabel: "Media sessions",
-			Order: n + 1, Kind: "command", Icon: "media-play", Artwork: w.artwork(s), Value: s.Status, Status: status, Operations: []string{"press", "set"}, Hidden: w.settings.DeckMediaOff, Available: s.CanToggle || s.CanSeek})
-		options = append(options, id)
-		labels[id] = title + " · " + s.App
+			Order: n + 1, Kind: "command", Icon: "media-play", Artwork: w.artwork(s), Value: s.Status, Status: status, Operations: []string{"press", "hold", "set"}, Hidden: w.settings.DeckMediaOff, Available: s.CanToggle || s.CanSeek})
 		_, pending := w.pending[s.Key]
 		shown := w.progress(s, now)
 		view.Sessions = append(view.Sessions, viewSession{ID: id, Source: s.Source, App: s.App, Title: s.Title, Artist: s.Artist, Album: s.Album, Status: s.Status,
@@ -81,12 +77,6 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 	}
 
 	focused, ok := w.find(w.focus)
-	focusID := ""
-	if ok {
-		focusID = controlID(focused.Key)
-	}
-	controls = append(controls, snoofer.Control{ID: "nowplaying.focus", Label: "Media focus", ShortLabel: "Focus", Group: "Now playing", Kind: "selection", Icon: "media-play",
-		Value: focusID, Options: options, OptionLabels: labels, Operations: []string{"set"}, Hidden: len(options) < 2 || w.settings.DeckMediaOff, Available: len(options) > 0})
 
 	dial := snoofer.Control{ID: "nowplaying.dial", Label: "Now playing", ShortLabel: "Nothing playing", Group: "Now playing", Kind: "numeric", Icon: "media-play",
 		Value: "", Operations: []string{"adjust", "press"}, Available: true}
