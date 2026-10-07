@@ -174,7 +174,12 @@ Review found that filters only blanked keys. The space should go to whatever is 
   - **Filter:** the dial is Hidden when the Apps filter is Off.
 - **Dials:** the Media page's dials are media, Playback (`audio.gain-playback`), the focused app, then apps.
   - The app dial region still covers all five dials, so the media dial's position goes to an app when media is off.
-  - The focused app may also appear on a region dial; both control the same app.
+  - The focused app is not repeated on a region dial (§4e).
+
+## 4e. Dial order, no duplicate dials, transport on Home (revised after review)
+- **Dial order:** the Media page's dials are Playback, media, the focused app, then apps. The app dial region covers all five, so the media dial's position goes to an app while media is filtered off.
+- **No duplicate dials:** `snoofer.Control.Mirrors` names the control that a stand-in control controls; `appaudio.focus` mirrors the focused app's control. During expansion, a control mirrored by a visible dial bound on the page counts as bound for that page's dial regions, so the focused app is not also placed on a region dial. Keys are unaffected.
+- **Home transport:** Home's keys 28–30 use `nowplaying.prev`, `nowplaying.toggle` and `nowplaying.next` instead of the blind media keys. They act on the focused session and are blank while media is filtered off. The `media` plugin is unchanged and its keys can still be bound.
 
 ## 4c. Placeholder artwork (revised after review)
 Programs without a logo get a colour that is random-looking but fixed for each program, so they can be told apart at a glance.

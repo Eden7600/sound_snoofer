@@ -78,3 +78,7 @@ The combined Media deck page SHALL offer an Apps filter (All, Pinned, Off) and a
 #### Scenario: Media off frees space for apps
 - **WHEN** the Media filter is Off
 - **THEN** apps fill rows 1–3 and all five dials, including the media dial's position
+
+#### Scenario: Focused app not repeated
+- **WHEN** the focused app is also among the first apps
+- **THEN** it appears only on the focused-app dial, and the next app takes the region dial
