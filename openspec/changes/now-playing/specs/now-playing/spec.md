@@ -66,3 +66,11 @@ The combined Media deck page SHALL offer an Apps filter (All, Pinned, Off) and a
 #### Scenario: Media off
 - **WHEN** the Media filter is Off
 - **THEN** session keys, transport keys and the media dial are blank on every page, and the Media filter key stays visible
+
+#### Scenario: Apps off frees space for media
+- **WHEN** the Apps filter is Off and twelve sessions are playing or paused
+- **THEN** sessions fill rows 1 and 2 (and row 3 if needed) instead of stopping at row 1
+
+#### Scenario: Media off frees space for apps
+- **WHEN** the Media filter is Off
+- **THEN** apps fill rows 1–3 and all five dials, including the media dial's position

@@ -32,6 +32,10 @@ Each numbered block is one reviewable commit.
 - [x] 27. `feat(nowplaying)`: Media deck filter (On, Off), saved, hiding sessions, the dial and transport. Includes tests.
 - [x] 28. `feat(streamdeck)`: the combined default page; Home go-to keys. Tests cover the layout and paging. Migrate the personal layout.
 - [x] 29. Validate: all checks and the canonical build; relaunch.
+- [x] 30. `docs(media)`: filters free space (§4b).
+- [ ] 31. `feat(streamdeck)`: stacked regions, Hidden bindings yielding, and the editor label. Tests cover row allotment, overflow sets, yielding and the Stream Deck control exception.
+- [ ] 32. `feat(streamdeck)`: the Media page uses the stacked region and the five-dial app region (default and personal). Tests cover all four filter states.
+- [ ] 33. Validate: all checks and the canonical build; relaunch.
 
 ## Hardware acceptance
 - [ ] 9. With Brave and a Windows player:

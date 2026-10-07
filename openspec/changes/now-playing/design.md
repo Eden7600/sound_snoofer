@@ -129,7 +129,7 @@ The Apps page (change app-audio) and the Media page were both sparse, so they ar
 | Row | Keys |
 |---|---|
 | r1 c1–c8 | media sessions (region) |
-| r2 c2–c5 (keys 11–14) | app keys (region), above their dials |
+| r2 c2–c5 (keys 11–14) | app keys (region), above their dials. Superseded by §4b: one stacked region on r1–r3 shares rows between sessions and apps |
 | r2c9, r3c9 | Up, Down |
 | r4 c1–c5 (keys 28–32) | Previous, Play/Pause, Next, Mute, Focus |
 | r4 c7 (key 34) | **Apps** filter |
@@ -145,6 +145,22 @@ The Apps page (change app-audio) and the Media page were both sparse, so they ar
   - The toggle itself stays visible so it can be turned back on.
 
 **Home:** the go-to key for Apps is removed, and Media's moves to key 34 (r4c7), so Media, Soundboard and Lights sit together. The personal layout is migrated the same way.
+
+## 4b. Filters free space (revised after review)
+Review found that filters only blanked keys. The space should go to whatever is still shown.
+
+- **Stacked regions:** `Region.Sources` lists further sources that share the region's rows after `Source`. In each overflow set, rows are allotted in order:
+  1. every source with remaining members gets one row, while rows last;
+  2. leftover rows go to sources in order, up to what each needs (`ceil(remaining / row width)`).
+
+  Each source fills its rows left to right, top to bottom. A source with no visible members takes no rows, so a filtered category's rows go to the others. Set counts follow the stacked sources until all are placed.
+- **Hidden bindings yield:** a key or dial bound to a control that is published Hidden is free for a region covering it. Stream Deck's own controls (go-to and scroll keys) never yield, because their visibility depends on the expansion itself.
+- **Media page:**
+  - **Keys:** the combined page uses one stacked region on r1–r3 c1–c8 with sessions then apps.
+  - **Dials:** an app dial region covers dials 1–5. Dial 1's media dial binding yields when media is off.
+  - **Effect:** Apps Off gives sessions all 24 keys; Media Off gives apps all 24 keys and all five dials.
+- **Trade-off:** app keys no longer sit above their own dials. Rows move with the filters, and the strip names each dial's app.
+- **Editor:** a stacked region is labelled with all its sources ("Media sessions + Apps"). The source picker changes the first source; further sources are edited in the configuration.
 
 ## 5. GUI
 - **Media screen** (sidebar, after App audio):
