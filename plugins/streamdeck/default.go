@@ -3,7 +3,8 @@ package streamdeck
 // DefaultLayout preserves the useful Studio keys and adjacent Playback and Mic
 // dials on Home, and adds Soundboard and Lights pages: a fixed frame of keys
 // around a region of clips or the selected room's scenes. Home reaches both
-// in one press; the page dial's press returns Home. The Apps page gives each
+// in one press, as it does Media and Meetings; the page dial's press returns
+// Home. The Apps page gives each
 // app a dial and a mute key. Up and Down page through
 // soundboard overflow.
 func DefaultLayout() Layout {
@@ -16,7 +17,7 @@ func DefaultLayout() Layout {
 	for n, id := range map[int]string{0: "audio.mic-mute", 1: "audio.speaker-mute", 2: "audio.monitor", 3: "audio.mode", 4: "aec.mode", 5: "aec.strength",
 		9: "audio.record-mic", 10: "audio.record-computer", 11: "audio.record-tap", 12: "audio.record-toggle", 13: "audio.tape-play", 14: "audio.tape-stop", 15: "audio.tape-rew", 16: "audio.tape-ff",
 		26: resetFocusID, 27: "nowplaying.prev", 28: "nowplaying.toggle", 29: "nowplaying.next", 30: "hue.brightness", 31: "hue.motion",
-		33: gotoPrefix + "media", 34: gotoPrefix + "soundboard", 35: gotoPrefix + "lights"} {
+		32: gotoPrefix + "meetings", 33: gotoPrefix + "media", 34: gotoPrefix + "soundboard", 35: gotoPrefix + "lights"} {
 		home.Keys[n] = Binding{Control: id, Label: id}
 	}
 	for n, id := range map[int]string{0: "audio.gain-playback", 1: "audio.gain-mic", 2: "nowplaying.dial", 3: "appaudio.focus"} {
@@ -53,5 +54,15 @@ func DefaultLayout() Layout {
 	for n, id := range map[int]string{0: "audio.gain-playback", 1: "nowplaying.dial", 2: "appaudio.focus"} {
 		media.Dials[n] = Binding{Control: id, Label: id}
 	}
-	return Layout{Home: "home", Pages: []Page{home, sounds, lights, media}}
+	// Meetings: the call on row 1, with Leave apart at c9 so it is not pressed
+	// by accident beside Mute; the camera on row 2.
+	meetings := Page{ID: "meetings", Name: "Meetings"}
+	for n, id := range map[int]string{0: "discord.mute", 1: "discord.deafen", 2: "discord.video", 3: "discord.screenshare", 8: "discord.leave",
+		9: "insta360.privacy", 10: "insta360.tracking", 11: "insta360.framing", 12: "insta360.reset"} {
+		meetings.Keys[n] = Binding{Control: id, Label: id}
+	}
+	for n, id := range map[int]string{0: "audio.gain-playback", 1: "audio.gain-mic"} {
+		meetings.Dials[n] = Binding{Control: id, Label: id}
+	}
+	return Layout{Home: "home", Pages: []Page{home, sounds, lights, media, meetings}}
 }

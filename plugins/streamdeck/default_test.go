@@ -14,7 +14,7 @@ func TestDefaultLayoutPages(t *testing.T) {
 	if err := l.Validate(nil); err != nil {
 		t.Fatal(err)
 	}
-	if len(l.Pages) != 4 || l.Pages[0].ID != "home" || l.Pages[1].ID != "soundboard" || l.Pages[2].ID != "lights" || l.Pages[3].ID != "media" {
+	if len(l.Pages) != 5 || l.Pages[0].ID != "home" || l.Pages[1].ID != "soundboard" || l.Pages[2].ID != "lights" || l.Pages[3].ID != "media" || l.Pages[4].ID != "meetings" {
 		t.Fatal("default pages", l.Pages)
 	}
 	for n, id := range []string{"audio.mic-mute", "audio.speaker-mute", "audio.monitor", "audio.mode", "aec.mode", "aec.strength", "", "", "",
@@ -31,7 +31,7 @@ func TestDefaultLayoutPages(t *testing.T) {
 			t.Fatal("Home transport", l.Pages[0].Keys[27:30])
 		}
 	}
-	if l.Pages[0].Keys[35].Control != gotoPrefix+"lights" || l.Pages[0].Keys[34].Control != gotoPrefix+"soundboard" || l.Pages[0].Keys[33].Control != gotoPrefix+"media" || l.Pages[0].Keys[32].Control != "" {
+	if l.Pages[0].Keys[35].Control != gotoPrefix+"lights" || l.Pages[0].Keys[34].Control != gotoPrefix+"soundboard" || l.Pages[0].Keys[33].Control != gotoPrefix+"media" || l.Pages[0].Keys[32].Control != gotoPrefix+"meetings" {
 		t.Fatal("Home lacks one-step reach")
 	}
 	var controls []snoofer.Control
@@ -44,8 +44,11 @@ func TestDefaultLayoutPages(t *testing.T) {
 	expanded := l.expanded(controls)
 	// 31 clip cells: 40 clips overflow to a second Soundboard set, which the
 	// page dial skips because the page binds scroll keys.
-	if len(expanded.Pages) != 5 || expanded.Pages[2].ID != "soundboard~auto~2" {
+	if len(expanded.Pages) != 6 || expanded.Pages[2].ID != "soundboard~auto~2" || expanded.Pages[5].ID != "meetings" {
 		t.Fatal("expanded pages", len(expanded.Pages))
+	}
+	if expanded.next("media", 1) != "meetings" {
+		t.Fatal("page dial skips Meetings")
 	}
 	if expanded.next("soundboard", 1) != "lights" || expanded.next("soundboard~auto~2", -1) != "home" || expanded.next("lights", -1) != "soundboard" {
 		t.Fatal("page dial visits overflow sets")
@@ -145,5 +148,23 @@ func TestLayoutJSONRoundTrip(t *testing.T) {
 	}
 	if !reflect.DeepEqual(decoded.Layout, DefaultLayout()) {
 		t.Fatal("layout changed through JSON", decoded.Layout.Pages[1].Regions)
+	}
+}
+
+func TestDefaultMeetingsPage(t *testing.T) {
+	meetings := DefaultLayout().Pages[4]
+	want := map[int]string{0: "discord.mute", 1: "discord.deafen", 2: "discord.video", 3: "discord.screenshare", 8: "discord.leave",
+		9: "insta360.privacy", 10: "insta360.tracking", 11: "insta360.framing", 12: "insta360.reset"}
+	for n, key := range meetings.Keys {
+		if key.Control != want[n] {
+			t.Fatalf("Meetings key %d = %q, want %q", n, key.Control, want[n])
+		}
+	}
+	// Leave sits apart from Mute so it is not pressed by accident.
+	if meetings.Keys[4].Control != "" || meetings.Keys[7].Control != "" {
+		t.Fatal("Leave crowded beside the call controls")
+	}
+	if meetings.Dials[0].Control != "audio.gain-playback" || meetings.Dials[1].Control != "audio.gain-mic" || meetings.Dials[2].Control != "" {
+		t.Fatal("Meetings dials", meetings.Dials)
 	}
 }
