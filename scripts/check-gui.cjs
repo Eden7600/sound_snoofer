@@ -29,6 +29,7 @@ add("audio.engine-restart","Restart audio engine","command","",{Group:"Bindings"
 add("aec.mode","Echo cancellation","selection","auto",{Options:["auto","on","off"],OptionLabels:{auto:"Auto",on:"On",off:"Off"},Icon:"echo"});
 add("aec.engine","Echo engine","selection","aec3",{Options:["aec3","localvqe-aec","localvqe-voice","localvqe-full"],OptionLabels:{aec3:"WebRTC AEC3","localvqe-aec":"LocalVQE echo-only","localvqe-voice":"LocalVQE voice cleanup","localvqe-full":"LocalVQE full-band"},Icon:"echo"});
 add("aec.strength","Echo strength","selection","strong",{Options:["strong","balanced","gentle"],OptionLabels:{strong:"Strong",balanced:"Balanced",gentle:"Gentle"},Icon:"echo"});
+add("aec.retry","Retry echo cancellation","command","",{Available:false});
 add("aec.status","Echo cancellation status","status","Active",{Status:"−32 dB echo · 54 ms",Icon:"echo"});
 add("soundboard.volume","Volume","numeric","0.0 dB");
 add("soundboard.stop","Stop","command","");
@@ -176,6 +177,12 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.waitForFunction(()=>document.querySelector('[data-part=echo] select[aria-label="Strength"]')?.disabled || [...document.querySelectorAll('[data-part=echo] select')].some(x=>x.disabled));
   assert.equal(await echo.getByLabel("Strength").isDisabled(),true);
   await echo.getByText("48 kHz mono · hybrid · ~95 ms processing latency").waitFor();
+  assert.equal(await echo.getByRole("button",{name:"Retry",exact:true}).isDisabled(),true);
+  await page.evaluate(()=>{window.fixture.Controls.find(c=>c.ID==="aec.retry").Available=true;window.fixture.Controls.find(c=>c.ID==="aec.status").Value="Error";window.fixture.Controls.find(c=>c.ID==="aec.status").Status="Engine error (missing output callback); mic passes through; automatic retry pending";});
+  await echo.getByRole("button",{name:"Retry",exact:true}).click();
+  await page.waitForFunction(()=>window.sent.some(a=>a.Request?.ID==="aec.retry" && a.Request.Operation==="press"));
+  await page.getByText("Sending",{exact:true}).waitFor({state:"hidden"});
+  await page.screenshot({path:path.join(root,".local/gui-aec-retry.png"),fullPage:true});
   await echo.getByLabel("Mode").selectOption("off");
   await page.waitForFunction(()=>window.fixture.Controls.find(c=>c.ID==="aec.mode").Value==="off");
   await page.evaluate(()=>{window.sent.length=0;});

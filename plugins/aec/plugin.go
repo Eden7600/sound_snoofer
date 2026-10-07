@@ -168,15 +168,19 @@ func (i *instance) Stop(ctx context.Context) error {
 
 // releaseTimeout bounds waiting for the audio worker to drop the hook.
 const releaseTimeout = 5 * time.Second
+const retryInterval = 15 * time.Second
 
 type worker struct {
-	services snoofer.Services
-	mixer    mixer
-	open     func(string) (canceller, error)
-	raw      json.RawMessage
-	settings Settings
-	speakers []*regexp.Regexp
-	requests chan snoofer.Request
+	nextRetry      time.Time
+	retryRequested bool
+	retryErr       string
+	services       snoofer.Services
+	mixer          mixer
+	open           func(string) (canceller, error)
+	raw            json.RawMessage
+	settings       Settings
+	speakers       []*regexp.Regexp
+	requests       chan snoofer.Request
 
 	loaded     string
 	attempted  string
@@ -268,6 +272,8 @@ func (w *worker) step(ctx context.Context) {
 		w.engine = nil
 		w.configured = false
 		w.stats = engine.Stats{}
+		w.nextRetry = time.Time{}
+		w.retryErr = ""
 		w.statsErr = ""
 		if closeErr != nil {
 			w.engineErr = closeErr.Error()
@@ -293,7 +299,14 @@ func (w *worker) step(ctx context.Context) {
 			w.statsErr = err.Error()
 		}
 	}
-	w.recover(targets.Stream)
+	now := time.Now()
+	if w.retryRequested {
+		w.retryRequested = false
+		if w.canRetry() {
+			w.retry(targets.Stream, now)
+		}
+	}
+	w.recover(targets.Stream, now)
 }
 
 func (w *worker) activate(ctx context.Context, targets audio.EchoTargets) {
@@ -340,18 +353,50 @@ func (w *worker) activate(ctx context.Context, targets audio.EchoTargets) {
 	w.engineErr = ""
 }
 
-// recover resets a failed engine once per new audio stream. A stream that ends
-// between the inserts fails the next stream's first callback, possibly before
-// the new stream count is published; a failure on the armed stream stays latched.
-func (w *worker) recover(stream uint32) {
-	if !w.stats.Failed || !w.hooked || stream == w.armed {
+// Recovery stays on the owning worker; resetting never changes routing.
+func (w *worker) recover(stream uint32, now time.Time) {
+	if !w.active || !w.hooked || w.releaseErr != "" || w.engine == nil {
+		w.nextRetry = time.Time{}
 		return
 	}
-	if err := w.engine.Reset(); err != nil {
-		w.engineErr = err.Error()
+	if !w.stats.Failed {
+		if w.stats.Active {
+			w.nextRetry = time.Time{}
+			w.retryErr = ""
+		}
 		return
 	}
-	w.armed = stream
+	if stream != w.armed {
+		w.retry(stream, now)
+		return
+	}
+	if w.nextRetry.IsZero() {
+		w.nextRetry = now.Add(retryInterval)
+	}
+	if !now.Before(w.nextRetry) {
+		w.retry(stream, now)
+	}
+}
+
+func (w *worker) canRetry() bool {
+	return w.active && !w.loading && w.releaseErr == "" &&
+		(w.engine == nil || w.hooked) &&
+		(w.stats.Failed || w.retryErr != "" || w.engineErr != "" || w.statsErr != "")
+}
+
+func (w *worker) retry(stream uint32, now time.Time) {
+	w.nextRetry = now.Add(retryInterval)
+	w.armed = stream // Failed resets also observe the cooldown on this stream.
+	if w.engine != nil {
+		if err := w.engine.Reset(); err != nil {
+			w.retryErr = err.Error()
+			return
+		}
+	}
+	w.retryErr = ""
+	w.attempted = ""
+	w.engineErr, w.statsErr = "", ""
+	w.stats = engine.Stats{SampleRate: w.stats.SampleRate}
 }
 
 // deactivate bypasses the engine at once, then removes the hook.
@@ -389,6 +434,11 @@ func (w *worker) shutdown() error {
 func (w *worker) handle(r snoofer.Request) {
 	next := w.settings
 	switch r.ID {
+	case "aec.retry":
+		if r.Operation == "press" && w.canRetry() {
+			w.retryRequested = true
+		}
+		return
 	case "aec.engine":
 		if !slices.Contains(engines, r.Value) {
 			w.saveErr = "unknown engine " + r.Value
@@ -438,13 +488,13 @@ func (w *worker) status() (string, string) {
 	if w.loading {
 		return "Wait", "Loading " + engineLabels[w.settings.engine()]
 	}
-	failure := firstNonEmpty(w.releaseErr, w.engineErr, w.statsErr)
+	failure := firstNonEmpty(w.releaseErr, w.retryErr, w.engineErr, w.statsErr)
 	switch {
 	case w.stats.Failed:
 		if w.stats.Reason != "" {
-			return "Error", "Engine error (" + w.stats.Reason + "); mic passes through"
+			return "Error", "Engine error (" + w.stats.Reason + "); mic passes through" + w.retryDetail()
 		}
-		return "Error", "Engine error; mic passes through"
+		return "Error", "Engine error; mic passes through" + w.retryDetail()
 	case failure != "":
 		return "Error", failure
 	case !w.active && w.settings.mode() == "off":
@@ -476,6 +526,13 @@ func (w *worker) status() (string, string) {
 	return "Active", strings.Join(detail, " · ")
 }
 
+func (w *worker) retryDetail() string {
+	if w.active && w.hooked && w.releaseErr == "" {
+		return "; automatic retry pending"
+	}
+	return ""
+}
+
 func firstNonEmpty(values ...string) string {
 	for _, v := range values {
 		if v != "" {
@@ -489,6 +546,7 @@ func (w *worker) publish() {
 	value, detail := w.status()
 	canSave := w.services.SaveSettings != nil
 	controls := []snoofer.Control{
+		{ID: "aec.retry", Label: "Retry echo cancellation", ShortLabel: "Retry", Group: "Echo cancellation", Kind: "command", Icon: "echo", Operations: []string{"press"}, Available: w.canRetry()},
 		{ID: "aec.engine", Label: "Echo engine", ShortLabel: "Engine", Group: "Echo cancellation", Kind: "selection", Icon: "echo", Value: w.settings.engine(), Options: engines, OptionLabels: engineLabels, Status: w.saveErr, Operations: []string{"set"}, Available: canSave},
 		{ID: "aec.mode", Label: "Echo cancellation", ShortLabel: "Echo", Group: "Echo cancellation", Kind: "selection", Icon: "echo",
 			Value: w.settings.mode(), Options: modes, OptionLabels: modeLabels, Status: w.saveErr, Operations: []string{"set"}, Available: canSave},

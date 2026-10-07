@@ -15,11 +15,12 @@ import (
 )
 
 type fakeEngine struct {
-	mu      sync.Mutex
-	configs []engine.Config
-	stats   engine.Stats
-	closed  bool
-	resets  int
+	mu       sync.Mutex
+	configs  []engine.Config
+	stats    engine.Stats
+	closed   bool
+	resets   int
+	resetErr error
 }
 
 func (e *fakeEngine) Configure(c engine.Config) error {
@@ -37,7 +38,7 @@ func (e *fakeEngine) Reset() error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.resets++
-	return nil
+	return e.resetErr
 }
 func (e *fakeEngine) Hook() voicemeeter.InsertHook {
 	return voicemeeter.InsertHook{Input: 1, Output: 2, Context: 3}
@@ -285,7 +286,7 @@ func TestFailureResetsOncePerNewStream(t *testing.T) {
 	if e.resets != 0 {
 		t.Fatal("reset on the armed stream", e.resets)
 	}
-	if status := control(t, w, "aec.status"); status.Value != "Error" || status.Status != "Engine error (missing output callback); mic passes through" {
+	if status := control(t, w, "aec.status"); status.Value != "Error" || status.Status != "Engine error (missing output callback); mic passes through; automatic retry pending" {
 		t.Fatal(status.Value, status.Status)
 	}
 	m.targets.Stream = 2
@@ -414,5 +415,98 @@ func TestFullbandStatus(t *testing.T) {
 	}
 	if control(t, w, "aec.engine").Value != "localvqe-full" {
 		t.Fatal("wrong engine")
+	}
+}
+
+func TestPeriodicRetry(t *testing.T) {
+	for _, resetErr := range []error{nil, errors.New("reset failed")} {
+		e := &fakeEngine{resetErr: resetErr}
+		w := newWorker(Settings{}, &fakeMixer{targets: speakers}, e)
+		w.step(context.Background())
+		w.stats = engine.Stats{Failed: true}
+		now := time.Unix(1000, 0)
+		w.recover(w.armed, now)
+		w.recover(w.armed, now.Add(retryInterval-time.Millisecond))
+		if e.resets != 0 {
+			t.Fatal("early retry")
+		}
+		w.recover(w.armed, now.Add(retryInterval))
+		if e.resets != 1 {
+			t.Fatal("missing retry")
+		}
+		if resetErr == nil && w.stats.Active {
+			t.Fatal("reset claimed active")
+		}
+		w.stats.Failed = true
+		w.recover(w.armed, now.Add(retryInterval+time.Second))
+		if e.resets != 1 {
+			t.Fatal("retry loop")
+		}
+		w.recover(w.armed, now.Add(2*retryInterval))
+		if e.resets != 2 {
+			t.Fatal("missing periodic retry")
+		}
+		w.active = false
+		w.recover(w.armed, now.Add(3*retryInterval))
+		if e.resets != 2 || !w.nextRetry.IsZero() {
+			t.Fatal("inactive retry")
+		}
+		w.active = true
+		w.releaseErr = "unconfirmed"
+		w.recover(w.armed, now.Add(4*retryInterval))
+		if e.resets != 2 || w.canRetry() {
+			t.Fatal("retried unconfirmed removal")
+		}
+	}
+}
+
+func TestManualRetry(t *testing.T) {
+	e := &fakeEngine{stats: engine.Stats{Failed: true}}
+	w := newWorker(Settings{Engine: "localvqe-full"}, &fakeMixer{targets: speakers}, e)
+	w.services.SaveSettings = func(string, json.RawMessage, json.RawMessage) error { t.Fatal("retry saved preferences"); return nil }
+	w.step(context.Background())
+	if !control(t, w, "aec.retry").Available {
+		t.Fatal("retry unavailable")
+	}
+	w.handle(snoofer.Request{ID: "aec.retry", Operation: "press"})
+	w.step(context.Background())
+	if e.resets != 1 || w.stats.Failed || w.stats.Active {
+		t.Fatal("manual retry", e.resets, w.stats)
+	}
+	if c := control(t, w, "aec.status"); c.Value != "Wait" {
+		t.Fatal(c)
+	}
+	e.stats = engine.Stats{Active: true, SampleRate: 48000}
+	w.step(context.Background())
+	w.handle(snoofer.Request{ID: "aec.retry", Operation: "press"})
+	w.step(context.Background())
+	if e.resets != 1 || control(t, w, "aec.retry").Available {
+		t.Fatal("healthy retry")
+	}
+	// A queued click must be rejected if processing is disabled before execution.
+	e.stats = engine.Stats{Failed: true}
+	w.step(context.Background())
+	w.handle(snoofer.Request{ID: "aec.retry", Operation: "press"})
+	w.settings.Mode = "off"
+	w.step(context.Background())
+	if e.resets != 1 {
+		t.Fatal("stale retry while off")
+	}
+}
+
+func TestRetryFailedLoad(t *testing.T) {
+	w := newWorker(Settings{}, &fakeMixer{targets: speakers}, &fakeEngine{})
+	attempts := 0
+	w.open = func(string) (canceller, error) { attempts++; return nil, errors.New("missing model") }
+	w.step(context.Background())
+	w.step(context.Background())
+	if attempts != 1 || !control(t, w, "aec.retry").Available {
+		t.Fatal("load state")
+	}
+	w.handle(snoofer.Request{ID: "aec.retry", Operation: "press"})
+	w.step(context.Background())
+	w.step(context.Background())
+	if attempts != 2 {
+		t.Fatal("load not retried", attempts)
 	}
 }
