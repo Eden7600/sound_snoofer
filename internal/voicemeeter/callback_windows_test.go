@@ -37,7 +37,7 @@ func TestNativeCallbackMonitor(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	if err := c.SetMonitoring(true); err != nil {
+	if err := c.SetCallback(true, nil); err != nil {
 		t.Fatal(err)
 	}
 	a := c.api.(*winAPI)
@@ -46,7 +46,7 @@ func TestNativeCallbackMonitor(t *testing.T) {
 		t.Fatal(first)
 	}
 	// A second enable must not attempt to register over our existing slot.
-	if err := c.SetMonitoring(true); err != nil {
+	if err := c.SetCallback(true, nil); err != nil {
 		t.Fatal(err)
 	}
 	time.Sleep(time.Second)
@@ -62,17 +62,17 @@ func TestNativeCallbackMonitor(t *testing.T) {
 		t.Fatal(next.Error)
 	}
 	t.Logf("production callback buffers: %d -> %d, synchronized: %d -> %d", first.Buffers, next.Buffers, first.Synced, next.Synced)
-	if err := c.SetMonitoring(false); err != nil {
+	if err := c.SetCallback(false, nil); err != nil {
 		t.Fatal(err)
 	}
 	if a.CallbackStatus() != nil {
 		t.Fatal("monitor remained active")
 	}
 	// Register again to exercise shutdown/re-enable ownership.
-	if err := c.SetMonitoring(true); err != nil {
+	if err := c.SetCallback(true, nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := c.SetMonitoring(false); err != nil {
+	if err := c.SetCallback(false, nil); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -10,6 +10,7 @@ import (
 
 	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/model"
+	"sound-snoofer/internal/voicemeeter"
 )
 
 type monitorWorkerClient struct {
@@ -19,10 +20,12 @@ type monitorWorkerClient struct {
 	transitions    chan bool
 	ownershipError atomic.Bool
 	present        bool // Keep A1 hardware present so a stall can qualify.
+	insert         *voicemeeter.InsertHook
+	inserts        chan *voicemeeter.InsertHook // Optional: receives each insert change.
 }
 
-func (b *monitorWorkerClient) SetMonitoring(enable bool) error {
-	if enable && !b.held.Load() {
+func (b *monitorWorkerClient) SetCallback(enable bool, insert *voicemeeter.InsertHook) error {
+	if (enable || insert != nil) && !b.held.Load() {
 		b.ownershipError.Store(true)
 		return fmt.Errorf("unowned callback")
 	}
@@ -30,6 +33,10 @@ func (b *monitorWorkerClient) SetMonitoring(enable bool) error {
 		b.active = enable
 		b.transitions <- enable
 	}
+	if b.inserts != nil && (insert == nil) != (b.insert == nil) {
+		b.inserts <- insert
+	}
+	b.insert = insert
 	return nil
 }
 func (b *monitorWorkerClient) Snapshot() (model.Snapshot, error) {
@@ -44,7 +51,7 @@ func (b *monitorWorkerClient) Snapshot() (model.Snapshot, error) {
 func (b *monitorWorkerClient) Set(string, model.Device) error {
 	return fmt.Errorf("unexpected device write")
 }
-func (b *monitorWorkerClient) Close() error { return b.SetMonitoring(false) }
+func (b *monitorWorkerClient) Close() error { return b.SetCallback(false, nil) }
 func TestWorkerMonitorOnlyWithinLiveOwnership(t *testing.T) {
 	c, _ := callbackFixture()
 	c.Studio.Voice = &config.Voice{Source: "off", Mode: "direct", Monitor: "off"}
@@ -105,6 +112,54 @@ func TestWorkerMonitorOnlyWithinLiveOwnership(t *testing.T) {
 	<-done
 	if held.Load() || b.ownershipError.Load() {
 		t.Fatal("monitor ownership violated")
+	}
+}
+
+func TestWorkerInsertOnlyWhileLive(t *testing.T) {
+	c, _ := callbackFixture()
+	c.Studio.Voice = &config.Voice{Source: "off", Mode: "direct", Monitor: "off"}
+	c.Intent = &config.Intent{Version: 1, Source: "off", Mode: "direct", Monitor: "off"}
+	var held atomic.Bool
+	b := &monitorWorkerClient{held: &held, transitions: make(chan bool, 8), inserts: make(chan *voicemeeter.InsertHook, 8)}
+	var wanted atomic.Pointer[voicemeeter.InsertHook]
+	ctx, cancel := context.WithCancel(context.Background())
+	actions := make(chan Action, 4)
+	states := make(chan State, 1)
+	done := make(chan struct{})
+	deps := Dependencies{
+		Open: func(string) (Client, error) { return b, nil },
+		Acquire: func() (func(), error) {
+			held.Store(true)
+			return func() { held.Store(false) }, nil
+		},
+		Insert: wanted.Load,
+	}
+	go Work(ctx, c, filepath.Join(t.TempDir(), "config"), "", true, deps, actions, states, done)
+	defer func() {
+		cancel()
+		<-done
+	}()
+	receive := func(what string) *voicemeeter.InsertHook {
+		select {
+		case insert := <-b.inserts:
+			return insert
+		case <-time.After(3 * time.Second):
+			t.Fatal(what)
+			return nil
+		}
+	}
+	hook := &voicemeeter.InsertHook{Input: 1, Output: 2, Context: 3}
+	wanted.Store(hook)
+	actions <- Refresh
+	if got := receive("insert not installed"); got == nil || *got != *hook {
+		t.Fatal(got)
+	}
+	actions <- ToggleLive
+	if got := receive("insert not removed on leaving live"); got != nil {
+		t.Fatal(got)
+	}
+	if b.ownershipError.Load() {
+		t.Fatal("callback changed without ownership")
 	}
 }
 

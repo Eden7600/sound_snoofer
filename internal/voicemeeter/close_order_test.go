@@ -10,8 +10,8 @@ type closeOrderAPI struct {
 	calls []string
 }
 
-func (a *closeOrderAPI) SetMonitoring(enable bool) error {
-	if enable {
+func (a *closeOrderAPI) SetCallback(monitor bool, insert *InsertHook) error {
+	if monitor || insert != nil {
 		panic("unexpected callback start")
 	}
 	a.calls = append(a.calls, "stop")

@@ -266,8 +266,10 @@ func (c *Client) Close() error {
 	if c.closed {
 		return nil
 	}
-	if monitor, ok := c.api.(interface{ SetMonitoring(bool) error }); ok {
-		if err := monitor.SetMonitoring(false); err != nil {
+	if callback, ok := c.api.(interface {
+		SetCallback(bool, *InsertHook) error
+	}); ok {
+		if err := callback.SetCallback(false, nil); err != nil {
 			return err
 		}
 	}

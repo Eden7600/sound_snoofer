@@ -14,6 +14,16 @@ static void snapshot(unsigned long long elapsed) {
         READ(change), READ(invalid), READ(unknown), READ(sample_rate), READ(frame_size), READ(channels));
     fflush(stdout);
 }
+static int stage_calls[2];
+static void __stdcall test_input(void *context, AudioBuffer *b) {
+    (void)context;
+    stage_calls[0]++;
+    for (long i = 0; i < b->samples; ++i) b->write[0][i] = 0.5f;
+}
+static void __stdcall test_output(void *context, AudioBuffer *b) {
+    (void)b;
+    stage_calls[1] += *(int *)context;
+}
 static int self_test(void) {
     float in[] = {0.0f, -0.0f, 0.125f, -1.0f};
     float out[4] = {0};
@@ -34,7 +44,30 @@ static int self_test(void) {
     assert(invalid == 3 && buffers == 2);
     observe(NULL, 1, NULL, 0); observe(NULL, 2, NULL, 0); observe(NULL, 3, NULL, 0);
     assert(starting == 1 && ending == 1 && change == 1);
-    puts("PASS: ABI, bitwise pass-through, aliasing, sync counters, invalid buffers, lifecycle");
+    /* Input insert without stages passes through and is not a buffer count. */
+    b.write[1] = in;
+    memset(out, 0, sizeof(out));
+    observe(NULL, 10, &b, 1);
+    assert(memcmp(in, out, sizeof(in)) == 0 && buffers == 2 && unknown == 0);
+    /* With stages: the input stage owns the input insert's output, and the
+       output stage sees the output insert before the usual pass-through. */
+    {
+        int weight = 1;
+        input_stage = test_input;
+        output_stage = test_output;
+        stage_context = &weight;
+        observe(NULL, 10, &b, 1);
+        assert(stage_calls[0] == 1 && out[0] == 0.5f && out[3] == 0.5f);
+        observe(NULL, 11, &b, 1);
+        assert(stage_calls[1] == 1 && memcmp(in, out, sizeof(in)) == 0 && buffers == 3);
+        b.write[1] = NULL;
+        observe(NULL, 10, &b, 1);
+        assert(stage_calls[0] == 1 && invalid == 4);
+        b.write[1] = in;
+        input_stage = output_stage = NULL;
+        stage_context = NULL;
+    }
+    puts("PASS: ABI, bitwise pass-through, aliasing, sync counters, invalid buffers, lifecycle, insert stages");
     return 0;
 }
 static BOOL WINAPI control(DWORD event) {

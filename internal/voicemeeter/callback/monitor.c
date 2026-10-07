@@ -13,6 +13,20 @@ __declspec(dllexport) long __stdcall SnooferStop(void) {
     return stopped;
 }
 
+/* SnooferSetInsert installs (or, with nulls, removes) the insert stages used
+   by the next SnooferStart. It refuses while registered: the audio thread
+   reads the stages without synchronization. */
+__declspec(dllexport) long __stdcall SnooferSetInsert(InsertStage on_input, InsertStage on_output, void *context) {
+    if (registered) return -10;
+    if (!on_input != !on_output) return -13;
+    input_stage = on_input;
+    output_stage = on_output;
+    stage_context = context;
+    return 0;
+}
+
+/* SnooferStart registers the output insert, and the input insert too while
+   insert stages are set. */
 __declspec(dllexport) long __stdcall SnooferStart(HMODULE remote) {
     Register reg;
     Call start;
@@ -24,7 +38,7 @@ __declspec(dllexport) long __stdcall SnooferStart(HMODULE remote) {
     stop_callback = (Call)(void *)GetProcAddress(remote, "VBVMR_AudioCallbackStop");
     unregister_callback = (Call)(void *)GetProcAddress(remote, "VBVMR_AudioCallbackUnregister");
     if (!reg || !start || !stop_callback || !unregister_callback) return -11;
-    code = reg(2, observe, NULL, name);
+    code = reg(input_stage ? 3 : 2, observe, NULL, name);
     if (code != 0) return code; /* Never unregister another application's slot. */
     registered = 1;
     code = start();

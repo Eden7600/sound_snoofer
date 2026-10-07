@@ -13,6 +13,7 @@ import (
 	"sound-snoofer/internal/controller"
 	"sound-snoofer/internal/model"
 	"sound-snoofer/internal/routing"
+	"sound-snoofer/internal/voicemeeter"
 	"sound-snoofer/internal/windowsaudio"
 )
 
@@ -29,6 +30,9 @@ type Dependencies struct {
 	Open          func(string) (Client, error)
 	Acquire       func() (func(), error)
 	Load          func(string) (config.Config, error)
+	// Insert returns the wanted audio callback insert stages, or nil. The worker
+	// reads it each step while live and re-registers the callback on change.
+	Insert func() *voicemeeter.InsertHook
 }
 type State struct {
 	Levels                           map[string]float32
@@ -204,12 +208,20 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 	revision := uint64(1)
 	var release func()
 	var backend *observed
-	configureMonitor := func(enable bool) error {
+	// configureCallback registers the audio callback for monitoring and, while
+	// enabled, any wanted insert stages.
+	configureCallback := func(enable bool) error {
 		if backend == nil {
 			return nil
 		}
-		if m, ok := backend.Client.(interface{ SetMonitoring(bool) error }); ok {
-			return m.SetMonitoring(enable)
+		var insert *voicemeeter.InsertHook
+		if enable && deps.Insert != nil {
+			insert = deps.Insert()
+		}
+		if c, ok := backend.Client.(interface {
+			SetCallback(bool, *voicemeeter.InsertHook) error
+		}); ok {
+			return c.SetCallback(enable, insert)
 		}
 		if enable {
 			return fmt.Errorf("callback monitoring unsupported by this backend")
@@ -240,7 +252,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 			}
 			release = r
 		} else if release != nil {
-			if err := configureMonitor(false); err != nil {
+			if err := configureCallback(false); err != nil {
 				state.SetNotice(err.Error(), NoticeError, time.Now())
 				return
 			}
@@ -706,7 +718,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		// gates automatic dispatch. Preview never registers the callback.
 		monitorWanted := state.Live
 		autoRecover := cfg.VoiceIntent() != nil && cfg.VoiceIntent().AutoRecover
-		monitorErr := configureMonitor(monitorWanted)
+		monitorErr := configureCallback(monitorWanted)
 		state.Error = ""
 		if recovery.pending {
 			_, err := backend.ParameterSnapshot()

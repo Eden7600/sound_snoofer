@@ -16,12 +16,12 @@ Voicemeeter's Remote API gives a process one callback registration with a mode b
 
 ## 2. Native pieces
 ### Vendored engine (`third_party/`)
-- **`webrtc-audio-processing` v2.1:** freedesktop's standalone WebRTC audio processing, commit `d0569cf`, the `webrtc/` tree and licences only.
-- **`abseil-cpp` 20240722.0:** the subset it uses (base, strings, numeric, synchronization, types, flags and their internal dependencies), without tests.
+- **`webrtc-audio-processing` v2.1:** freedesktop's standalone WebRTC audio processing, tag commit `846fe90`, the `webrtc/` tree and licences only.
+- **`abseil-cpp` 20240722.0:** the subset it uses (algorithm, base, functional, memory, meta, numeric, strings, types, utility), without tests or build files.
 - **Tracking:** `third_party/README.md` records sources, versions, hashes and licences.
 
 ### `scripts/build-aec.ps1`
-- **Sources:** compiles an explicit list with `cl /std:c++17 /O2 /MT`, with the defines from the project's meson files (`WEBRTC_WIN`, `NOMINMAX`, `_USE_MATH_DEFINES`, `WEBRTC_LIBRARY_IMPL`, `WEBRTC_ENABLE_AVX2`, `WAP_DISABLE_INLINE_SSE` off). AVX2 files get `/arch:AVX2`, the same split as meson.
+- **Sources:** compiles an explicit list with `cl /std:c++20 /O2 /MT`, with the defines from the project's meson files (`WEBRTC_WIN`, `NOMINMAX`, `_USE_MATH_DEFINES`, `WEBRTC_LIBRARY_IMPL`, `WEBRTC_ENABLE_AVX2`, `WAP_DISABLE_INLINE_SSE` off). AVX2 files get `/arch:AVX2`, the same split as meson.
 - **Output:** objects cache under `.local/aec/`, and the result links into `bin/snoofer-aec.dll` with the shim (§2).
 - **Integration:** `scripts/build.ps1` calls it and lock-checks the DLL, like the media and soundboard companions.
 
@@ -31,9 +31,9 @@ A C ABI around `webrtc::AudioProcessing`, configured for AEC3, high-pass on, wit
 | Export | Purpose |
 |---|---|
 | `AECCreate(AEC**)` / `AECDestroy` | Lifetime, from the control thread. |
-| `AECConfigure(AEC*, const AECConfig*)` | Mic channel indexes (1–2) in the input insert, reference channel indexes (1–2) in the output insert, strength (0 strong, 1 balanced, 2 gentle) and bypass. It is published to the audio thread through an atomic pointer swap; the old config is freed on the control thread once the audio thread has seen the new one. |
+| `AECConfigure(AEC*, const AECConfig*)` | Mic channel indexes (1–2) in the input insert, reference channel indexes (1–2) in the output insert, strength (0 strong, 1 balanced, 2 gentle) and bypass. Fields are stored atomically and a generation counter is bumped; the audio thread rebuilds the engine when it sees a new generation or sample rate. |
 | `AECInputInsert(void* ctx, AudioBuffer*)` / `AECOutputInsert(void* ctx, AudioBuffer*)` | Called from the monitor's callback on Voicemeeter's audio thread. No locks, no allocation after warm-up, no logging. |
-| `AECStats(AEC*, AECStats*)` | Active, sample rate, ERLE (dB), delay (ms), frames processed and overruns, read with atomics. |
+| `AECReadStats(AEC*, AECStats*)` | Active, sample rate, ERLE (centi-dB), delay (ms), frames processed and whether an engine error forced pass-through, read with atomics. |
 
 **Strengths:** they map to AEC3 config presets.
 - **Strong:** the default AEC3 suppressor, the most aggressive.
@@ -43,14 +43,14 @@ A C ABI around `webrtc::AudioProcessing`, configured for AEC3, high-pass on, wit
 **Exceptions:** the shim catches everything at the C boundary. On any failure it switches to pass-through and reports the error in its stats.
 
 ### Monitor DLL
-- **Hook:** `SnooferSetInsert(onInput, onOutput, ctx)` stores the hook. `SnooferStart(remote, modes)` registers output (2), or input and output (3) when a hook is set.
+- **Hook:** `SnooferSetInsert(onInput, onOutput, ctx)` stores the stages (both or neither) and is refused while registered. `SnooferStart(remote)` registers output (2), or input and output (3) when stages are set.
 - **Callback:** command 10 calls `onInput` (or passes through), and command 11 calls `onOutput` and then the existing pass-through and counters.
 - **Changing modes:** stop, unregister, register again and start. A failed restart is reported like today's uncertain cleanup.
 
 ## 3. Go side
 - **`internal/voicemeeter`:**
   - **Interface:** `SetMonitoring(enable bool)` becomes `SetCallback(monitor bool, insert *InsertHook)`. It registers when either is wanted, and re-registers when the hook changes.
-  - **Ownership:** registration stays on the adapter's owning worker, unchanged.
+  - **Ownership:** registration stays on the adapter's owning worker, unchanged. The worker reads the wanted hook from `Dependencies.Insert` each step while live; preview and leaving live remove it.
   - **Hook life:** it lives until the callback is stopped and unregistered; only then may the AEC DLL be released.
 - **`internal/aec`:** the Go wrapper for `snoofer-aec.dll`, on the AEC plugin's goroutine. Its `Hook()` returns the function pointers and context.
 

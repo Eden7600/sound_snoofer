@@ -13,31 +13,42 @@ import (
 )
 
 type callbackMonitor struct {
-	dll                          *windows.DLL
-	start, stop, read            *windows.Proc
-	enabled, active, unsafeClose bool
-	err                          error
+	dll                             *windows.DLL
+	start, stop, read, insertStages *windows.Proc
+	enabled, active, unsafeClose    bool
+	insert                          *InsertHook // Stages of the current registration.
+	err                             error
 }
 
-func (a *winAPI) SetMonitoring(enable bool) error {
+// SetCallback registers while monitoring or an insert is wanted. Insert stages
+// change only between registrations, so a hook change stops, unregisters,
+// registers and starts again. Once this returns nil after removing a hook,
+// the monitor no longer calls it.
+func (a *winAPI) SetCallback(monitor bool, insert *InsertHook) error {
 	m := &a.monitor
 	if m.unsafeClose {
 		return fmt.Errorf("callback cleanup uncertain; restart Sound Snoofer")
 	}
-	if enable == m.enabled {
+	enable := monitor || insert != nil
+	if enable == m.enabled && sameHook(insert, m.insert) {
 		return m.err
 	}
-	m.enabled = enable
-	if !enable {
-		if m.active {
-			code, _, _ := m.stop.Call()
-			if result(code) != 0 {
-				m.unsafeClose = true
-				m.err = fmt.Errorf("callback cleanup returned %d; restart Sound Snoofer", result(code))
-				return m.err
-			}
+	if m.active {
+		code, _, _ := m.stop.Call()
+		if result(code) != 0 {
+			m.unsafeClose = true
+			m.err = fmt.Errorf("callback cleanup returned %d; restart Sound Snoofer", result(code))
+			return m.err
 		}
 		m.active = false
+	}
+	m.enabled = enable
+	m.insert = nil
+	if insert != nil {
+		copied := *insert
+		m.insert = &copied
+	}
+	if !enable {
 		m.err = nil
 		return nil
 	}
@@ -53,7 +64,8 @@ func (a *winAPI) SetMonitoring(enable bool) error {
 			m.err = fmt.Errorf("audio monitor missing or unloadable beside executable: %w", m.err)
 			return m.err
 		}
-		for name, target := range map[string]**windows.Proc{"SnooferStart": &m.start, "SnooferStop": &m.stop, "SnooferRead": &m.read} {
+		procs := map[string]**windows.Proc{"SnooferStart": &m.start, "SnooferStop": &m.stop, "SnooferRead": &m.read, "SnooferSetInsert": &m.insertStages}
+		for name, target := range procs {
 			*target, m.err = m.dll.FindProc(name)
 			if m.err != nil {
 				// No registration occurred. Keep the error visible until a new enable attempt.
@@ -63,7 +75,16 @@ func (a *winAPI) SetMonitoring(enable bool) error {
 			}
 		}
 	}
-	code, _, _ := m.start.Call(uintptr(a.dll.Handle))
+	var stages InsertHook
+	if m.insert != nil {
+		stages = *m.insert
+	}
+	code, _, _ := m.insertStages.Call(stages.Input, stages.Output, stages.Context)
+	if result(code) != 0 {
+		m.err = fmt.Errorf("callback insert stages refused with %d", result(code))
+		return m.err
+	}
+	code, _, _ = m.start.Call(uintptr(a.dll.Handle))
 	if result(code) != 0 {
 		if result(code) == -12 {
 			m.unsafeClose = true
@@ -94,4 +115,11 @@ func (a *winAPI) CallbackStatus() *model.CallbackStatus {
 		}
 	}
 	return s
+}
+
+func sameHook(a, b *InsertHook) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
 }
