@@ -49,7 +49,9 @@ struct Engine {
     Queue<Output> output;
     std::thread worker;
     // Audio callback thread only.
-    unsigned applied = 0;
+    unsigned applied = 0, recoveryGeneration = 0;
+    bool recovering = false;
+    int recoverySamples = 0, stableSamples = 0;
     int blockSize = 0;
     int m[2]{}, r[8]{}, sampleRate = 0, pending = 0, fill = 0, startup = 0;
     bool referenceReady = false, haveOutput = false;
@@ -73,7 +75,15 @@ struct Engine {
             if (failure.compare_exchange_weak(previous, (uint64_t(gen) << 32) | unsigned(reason))) return;
         }
     }
-    void Reset() { generation.fetch_add(1); active.store(0); }
+    unsigned Reset() { active.store(0); return generation.fetch_add(1) + 1; }
+    // Callback thread only: discard both timelines, never pair an old mic with
+    // a later reference. Further gaps retain the same bounded recovery budget.
+    void Discontinuity() {
+        if (!recovering) recoverySamples = 0;
+        recovering = true;
+        stableSamples = 0;
+        recoveryGeneration = Reset();
+    }
     void Run() {
         unsigned gen = 0;
         int accumulated = 0, factor = 1;
@@ -202,7 +212,13 @@ __declspec(dllexport) void __stdcall AECInputInsert(void* context, AudioBuffer* 
     if (rev % 2 || e->bypass.load()) { e->active.store(0); return; }
     if (e->sampleRate != b->sr || b->samples > e->blockSize) e->Reset();
     unsigned gen = e->generation.load();
+    if (!e->Failed() && e->applied == gen && e->pending && e->referenceReady) {
+        e->Discontinuity();
+        gen = e->generation.load();
+    }
     if (e->applied != gen) {
+        // A control/lifecycle reset starts fresh; our own resync keeps its budget.
+        if (gen != e->recoveryGeneration) e->recovering = false;
         for (int i = 0; i < 2; ++i) e->m[i] = e->mic[i].load();
         for (int i = 0; i < 8; ++i) e->r[i] = e->refs[i].load();
         if (rev != e->revision.load()) return;
@@ -214,7 +230,9 @@ __declspec(dllexport) void __stdcall AECInputInsert(void* context, AudioBuffer* 
     }
     if (e->Failed() || (b->sr != 16000 && b->sr != 32000 && b->sr != 48000)) return;
     if (b->samples > kMaxBlock) { e->Fail(gen, 11); return; }
-    if (e->pending && e->referenceReady) { e->Fail(gen, 1); return; }
+    if (e->recovering && (e->recoverySamples += b->samples) >= 2 * b->sr) {
+        e->Fail(gen, 1); return;
+    }
     if (!Has(b, e->m[0]) || !Has(b, e->m[1])) { e->Fail(gen, 2); return; }
     if (!e->referenceReady && (e->startup += b->samples) > b->sr) { e->Fail(gen, 1); return; }
     // Preserve aliased microphone input before committing any processed output.
@@ -248,7 +266,9 @@ __declspec(dllexport) void __stdcall AECOutputInsert(void* context, AudioBuffer*
     if (!e || !Valid(b) || e->bypass.load() || e->Failed()) return;
     unsigned gen = e->generation.load();
     if (e->applied != gen || (e->sampleRate != 16000 && e->sampleRate != 32000 && e->sampleRate != 48000)) return;
-    if (b->sr != e->sampleRate || b->samples != e->pending) { e->Fail(gen, 5); return; }
+    if (b->sr != e->sampleRate || b->samples != e->pending) {
+        e->Discontinuity(); return;
+    }
     for (int c : e->r) if (!Has(b, c)) { e->Fail(gen, 6); return; }
     for (int i = 0; i < b->samples; ++i) {
         float ref = 0;
@@ -264,5 +284,8 @@ __declspec(dllexport) void __stdcall AECOutputInsert(void* context, AudioBuffer*
     }
     e->cursor += b->samples;
     e->pending = 0; e->referenceReady = true;
+    if (e->recovering && (e->stableSamples += b->samples) >= e->sampleRate) {
+        e->recovering = false;
+    }
 }
 }

@@ -79,10 +79,21 @@ int main(int argc, char** argv) {
             }
             assert(SUCCEEDED(read(e,&s)) && s.active && s.frames && !s.failed && s.erle==-1 && s.delay==-1);
             printf("PASS %d Hz block %d: active; callback max %.1f us; synthetic attenuation %.1f dB\n",rate,block,maxUs,10*log10((before+1e-20)/(after+1e-20)));
-            // Losing a callback after startup is a latched, bit-exact bypass.
+            // A single missing callback must re-prime with exact pass-through.
             input(e,&b); input(e,&b);
-            assert(SUCCEEDED(read(e,&s)) && s.failed && !s.active);
+            assert(SUCCEEDED(read(e,&s)) && !s.failed && !s.active);
             for(int ch=0;ch<8;++ch) assert(!memcmp(samples[ch],b.write[ch],block*sizeof(float)));
+            output(e,&b);
+            Sleep(DWORD(std::ceil(1000.0*block/rate)));
+            for(int n=0;n<rate/block+3;++n) {
+                input(e,&b); output(e,&b);
+                assert(SUCCEEDED(read(e,&s)) && !s.failed);
+                Sleep(DWORD(std::ceil(1000.0*block/rate)));
+            }
+            assert(s.active);
+            // Extra output also discards history; it cannot be paired with old capture.
+            output(e,&b);
+            assert(SUCCEEDED(read(e,&s)) && !s.active && !s.failed);
             input(e,nullptr);
             assert(SUCCEEDED(read(e,&s)) && !s.active && !s.failed);
         }
@@ -100,6 +111,22 @@ int main(int argc, char** argv) {
     input(e,nullptr); read(e,&deadline); assert(!deadline.failed && !deadline.active);
     c.bypass=1;assert(SUCCEEDED(configure(e,&c)));b.sr=48000;input(e,&b);
     for(int ch=0;ch<8;++ch)assert(!memcmp(samples[ch],writes[ch],512*sizeof(float)));
+    // Frequent gaps cannot restart the recovery budget indefinitely.
+    c.bypass=0; assert(SUCCEEDED(configure(e,&c)));
+    for(int n=0;n<250;++n) {
+        input(e,&b);
+        if(n%3==0) output(e,&b);
+        read(e,&deadline);
+        if(deadline.failed) break;
+        Sleep(11);
+    }
+    int reason=0;failure(e,&reason);
+    assert(deadline.failed && reason==1);
+    input(e,&b);output(e,&b);read(e,&deadline);assert(deadline.failed);
+    input(e,nullptr);
+    // Reference absent altogether still has a one-second input-audio budget.
+    for(int n=0;n<100;++n) input(e,&b);
+    read(e,&deadline);failure(e,&reason);assert(deadline.failed && reason==1);
     // Compare the complete callback bridge against direct streaming inference on
     // upstream's microphone/reference fixture. This catches accidental muting,
     // reference swaps, sample loss and model-hop alignment errors.
@@ -128,6 +155,11 @@ int main(int argc, char** argv) {
     c.bypass=0; assert(SUCCEEDED(configure(e,&c)));
     b.sr=16000;b.samples=160;
     constexpr int latency=1024+160;
+    for(int pass=0;pass<2;++pass) {
+    if(pass) {
+        input(e,&b); input(e,&b); // Recover without a lifecycle/reset call.
+        Stats recovering{};read(e,&recovering);assert(!recovering.failed && !recovering.active);
+    }
     double maxError=0,energy=0;
     for(int n=0;n<count+latency+160;n+=160){
         for(int ch=0;ch<8;++ch) for(int i=0;i<160;++i)
@@ -147,6 +179,7 @@ int main(int argc, char** argv) {
     }
     fprintf(stderr,"Fixture streaming parity: max error %.8f; energy %.6f\n",maxError,energy);
     assert(energy>1e-6 && maxError<1e-4);
+    }
     assert(SUCCEEDED(destroy(e)));
     timeEndPeriod(1);
     FreeLibrary(dll);

@@ -17,3 +17,10 @@ model's 16 ms hop delay and sinc resampling delay. The GUI reports the total
 16 kHz, with an averaged eight-channel reference; it does not independently model
 surround speakers. Real-room double-talk and voice-quality listening remain
 necessary before choosing it over AEC3.
+
+Callback recovery regression (2026-10-07): one omitted output after Active now
+re-primes instead of permanently failing; extra output invalidates old pairing.
+The probe covers both neural models and all rate/block combinations, a two-second
+repeated-gap budget, the one-second absent-reference timeout, persistent failure
+latching, and exact direct-inference fixture parity after a midstream gap.
+The first injected omission failed on the previous build and passes with recovery.
