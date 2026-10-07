@@ -41,8 +41,8 @@ Each numbered block is one reviewable commit.
 - [x] 36. `feat(streamdeck)`: key releases and the opt-in `hold` operation. Tests cover tap, hold, latency for other keys and a release after a generation change.
 - [x] 37. `refactor(nowplaying)`: session hold focuses; remove the Focus control and the GUI Focus button; revert the single-playing rule. Tests are updated.
 - [x] 37a. `feat(appaudio)`: app keys offer hold, and the `appaudio.focus` dial follows the focused app. Includes tests.
-- [ ] 38. `feat(streamdeck)`: Media page dials (media, Playback, focused app, apps) and no Focus key (default and personal). Tests are updated.
-- [ ] 39. Validate: all checks and the canonical build; relaunch.
+- [x] 38. `feat(streamdeck)`: Media page dials (media, Playback, focused app, apps) and no Focus key (default and personal). Tests are updated.
+- [x] 39. Validate: all checks and the canonical build; relaunch.
 
 ## Hardware acceptance
 - [ ] 9. With Brave and a Windows player:

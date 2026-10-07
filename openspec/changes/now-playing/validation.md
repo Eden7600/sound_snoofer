@@ -132,3 +132,12 @@ Restarting an unpacked extension after `runtime.reload()` does not work under au
 - **Native-size preview:** six placeholder keys, each name in its own colour with a window or play glyph. Similar hues can still occur for different names.
 - `scripts/check-gui.cjs` and `scripts/check-desktop.cjs`: pass.
 - **Build and personal layout:** built with `scripts/build.ps1`. The personal Media page was migrated to the stacked region and the five-dial app region (backup `snoofer.json.before-stacked`); `snoofer.exe --check` passes. Snoofer was relaunched.
+
+## Revision: hold to focus, focus dials, Playback (commits 278b6e8 through 4cf36b1)
+- `go test ./...`: pass.
+  - **Deck keys:** the decoder reports key releases, and a release is not repeated. On the deck, a plain key acts on key-down. A hold key sends press on a quick release, sends hold once at 500 ms and ignores that release, and still counts a tap whose release arrives after a generation change. These were run 3 times.
+  - **Sessions:** a session hold focuses without toggling. The Focus control no longer exists, and the single-playing rule is reverted with its test.
+  - **Apps:** the focus dial defaults to the first app on the deck. A hold moves it without writing, the dial then mutes the held app, and with the Apps filter on Pinned it shows the pinned app.
+  - **Media page:** dials are media, Playback and the focused app; no Focus key. Across the four filter states: both on gives 2 app dials (4–5); Apps off gives none; Media off gives 3 (1, 4, 5); both off gives none.
+- `scripts/check-gui.cjs` (no Focus button on media cards) and `scripts/check-desktop.cjs`: pass.
+- **Build and personal layout:** built with `scripts/build.ps1`. The personal Media page lost the Focus key (key 32), and its dials became media, Playback and the focused app (backup `snoofer.json.before-focus`). `snoofer.exe --check` passes, and Snoofer was relaunched.
