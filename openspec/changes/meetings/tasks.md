@@ -13,3 +13,8 @@ Each numbered block is one reviewable commit.
 ## Hardware acceptance
 - [ ] 8. Link 2: privacy, each tracking mode, framing and reset change the camera and read back; they work while another app streams.
 - [ ] 9. Discord: approval once, reconnect with the saved token, the mute link both ways, deafen, camera, screen share and Leave in a real call.
+
+## Revision: Stream Deck page
+- [x] 10. `docs(meetings)`: specify the Meetings deck page and the Home go-to key.
+- [ ] 11. `feat(streamdeck)`: the Meetings page and go-to key in the default layout; update default-layout tests, the UI contract and the personal-layout section.
+- [ ] 12. Add the page and key to the personal layout with Snoofer stopped, check the envelope, relaunch and record.
