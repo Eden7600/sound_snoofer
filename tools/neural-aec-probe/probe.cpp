@@ -17,10 +17,11 @@ using Read = HRESULT (__cdecl*)(void*, Stats*);
 using Failure = HRESULT (__cdecl*)(void*, int*);
 static float samples[8][2048], writes[8][2048], original[8][2048];
 int main(int argc, char** argv) {
-    assert(argc == 4);
+    assert(argc == 4 || argc == 5);
+    bool fullband = argc == 5 && !strcmp(argv[4],"--fullband");
     HMODULE dll = LoadLibraryExA(argv[1], nullptr, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
     if (!dll) { fprintf(stderr,"LoadLibrary error %lu\n",GetLastError()); return 1; }
-    auto create = reinterpret_cast<Create>(GetProcAddress(dll,"AECNeuralCreate"));
+    auto create = reinterpret_cast<Create>(GetProcAddress(dll,fullband ? "AECNeuralFullbandCreate" : "AECNeuralCreate"));
     auto destroy = reinterpret_cast<Destroy>(GetProcAddress(dll,"AECDestroy"));
     auto configure = reinterpret_cast<Configure>(GetProcAddress(dll,"AECConfigureV2"));
     auto read = reinterpret_cast<Read>(GetProcAddress(dll,"AECReadStats"));
@@ -36,6 +37,7 @@ int main(int argc, char** argv) {
     timeBeginPeriod(1);
     int rates[] = {16000,32000,48000};
     for (int rate : rates) {
+        if(fullband && rate!=48000)continue;
         for (int block : {160,512,1024}) {
             AudioBuffer b{}; b.sr=rate; b.samples=block; b.inputs=b.outputs=8;
             for(int ch=0;ch<8;++ch) { b.read[ch]=samples[ch]; b.write[ch]=writes[ch]; }
@@ -127,6 +129,24 @@ int main(int argc, char** argv) {
     // Reference absent altogether still has a one-second input-audio budget.
     for(int n=0;n<100;++n) input(e,&b);
     read(e,&deadline);failure(e,&reason);assert(deadline.failed && reason==1);
+    if(fullband) {
+        for(int rate : {16000,32000}) {
+            b.sr=rate; input(e,nullptr); input(e,&b); output(e,&b);
+            read(e,&deadline);assert(!deadline.active && !deadline.failed);
+            for(int ch=0;ch<8;++ch)assert(!memcmp(samples[ch],writes[ch],512*sizeof(float)));
+        }
+        b.sr=48000;b.samples=480;input(e,nullptr);
+        double sine=0,cosine=0;int measured=0;
+        for(int n=0;n<300;++n) {
+            for(int ch=0;ch<8;++ch)for(int i=0;i<480;++i)samples[ch][i]=float(.04*sin(2*3.141592653589793*10000*(n*480+i)/48000));
+            input(e,&b);read(e,&deadline);assert(!deadline.failed);
+            if(n>100)for(int i=0;i<480;++i){double phase=2*3.141592653589793*10000*(n*480+i)/48000;sine+=writes[2][i]*sin(phase);cosine+=writes[2][i]*cos(phase);measured++;}
+            memset(samples,0,sizeof(samples));output(e,&b);Sleep(10);
+        }
+        double gain=20*log10(2*sqrt(sine*sine+cosine*cosine)/measured/.04);
+        fprintf(stderr,"Full-band callback 10 kHz gain %.2f dB\n",gain);assert(gain>-1 && gain<1);
+    }
+    if (!fullband) {
     // Compare the complete callback bridge against direct streaming inference on
     // upstream's microphone/reference fixture. This catches accidental muting,
     // reference swaps, sample loss and model-hop alignment errors.
@@ -179,6 +199,7 @@ int main(int argc, char** argv) {
     }
     fprintf(stderr,"Fixture streaming parity: max error %.8f; energy %.6f\n",maxError,energy);
     assert(energy>1e-6 && maxError<1e-4);
+    }
     }
     assert(SUCCEEDED(destroy(e)));
     timeEndPeriod(1);

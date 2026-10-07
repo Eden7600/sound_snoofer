@@ -22,5 +22,8 @@ cl /nologo /W4 /WX /O2 /EHsc /std:c++20 /Iinternal\voicemeeter\callback /Fo"$out
             & "$out/probe.exe" ([IO.Path]::GetFullPath("$repo/bin/snoofer-neural-aec.dll")) ([IO.Path]::GetFullPath("$repo/bin/models/$model")) "$repo/.local/neural-aec/LocalVQE/ggml/tests/fixtures/regression_input.f32"
             if ($LASTEXITCODE) { throw "Neural probe failed: $model" }
         }
+        & "$out/probe.exe" ([IO.Path]::GetFullPath("$repo/bin/snoofer-neural-aec.dll")) "$repo/bin/models/localvqe-v1.3-4.8M-f32.gguf" "$repo/.local/neural-aec/LocalVQE/ggml/tests/fixtures/regression_input.f32" --fullband
+        if ($LASTEXITCODE) { throw "Full-band neural probe failed" }
     } finally { Pop-Location }
 } finally { Pop-Location }
+
