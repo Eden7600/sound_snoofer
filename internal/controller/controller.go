@@ -55,6 +55,10 @@ type Controller struct {
 	lastEvent        string
 	retry            time.Duration
 	retryWrite       bool
+
+	// TapeListening is set by a successful tape Play and cleared once the
+	// tape stops; the planner routes the tape to the Playback bus meanwhile.
+	TapeListening bool
 }
 
 func (c *Controller) event(e Event) {
@@ -76,7 +80,12 @@ func (c *Controller) Plan() (routing.Plan, error) {
 	if e != nil {
 		return routing.Plan{}, e
 	}
-	return routing.Build(c.Config, s)
+	if !s.Recorder.TapePlaying() {
+		c.TapeListening = false
+	}
+	cfg := c.Config
+	cfg.TapeListening = c.TapeListening
+	return routing.Build(cfg, s)
 }
 
 // Apply revalidates the complete plan before every write. No setter is called

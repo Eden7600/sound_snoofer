@@ -106,6 +106,7 @@ const (
 	playSnippet
 	gain
 	restartEngine
+	tape // Target names the command: play, stop, rew or ff.
 )
 
 type Action struct {
@@ -227,6 +228,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 	}
 	revision := uint64(1)
 	var release func()
+	var ctl *controller.Controller
 	var backend *observed
 	// configureCallback registers the audio callback for monitoring and, while
 	// enabled, any wanted insert stages.
@@ -303,14 +305,35 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 	}()
 	recovery := newRecovery(path)
 	mixer := &controller.Mixer{Path: path + ".mutes.json"}
-	var ctl *controller.Controller
+	// runTape runs one tape command. Play first saves tape-routing ownership
+	// (save before apply), since it routes the tape to the Playback bus.
+	runTape := func(target string) error {
+		command, ok := tapeCommands[target]
+		if !ok {
+			return fmt.Errorf("unknown tape command %q", target)
+		}
+		if i := cfg.VoiceIntent(); command == controller.TapePlayPause && i != nil && i.Recording != nil && !i.Recording.TapeRoutingManaged {
+			if cfg.StateError != "" {
+				return fmt.Errorf("reset or repair saved choices first")
+			}
+			i.Recording.TapeRoutingManaged = true
+			token, e := deps.Save(path, cfg, i, cfg.StateToken)
+			if e != nil {
+				return e
+			}
+			cfg.Intent, cfg.StateToken = i, token
+			ctl.Config = cfg
+		}
+		return ctl.Tape(ctx, command, state.Live)
+	}
 	var confirmRevision uint64
 	reset := func() {
 		if backend == nil {
 			return
 		}
 		prepared := ctl != nil && ctl.RecorderPrepared
-		ctl = &controller.Controller{Mixer: mixer, RecorderPrepared: prepared, Backend: backend, Config: cfg, Clock: controller.RealClock{}, Emit: func(e controller.Event) {
+		listening := ctl != nil && ctl.TapeListening
+		ctl = &controller.Controller{Mixer: mixer, RecorderPrepared: prepared, TapeListening: listening, Backend: backend, Config: cfg, Clock: controller.RealClock{}, Emit: func(e controller.Event) {
 			if e.Kind == "error" {
 				state.Error = e.Message
 			}
@@ -563,7 +586,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 					state.SetNotice(err.Error(), NoticeError, time.Now())
 				}
 
-			case startRecording, stopRecording, playSnippet:
+			case startRecording, stopRecording, playSnippet, tape:
 				if recovery.pending {
 					state.SetNotice("Audio recovery in progress; transport not submitted", NoticeError, time.Now())
 					break
@@ -579,7 +602,9 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				state.SetNotice("Recorder pending", NoticePending, time.Now())
 				publish()
 				var e error
-				if action.Kind == playSnippet {
+				if action.Kind == tape {
+					e = runTape(action.Target)
+				} else if action.Kind == playSnippet {
 					e = ctl.PlaySnippet(ctx, state.Live)
 				} else {
 					e = ctl.Record(ctx, action.Kind == startRecording, state.Live)
@@ -849,6 +874,10 @@ const Restart = restartEngine
 const RecordStart = startRecording
 const RecordStop = stopRecording
 const SnippetPlay = playSnippet
+const Tape = tape
+
+// tapeCommands maps a tape action's Target to its controller command.
+var tapeCommands = map[string]controller.TapeCommand{"play": controller.TapePlayPause, "stop": controller.TapeStop, "rew": controller.TapeRewind, "ff": controller.TapeForward}
 
 func (o *observed) SetMixer(p string, v float32) error {
 	b, ok := o.Client.(controller.MixerBackend)

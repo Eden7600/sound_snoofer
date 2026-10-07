@@ -38,6 +38,10 @@ func (b *recorderFake) SetRecorder(p string, v int) error {
 	if p == "Recorder.record" {
 		b.r.Values["Recorder.stop"] = 0
 	}
+	if p == "Recorder.play" {
+		b.r.Values["Recorder.stop"] = 0
+		b.r.Values["Recorder.pause"] = 0
+	}
 	if p == "Recorder.stop" {
 		b.r.Values["Recorder.record"] = 0
 		b.r.Values["Recorder.pause"] = 0

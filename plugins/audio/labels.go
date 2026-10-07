@@ -19,6 +19,7 @@ func shortLabel(key string) string {
 		"defaults": "Defaults", "auto-recover": "Recovery", "pause-devices": "Pause devices", "pause-sends": "Pause sends",
 		"record-mic": "Record mic", "record-computer": "Record PC", "record-loop": "Loop",
 		"record-vst": "To VST", "record-tap": "Mic stage", "record-start": "Record",
+		"tape-play": "Play", "tape-stop": "Stop", "tape-rew": "Rew", "tape-ff": "FF",
 		"record-stop": "Stop rec", "record-toggle": "Record", "snippet-play": "Play", "snippet-stop": "Stop",
 		"gain-playback": "Playback", "gain-mic": "Mic", "engine-restart": "Restart", "engine-confirm": "Confirm restart",
 	}[key]

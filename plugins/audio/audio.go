@@ -331,6 +331,11 @@ func controls(s control.State) []snoofer.Control {
 			add(id, strings.ReplaceAll(id, "-", " "), "Transport", "command", s.Recorder.State(), nil, "press")
 		}
 		add("record-toggle", "Record", "Transport", "command", s.Recorder.State(), nil, "press")
+		for _, row := range tapeRows(s.Recorder) {
+			add(row.id, row.label, "Transport", "command", row.value, nil, "press")
+			out[len(out)-1].Available = row.available
+			out[len(out)-1].Icon = row.icon
+		}
 	}
 	for _, target := range []string{"playback", "mic"} {
 		parameter := controller.GainTarget(s.Plan, target)
@@ -473,6 +478,10 @@ func action(s control.State, r snoofer.Request) (control.Action, error) {
 		return a, nil
 	case "snippet-play":
 		a.Kind = control.SnippetPlay
+		return a, nil
+	case "tape-play", "tape-stop", "tape-rew", "tape-ff":
+		a.Kind = control.Tape
+		a.Target = strings.TrimPrefix(key, "tape-")
 		return a, nil
 	case "record-toggle":
 		switch s.Recorder.State() {

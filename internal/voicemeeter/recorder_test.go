@@ -26,7 +26,15 @@ func TestRecorderAllowlistAndIsolation(t *testing.T) {
 			t.Fatal(s)
 		}
 	}
-	for _, p := range []string{"Recorder.pause", "Recorder.FileType", "Recorder.A6", "Recorder.record;Command.Restart"} {
+	for _, p := range []string{"Recorder.play", "Recorder.pause", "Recorder.ff", "Recorder.rew"} {
+		if e := c.SetRecorder(p, 1); e != nil {
+			t.Fatal(p, e)
+		}
+		if c.SetRecorder(p, 0) == nil {
+			t.Fatal("transport accepted 0", p)
+		}
+	}
+	for _, p := range []string{"Recorder.FileType", "Recorder.A6", "Recorder.record;Command.Restart"} {
 		if c.SetRecorder(p, 1) == nil {
 			t.Fatal(p)
 		}

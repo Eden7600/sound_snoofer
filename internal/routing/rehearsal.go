@@ -31,11 +31,13 @@ func addRehearsal(c config.Config, s model.Snapshot, t *Topology) error {
 	if err := add("Recorder.mode.Loop", loop); err != nil {
 		return err
 	}
-	// Tape A sends are owned for rehearsal and cleared when leaving it.
+	// Tape A sends are owned for rehearsal and listening playback, and
+	// cleared otherwise. Listening playback follows the Playback destination.
+	listening := c.TapeListening && !r.ToVST && s.Recorder.TapePlaying() && s.Recorder.Values["Recorder.B2"] == 0
 	if r.ToVST || r.TapeRoutingManaged || s.Recorder.Values["Recorder.B2"] != 0 {
 		for _, bus := range []string{"A1", "A2", "A3", "A4", "A5", "B1", "B3"} {
 			value := 0
-			if r.ToVST && i.Monitor == "pre" && t.PlaybackTarget == bus {
+			if t.PlaybackTarget == bus && ((r.ToVST && i.Monitor == "pre") || listening) {
 				value = 1
 			}
 			if err := add("Recorder."+bus, value); err != nil {

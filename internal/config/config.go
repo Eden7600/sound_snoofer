@@ -56,6 +56,10 @@ type Config struct {
 	VerifyMS           int                      `json:"verify_ms"`
 	Routes             []Route                  `json:"routes"`
 	Studio             *Studio                  `json:"studio,omitempty"`
+
+	// TapeListening marks tape playback started by Snoofer's Play, which the
+	// planner routes to the Playback destination. Runtime only.
+	TapeListening bool `json:"-"`
 }
 
 func Load(path string) (Config, error) {

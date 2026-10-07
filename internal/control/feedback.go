@@ -25,6 +25,8 @@ func actionBindings(a Action) []string {
 		return []string{"record-stop", "snippet-stop", "record-toggle"}
 	case playSnippet:
 		return []string{"snippet-play"}
+	case tape:
+		return []string{"tape-" + a.Target}
 	case restartEngine:
 		return []string{"engine-restart"}
 	case gain:

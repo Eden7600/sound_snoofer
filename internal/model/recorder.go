@@ -38,6 +38,18 @@ func (r *RecorderSnapshot) State() string {
 	return "Unknown"
 }
 
+// TapePlaying reports playback of the loaded file, playing or paused, as
+// opposed to a paused recording.
+func (r *RecorderSnapshot) TapePlaying() bool {
+	switch r.State() {
+	case "Playing":
+		return true
+	case "Paused":
+		return r.Values["Recorder.record"] == 0
+	}
+	return false
+}
+
 type RecorderSetting struct {
 	Parameter string
 	Value     int

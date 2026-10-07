@@ -30,7 +30,7 @@ func (c *Client) Recorder() (model.RecorderSnapshot, error) {
 	return r, nil
 }
 func (c *Client) SetRecorder(p string, v int) error {
-	valid := (p == "Recorder.record" || p == "Recorder.stop") && v == 1
+	valid := (p == "Recorder.record" || p == "Recorder.stop" || p == "Recorder.play" || p == "Recorder.pause" || p == "Recorder.ff" || p == "Recorder.rew") && v == 1
 	for _, s := range model.RecorderSetup() {
 		if p == s.Parameter {
 			valid = v == s.Value
