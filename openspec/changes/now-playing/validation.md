@@ -164,3 +164,12 @@ Restarting an unpacked extension after `runtime.reload()` does not work under au
   - Brightness and Motion moved to keys 31 and 32.
   - Clipped strips were added: sessions on keys 19–22 and apps on 23–26 (backup `snoofer.json.before-home`).
   - `snoofer.exe --check` passes, and Snoofer was relaunched.
+
+## Revision: sticky focus and Reset focus (commits f2ba7e6 through dab32d8)
+- `go test ./...`: pass.
+  - **Reset focus key:** published as "Auto" with the crosshair icon. A press sends `reset` only to controls that offer it (run 2 times). It is offered in the binding picker, and a native-size preview of the icon was checked.
+  - **Sessions:** a tap toggles without moving focus. A held session stays focused through new playback and 5 minutes. Reset returns focus to the most recently started playing session. These were run 3 times.
+  - **Apps:** reset returns the focus dial to the first app.
+  - **Defaults:** Reset focus at Home r3c9 and Media r4c5.
+- `scripts/check-gui.cjs` and `scripts/check-desktop.cjs`: pass.
+- **Build and personal layout:** built with `scripts/build.ps1`. Reset focus was added at Home key 27 and Media key 32 (backup `snoofer.json.before-reset`). `snoofer.exe --check` passes, and Snoofer was relaunched.
