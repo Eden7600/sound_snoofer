@@ -41,9 +41,13 @@ static long __stdcall observe(void *user, long command, void *data, long sync) {
     AudioBuffer *b = (AudioBuffer *)data;
     (void)user;
     switch (command) {
-    case 1: InterlockedIncrement(&starting); return 0;
-    case 2: InterlockedIncrement(&ending); return 0;
-    case 3: InterlockedIncrement(&change); return 0;
+    case 1: case 2: case 3:
+        /* Invalidate insert history before any buffer from the new stream. */
+        if (input_stage) input_stage(stage_context, NULL);
+        if (command == 1) InterlockedIncrement(&starting);
+        if (command == 2) InterlockedIncrement(&ending);
+        if (command == 3) InterlockedIncrement(&change);
+        return 0;
     case 10: /* Input insert, registered only with an input stage. */
         if (!valid(b)) {
             InterlockedIncrement(&invalid);

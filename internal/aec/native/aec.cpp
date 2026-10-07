@@ -141,7 +141,8 @@ struct AEC {
     int mic[2] = {kNone, kNone}, ref[8] = {};
     int captureFill = 0, renderFill = 0;
     long expectedReferenceSamples = 0;
-    bool processing = false;
+    bool processing = false, referenceReady = false;
+    long startupSamples = 0;
     rtc::scoped_refptr<webrtc::AudioProcessing> apm;
     Fifo micOut[2];
     float capture[2][kMaxFrame], render[8][kMaxFrame];
@@ -160,11 +161,13 @@ void Configure(AEC* a, int rate) {
     for (int c = 0; c < 8; ++c) a->ref[c] = a->refs[c].load();
     a->captureFill = a->renderFill = 0;
     a->expectedReferenceSamples = 0;
+    a->referenceReady = false;
+    a->startupSamples = 0;
     a->sample_rate = rate;
     a->micChannels = (a->mic[0] != kNone) + (a->mic[1] != kNone && a->mic[1] != a->mic[0]);
     a->processing = !a->bypass.load() && Supported(rate) && a->micChannels > 0 && a->ref[0] != kNone;
     a->apm = nullptr;
-    a->active.store(a->processing ? 1 : 0);
+    a->active.store(0); // Wait for a real render reference before claiming activity.
     a->rate.store(rate);
     a->erle.store(-1);
     a->delay.store(-1);
@@ -211,11 +214,18 @@ void Process(AEC* a, AudioBuffer* b) {
     }
     if (!a->processing) return;
     const int frame = a->sample_rate / 100;
-    if (a->expectedReferenceSamples != 0) throw Fault{kMissingOutput};
+    if (a->referenceReady && a->expectedReferenceSamples != 0) throw Fault{kMissingOutput};
     for (int ch = 0; ch < a->micChannels; ++ch) {
         if (!Has(b, a->mic[ch])) throw Fault{kMissingMic};
     }
     a->expectedReferenceSamples = b->samples;
+    if (!a->referenceReady) {
+        // Voicemeeter pre-rolls input before its first output callback.
+        // Keep capture framing on the same sample timeline as render.
+        a->startupSamples += b->samples;
+        if (a->startupSamples >= a->sample_rate) throw Fault{kMissingOutput};
+    }
+    a->active.store(a->referenceReady ? 1 : 0);
     const webrtc::StreamConfig captureConfig(a->sample_rate, static_cast<size_t>(a->micChannels));
     float* capturePtr[2] = {a->capture[0], a->capture[1]};
     // Complete and consume frames incrementally: even large callbacks cannot
@@ -241,7 +251,8 @@ void Process(AEC* a, AudioBuffer* b) {
         }
         for (int ch = 0; ch < a->micChannels; ++ch) {
             if (!a->micOut[ch].Size()) throw Fault{kCaptureUnderflow};
-            b->write[a->mic[ch]][i] = a->micOut[ch].Pop();
+            float output = a->micOut[ch].Pop();
+            if (a->referenceReady) b->write[a->mic[ch]][i] = output;
         }
     }
 }
@@ -320,6 +331,21 @@ __declspec(dllexport) HRESULT __cdecl AECResetFailure(AEC* a) {
 // AECInputInsert processes the mic channels and passes every other channel through.
 __declspec(dllexport) void __stdcall AECInputInsert(void* context, AudioBuffer* b) {
     AEC* a = static_cast<AEC*>(context);
+    if (a && !b) {
+        // Lifecycle notification on the audio thread. Defer the expensive
+        // rebuild to the next input; late output must not use the old APM.
+        a->applied = a->generation.load(std::memory_order_acquire) - 1;
+        a->processing = false;
+        a->captureFill = a->renderFill = 0;
+        a->expectedReferenceSamples = 0;
+        a->active.store(0);
+        a->rate.store(0);
+        a->erle.store(-1);
+        a->delay.store(-1);
+        a->reason.store(0);
+        a->failed.store(0);
+        return;
+    }
     if (!Valid(b)) return;
     PassThrough(b);
     if (!a || a->failed.load()) return;
@@ -361,6 +387,7 @@ __declspec(dllexport) void __stdcall AECOutputInsert(void* context, AudioBuffer*
             }
         }
         a->expectedReferenceSamples = 0;
+        a->referenceReady = true;
     } catch (const Fault& f) {
         Fail(a, f.reason);
     } catch (...) {

@@ -20,3 +20,5 @@ The executable supports `--self-test` without loading the native DLL. Its checks
 ABI and semantics: https://github.com/vburel2018/Voicemeeter-SDK/blob/main/VoicemeeterRemote.h and https://download.vb-audio.com/Download_CABLE/VoicemeeterRemoteAPI.pdf (pages 21–26).
 
 The callback implementation is shared with the production monitor in `internal/voicemeeter/callback/pass_through.h`; the same pass-through self-test runs when building the main app.
+
+Use ./tools/callback-probe/run.ps1 -Paired for a ten-second input-plus-output pass-through observation while Snoofer is stopped. It reports input/output counts, consecutive repeated commands and unsynchronized inputs. Snapshots read counters independently; transient count differences are not atomic pairing measurements. The repeated-command totals identify startup pre-roll. This mode makes no routing changes and never saves audio.

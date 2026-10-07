@@ -1,4 +1,4 @@
-param([switch]$Observe)
+param([switch]$Observe, [switch]$Paired)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 Push-Location $repo
@@ -22,7 +22,7 @@ cl /nologo /W4 /WX /O2 /std:c11 /Fo.local\stall-probe\callback-probe.obj /Fe.loc
     $exe = Join-Path $out 'callback-probe.exe'
     & $exe --self-test
     if ($LASTEXITCODE -ne 0) { throw 'Callback probe self-test failed; live capture refused.' }
-    if ($Observe) {
+    if ($Observe -or $Paired) {
         $uninstall = Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\VB:Voicemeeter {17359A74-1236-5467}' -ErrorAction SilentlyContinue
         # Same installation discovery source as the Go adapter.
         if (!$uninstall -or !$uninstall.UninstallString) { throw 'Installed Voicemeeter path not found.' }
@@ -35,7 +35,8 @@ cl /nologo /W4 /WX /O2 /std:c11 /Fo.local\stall-probe\callback-probe.obj /Fe.loc
         if (!(Test-Path $dll)) { throw "Installed Remote64 DLL not found at $dll" }
         $log = Join-Path $out ('callback-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '.log')
         "Capture start UTC: $([DateTime]::UtcNow.ToString('o'))" | Set-Content $log
-        & $exe --observe $dll 2>&1 | Tee-Object -FilePath $log -Append
+        $mode = if ($Paired) { '--observe-paired' } else { '--observe' }
+        & $exe $mode $dll 2>&1 | Tee-Object -FilePath $log -Append
         if ($LASTEXITCODE -ne 0) { throw "Probe failed; inspect $log" }
         Write-Host "Capture: $log"
     }

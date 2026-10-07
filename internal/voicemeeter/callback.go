@@ -5,7 +5,8 @@ import "fmt"
 // InsertHook names native insert stages that the monitor's audio callback
 // calls on Voicemeeter's audio thread: Input for the input insert, Output for
 // the output insert, both with Context. The functions and context must stay
-// valid until SetCallback has removed the hook successfully.
+// valid until SetCallback has removed the hook successfully. Input also receives
+// a null buffer on stream start/end/change to invalidate processing history.
 type InsertHook struct {
 	Input, Output, Context uintptr
 }

@@ -7,16 +7,34 @@
 
 #include "../../internal/voicemeeter/callback/pass_through.h"
 static volatile LONG cancelled;
+static volatile LONG input_count, output_count, repeated_input, repeated_output, last_command, unsynced_input;
+static long __stdcall observe_pair(void *user, long command, void *data, long sync) {
+    if (command == 10 || command == 11) {
+        LONG prior = InterlockedExchange(&last_command, command);
+        if (command == 10) {
+            InterlockedIncrement(&input_count);
+            if (prior == 10) InterlockedIncrement(&repeated_input);
+            if (sync != 1) InterlockedIncrement(&unsynced_input);
+        } else {
+            InterlockedIncrement(&output_count);
+            if (prior == 11) InterlockedIncrement(&repeated_output);
+        }
+    } else InterlockedExchange(&last_command, 0);
+    return observe(user, command, data, sync);
+}
 
 static void snapshot(unsigned long long elapsed) {
     printf("ms=%llu buffers=%ld synced=%ld starting=%ld ending=%ld change=%ld invalid=%ld unknown=%ld sr=%ld frames=%ld channels=%ld\n",
         elapsed, READ(buffers), READ(synced), READ(starting), READ(ending),
         READ(change), READ(invalid), READ(unknown), READ(sample_rate), READ(frame_size), READ(channels));
+    printf("input=%ld output=%ld repeated_input=%ld repeated_output=%ld unsynced_input=%ld\n",
+        READ(input_count), READ(output_count), READ(repeated_input), READ(repeated_output), READ(unsynced_input));
     fflush(stdout);
 }
-static int stage_calls[2];
+static int stage_calls[2], stage_resets;
 static void __stdcall test_input(void *context, AudioBuffer *b) {
     (void)context;
+    if (!b) { stage_resets++; return; }
     stage_calls[0]++;
     for (long i = 0; i < b->samples; ++i) b->write[0][i] = 0.5f;
 }
@@ -64,6 +82,8 @@ static int self_test(void) {
         observe(NULL, 10, &b, 1);
         assert(stage_calls[0] == 1 && invalid == 4);
         b.write[1] = in;
+        for (long command = 1; command <= 3; ++command) observe(NULL, command, NULL, 0);
+        assert(stage_resets == 3 && stage_calls[0] == 1);
         input_stage = output_stage = NULL;
         stage_context = NULL;
     }
@@ -100,10 +120,10 @@ int wmain(int argc, wchar_t **argv) {
     char name[64] = "Sound Snoofer callback probe";
     ULONGLONG began;
     long code;
-    int failed = 0;
+    int failed = 0, paired = argc == 3 && wcscmp(argv[1], L"--observe-paired") == 0;
     if (argc == 2 && wcscmp(argv[1], L"--self-test") == 0) return self_test();
-    if (argc != 3 || wcscmp(argv[1], L"--observe") != 0) {
-        fputs("Usage: callback-probe --self-test | --observe <absolute installed Remote64.dll path>\n", stderr);
+    if (argc != 3 || (wcscmp(argv[1], L"--observe") != 0 && !paired)) {
+        fputs("Usage: callback-probe --self-test | --observe[|-paired] <absolute installed Remote64.dll path>\n", stderr);
         return 2;
     }
     if (GetFileAttributesW(argv[2]) == INVALID_FILE_ATTRIBUTES) return 2;
@@ -122,8 +142,8 @@ int wmain(int argc, wchar_t **argv) {
     RESOLVE(register_callback, Register, "VBVMR_AudioCallbackRegister")
     code = invoke("Login", login);
     if (code != 0) { if (code == 1) invoke("Logout", logout); return 2; }
-    puts("BEGIN Register output insert"); fflush(stdout);
-    code = register_callback(2, observe, NULL, name);
+    puts(paired ? "BEGIN Register paired inserts" : "BEGIN Register output insert"); fflush(stdout);
+    code = register_callback(paired ? 3 : 2, paired ? observe_pair : observe, NULL, name);
     printf("END Register code=%ld owner=%.63s\n", code, name); fflush(stdout);
     if (code != 0) { invoke("Logout", logout); return 2; }
     code = invoke("CallbackStart", start);

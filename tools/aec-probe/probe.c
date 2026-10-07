@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "audio_buffer.h"
+#include "pass_through.h"
 
 /* Mirrors internal/aec/native/aec.cpp. */
 typedef struct AEC AEC;
@@ -91,7 +91,7 @@ static float room_echo(Room *r) {
 static float readMic[Channels][MaxSamples], writeMic[Channels][MaxSamples];
 static float readOut[Channels][MaxSamples], writeOut[Channels][MaxSamples];
 
-static void buffers(AudioBuffer *in, AudioBuffer *out, int rate, int samples) {
+static void setup_buffers(AudioBuffer *in, AudioBuffer *out, int rate, int samples) {
     memset(in, 0, sizeof(*in));
     memset(out, 0, sizeof(*out));
     in->sr = out->sr = rate;
@@ -133,7 +133,7 @@ static int run(int rate, int samples, int seconds, int bypass, int scenario, int
     res->otherChannelsIdentical = res->micIdentical = 1;
     if (create(&aec) != S_OK || configure(aec, &config) != S_OK) return 0;
     for (int c = 0; c < 6; ++c) { room_init(&room[c], rate, c); room[c].deviceBuffer = (scenario == 5 ? 2048 : scenario == 7 ? 512 : samples) + c * rate / 1000; }
-    buffers(&in, &out, rate, samples);
+    setup_buffers(&in, &out, rate, samples);
     while (t < total) {
         if (scenario == 7) samples = t < total / 2 ? 256 : 512;
         if (scenario == 5) {
@@ -162,13 +162,15 @@ static int run(int rate, int samples, int seconds, int bypass, int scenario, int
                 for (int c = 0; c < 6; ++c) readOut[c][i] = speaker[c];
             }
             double p = phase(t + i, rate);
-            float voice = ((p >= 2.0 && p < 2.4) || (scenario == 6 && p >= 0.3 && p < 1.5)) ? 0.1f * (float)sin(2.0 * 3.14159265 * 440.0 * (t + i) / rate) : 0.0f;
+            float voice = ((p >= 2.0 && p < 2.4) || ((scenario == 6 || scenario == 10) && p >= 0.3 && p < 1.5)) ? 0.1f * (float)sin(2.0 * 3.14159265 * 440.0 * (t + i) / rate) : 0.0f;
             readMic[MicLeft][i] = echo + voice;
             readMic[MicRight][i] = 0.9f * echo + voice;
         }
         memset(writeMic, 0x7f, sizeof(writeMic));
+        int restarting = scenario == 8 && t == (long)rate * 10;
+        if (restarting) inputInsert(aec, NULL);
         inputInsert(aec, &in);
-        outputInsert(aec, &out);
+        if (scenario < 9 || t >= 3L * samples) outputInsert(aec, &out);
         for (int c = 0; c < Channels; ++c) {
             int same = memcmp(readMic[c], writeMic[c], samples * sizeof(float)) == 0;
             if (c == MicLeft || c == MicRight) {
@@ -182,7 +184,7 @@ static int run(int rate, int samples, int seconds, int bypass, int scenario, int
             double in2 = (double)readMic[MicLeft][i] * readMic[MicLeft][i];
             double out2 = (double)writeMic[MicLeft][i] * writeMic[MicLeft][i];
             if (t < measureFrom) continue;
-            if (scenario == 6 && p >= 0.5 && p < 1.4) {
+            if ((scenario == 6 || scenario == 10) && p >= 0.5 && p < 1.4) {
                 double angle = 2.0 * 3.14159265 * 440.0 * t / rate;
                 res->doubleSin += writeMic[MicLeft][i] * sin(angle);
                 res->doubleCos += writeMic[MicLeft][i] * cos(angle);
@@ -248,11 +250,14 @@ int main(int argc, char **argv) {
         {32000, 256, 4, 0, "32 kHz 5.1"}, {16000, 127, 4, 0, "16 kHz 5.1"},
         {48000, 256, 6, 0, "double-talk Strong"},
         {48000, 256, 6, 1, "double-talk Balanced"},
-        {48000, 256, 6, 2, "double-talk Gentle"}
+        {48000, 256, 6, 2, "double-talk Gentle"},
+        {48000, 480, 8, 0, "5.1 convergence after stream reset"},
+        {48000, 512, 9, 0, "5.1 with input pre-roll"},
+        {48000, 512, 10, 0, "double-talk with input pre-roll"}
     };
     for (size_t c = 0; c < sizeof(cases)/sizeof(cases[0]); ++c) {
         char what[160];
-        if (!run(cases[c].rate, cases[c].samples, 20, 0, cases[c].scenario, cases[c].strength, &r)) return 2;
+        if (!run(cases[c].rate, cases[c].samples, cases[c].scenario >= 8 ? 30 : 20, 0, cases[c].scenario, cases[c].strength, &r)) return 2;
         double voiceDB = 10.0 * log10(r.nearOut / r.nearIn);
         printf("%s: reduction %.1f dB, voice %+.1f dB, estimated delay %d ms, frames %u/%u, failed %d\n",
                cases[c].name, reduction(&r), voiceDB, r.stats.delay_ms, r.stats.frames, r.expectedFrames, r.stats.failed);
@@ -260,7 +265,7 @@ int main(int argc, char **argv) {
         check(r.stats.active && !r.stats.failed && r.stats.frames == r.expectedFrames && r.otherChannelsIdentical, what);
         snprintf(what, sizeof(what), "%s: local voice within 6 dB", cases[c].name);
         check(isfinite(voiceDB) && fabs(voiceDB) <= 6.0, what);
-        if (cases[c].scenario != 6) {
+        if (cases[c].scenario != 6 && cases[c].scenario != 10) {
             snprintf(what, sizeof(what), "%s: at least 20 dB echo reduction", cases[c].name);
             check(reduction(&r) >= 20.0, what);
         } else {
@@ -285,7 +290,9 @@ int main(int argc, char **argv) {
         AECStats report;
         AECConfig config = {{MicLeft, MicRight}, {0, 1, 2, 3, 4, 5, 6, 7}, 0, 0};
         if (create(&aec) != S_OK || configure(aec, &config) != S_OK) return 2;
-        buffers(&in, &out, 48000, 256);
+        setup_buffers(&in, &out, 48000, 256);
+        inputInsert(aec, &in);
+        outputInsert(aec, &out); /* Establish reference before strict fault checks. */
         inputInsert(aec, &in);
         if (fault == 0) inputInsert(aec, &in); /* Missing output. */
         if (fault == 1) { out.samples = 128; outputInsert(aec, &out); }
@@ -304,7 +311,7 @@ int main(int argc, char **argv) {
         check(reason == reasons[fault], "callback fault reports its reason");
         /* A reset for a new stream rebuilds the engine; paired callbacks process again. */
         resetFailure(aec);
-        buffers(&in, &out, 48000, 256);
+        setup_buffers(&in, &out, 48000, 256);
         outputInsert(aec, &out); /* Stale output before the rebuild is skipped, not a fault. */
         for (int cycle = 0; cycle < 10; ++cycle) {
             inputInsert(aec, &in);
@@ -313,6 +320,79 @@ int main(int argc, char **argv) {
         stats(aec, &report);
         readFailure(aec, &reason);
         check(report.active && !report.failed && report.frames > 0 && reason == 0, "reset resumes processing on paired callbacks");
+        destroy(aec);
+    }
+
+    /* Reproduce the live startup: four inputs precede the first output. */
+    {
+        AEC *aec = NULL;
+        AudioBuffer in, out;
+        AECStats report;
+        AECConfig config = {{MicLeft, MicRight}, {0, 1, 2, 3, 4, 5, 6, 7}, 0, 0};
+        if (create(&aec) != S_OK || configure(aec, &config) != S_OK) return 2;
+        setup_buffers(&in, &out, 48000, 512);
+        int same = 1;
+        for (int cycle = 0; cycle < 4; ++cycle) {
+            inputInsert(aec, &in);
+            for (int c = 0; c < Channels; ++c)
+                same &= memcmp(readMic[c], writeMic[c], 512 * sizeof(float)) == 0;
+        }
+        for (int c = 0; c < Channels; ++c) in.write[c] = in.read[c];
+        inputInsert(aec, &in);
+        for (int c = 0; c < Channels; ++c) {
+            same &= memcmp(readMic[c], writeMic[c], 512 * sizeof(float)) == 0;
+            in.write[c] = writeMic[c];
+        }
+        stats(aec, &report);
+        check(same && !report.failed && !report.active,
+              "startup input pre-roll passes through without a false failure");
+        for (int cycle = 0; cycle < 10; ++cycle) {
+            outputInsert(aec, &out);
+            inputInsert(aec, &in);
+        }
+        stats(aec, &report);
+        check(report.active && !report.failed && report.frames > 0, "first reference starts cancellation after pre-roll");
+        inputInsert(aec, NULL);
+        for (int cycle = 0; cycle < 94; ++cycle) inputInsert(aec, &in);
+        stats(aec, &report);
+        int reason = 0;
+        readFailure(aec, &reason);
+        check(report.failed && !report.active && reason == 1, "missing startup reference fails within one second");
+        destroy(aec);
+    }
+
+    /* Drive the production monitor, not just the DLL entry points. */
+    for (long event = 1; event <= 3; ++event) {
+        AEC *aec = NULL;
+        AudioBuffer in, out;
+        AECStats report;
+        AECConfig config = {{MicLeft, MicRight}, {0, 1, 2, 3, 4, 5, 6, 7}, 0, 0};
+        if (create(&aec) != S_OK || configure(aec, &config) != S_OK) return 2;
+        setup_buffers(&in, &out, 48000, 256);
+        input_stage = inputInsert;
+        output_stage = outputInsert;
+        stage_context = aec;
+        for (int failed = 0; failed <= 1; ++failed) {
+            observe(NULL, 10, &in, 1);
+            observe(NULL, 11, &out, 1);
+            observe(NULL, 10, &in, 1); /* Leave an input waiting for output. */
+            if (failed) observe(NULL, 10, &in, 1); /* Already latched. */
+            observe(NULL, event, NULL, 0);
+            observe(NULL, event, NULL, 0); /* Repeated events are harmless. */
+            if (failed) observe(NULL, 11, &out, 1); /* Late output cannot use old state. */
+            stats(aec, &report);
+            check(!report.active && !report.failed && report.delay_ms == -1 && report.erle_centi_db == -1,
+                  "native lifecycle clears failure and stale metrics before new input");
+            for (int cycle = 0; cycle < 10; ++cycle) {
+                observe(NULL, 10, &in, 1);
+                observe(NULL, 11, &out, 1);
+            }
+            stats(aec, &report);
+            check(report.active && !report.failed && report.frames > 0,
+                  "production callback resumes AEC after stream boundary");
+        }
+        input_stage = output_stage = NULL;
+        stage_context = NULL;
         destroy(aec);
     }
 
