@@ -188,6 +188,19 @@ Review found that filters only blanked keys. The space should go to whatever is 
 - **Clipped regions:** `Region.Clip` shows only what fits and never adds overflow sets. Home has no Up/Down keys, and extra Home sets would otherwise appear on the page dial. The Home strips are clipped.
 - **Defaults:** the same applies to the default Home, which had Controls but no Hue keys: Controls is removed, and Brightness, Motion and the strips are added.
 
+## 4g. Sticky focus, Home focus strips, Reset focus (revised after review)
+- **Sticky focus:**
+  - **Chosen focus:** for sessions and apps it holds until Reset focus, or until the chosen item disappears.
+  - **Default focus:** with nothing chosen, the media dial follows the session that most recently started playing, and the focused-app dial follows the first app on the deck. The 30 s hold after a press is removed.
+  - **Media page:** a tap plays/pauses or mutes without moving focus, and a hold chooses focus.
+- **Per-key operation:**
+  - `Binding.Op` and `Region.Op` (JSON `op`, optional) name the operation a key tap sends. Region-filled keys inherit the region's `Op`.
+  - A key with an `Op` the control offers acts on key-down, with no tap/hold wait.
+  - The Home strips use `op: "hold"`, so a tap chooses focus.
+- **Reset focus:** `streamdeck.reset-focus` is a local Stream Deck key, like the scroll keys (label Reset focus, short label Auto). A press sends `reset` to every shown control that offers it: `nowplaying.dial` and `appaudio.focus`. Each returns to its default focus.
+- **Home:** key 27 (r3c9), beside the strips, is Reset focus.
+- **GUI:** session cards no longer focus on play/pause. Focus is chosen on the deck.
+
 ## 4c. Placeholder artwork (revised after review)
 Programs without a logo get a colour that is random-looking but fixed for each program, so they can be told apart at a glance.
 - **Package:** `internal/placeholder`. `Art(name, glyph)` returns a 64 px PNG in the `Artwork` contract: a rounded tile with a light glyph.

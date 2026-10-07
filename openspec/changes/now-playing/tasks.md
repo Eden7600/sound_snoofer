@@ -53,6 +53,11 @@ Each numbered block is one reviewable commit.
 - [x] 44. `docs(deck)`: Home revamp and clipped regions (§4f).
 - [x] 45. `feat(streamdeck)`: clipped regions, the default Home revamp and the personal Home migration. Tests cover clipping (no overflow sets) and the Home layout.
 - [x] 46. Validate: all checks and the canonical build; relaunch.
+- [x] 47. `docs(media)`: sticky focus, Home focus strips and Reset focus (§4g).
+- [ ] 48. `feat(streamdeck)`: per-key `op`, region `op`, and the Reset focus key (publishing, local press, binding eligibility). Includes tests.
+- [ ] 49. `feat(nowplaying)`, `feat(appaudio)`: sticky focus and `reset`; taps no longer focus. Includes tests.
+- [ ] 50. `feat(streamdeck)`: Home strips with `op: hold` and Reset focus (default and personal). Includes tests.
+- [ ] 51. Validate: all checks and the canonical build; relaunch.
 
 ## Hardware acceptance
 - [ ] 9. With Brave and a Windows player:
