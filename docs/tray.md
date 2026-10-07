@@ -26,8 +26,7 @@ script for distribution. To build while an existing executable is in use, specif
 `./scripts/build.ps1 -Output bin/sound-snoofer-next.exe` and quit the old app before
 switching to the replacement.
 
-If colours are missing, check whether the launching environment defines `NO_COLOR`.
-The TUI intentionally honours it. New notification icons can be hidden under the
+New notification icons can be hidden under the
 **^** beside the clock; drag the orange mascot onto the visible tray if desired.
 The application verifies icon registration and reports startup failure visibly.
 
