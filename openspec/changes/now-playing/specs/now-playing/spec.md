@@ -82,3 +82,7 @@ The combined Media deck page SHALL offer an Apps filter (All, Pinned, Off) and a
 #### Scenario: Focused app not repeated
 - **WHEN** the focused app is also among the first apps
 - **THEN** it appears only on the focused-app dial, and the next app takes the region dial
+
+#### Scenario: Home strip without overflow
+- **WHEN** six sessions and six apps are shown
+- **THEN** Home's row 3 shows the first four of each, and the page dial gains no extra Home pages

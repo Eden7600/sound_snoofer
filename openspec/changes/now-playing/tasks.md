@@ -47,6 +47,9 @@ Each numbered block is one reviewable commit.
 - [x] 41. `feat(streamdeck)`: the `Mirrors` field, which keeps the focused app off region dials, with `appaudio.focus` setting it. Includes tests.
 - [x] 42. `feat(streamdeck)`: Playback first on the Media page, and Now playing transport on Home (default and personal). Tests are updated.
 - [x] 43. Validate: all checks and the canonical build; relaunch.
+- [x] 44. `docs(media)`: the Home strip (§4f).
+- [ ] 45. `feat(streamdeck)`: `Region.Fixed` (no overflow sets), and the Home strip in the default and personal layouts. Includes tests.
+- [ ] 46. Validate: all checks and the canonical build; relaunch.
 
 ## Hardware acceptance
 - [ ] 9. With Brave and a Windows player:

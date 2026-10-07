@@ -181,6 +181,17 @@ Review found that filters only blanked keys. The space should go to whatever is 
 - **No duplicate dials:** `snoofer.Control.Mirrors` names the control that a stand-in control controls; `appaudio.focus` mirrors the focused app's control. During expansion, a control mirrored by a visible dial bound on the page counts as bound for that page's dial regions, so the focused app is not also placed on a region dial. Keys are unaffected.
 - **Home transport:** Home's keys 28–30 use `nowplaying.prev`, `nowplaying.toggle` and `nowplaying.next` instead of the blind media keys. They act on the focused session and are blank while media is filtered off. The `media` plugin is unchanged and its keys can still be bound.
 
+## 4f. Home strip (revised after review)
+Home's free third row holds quick access to media and programs. Nothing else on Home moves.
+
+| Row 3 | Contents |
+|---|---|
+| c1–c4 (keys 19–22) | media sessions, latest first (tap plays or pauses, hold focuses) |
+| c5–c8 (keys 23–26) | apps, picked first (tap mutes, hold gives the focus dial) |
+
+- **Fixed regions:** `Region.Fixed` shows only what fits. Extra members get no overflow set, so Home never grows "Home 2" pages on the page dial; Home has no Up/Down keys.
+- **Filters:** the deck filters apply here as everywhere: Apps Off or Media Off leaves their keys blank.
+
 ## 4c. Placeholder artwork (revised after review)
 Programs without a logo get a colour that is random-looking but fixed for each program, so they can be told apart at a glance.
 - **Package:** `internal/placeholder`. `Art(name, glyph)` returns a 64 px PNG in the `Artwork` contract: a rounded tile with a light glyph.
