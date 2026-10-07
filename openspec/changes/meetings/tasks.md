@@ -8,7 +8,7 @@ Each numbered block is one reviewable commit.
 - [x] 4. `feat(discord)`: IPC framing, nonce matching, authorization and token refresh, state subscriptions, controls and `no_discord`. Tests against a fake pipe peer cover handshake, approval, refresh, invalid_grant, reconnect without replay, verification and the credential never appearing in reports.
 - [x] 5. `feat(audio)`, `feat(discord)`: the Mic mute API and the link. Tests cover connect imposing, external adoption, acknowledgement of own writes, deafen, a single in-flight write and no loops.
 - [x] 6. `feat(gui)`, `feat(streamdeck)`: Meetings screen, deck icons, UI contract and docs/plugins.md setup. Update check-gui fixtures, screenshots and overflow checks; inspect native-size icons.
-- [ ] 7. Validate (gofmt, test, vet, strict OpenSpec, GUI check, canonical build), relaunch and record results.
+- [x] 7. Validate (gofmt, test, vet, strict OpenSpec, GUI check, canonical build), relaunch and record results.
 
 ## Hardware acceptance
 - [ ] 8. Link 2: privacy, each tracking mode, framing and reset change the camera and read back; they work while another app streams.
