@@ -194,7 +194,7 @@ Review found that filters only blanked keys. The space should go to whatever is 
   - **Default focus:** with nothing chosen, the media dial follows the session that most recently started playing, and the focused-app dial follows the first app on the deck. The 30 s hold after a press is removed.
   - **Session and app keys (Media page and Home strips alike):** a tap plays/pauses or mutes without moving focus, and a hold chooses focus. (Review asked that the Home strips also use hold, so no per-key operation is needed.)
 - **Reset focus:** `streamdeck.reset-focus` is a local Stream Deck key, like the scroll keys (label Reset focus, short label Auto). A press sends `reset` to every shown control that offers it: `nowplaying.dial` and `appaudio.focus`. Each returns to its default focus.
-- **Home:** key 27 (r3c9), beside the strips, is Reset focus.
+- **Where:** Reset focus is Home key 27 (r3c9), beside the strips, and Media page key 32 (r4c5), after Mute. Both pages share one focus.
 - **GUI:** session cards no longer focus on play/pause. Focus is chosen on the deck.
 
 ## 4c. Placeholder artwork (revised after review)
