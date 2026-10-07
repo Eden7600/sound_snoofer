@@ -152,3 +152,15 @@ Restarting an unpacked extension after `runtime.reload()` does not work under au
   - The personal Media page's first two dials were swapped (Playback first).
   - Home's blind media keys were replaced by `nowplaying.prev`, `nowplaying.toggle` and `nowplaying.next` (backup `snoofer.json.before-home-transport`).
   - `snoofer.exe --check` passes, and Snoofer was relaunched.
+
+## Revision: Home revamp (commits dcd561c and 3a343ed)
+- `go test ./...`: pass.
+  - **Clipped Home strips:** with six sessions and nine apps they show the first four of each and add no overflow sets. A clipped region beside an unclipped region of the same source still lets the unclipped one page.
+  - **Default Home:** transport, Brightness and Motion on the bottom row; no Controls or Hue Sync keys.
+  - **Older editor test:** it now clears Home's regions before testing the legacy prefix.
+- `scripts/check-gui.cjs` and `scripts/check-desktop.cjs`: pass.
+- **Build and personal Home:** built with `scripts/build.ps1`.
+  - The Hue Sync, Mode, Intensity and Controls keys were removed.
+  - Brightness and Motion moved to keys 31 and 32.
+  - Clipped strips were added: sessions on keys 19–22 and apps on 23–26 (backup `snoofer.json.before-home`).
+  - `snoofer.exe --check` passes, and Snoofer was relaunched.
