@@ -91,9 +91,9 @@ The combined Media deck page SHALL offer an Apps filter (All, Pinned, Off) and a
 - **WHEN** six sessions and eight apps are shown and Home has four session keys and four app keys
 - **THEN** Home shows the first four of each, and no extra Home page is added
 
-#### Scenario: Home strip tap focuses
-- **WHEN** the user taps an app in Home's strip
-- **THEN** the focused-app dial takes that app at once, and the app is not muted
+#### Scenario: Home strip hold focuses
+- **WHEN** the user holds an app in Home's strip
+- **THEN** the focused-app dial takes that app, and a tap on the same key still mutes it
 
 #### Scenario: Reset focus
 - **WHEN** the user presses Reset focus after choosing a session and an app
