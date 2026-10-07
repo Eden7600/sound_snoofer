@@ -165,6 +165,25 @@ func TestRecorderTransportPreparation(t *testing.T) {
 		t.Fatal("playback not protected")
 	}
 }
+func TestPausedSendsLeaveRecorderRouting(t *testing.T) {
+	c, b := recorderController(t)
+	c.Config.Intent.PauseSends = true
+	b.r.Values["Recorder.B2"] = 1
+	if e := c.protectRecorder(context.Background()); e != nil || b.r.Values["Recorder.B2"] != 1 {
+		t.Fatal("tape protection wrote while sends paused", e)
+	}
+	e := c.Record(context.Background(), true, true)
+	if e == nil || !strings.Contains(e.Error(), "Sends paused") || len(b.writesRecorder) != 0 {
+		t.Fatal("Start prepared the recorder while sends paused", e, b.writesRecorder)
+	}
+	// An already prepared recorder still starts.
+	for _, s := range model.RecorderSetup() {
+		b.r.Values[s.Parameter] = float32(s.Value)
+	}
+	if e := c.Record(context.Background(), true, true); e != nil || b.r.State() != "Recording" {
+		t.Fatal(e, b.r.State())
+	}
+}
 func TestRecorderGuardsAndNoRetry(t *testing.T) {
 	for _, kind := range []string{"dry", "empty", "pending", "paused", "playing", "unknown", "fail", "timeout"} {
 		t.Run(kind, func(t *testing.T) {

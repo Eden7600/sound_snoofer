@@ -19,6 +19,10 @@ type Intent struct {
 	PreferVRPlayback bool            `json:"prefer_vr_playback,omitempty"`
 	ProtectDefaults  bool            `json:"protect_defaults,omitempty"`
 	AutoRecover      bool            `json:"auto_recover,omitempty"`
+	// PauseDevices and PauseSends stop Snoofer's device-assignment and
+	// routing-parameter writes for testing; planning continues.
+	PauseDevices bool `json:"pause_devices,omitempty"`
+	PauseSends   bool `json:"pause_sends,omitempty"`
 
 	PlaybackDevice string            `json:"playback_device,omitempty"`
 	Recording      *RecordingChoices `json:"recording,omitempty"`

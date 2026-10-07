@@ -34,7 +34,7 @@ func EditIntent(i *config.Intent, a Action) error {
 		return config.ValidateProfileChoices(*i.VRProfile)
 	}
 	switch a.Row {
-	case "mic-mute", "speaker-mute", "vr-mic", "vr-playback", "defaults", "auto-recover":
+	case "mic-mute", "speaker-mute", "vr-mic", "vr-playback", "defaults", "auto-recover", "pause-devices", "pause-sends":
 		value, err := strconv.ParseBool(a.Value)
 		if err != nil {
 			return err
@@ -52,6 +52,10 @@ func EditIntent(i *config.Intent, a Action) error {
 			i.ProtectDefaults = value
 		case "auto-recover":
 			i.AutoRecover = value
+		case "pause-devices":
+			i.PauseDevices = value
+		case "pause-sends":
+			i.PauseSends = value
 		}
 
 	case "record-vst", "record-loop":

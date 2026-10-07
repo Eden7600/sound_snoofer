@@ -30,6 +30,9 @@ type Topology struct {
 	Operations      []Operation      `json:"operations"`
 	Unresolved      []string         `json:"unresolved,omitempty"`
 	InventoryKey    string           `json:"-"`
+	// HeldDevices and HeldSends count changes the intent's pauses hold back.
+	HeldDevices int `json:"held_devices,omitempty"`
+	HeldSends   int `json:"held_sends,omitempty"`
 }
 
 func (t *Topology) Key() string {

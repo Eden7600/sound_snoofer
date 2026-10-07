@@ -124,6 +124,9 @@ func (c *Controller) Record(ctx context.Context, start, live bool) error {
 			return fmt.Errorf("recorder is no longer stopped")
 		}
 		if r.Values[s.Parameter] != float32(s.Value) {
+			if c.sendsPaused() {
+				return fmt.Errorf("Sends paused: recorder needs %s = %d", s.Parameter, s.Value)
+			}
 			if e := write(s.Parameter, s.Value, false); e != nil {
 				return e
 			}
@@ -140,11 +143,17 @@ func (c *Controller) Record(ctx context.Context, start, live bool) error {
 	return write("Recorder.record", 1, true)
 }
 
+// sendsPaused reports the intent's pause of routing-parameter writes.
+func (c *Controller) sendsPaused() bool {
+	i := c.Config.VoiceIntent()
+	return i != nil && i.PauseSends
+}
+
 // Protection only repairs playback sends while stopped. Active conflicts are
 // reported by the planner and frozen, so external transport is never fought.
 func (c *Controller) protectRecorder(ctx context.Context) error {
 	b, ok := c.Backend.(RecorderBackend)
-	if !ok {
+	if !ok || c.sendsPaused() {
 		return nil
 	}
 	for _, p := range []string{"Recorder.B1", "Recorder.B2", "Recorder.B3"} {

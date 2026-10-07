@@ -201,6 +201,33 @@ func addVoice(c config.Config, s model.Snapshot, p Plan) (Plan, error) {
 			}
 		}
 	}
-	buildVoiceTransition(c, s, t)
+	paused := c.VoiceIntent()
+	if paused == nil {
+		paused = &config.Intent{}
+	}
+	holdPaused(t, paused)
+	// A transition only gates sends, so it is pointless while sends are paused.
+	if !paused.PauseSends {
+		buildVoiceTransition(c, s, t)
+	}
 	return p, nil
+}
+
+// holdPaused keeps paused kinds of operation in the plan without changing
+// them: device assignments, or every routing parameter (sends).
+func holdPaused(t *Topology, i *config.Intent) {
+	for n := range t.Operations {
+		op := &t.Operations[n]
+		if !op.Change {
+			continue
+		}
+		if op.Device != nil && i.PauseDevices {
+			op.Change = false
+			t.HeldDevices++
+		}
+		if op.Device == nil && i.PauseSends {
+			op.Change = false
+			t.HeldSends++
+		}
+	}
 }
