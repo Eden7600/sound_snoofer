@@ -50,6 +50,9 @@ Each numbered block is one reviewable commit.
 - [x] 44. `docs(media)`: the Home strip (§4f).
 - [ ] 45. `feat(streamdeck)`: `Region.Fixed` (no overflow sets), and the Home strip in the default and personal layouts. Includes tests.
 - [ ] 46. Validate: all checks and the canonical build; relaunch.
+- [x] 44. `docs(deck)`: Home revamp and clipped regions (§4f).
+- [ ] 45. `feat(streamdeck)`: clipped regions, the default Home revamp and the personal Home migration. Tests cover clipping (no overflow sets) and the Home layout.
+- [ ] 46. Validate: all checks and the canonical build; relaunch.
 
 ## Hardware acceptance
 - [ ] 9. With Brave and a Windows player:

@@ -86,3 +86,7 @@ The combined Media deck page SHALL offer an Apps filter (All, Pinned, Off) and a
 #### Scenario: Home strip without overflow
 - **WHEN** six sessions and six apps are shown
 - **THEN** Home's row 3 shows the first four of each, and the page dial gains no extra Home pages
+
+#### Scenario: Home strips
+- **WHEN** six sessions and eight apps are shown and Home has four session keys and four app keys
+- **THEN** Home shows the first four of each, and no extra Home page is added
