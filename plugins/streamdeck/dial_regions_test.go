@@ -22,23 +22,23 @@ func TestDialRegionsPageWithKeys(t *testing.T) {
 	if err := l.Validate(nil); err != nil {
 		t.Fatal(err)
 	}
-	// Six apps on four free dials (the media dial is shown): two dial sets.
-	expanded := l.expanded(append(appControls(6), snoofer.Control{ID: "nowplaying.dial", Operations: []string{"adjust"}}))
+	// Three apps on the two free dials (media, Playback and focus are shown):
+	// two dial sets.
+	fixed := []snoofer.Control{{ID: "nowplaying.dial", Operations: []string{"adjust"}}, {ID: "audio.gain-playback", Operations: []string{"adjust"}}, {ID: "appaudio.focus", Operations: []string{"adjust"}}}
+	expanded := l.expanded(append(appControls(3), fixed...))
 	first, second := expanded.effective("media"), expanded.effective("media~auto~2")
 	if second.ID != "media~auto~2" {
-		t.Fatal("six apps need a second dial set")
+		t.Fatal("three apps need a second dial set")
 	}
-	for n := 0; n < 4; n++ {
-		if first.Dials[1+n].Control != fmt.Sprintf("appaudio.app-%d", n+1) {
-			t.Fatalf("set 1 dial %d: %s", n+2, first.Dials[1+n].Control)
-		}
+	if first.Dials[3].Control != "appaudio.app-1" || first.Dials[4].Control != "appaudio.app-2" || first.Dials[2].Control != "appaudio.focus" {
+		t.Fatal("set 1", first.Dials)
 	}
-	if second.Dials[1].Control != "appaudio.app-5" || second.Dials[3].Control != "" || second.Dials[0].Control != "nowplaying.dial" || second.Keys[17].Control != scrollPrefix+"up" {
+	if second.Dials[3].Control != "appaudio.app-3" || second.Dials[4].Control != "" || second.Dials[0].Control != "nowplaying.dial" || second.Keys[17].Control != scrollPrefix+"up" {
 		t.Fatal("set 2", second.Dials)
 	}
 	// Dial regions take only adjustable members.
 	pressOnly := []snoofer.Control{{ID: "appaudio.app-x", Label: "X", Collection: "appaudio.apps", Operations: []string{"press"}}}
-	if expanded := l.expanded(pressOnly).effective("media"); expanded.Keys[0].Control == "" || expanded.Dials[1].Control != "" {
+	if expanded := l.expanded(append(pressOnly, fixed...)).effective("media"); expanded.Keys[0].Control == "" || expanded.Dials[3].Control != "" {
 		t.Fatal("press-only member placed on a dial")
 	}
 }

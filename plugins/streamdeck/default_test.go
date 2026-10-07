@@ -49,13 +49,13 @@ func TestDefaultLayoutPages(t *testing.T) {
 
 func TestDefaultMediaPage(t *testing.T) {
 	media := DefaultLayout().Pages[3]
-	for n, id := range []string{"nowplaying.prev", "nowplaying.toggle", "nowplaying.next", "nowplaying.mute", "nowplaying.focus", "", "appaudio.deck-apps", "nowplaying.deck-media"} {
+	for n, id := range []string{"nowplaying.prev", "nowplaying.toggle", "nowplaying.next", "nowplaying.mute", "", "", "appaudio.deck-apps", "nowplaying.deck-media"} {
 		if media.Keys[27+n].Control != id {
 			t.Fatalf("bottom row key %d is %q, want %q", 28+n, media.Keys[27+n].Control, id)
 		}
 	}
-	if media.Dials[0].Control != "nowplaying.dial" {
-		t.Fatal("media dial", media.Dials)
+	if media.Dials[0].Control != "nowplaying.dial" || media.Dials[1].Control != "audio.gain-playback" || media.Dials[2].Control != "appaudio.focus" {
+		t.Fatal("media page dials", media.Dials)
 	}
 	// The four filter states: a filtered category is Hidden, as its plugin
 	// publishes it, and the other takes its rows and dials.
@@ -73,8 +73,10 @@ func TestDefaultMediaPage(t *testing.T) {
 		}
 		return out
 	}
-	dial := func(hidden bool) snoofer.Control {
-		return snoofer.Control{ID: "nowplaying.dial", Operations: []string{"adjust", "press"}, Hidden: hidden}
+	// The media dial and the focus dial hide with their filters; Playback stays.
+	dial := func(media, apps bool) []snoofer.Control {
+		return []snoofer.Control{{ID: "nowplaying.dial", Operations: []string{"adjust", "press"}, Hidden: !media},
+			{ID: "appaudio.focus", Operations: []string{"adjust", "press"}, Hidden: !apps}, {ID: "audio.gain-playback", Operations: []string{"adjust"}}}
 	}
 	for _, c := range []struct {
 		name               string
@@ -82,10 +84,10 @@ func TestDefaultMediaPage(t *testing.T) {
 		rows               []string
 		firstAppDial, apps int
 	}{
-		{"both", append(append(sessions(3, false), apps(6, false)...), dial(false)), []string{"nnn.....", "aaaaaa..", "........"}, 1, 4},
-		{"apps off", append(append(sessions(20, false), apps(6, true)...), dial(false)), []string{"nnnnnnnn", "nnnnnnnn", "nnnn...."}, -1, 0},
-		{"media off", append(append(sessions(3, true), apps(20, false)...), dial(true)), []string{"aaaaaaaa", "aaaaaaaa", "aaaa...."}, 0, 5},
-		{"both off", append(append(sessions(3, true), apps(6, true)...), dial(true)), []string{"........", "........", "........"}, -1, 0},
+		{"both", append(append(sessions(3, false), apps(6, false)...), dial(true, true)...), []string{"nnn.....", "aaaaaa..", "........"}, 3, 2},
+		{"apps off", append(append(sessions(20, false), apps(6, true)...), dial(true, false)...), []string{"nnnnnnnn", "nnnnnnnn", "nnnn...."}, -1, 0},
+		{"media off", append(append(sessions(3, true), apps(20, false)...), dial(false, true)...), []string{"aaaaaaaa", "aaaaaaaa", "aaaa...."}, 0, 3},
+		{"both off", append(append(sessions(3, true), apps(6, true)...), dial(false, false)...), []string{"........", "........", "........"}, -1, 0},
 	} {
 		page := DefaultLayout().expanded(c.controls).effective("media")
 		var rows []string
