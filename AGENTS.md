@@ -131,7 +131,6 @@ build; bin/snoofer.exe is the only application build output. Never create altern
 names or output directories. The user authorizes stopping and restarting this
 repository's Snoofer for builds without asking again. Use scripts/stop.ps1 (also invoked by build.ps1) for graceful shutdown and wait for exit. Never use Stop-Process/taskkill/TerminateProcess on the audio host as routine build or test cleanup. A timeout aborts the build; do not silently force-kill. Restore the prior launch configuration after validation. Do not stop Voicemeeter, Element or unrelated apps. The build
 script closes the repository host normally and refuses any remaining locked outputs; scripts/check.ps1 delegates builds to it.
-For development launches, do not leak automation-only NO_COLOR into Snoofer. If NO_COLOR is absent from both user and machine environment settings, temporarily clear the automation process value when starting Snoofer, then restore it. Preserve explicitly configured user color preferences.
 Report what changed, what was verified and any remaining limitations concisely.
 
 # Behavioural guidelines
