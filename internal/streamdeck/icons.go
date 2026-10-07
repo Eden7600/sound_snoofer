@@ -226,6 +226,17 @@ func drawIcon(im *image.RGBA, icon string, ink color.RGBA) bool {
 		line(28, 30, 84, 30)
 		dot(35, 25, 2)
 		dot(43, 25, 2)
+	case "focus-reset":
+		// Crosshair: a ring with ticks, for returning focus to automatic.
+		for a := 0; a < 360; a++ {
+			r := float64(a) * math.Pi / 180
+			dot(56+int(18*math.Cos(r)), 40+int(18*math.Sin(r)), 2)
+		}
+		line(56, 14, 56, 26)
+		line(56, 54, 56, 66)
+		line(30, 40, 42, 40)
+		line(70, 40, 82, 40)
+		dot(56, 40, 3)
 	case "deck-up", "deck-down":
 		// Chevron over a short shaft: scroll the page's sets.
 		tip, wing := 18, 38

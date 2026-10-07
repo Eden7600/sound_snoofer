@@ -244,6 +244,16 @@ func (l Layout) pageNames(id string) [3]string {
 	return [3]string{l.effective(l.next(current, -1)).Name, l.effective(current).Name, l.effective(l.next(current, 1)).Name}
 }
 
+// resetFocusID is the key that returns every focus dial to its default.
+const resetFocusID = "streamdeck.reset-focus"
+
+// resetFocusControl is the Reset focus key; a press sends reset to every
+// control that offers it.
+func resetFocusControl() snoofer.Control {
+	return snoofer.Control{ID: resetFocusID, Label: "Reset focus", ShortLabel: "Auto", Group: "Stream Deck pages", Kind: "command", Icon: "focus-reset",
+		Operations: []string{"press"}, Available: true}
+}
+
 // scrollPrefix identifies the keys that page through overflow sets.
 const scrollPrefix = "streamdeck.scroll-"
 

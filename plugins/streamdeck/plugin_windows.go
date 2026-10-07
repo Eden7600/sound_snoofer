@@ -88,6 +88,16 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			fired bool
 		}
 		var held *heldKey
+		// resetFocus sends reset to every control that offers it.
+		resetFocus := func() {
+			for _, c := range s.Controls.Snapshot() {
+				if c.Available && slices.Contains(c.Operations, "reset") {
+					if err := s.Controls.Dispatch(runCtx, snoofer.Request{ID: c.ID, Revision: c.Revision, Operation: "reset"}); err != nil {
+						status = err.Error()
+					}
+				}
+			}
+		}
 		active := func() Layout {
 			if l, ok := settings.Serials[serial]; ok {
 				return l
@@ -116,7 +126,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			page = p.ID
 			// This plugin's go-to keys describe the page being drawn now rather than
 			// the previous snapshot; deck presses on them are handled locally.
-			for _, g := range append(gotoControls(active(), p.ID), scrollControls(l, p.ID)...) {
+			for _, g := range append(append(gotoControls(active(), p.ID), scrollControls(l, p.ID)...), resetFocusControl()) {
 				shown[g.ID] = g
 			}
 			var signature strings.Builder
@@ -187,7 +197,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			ids := []string{""}
 			for _, c := range all {
 				// Go-to and scroll keys are the only Stream Deck controls offered as bindings.
-				if strings.HasPrefix(c.ID, "streamdeck.") && !strings.HasPrefix(c.ID, gotoPrefix) && !strings.HasPrefix(c.ID, scrollPrefix) {
+				if strings.HasPrefix(c.ID, "streamdeck.") && !strings.HasPrefix(c.ID, gotoPrefix) && !strings.HasPrefix(c.ID, scrollPrefix) && c.ID != resetFocusID {
 					continue
 				}
 				if c.Kind == "text" {
@@ -281,6 +291,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			}
 			list = append(list, gotoControls(active(), displayedPage.ID)...)
 			list = append(list, scrollControls(displayed, displayedPage.ID)...)
+			list = append(list, resetFocusControl())
 			list = append(list, hardware.report(time.Now()))
 			_ = s.Controls.Publish("streamdeck", list, func(ctx context.Context, r snoofer.Request) error {
 				select {
@@ -389,6 +400,10 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					publish()
 					continue
 				}
+				if c.ID == resetFocusID {
+					resetFocus()
+					continue
+				}
 				r := snoofer.Request{ID: c.ID, Revision: c.Revision, Operation: "press"}
 				if event.Encoder < 0 && slices.Contains(c.Operations, "hold") {
 					// Tap or hold is known only later; other keys act at once.
@@ -435,6 +450,10 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					page = displayed.scroll(page, scrollDelta(r.ID))
 					generation++
 					publish()
+					continue
+				}
+				if r.ID == resetFocusID {
+					resetFocus()
 					continue
 				}
 				editorEpoch++

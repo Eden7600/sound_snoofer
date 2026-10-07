@@ -647,7 +647,7 @@ function buildDeck(){
   const clear=el("option","","Clear binding");clear.value="";select.append(clear);
   for(const item of controls.values()){
    // Go-to and scroll keys are the only Stream Deck controls that can be bound.
-   if((item.ID.startsWith("streamdeck.")&&!item.ID.startsWith("streamdeck.goto-")&&!item.ID.startsWith("streamdeck.scroll-")) || !compatible(item,dial))continue;
+   if((item.ID.startsWith("streamdeck.")&&!item.ID.startsWith("streamdeck.goto-")&&!item.ID.startsWith("streamdeck.scroll-")&&item.ID!=="streamdeck.reset-focus") || !compatible(item,dial))continue;
    const label=item.Label+" · "+item.ID.split(".")[0];
    if(!label.toLocaleLowerCase().includes(search.value.toLocaleLowerCase())&&item.ID!==value)continue;
    const option=el("option","",label);option.value=item.ID;option.title=item.ID;select.append(option);
@@ -707,7 +707,7 @@ function regionsPanel(parent){
  });
 }
 // Deck key previews map a control's deck icon to the closest Lucide icon.
-const deckIcons={"mic-mute":"mic","record-mic":"mic","vr-mic":"mic","speaker-mute":"volume-2","vr-playback":"volume-2","record-computer":"monitor","monitor":"headphones","mic-stack":"power","mode-direct":"audio-lines","mode-element":"audio-lines","tap-pre":"audio-lines","tap-post":"audio-lines","record-toggle":"circle-dot","record-start":"circle-dot","record-stop":"square","soundboard-play":"play","soundboard-stop":"square","soundboard-overlap":"layers","media-prev":"skip-back","media-next":"skip-forward","media-play":"play","open-controls":"sliders-horizontal","defaults":"sliders-horizontal","engine-restart":"refresh-cw","hue-scene":"lightbulb","hue-brightness":"sun","hue-pair":"link","huesync-sync":"monitor","huesync-mode":"layers","huesync-intensity":"waves","hue-motion":"radar","hue-motion-off":"radar","deck-page":"folder","app-audio":"app-window","deck-up":"chevron-up","deck-down":"chevron-down"};
+const deckIcons={"mic-mute":"mic","record-mic":"mic","vr-mic":"mic","speaker-mute":"volume-2","vr-playback":"volume-2","record-computer":"monitor","monitor":"headphones","mic-stack":"power","mode-direct":"audio-lines","mode-element":"audio-lines","tap-pre":"audio-lines","tap-post":"audio-lines","record-toggle":"circle-dot","record-start":"circle-dot","record-stop":"square","soundboard-play":"play","soundboard-stop":"square","soundboard-overlap":"layers","media-prev":"skip-back","media-next":"skip-forward","media-play":"play","open-controls":"sliders-horizontal","defaults":"sliders-horizontal","engine-restart":"refresh-cw","hue-scene":"lightbulb","hue-brightness":"sun","hue-pair":"link","huesync-sync":"monitor","huesync-mode":"layers","huesync-intensity":"waves","hue-motion":"radar","hue-motion-off":"radar","deck-page":"folder","app-audio":"app-window","focus-reset":"crosshair","deck-up":"chevron-up","deck-down":"chevron-down"};
 function symbolIcon(id){
  const mapped=deckIcons[c(id)?.Icon];
  const name=mapped||(/mute/.test(id)?"volume-2":/mic|source|mode/.test(id)?"mic":/play|clip/.test(id)?"play":/stop/.test(id)?"square":/record/.test(id)?"circle-dot":/prev/.test(id)?"skip-back":/next/.test(id)?"skip-forward":/scene/.test(id)?"lightbulb":"circle");

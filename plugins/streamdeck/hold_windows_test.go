@@ -107,3 +107,67 @@ func TestTapHoldAndImmediateKeys(t *testing.T) {
 		t.Fatal(r)
 	}
 }
+
+func TestResetFocusKey(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	registry := snoofer.NewControls()
+	var mu sync.Mutex
+	var got []string
+	record := func(_ context.Context, r snoofer.Request) error {
+		mu.Lock()
+		defer mu.Unlock()
+		got = append(got, r.ID+":"+r.Operation)
+		return nil
+	}
+	if err := registry.Publish("x", []snoofer.Control{
+		{ID: "x.dial", Kind: "numeric", Operations: []string{"adjust", "press", "reset"}, Available: true},
+		{ID: "x.focus", Kind: "numeric", Operations: []string{"adjust", "reset"}, Available: true},
+		{ID: "x.other", Kind: "command", Operations: []string{"press"}, Available: true},
+	}, record); err != nil {
+		t.Fatal(err)
+	}
+	layout := Layout{Home: "p", Pages: []Page{{ID: "p", Name: "P"}}}
+	layout.Pages[0].Keys[26] = Binding{Control: resetFocusID}
+	frames := make(chan device.Frame, 1)
+	events := make(chan device.Event, 16)
+	done := make(chan struct{})
+	surface := func(ctx context.Context) (chan device.Frame, <-chan device.Event, <-chan struct{}) {
+		go func() { <-ctx.Done(); close(done) }()
+		return frames, events, done
+	}
+	instance, err := startWithSurface(ctx, snoofer.Services{Controls: registry}, snoofer.MarshalSettings(Settings{Layout: layout}), surface)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		cancel()
+		stop, release := context.WithTimeout(context.Background(), time.Second)
+		defer release()
+		if err := instance.Stop(stop); err != nil {
+			t.Error(err)
+		}
+	}()
+	frame := <-frames
+	if frame.Keys[26].Label != "Auto" || frame.Keys[26].Icon != "focus-reset" {
+		t.Fatalf("reset key %+v", frame.Keys[26])
+	}
+	events <- device.Event{Key: 26, Encoder: -1, Press: true, Generation: frame.Generation}
+	for deadline := time.Now().Add(2 * time.Second); ; time.Sleep(5 * time.Millisecond) {
+		mu.Lock()
+		n := len(got)
+		mu.Unlock()
+		if n >= 2 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("reset not sent", got)
+		}
+	}
+	time.Sleep(50 * time.Millisecond)
+	mu.Lock()
+	defer mu.Unlock()
+	if len(got) != 2 || got[0] != "x.dial:reset" && got[1] != "x.dial:reset" || got[0] != "x.focus:reset" && got[1] != "x.focus:reset" {
+		t.Fatal("reset sent to", got)
+	}
+}
