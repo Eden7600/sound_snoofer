@@ -81,6 +81,6 @@ A C ABI around `webrtc::AudioProcessing`, configured for AEC3, high-pass on, wit
   - Live registration happens only through the normal plugin lifecycle.
 
 ## 6. Verification
-- **Offline:** a harness (`tools/aec-probe`) plays speech-like noise through a synthetic room (delay plus decay) into the mic channel alongside the clean reference. It checks the shim reaches at least 20 dB ERLE after convergence, passes other channels bit-identically, re-frames 256 and 512 buffers, and passes 44.1 kHz through.
+- **Offline:** a harness (`tools/aec-probe`) plays speech-like noise through a synthetic room (delay plus decay) into the mic channel alongside the clean reference. It checks the shim reaches at least 20 dB ERLE after convergence, keeps near-end speech within 6 dB, passes other channels bit-identically, re-frames 256 and 512 buffers, and passes 44.1 kHz through.
 - **Go tests:** plugin logic (Auto mode, targets, controls) uses a fake engine.
 - **Hardware acceptance:** speakers with a call or recording. The far side hears no echo, local speech stays clear, and turning it off restores the original path.
