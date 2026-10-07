@@ -18,3 +18,10 @@ Each numbered block is one reviewable commit.
   - local speech stays natural;
   - headphones in Auto pass through;
   - Off restores the exact original path.
+
+## Recovery on a new audio stream (2026-10-07)
+- [x] 11. `docs(aec)`: design one reset per new stream and the failure reason.
+- [ ] 12. `fix(aec)`: native `AECResetFailure` and `AECReadFailure`, the output-insert generation guard, the Go binding and the offline probe. The probe and the opt-in native test cover reset and reason.
+- [ ] 13. `fix(aec)`: publish `EchoTargets.Stream`; the plugin resets once per new stream and shows the reason. Fake-engine tests cover same-stream latching, a new-stream reset and a failure seen before the new count.
+- [ ] 14. Validate, build and relaunch.
+- [ ] 15. Hardware: after an engine restart or device switch, echo cancellation returns to Active.

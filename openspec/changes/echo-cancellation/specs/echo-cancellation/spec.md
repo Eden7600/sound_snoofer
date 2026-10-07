@@ -24,3 +24,7 @@ The insert callback SHALL never block, lock or allocate after warm-up. It SHALL 
 #### Scenario: Engine failure
 - **WHEN** the engine reports an error during processing
 - **THEN** the mic passes through unchanged from that buffer on, and the status shows the error
+
+#### Scenario: New audio stream after a failure
+- **WHEN** the engine failed and Voicemeeter then starts a new audio stream (engine restart, stream change or monitor restart)
+- **THEN** the engine is reset once for that stream and resumes processing; a failure on the same stream stays latched with its reason shown
