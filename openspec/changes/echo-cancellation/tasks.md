@@ -10,7 +10,7 @@ Each numbered block is one reviewable commit.
 - [x] 6. `feat(audio)`: `EchoTargets` and `SetEchoInsert`. Includes tests.
 - [x] 7. `feat(aec)`: the plugin (modes, Auto, strength, status, meter) with a fake engine in tests; deck icon.
 - [x] 8. `feat(gui)`: Echo cancellation card on the Audio screen. The GUI check covers it.
-- [ ] 9. Validate: Go, offline probe, GUI and desktop checks, OpenSpec, the canonical build; enable for the personal config in Auto; relaunch.
+- [x] 9. Validate: Go, offline probe, GUI and desktop checks, OpenSpec, the canonical build; enable for the personal config in Auto; relaunch.
 
 ## Hardware acceptance
 - [ ] 10. With speakers and a call or recording:
