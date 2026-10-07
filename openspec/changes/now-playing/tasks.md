@@ -37,6 +37,11 @@ Each numbered block is one reviewable commit.
 - [x] 32. `feat(streamdeck)`: the Media page uses the stacked region and the five-dial app region (default and personal). Tests cover all four filter states.
 - [x] 34. `feat(placeholder)`: coloured placeholder artwork for apps and sessions without a logo (§4c). Tests cover determinism, distinct colours, the artwork contract and plugin use.
 - [x] 33. Validate: all checks and the canonical build; migrate the personal Media page; relaunch.
+- [x] 35. `docs(media)`: hold to focus, removal of the Focus key, reverting the single-playing rule, and the Playback dial (§4d).
+- [ ] 36. `feat(streamdeck)`: key releases and the opt-in `hold` operation. Tests cover tap, hold, latency for other keys and a release after a generation change.
+- [ ] 37. `refactor(nowplaying)`: session hold focuses; remove the Focus control and the GUI Focus button; revert the single-playing rule. Tests are updated.
+- [ ] 38. `feat(streamdeck)`: Playback dial on the Media page and no Focus key (default and personal). Tests are updated.
+- [ ] 39. Validate: all checks and the canonical build; relaunch.
 
 ## Hardware acceptance
 - [ ] 9. With Brave and a Windows player:

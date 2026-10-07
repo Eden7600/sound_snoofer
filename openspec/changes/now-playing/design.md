@@ -82,7 +82,6 @@ The browser's single Windows session repeats one of its tabs, so title matching 
   - **Press:** toggles play/pause and focuses the session.
 - **Focus rule:**
   - **Default:** focus goes to the session that most recently changed to Playing, unless you pressed a session or a transport control within the last 30 s.
-  - **Single playing session:** when exactly one session is playing and the focused one is not, focus moves to the playing one at once, regardless of the 30 s hold (revised after review).
   - **Disappearing focus:** a focused session that disappears gives way to the next by the same rules.
 - **`nowplaying.focus`:** a selection of session IDs with option labels, for GUI focus and the deck's cycling key. It is Hidden with fewer than two sessions.
 - **`nowplaying.dial`:**
@@ -161,6 +160,15 @@ Review found that filters only blanked keys. The space should go to whatever is 
   - **Effect:** Apps Off gives sessions all 24 keys; Media Off gives apps all 24 keys and all five dials.
 - **Keys and dials:** app keys and app dials are independent; logos identify apps. (Review confirmed that key-to-dial alignment does not matter.)
 - **Editor:** a stacked region is labelled with all its sources ("Media sessions + Apps"). The source picker changes the first source; further sources are edited in the configuration.
+
+## 4d. Hold to focus, no Focus key, Playback dial (revised after review)
+- **Hold:** a control that offers the `hold` operation is acted on when its key is released (a tap sends `press`), or after 500 ms held (sends `hold` at once; the release is then ignored). Keys without `hold` still act on key-down, so nothing else gains latency.
+  - **Device:** the deck decoder reports key releases. The plugin tracks one held key, checks the threshold on its refresh tick, and matches a release by key position regardless of generation.
+  - **Dispatch:** the request uses the control and revision captured when the key went down.
+- **Session keys:** a tap plays or pauses (and focuses); a hold focuses without toggling.
+- **Focus key removed:** the `nowplaying.focus` control, its deck key and the GUI card's Focus button are removed. Focus comes from newly started playback, taps, holds, the dial and transport keys.
+- **Single-playing focus rule reverted:** focus no longer jumps to the only playing session.
+- **Dials:** the Media page's dials are media, Playback (`audio.gain-playback`), then apps. The app dial region still covers all five dials, so the media dial's position goes to an app when media is off.
 
 ## 4c. Placeholder artwork (revised after review)
 Programs without a logo get a colour that is random-looking but fixed for each program, so they can be told apart at a glance.

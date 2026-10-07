@@ -33,9 +33,9 @@ Snoofer SHALL control each session individually and SHALL direct the media dial 
 - **WHEN** the dial is turned while the session plays and its progress advances
 - **THEN** every detent is applied; none is rejected as stale
 
-#### Scenario: Only one session playing
-- **WHEN** the user focused a session that is now paused and another session is the only one playing
-- **THEN** focus moves to the playing session even within 30 seconds of the press
+#### Scenario: Hold to focus
+- **WHEN** the user holds a session key for half a second
+- **THEN** that session becomes focused and does not toggle; a tap still plays or pauses it
 
 #### Scenario: Focus follows playback
 - **WHEN** a new session starts playing and no session was pressed in the last 30 seconds
