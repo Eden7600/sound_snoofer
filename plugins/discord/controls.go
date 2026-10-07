@@ -12,10 +12,6 @@ import (
 func (w *worker) observed(id string) string {
 	v := w.voice
 	switch id {
-	case "discord.mute":
-		if v.settingsKnown {
-			return onOff(v.mute)
-		}
 	case "discord.deafen":
 		if v.settingsKnown {
 			return onOff(v.deaf)
@@ -57,8 +53,12 @@ func (w *worker) handle(_ context.Context, r snoofer.Request, now time.Time) {
 	var want string
 	switch r.ID {
 	case "discord.mute":
-		want = onOff(!w.voice.mute)
-		w.send("SET_VOICE_SETTINGS", map[string]any{"mute": !w.voice.mute}, "write", r.ID, requestTimeout, now)
+		// The linked preference; reconcileMute applies it to Discord.
+		if err := w.mic.SetMicMute(!w.mic.MicMute().Muted, "discord"); err != nil {
+			w.notes[r.ID] = "Failed"
+			w.link.Fail(err.Error(), now)
+		}
+		return
 	case "discord.deafen":
 		want = onOff(!w.voice.deaf)
 		w.send("SET_VOICE_SETTINGS", map[string]any{"deaf": !w.voice.deaf}, "write", r.ID, requestTimeout, now)
@@ -144,7 +144,7 @@ func (w *worker) controls(now time.Time) []snoofer.Control {
 	return []snoofer.Control{
 		{ID: "discord.channel", Label: "Discord channel", ShortLabel: "Channel", Group: "Discord", Kind: "status", Icon: "call",
 			Value: channel, Status: reason, Available: true},
-		toggle("discord.mute", "Discord mute", "Mute", "discord-mute", reason, w.voice.settingsKnown),
+		w.muteControl(reason),
 		toggle("discord.deafen", "Discord deafen", "Deafen", "discord-deafen", reason, w.voice.settingsKnown),
 		toggle("discord.video", "Discord camera", "Camera", "discord-video", inCall, true),
 		toggle("discord.screenshare", "Discord screen share", "Share", "screen-share", inCall, true),
@@ -208,4 +208,22 @@ func onOff(on bool) string {
 		return "On"
 	}
 	return "Off"
+}
+
+// muteControl toggles the Mic mute preference that Discord mute follows. It
+// mirrors audio.mic-mute, so automatic deck layouts show only one of them.
+func (w *worker) muteControl(reason string) snoofer.Control {
+	pref := w.mic.MicMute()
+	c := snoofer.Control{ID: "discord.mute", Label: "Discord mute", ShortLabel: "Mute", Group: "Discord", Kind: "toggle", Icon: "mic-mute",
+		Mirrors: "audio.mic-mute", Operations: []string{"press"}, Status: reason, Available: reason == "" && pref.Known}
+	if pref.Known {
+		c.Value = onOff(pref.Muted)
+		if pref.Muted {
+			c.Icon = "mic-mute-muted"
+		}
+	}
+	if reason == "" {
+		c.Status = w.muteStatus(pref)
+	}
+	return c
 }

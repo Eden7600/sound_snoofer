@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"sound-snoofer/plugins/audio"
 	"sound-snoofer/snoofer"
 )
 
@@ -51,13 +52,17 @@ func validate(raw json.RawMessage) error {
 
 // Plugin returns inert metadata; the pipe is opened only by Start's worker.
 func Plugin() snoofer.Plugin {
-	return snoofer.Plugin{ID: "discord", Label: "Discord", Validate: validate, Defaults: snoofer.MarshalSettings(Settings{}),
-		Start: func(ctx context.Context, s snoofer.Services, raw json.RawMessage, _ map[string]snoofer.Instance) (snoofer.Instance, error) {
+	return snoofer.Plugin{ID: "discord", Label: "Discord", Validate: validate, Defaults: snoofer.MarshalSettings(Settings{}), Requires: []string{"audio"},
+		Start: func(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps map[string]snoofer.Instance) (snoofer.Instance, error) {
 			var settings Settings
 			if err := snoofer.DecodeSettings(raw, &settings); err != nil {
 				return nil, err
 			}
-			w := newWorker(s, raw, settings, dialPipe, http.DefaultClient, tokenURL)
+			mic, ok := deps["audio"].(*audio.Instance)
+			if !ok {
+				return nil, fmt.Errorf("Discord mute needs the audio plugin")
+			}
+			w := newWorker(s, raw, settings, mic, dialPipe, http.DefaultClient, tokenURL)
 			return start(ctx, w), nil
 		}}
 }
@@ -154,6 +159,7 @@ type worker struct {
 	services snoofer.Services
 	raw      json.RawMessage
 	settings Settings
+	mic      micMute
 	dial     func() (io.ReadWriteCloser, string, error)
 	client   *http.Client
 	endpoint string
@@ -176,11 +182,12 @@ type worker struct {
 	voice       voice
 	pending     map[string]pendingWrite
 	notes       map[string]string
+	mute        muteLink
 	link        snoofer.ConnectionTracker
 }
 
-func newWorker(s snoofer.Services, raw json.RawMessage, settings Settings, dial func() (io.ReadWriteCloser, string, error), client *http.Client, endpoint string) *worker {
-	w := &worker{services: s, raw: append(json.RawMessage(nil), raw...), settings: settings, dial: dial, client: client, endpoint: endpoint,
+func newWorker(s snoofer.Services, raw json.RawMessage, settings Settings, mic micMute, dial func() (io.ReadWriteCloser, string, error), client *http.Client, endpoint string) *worker {
+	w := &worker{services: s, raw: append(json.RawMessage(nil), raw...), settings: settings, mic: mic, dial: dial, client: client, endpoint: endpoint,
 		requests: make(chan snoofer.Request, 8), frames: make(chan incoming), tokens: make(chan tokenResult),
 		calls: map[string]call{}, pending: map[string]pendingWrite{}, notes: map[string]string{}, state: stateClosed}
 	if !settings.configured() {
@@ -240,6 +247,7 @@ func (w *worker) step(ctx context.Context, now time.Time) {
 			w.notes[id] = "Failed"
 		}
 	}
+	w.reconcileMute(now)
 }
 
 func (w *worker) connect(ctx context.Context, now time.Time) {
@@ -491,6 +499,12 @@ func (w *worker) callFailed(c call, err error, now time.Time) {
 	case "write":
 		delete(w.pending, c.id)
 		w.notes[c.id] = "Failed"
+	case "mute":
+		if w.mute.writing != nil {
+			w.mute.failed = &failure{preference: w.mute.writing.want, discord: w.voice.mute}
+			w.mute.writing = nil
+		}
+		w.notes["discord.mute"] = "Failed"
 	case "subscribe", "channel":
 		// Optional state: the related control shows N/A.
 	}

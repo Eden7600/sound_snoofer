@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"sound-snoofer/plugins/audio"
 	"sound-snoofer/snoofer"
 )
 
@@ -168,6 +169,7 @@ func tokenServer(t *testing.T) *httptest.Server {
 
 type harness struct {
 	w     *worker
+	mic   *fakeMic
 	peer  *fakeDiscord
 	saved *Settings
 	now   time.Time
@@ -177,7 +179,7 @@ type harness struct {
 
 func newHarness(t *testing.T, settings Settings, live bool) *harness {
 	t.Helper()
-	h := &harness{peer: &fakeDiscord{}, saved: &Settings{}, now: time.Unix(1000, 0)}
+	h := &harness{peer: &fakeDiscord{}, mic: &fakeMic{known: true}, saved: &Settings{}, now: time.Unix(1000, 0)}
 	ctx, cancel := context.WithCancel(context.Background())
 	h.ctx = ctx
 	tokens := tokenServer(t)
@@ -185,7 +187,7 @@ func newHarness(t *testing.T, settings Settings, live bool) *harness {
 		return json.Unmarshal(next, h.saved)
 	}}
 	raw, _ := json.Marshal(settings)
-	h.w = newWorker(services, raw, settings, func() (io.ReadWriteCloser, string, error) {
+	h.w = newWorker(services, raw, settings, h.mic, func() (io.ReadWriteCloser, string, error) {
 		h.dials++
 		client, server := net.Pipe()
 		h.peer.serve(server)
@@ -207,7 +209,7 @@ func (h *harness) settle() {
 			h.w.receive(h.ctx, in, h.now)
 		case r := <-h.w.tokens:
 			h.w.tokenDone(h.ctx, r, h.now)
-		case <-time.After(150 * time.Millisecond):
+		case <-time.After(40 * time.Millisecond):
 			return
 		}
 	}
@@ -215,8 +217,16 @@ func (h *harness) settle() {
 
 func (h *harness) press(id string) {
 	h.w.handle(h.ctx, snoofer.Request{ID: id, Operation: "press"}, h.now)
+	h.cycle()
+}
+
+// cycle lets the worker react to Discord twice, as its loop would.
+func (h *harness) cycle() {
+	for range 2 {
+		h.settle()
+		h.w.step(h.ctx, h.now)
+	}
 	h.settle()
-	h.w.step(h.ctx, h.now)
 }
 
 func (h *harness) control(t *testing.T, id string) snoofer.Control {
@@ -411,7 +421,7 @@ func TestClosedAndSetup(t *testing.T) {
 
 func TestStopJoinsHelpers(t *testing.T) {
 	services := snoofer.Services{Controls: snoofer.NewControls(), Live: true}
-	w := newWorker(services, nil, configured, func() (io.ReadWriteCloser, string, error) { return nil, "", errNoDiscord }, http.DefaultClient, tokenURL)
+	w := newWorker(services, nil, configured, &fakeMic{}, func() (io.ReadWriteCloser, string, error) { return nil, "", errNoDiscord }, http.DefaultClient, tokenURL)
 	i := start(context.Background(), w)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -421,4 +431,23 @@ func TestStopJoinsHelpers(t *testing.T) {
 	if len(services.Controls.Snapshot()) != 0 {
 		t.Fatal("controls left after stop")
 	}
+}
+
+// fakeMic is the audio plugin's Mic mute preference; it applies requests at once.
+type fakeMic struct {
+	known, muted bool
+	requests     []bool
+	refuse       bool // Ignore requests, as a rejected edit would.
+}
+
+func (m *fakeMic) MicMute() audio.MicMute {
+	return audio.MicMute{Known: m.known, Muted: m.muted, Applied: true}
+}
+
+func (m *fakeMic) SetMicMute(muted bool, origin string) error {
+	m.requests = append(m.requests, muted)
+	if !m.refuse {
+		m.muted = muted
+	}
+	return nil
 }
