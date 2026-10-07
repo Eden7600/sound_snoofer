@@ -17,6 +17,11 @@ func TestDefaultLayoutPages(t *testing.T) {
 	if len(l.Pages) != 4 || l.Pages[0].ID != "home" || l.Pages[1].ID != "soundboard" || l.Pages[2].ID != "lights" || l.Pages[3].ID != "media" {
 		t.Fatal("default pages", l.Pages)
 	}
+	for n, id := range []string{"nowplaying.prev", "nowplaying.toggle", "nowplaying.next"} {
+		if l.Pages[0].Keys[27+n].Control != id {
+			t.Fatal("Home transport", l.Pages[0].Keys[27:30])
+		}
+	}
 	if l.Pages[0].Keys[35].Control != gotoPrefix+"lights" || l.Pages[0].Keys[34].Control != gotoPrefix+"soundboard" || l.Pages[0].Keys[33].Control != gotoPrefix+"media" || l.Pages[0].Keys[32].Control != "" {
 		t.Fatal("Home lacks one-step reach")
 	}
@@ -54,7 +59,7 @@ func TestDefaultMediaPage(t *testing.T) {
 			t.Fatalf("bottom row key %d is %q, want %q", 28+n, media.Keys[27+n].Control, id)
 		}
 	}
-	if media.Dials[0].Control != "nowplaying.dial" || media.Dials[1].Control != "audio.gain-playback" || media.Dials[2].Control != "appaudio.focus" {
+	if media.Dials[0].Control != "audio.gain-playback" || media.Dials[1].Control != "nowplaying.dial" || media.Dials[2].Control != "appaudio.focus" {
 		t.Fatal("media page dials", media.Dials)
 	}
 	// The four filter states: a filtered category is Hidden, as its plugin
@@ -86,7 +91,7 @@ func TestDefaultMediaPage(t *testing.T) {
 	}{
 		{"both", append(append(sessions(3, false), apps(6, false)...), dial(true, true)...), []string{"nnn.....", "aaaaaa..", "........"}, 3, 2},
 		{"apps off", append(append(sessions(20, false), apps(6, true)...), dial(true, false)...), []string{"nnnnnnnn", "nnnnnnnn", "nnnn...."}, -1, 0},
-		{"media off", append(append(sessions(3, true), apps(20, false)...), dial(false, true)...), []string{"aaaaaaaa", "aaaaaaaa", "aaaa...."}, 0, 3},
+		{"media off", append(append(sessions(3, true), apps(20, false)...), dial(false, true)...), []string{"aaaaaaaa", "aaaaaaaa", "aaaa...."}, 1, 3},
 		{"both off", append(append(sessions(3, true), apps(6, true)...), dial(false, false)...), []string{"........", "........", "........"}, -1, 0},
 	} {
 		page := DefaultLayout().expanded(c.controls).effective("media")

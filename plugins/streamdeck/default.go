@@ -8,7 +8,7 @@ package streamdeck
 // soundboard overflow.
 func DefaultLayout() Layout {
 	home := Page{ID: "home", Name: "Home"}
-	for n, id := range map[int]string{0: "audio.mic-mute", 1: "audio.speaker-mute", 2: "audio.monitor", 3: "audio.mode", 8: "core.open-controls", 9: "audio.record-toggle", 11: "audio.record-mic", 12: "audio.record-computer", 13: "audio.record-tap", 27: "media.prev", 28: "media.play", 29: "media.next",
+	for n, id := range map[int]string{0: "audio.mic-mute", 1: "audio.speaker-mute", 2: "audio.monitor", 3: "audio.mode", 8: "core.open-controls", 9: "audio.record-toggle", 11: "audio.record-mic", 12: "audio.record-computer", 13: "audio.record-tap", 27: "nowplaying.prev", 28: "nowplaying.toggle", 29: "nowplaying.next",
 		33: gotoPrefix + "media", 34: gotoPrefix + "soundboard", 35: gotoPrefix + "lights"} {
 		home.Keys[n] = Binding{Control: id, Label: id}
 	}
@@ -34,7 +34,7 @@ func DefaultLayout() Layout {
 	}
 	// Media and apps share a page: sessions and apps share rows 1–3 by need,
 	// so a filtered category's rows go to the other; transport and the deck
-	// filters sit on the bottom row. Dials are media, Playback and the focused
+	// filters sit on the bottom row. Dials are Playback, media and the focused
 	// app; apps take the rest, and the media dial's while media is filtered off.
 	media := Page{ID: "media", Name: "Media",
 		Regions:     []Region{{Source: "nowplaying.sessions", Sources: []string{"appaudio.apps"}, First: 0, Last: 25}},
@@ -43,7 +43,7 @@ func DefaultLayout() Layout {
 		30: "nowplaying.mute", 33: "appaudio.deck-apps", 34: "nowplaying.deck-media"} {
 		media.Keys[n] = Binding{Control: id, Label: id}
 	}
-	for n, id := range map[int]string{0: "nowplaying.dial", 1: "audio.gain-playback", 2: "appaudio.focus"} {
+	for n, id := range map[int]string{0: "audio.gain-playback", 1: "nowplaying.dial", 2: "appaudio.focus"} {
 		media.Dials[n] = Binding{Control: id, Label: id}
 	}
 	return Layout{Home: "home", Pages: []Page{home, sounds, lights, media}}

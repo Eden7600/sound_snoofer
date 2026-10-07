@@ -33,7 +33,7 @@ func TestDialRegionsPageWithKeys(t *testing.T) {
 	if first.Dials[3].Control != "appaudio.app-1" || first.Dials[4].Control != "appaudio.app-2" || first.Dials[2].Control != "appaudio.focus" {
 		t.Fatal("set 1", first.Dials)
 	}
-	if second.Dials[3].Control != "appaudio.app-3" || second.Dials[4].Control != "" || second.Dials[0].Control != "nowplaying.dial" || second.Keys[17].Control != scrollPrefix+"up" {
+	if second.Dials[3].Control != "appaudio.app-3" || second.Dials[4].Control != "" || second.Dials[1].Control != "nowplaying.dial" || second.Keys[17].Control != scrollPrefix+"up" {
 		t.Fatal("set 2", second.Dials)
 	}
 	// Dial regions take only adjustable members.
