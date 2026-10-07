@@ -159,7 +159,7 @@ Review found that filters only blanked keys. The space should go to whatever is 
   - **Keys:** the combined page uses one stacked region on r1–r3 c1–c8 with sessions then apps.
   - **Dials:** an app dial region covers dials 1–5. Dial 1's media dial binding yields when media is off.
   - **Effect:** Apps Off gives sessions all 24 keys; Media Off gives apps all 24 keys and all five dials.
-- **Trade-off:** app keys no longer sit above their own dials. Rows move with the filters, and the strip names each dial's app.
+- **Keys and dials:** app keys and app dials are independent; logos identify apps. (Review confirmed that key-to-dial alignment does not matter.)
 - **Editor:** a stacked region is labelled with all its sources ("Media sessions + Apps"). The source picker changes the first source; further sources are edited in the configuration.
 
 ## 5. GUI

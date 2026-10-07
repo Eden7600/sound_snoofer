@@ -32,12 +32,13 @@ func DefaultLayout() Layout {
 	for n, id := range map[int]string{0: "audio.gain-playback", 1: "audio.gain-mic", 4: "hue.brightness"} {
 		lights.Dials[n] = Binding{Control: id, Label: id}
 	}
-	// Media and apps share a page: sessions on r1, app keys on r2 above their
-	// dials (2–5), transport and the deck filters on the bottom row, and the
-	// media dial first. App keys and dials page together.
+	// Media and apps share a page: sessions and apps share rows 1–3 by need,
+	// so a filtered category's rows go to the other; transport and the deck
+	// filters sit on the bottom row. Apps take every dial the media dial does
+	// not, including its own while media is filtered off.
 	media := Page{ID: "media", Name: "Media",
-		Regions:     []Region{{Source: "nowplaying.sessions", First: 0, Last: 7}, {Source: "appaudio.apps", First: 10, Last: 13}},
-		DialRegions: []Region{{Source: "appaudio.apps", First: 1, Last: 4}}}
+		Regions:     []Region{{Source: "nowplaying.sessions", Sources: []string{"appaudio.apps"}, First: 0, Last: 25}},
+		DialRegions: []Region{{Source: "appaudio.apps", First: 0, Last: 4}}}
 	for n, id := range map[int]string{17: scrollPrefix + "up", 26: scrollPrefix + "down", 27: "nowplaying.prev", 28: "nowplaying.toggle", 29: "nowplaying.next",
 		30: "nowplaying.mute", 31: "nowplaying.focus", 33: "appaudio.deck-apps", 34: "nowplaying.deck-media"} {
 		media.Keys[n] = Binding{Control: id, Label: id}

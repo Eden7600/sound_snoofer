@@ -3,6 +3,7 @@ package streamdeck
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"sound-snoofer/snoofer"
@@ -56,16 +57,67 @@ func TestDefaultMediaPage(t *testing.T) {
 	if media.Dials[0].Control != "nowplaying.dial" {
 		t.Fatal("media dial", media.Dials)
 	}
-	var controls []snoofer.Control
-	for n := 0; n < 3; n++ {
-		controls = append(controls, snoofer.Control{ID: fmt.Sprintf("nowplaying.s-%02d", n), Label: "S", Collection: "nowplaying.sessions", Order: n + 1, Operations: []string{"press", "set"}})
+	// The four filter states: a filtered category is Hidden, as its plugin
+	// publishes it, and the other takes its rows and dials.
+	sessions := func(n int, hidden bool) []snoofer.Control {
+		var out []snoofer.Control
+		for i := 0; i < n; i++ {
+			out = append(out, snoofer.Control{ID: fmt.Sprintf("nowplaying.s-%02d", i), Label: "S", Collection: "nowplaying.sessions", Order: i + 1, Operations: []string{"press", "set"}, Hidden: hidden})
+		}
+		return out
 	}
-	page := DefaultLayout().expanded(append(controls, appControls(2)...)).effective("media")
-	if page.Keys[0].Control != "nowplaying.s-00" || page.Keys[2].Control != "nowplaying.s-02" || page.Keys[9].Control != "" {
-		t.Fatal("sessions do not fill r1", page.Keys[:10])
+	apps := func(n int, hidden bool) []snoofer.Control {
+		out := appControls(n)
+		for i := range out {
+			out[i].Hidden = hidden
+		}
+		return out
 	}
-	if page.Keys[10].Control != "appaudio.app-1" || page.Dials[1].Control != "appaudio.app-1" || page.Keys[11].Control != page.Dials[2].Control || page.Dials[3].Control != "" {
-		t.Fatal("app keys do not sit over their dials", page.Keys[10:14], page.Dials)
+	dial := func(hidden bool) snoofer.Control {
+		return snoofer.Control{ID: "nowplaying.dial", Operations: []string{"adjust", "press"}, Hidden: hidden}
+	}
+	for _, c := range []struct {
+		name               string
+		controls           []snoofer.Control
+		rows               []string
+		firstAppDial, apps int
+	}{
+		{"both", append(append(sessions(3, false), apps(6, false)...), dial(false)), []string{"nnn.....", "aaaaaa..", "........"}, 1, 4},
+		{"apps off", append(append(sessions(20, false), apps(6, true)...), dial(false)), []string{"nnnnnnnn", "nnnnnnnn", "nnnn...."}, -1, 0},
+		{"media off", append(append(sessions(3, true), apps(20, false)...), dial(true)), []string{"aaaaaaaa", "aaaaaaaa", "aaaa...."}, 0, 5},
+		{"both off", append(append(sessions(3, true), apps(6, true)...), dial(true)), []string{"........", "........", "........"}, -1, 0},
+	} {
+		page := DefaultLayout().expanded(c.controls).effective("media")
+		var rows []string
+		for row := 0; row < 3; row++ {
+			line := ""
+			for col := 0; col < 8; col++ {
+				switch id := page.Keys[row*Columns+col].Control; {
+				case strings.HasPrefix(id, "nowplaying.s-"):
+					line += "n"
+				case strings.HasPrefix(id, "appaudio.app-"):
+					line += "a"
+				default:
+					line += "."
+				}
+			}
+			rows = append(rows, line)
+		}
+		if strings.Join(rows, "|") != strings.Join(c.rows, "|") {
+			t.Errorf("%s: rows %v, want %v", c.name, rows, c.rows)
+		}
+		count, first := 0, -1
+		for n, b := range page.Dials {
+			if strings.HasPrefix(b.Control, "appaudio.app-") {
+				count++
+				if first < 0 {
+					first = n
+				}
+			}
+		}
+		if count != c.apps || first != c.firstAppDial {
+			t.Errorf("%s: %d app dials from %d, want %d from %d", c.name, count, first, c.apps, c.firstAppDial)
+		}
 	}
 }
 
