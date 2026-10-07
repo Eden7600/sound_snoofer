@@ -40,3 +40,21 @@ func TestSignedEncoderAndImageFrames(t *testing.T) {
 		t.Fatal(frames, err)
 	}
 }
+
+func TestKeyReleases(t *testing.T) {
+	d := Decoder{}
+	keys := make([]byte, Keys)
+	d.Decode(report(0, keys))
+	keys[5] = 1
+	if e, _ := d.Decode(report(0, keys)); len(e) != 1 || !e[0].Press || e[0].Release {
+		t.Fatal("press", e)
+	}
+	keys[5] = 0
+	e, err := d.Decode(report(0, keys))
+	if err != nil || len(e) != 1 || e[0].Key != 5 || e[0].Encoder != -1 || !e[0].Release || e[0].Press {
+		t.Fatal("release", e, err)
+	}
+	if e, _ := d.Decode(report(0, keys)); len(e) != 0 {
+		t.Fatal("repeated release", e)
+	}
+}

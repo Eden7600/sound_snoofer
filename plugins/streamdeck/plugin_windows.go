@@ -78,6 +78,16 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 		defer ticker.Stop()
 		refresh := idleRefresh
 		var vus [Dials]vuMeter
+		// held is a key down on a control that offers hold: a release before
+		// holdAfter sends press, reaching holdAfter sends hold. The request
+		// uses the control as shown when the key went down.
+		type heldKey struct {
+			key   int
+			at    time.Time
+			req   snoofer.Request
+			fired bool
+		}
+		var held *heldKey
 		active := func() Layout {
 			if l, ok := settings.Serials[serial]; ok {
 				return l
@@ -290,6 +300,14 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 				<-deviceDone
 				return
 			case <-ticker.C:
+				if held != nil && !held.fired && time.Since(held.at) >= holdAfter {
+					held.fired = true
+					r := held.req
+					r.Operation = "hold"
+					if err := s.Controls.Dispatch(runCtx, r); err != nil {
+						status = err.Error()
+					}
+				}
 				publish()
 			case event, ok := <-events:
 				if runCtx.Err() != nil {
@@ -311,6 +329,20 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					page = active().Home
 					generation++
 					publish()
+					continue
+				}
+				// Releases match the held key by position, even if the layout
+				// generation changed while it was down.
+				if event.Release {
+					if held != nil && held.key == event.Key {
+						h := *held
+						held = nil
+						if !h.fired {
+							if err := s.Controls.Dispatch(runCtx, h.req); err != nil {
+								status = err.Error()
+							}
+						}
+					}
 					continue
 				}
 				if event.Generation != generation {
@@ -358,6 +390,11 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					continue
 				}
 				r := snoofer.Request{ID: c.ID, Revision: c.Revision, Operation: "press"}
+				if event.Encoder < 0 && slices.Contains(c.Operations, "hold") {
+					// Tap or hold is known only later; other keys act at once.
+					held = &heldKey{key: event.Key, at: time.Now(), req: r}
+					continue
+				}
 				if event.Delta != 0 {
 					r.Operation = "adjust"
 					r.Delta = event.Delta

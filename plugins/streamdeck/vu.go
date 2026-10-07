@@ -20,6 +20,7 @@ const (
 	gainMax    = 12.0
 
 	meterRefresh = 60 * time.Millisecond  // While a shown dial has a meter or a key animates.
+	holdAfter    = 500 * time.Millisecond // A key held this long sends hold instead of press.
 	idleRefresh  = 150 * time.Millisecond // Otherwise.
 )
 

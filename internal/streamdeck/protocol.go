@@ -19,6 +19,7 @@ type Event struct {
 	Encoder    int
 	Delta      int
 	Press      bool
+	Release    bool // A key came up; only keys report releases.
 	Error      string
 }
 type Decoder struct {
@@ -48,6 +49,9 @@ func (d *Decoder) Decode(b []byte) ([]Event, error) {
 			}
 			if d.keysReady && v == 1 && !d.keys[n] {
 				events = append(events, Event{Key: n, Encoder: -1, Press: true})
+			}
+			if d.keysReady && v == 0 && d.keys[n] {
+				events = append(events, Event{Key: n, Encoder: -1, Release: true})
 			}
 		}
 		for n, v := range b[4:] {
