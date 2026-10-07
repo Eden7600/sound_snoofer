@@ -346,3 +346,38 @@ func TestAutomaticDispatchRoutingGate(t *testing.T) {
 		}
 	})
 }
+
+func TestCallbackStreamRestartDue(t *testing.T) {
+	now := time.Now()
+	stream := callbackStream{}
+	healthy := &model.CallbackStatus{Active: true, Starting: 1, Changes: 4, Buffers: 10}
+	if stream.restartDue(healthy, now) {
+		t.Fatal("restarted a healthy stream; earlier changes predate this registration")
+	}
+	ended := &model.CallbackStatus{Active: true, Starting: 1, Ending: 1, Changes: 4}
+	if !stream.restartDue(ended, now.Add(time.Second)) {
+		t.Fatal("ended stream not restarted")
+	}
+	if stream.restartDue(ended, now.Add(3*time.Second)) {
+		t.Fatal("restart not rate limited")
+	}
+	if !stream.restartDue(ended, now.Add(6*time.Second)) {
+		t.Fatal("still ended stream not restarted after the interval")
+	}
+	restarted := &model.CallbackStatus{Active: true, Starting: 2, Ending: 1, Changes: 4}
+	if stream.restartDue(restarted, now.Add(7*time.Second)) {
+		t.Fatal("restarted a running stream")
+	}
+	changed := &model.CallbackStatus{Active: true, Starting: 2, Ending: 1, Changes: 5}
+	if stream.restartDue(changed, now.Add(8*time.Second)) {
+		t.Fatal("stream change restart not rate limited")
+	}
+	if !stream.restartDue(changed, now.Add(11500*time.Millisecond)) {
+		t.Fatal("stream change lost during the rate limit")
+	}
+	for _, cb := range []*model.CallbackStatus{nil, {Starting: 1, Ending: 1}, {Active: true, Starting: 1, Ending: 1, Error: "slot owned"}} {
+		if stream.restartDue(cb, now.Add(time.Hour)) {
+			t.Fatal("restarted an inactive or failed monitor", cb)
+		}
+	}
+}

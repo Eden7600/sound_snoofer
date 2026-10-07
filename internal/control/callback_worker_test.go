@@ -22,6 +22,8 @@ type monitorWorkerClient struct {
 	present        bool // Keep A1 hardware present so a stall can qualify.
 	insert         *voicemeeter.InsertHook
 	inserts        chan *voicemeeter.InsertHook // Optional: receives each insert change.
+	ended          bool                         // Report the callback stream as ended by the engine.
+	restarts       atomic.Int32                 // Monitor restarts requested by the worker.
 }
 
 func (b *monitorWorkerClient) SetCallback(enable bool, insert *voicemeeter.InsertHook) error {
@@ -39,12 +41,23 @@ func (b *monitorWorkerClient) SetCallback(enable bool, insert *voicemeeter.Inser
 	b.insert = insert
 	return nil
 }
+func (b *monitorWorkerClient) RestartCallback() error {
+	if !b.held.Load() {
+		b.ownershipError.Store(true)
+		return fmt.Errorf("unowned callback")
+	}
+	b.restarts.Add(1)
+	return nil
+}
 func (b *monitorWorkerClient) Snapshot() (model.Snapshot, error) {
 	_, s := callbackFixture()
 	// Missing hardware never authorizes restart, even with no buffers.
 	s.Devices[1].Available = b.present
 	if !b.active {
 		s.Callback = nil
+	}
+	if b.ended && s.Callback != nil {
+		s.Callback.Ending = s.Callback.Starting
 	}
 	return s, nil
 }
@@ -232,5 +245,48 @@ func TestWorkerDetectsStallWithoutAutoRecover(t *testing.T) {
 		case <-deadline:
 			t.Fatal("stall not reported without Auto-recover")
 		}
+	}
+}
+
+func TestWorkerRestartsEndedMonitorOnlyWhileLive(t *testing.T) {
+	for _, live := range []bool{false, true} {
+		t.Run(map[bool]string{false: "preview", true: "live"}[live], func(t *testing.T) {
+			c, _ := callbackFixture()
+			c.Studio.Voice = &config.Voice{Source: "off", Mode: "direct", Monitor: "off"}
+			c.Intent = &config.Intent{Version: 1, Source: "off", Mode: "direct", Monitor: "off"}
+			var held atomic.Bool
+			b := &monitorWorkerClient{held: &held, transitions: make(chan bool, 8), present: true, ended: true}
+			ctx, cancel := context.WithCancel(context.Background())
+			actions := make(chan Action, 4)
+			states := make(chan State, 1)
+			done := make(chan struct{})
+			deps := Dependencies{Open: func(string) (Client, error) { return b, nil }, Acquire: func() (func(), error) {
+				held.Store(true)
+				return func() { held.Store(false) }, nil
+			}}
+			go Work(ctx, c, filepath.Join(t.TempDir(), "config"), "", live, deps, actions, states, done)
+			deadline := time.After(3 * time.Second)
+		observe:
+			for {
+				select {
+				case <-states:
+				case <-deadline:
+					break observe
+				}
+			}
+			cancel()
+			<-done
+			restarts := b.restarts.Load()
+			if !live && restarts != 0 {
+				t.Fatal("preview restarted the monitor", restarts)
+			}
+			// The first restart is immediate; the next waits five seconds.
+			if live && restarts != 1 {
+				t.Fatal("ended monitor restarts", restarts)
+			}
+			if b.ownershipError.Load() {
+				t.Fatal("monitor restarted without ownership")
+			}
+		})
 	}
 }

@@ -184,6 +184,14 @@ func (o *observed) SetRecorder(p string, v int) error {
 	return b.SetRecorder(p, v)
 }
 
+// restartCallback restarts the live monitor after the engine ends or changes its stream.
+func restartCallback(client Client) error {
+	if c, ok := client.(interface{ RestartCallback() error }); ok {
+		return c.RestartCallback()
+	}
+	return fmt.Errorf("callback monitoring unsupported by this backend")
+}
+
 func setCallback(client Client, enable bool, insert *voicemeeter.InsertHook) error {
 	if c, ok := client.(interface {
 		SetCallback(bool, *voicemeeter.InsertHook) error
@@ -304,6 +312,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		}
 	}()
 	recovery := newRecovery(path)
+	var stream callbackStream
 	mixer := &controller.Mixer{Path: path + ".mutes.json"}
 	// runTape runs one tape command. Play first saves tape-routing ownership
 	// (save before apply), since it routes the tape to the Playback bus.
@@ -787,6 +796,9 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		}
 		if ctx.Err() != nil {
 			return
+		}
+		if monitorWanted && monitorErr == nil && backend.readError == nil && stream.restartDue(backend.snapshot.Callback, time.Now()) {
+			monitorErr = restartCallback(backend.Client)
 		}
 		state.Snapshot = backend.snapshot
 		healthSnapshot := state.Snapshot

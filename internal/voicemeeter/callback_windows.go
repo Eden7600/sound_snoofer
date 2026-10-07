@@ -97,6 +97,36 @@ func (a *winAPI) SetCallback(monitor bool, insert *InsertHook) error {
 	return nil
 }
 
+// RestartCallback re-registers the active callback. SnooferStop unregisters and
+// SnooferStart registers again; the insert stages persist in the monitor DLL.
+func (a *winAPI) RestartCallback() error {
+	m := &a.monitor
+	if m.unsafeClose {
+		return fmt.Errorf("callback cleanup uncertain; restart Sound Snoofer")
+	}
+	if !m.active {
+		return fmt.Errorf("audio callback not active")
+	}
+	code, _, _ := m.stop.Call()
+	if result(code) != 0 {
+		m.unsafeClose = true
+		m.err = fmt.Errorf("callback cleanup returned %d; restart Sound Snoofer", result(code))
+		return m.err
+	}
+	m.active = false
+	code, _, _ = m.start.Call(uintptr(a.dll.Handle))
+	if result(code) != 0 {
+		if result(code) == -12 {
+			m.unsafeClose = true
+		}
+		m.err = fmt.Errorf("callback registration/start returned %d (1: slot owned by another app)", result(code))
+		return m.err
+	}
+	m.active = true
+	m.err = nil
+	return nil
+}
+
 func (a *winAPI) CallbackStatus() *model.CallbackStatus {
 	m := &a.monitor
 	if !m.enabled && !m.unsafeClose {

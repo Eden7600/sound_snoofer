@@ -215,3 +215,38 @@ func pendingRoutingTarget(p routing.Plan) string {
 	}
 	return ""
 }
+
+// callbackRestartInterval bounds how often the live owner restarts the monitor.
+const callbackRestartInterval = 5 * time.Second
+
+// callbackStream decides when the live monitor must be restarted. The Remote
+// API requires restarting audio after the engine ends or changes the stream;
+// otherwise the registration stays silent and a later stall goes unseen.
+type callbackStream struct {
+	changes     uint32
+	known, lost bool
+	restarted   time.Time
+}
+
+// restartDue records the latest status and reports whether to restart now.
+// A stream loss stays pending through the rate limit.
+func (c *callbackStream) restartDue(cb *model.CallbackStatus, now time.Time) bool {
+	if cb == nil || !cb.Active || cb.Error != "" {
+		*c = callbackStream{restarted: c.restarted}
+		return false
+	}
+	ended := cb.Ending != 0 && cb.Ending >= cb.Starting
+	changed := c.known && cb.Changes != c.changes
+	c.lost = c.lost || ended || changed
+	c.changes, c.known = cb.Changes, true
+	if !c.lost {
+		return false
+	}
+	since := now.Sub(c.restarted)
+	if !c.restarted.IsZero() && since >= 0 && since < callbackRestartInterval {
+		return false
+	}
+	c.lost = false
+	c.restarted = now
+	return true
+}

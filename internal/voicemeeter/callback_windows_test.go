@@ -62,6 +62,16 @@ func TestNativeCallbackMonitor(t *testing.T) {
 		t.Fatal(next.Error)
 	}
 	t.Logf("production callback buffers: %d -> %d, synchronized: %d -> %d", first.Buffers, next.Buffers, first.Synced, next.Synced)
+	// Restarting after a stream change keeps the same slot and resumes delivery.
+	if err := c.RestartCallback(); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(time.Second)
+	restarted := a.CallbackStatus()
+	if restarted == nil || !restarted.Active || restarted.Error != "" {
+		t.Fatal(restarted)
+	}
+	t.Logf("after restart: buffers %d -> %d, starting %d -> %d", next.Buffers, restarted.Buffers, next.Starting, restarted.Starting)
 	if err := c.SetCallback(false, nil); err != nil {
 		t.Fatal(err)
 	}

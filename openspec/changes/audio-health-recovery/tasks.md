@@ -30,6 +30,6 @@
 ## 6. Boot without outputs and monitor continuity (2026-10-07)
 - [x] `fix(routing)`: under the voice profile, no eligible playback device is a resolved no-output plan that still applies the mic stack and keeps A1; reasons stay diagnostic. Tests cover voice and non-voice profiles.
 - [x] `fix(audio)`: automatic restart ignores unresolved routing, defers on pending changes for at most ten seconds after qualification, and names the pending target. Tests cover the deferral, its bound and unresolved items.
-- [ ] `fix(audio)`: restart the callback monitor after a stream end or change, at most every five seconds, on the live owner. Tests cover end, change, rate limit and preview.
-- [ ] Validate, build and relaunch.
+- [x] `fix(audio)`: restart the callback monitor after a stream end or change, at most every five seconds, on the live owner. Tests cover end, change, rate limit and preview.
+- [x] Validate, build and relaunch. The opt-in native test restarted the live monitor (starting 1 -> 2; buffers 103 -> 197 a second later).
 - [ ] Hardware: booting without outputs, then a stall, is restarted automatically; health stays monitored after a device switch.
