@@ -9,7 +9,7 @@ Protocol facts were read from the official Insta360 Webcam Stream Deck plugin 1.
 **Transport.** A companion `snoofer-camera.dll` (C++, MSVC, built like the media DLL) enumerates DirectShow video input devices, matches the device path `vid_2e1a&pid_4c04`, binds the filter and uses `IKsControl::KsProperty` on the camera's extension units. It never opens a video stream, so it coexists with Discord, browsers and the Insta360 Link Controller.
 - Extension units are kernel-streaming property sets: XU1 `{FAF1672D-B71B-4793-8C91-7B1C9B7F95F8}` and XU2 `{E307E649-4618-A3FF-82FC-2D8B5F216773}`. The node for each set is found by probing the filter's nodes, not by assuming node numbers.
 - Writes read the control's length first (a GET with no buffer reports the size), then SET a zero-padded payload of that length. Reads use the reported length. Firmware varies these lengths, so fields are parsed only when present.
-- Calls run on the plugin's single worker thread, which owns COM for the DLL. A call that blocks marks the camera unavailable; no second caller is started.
+- Calls run on the plugin's single worker goroutine, locked to one OS thread that owns COM for the DLL. No second caller is ever started; a native call that never returns stalls only this plugin.
 
 **Commands.**
 
@@ -18,7 +18,7 @@ Protocol facts were read from the official Insta360 Webcam Stream Deck plugin 1.
 | Privacy | XU2 selector 0x0F, 1 byte (1 on, 0 off) | status flags bit 0 |
 | Tracking | XU1 selector 0x02 (video mode): Off = Normal (0), Single = AutoComposition (1), Group = AutoFraming (7) | status byte 0 |
 | Framing | XU1 selector 0x13, 1 byte (Head 1, Half body 2, Full body 3); the AI-zoom bit (XU1 0x1B bit 0) is set first if off | XU1 0x13 |
-| Reset position | Normal: XU1 selector 0x1A absolute pan/tilt (0, 0). Tracking: re-send the current mode | status pan and tilt |
+| Reset position | Normal: XU1 selector 0x1A absolute pan/tilt, two int32 (0, 0). Tracking: XU1 selector 0x18 composition bias, two int16 (0x7FFF, 0x7FFF), which re-centres the composition | none: a command, since gimbal travel time varies |
 
 The video-mode write is the status layout with only the mode set and the "leave unchanged" pose (pan, tilt and roll 3610, zoom 0, host pitch −450), as the official plugin sends.
 
@@ -27,7 +27,8 @@ The video-mode write is the status layout with only the mode set and the "leave 
 **Rules.**
 - While privacy is on, tracking, framing and reset are unavailable (the camera ignores them) with the status Privacy.
 - Full body is refused while Group tracking is active, matching the camera.
-- A write is verified by status reads within three seconds; until then the control shows Pending, and a mismatch shows Failed. No automatic retry.
+- Privacy, tracking and framing writes are verified by reads within three seconds; until then the control shows Pending, and a mismatch shows Failed. No automatic retry.
+- Preview mode (not live) refuses camera writes, like other hardware integrations.
 - Absent camera: controls are unavailable with "No camera". A connection report `insta360.app-camera` (Required: No) describes presence and the last error.
 
 ## Discord (`discord` plugin)
