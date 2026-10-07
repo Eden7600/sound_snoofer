@@ -818,6 +818,8 @@ function update(){
  $("#summary").replaceChildren();
  if(pending)$("#summary").append(badge("Sending","attention"));
  if(c("audio.normal-source")?.Subdued)$("#summary").append(badge("VR active","active"));
+ if(c("audio.pause-devices")?.Value==="On")$("#summary").append(badge("Devices paused","attention"));
+ if(c("audio.pause-sends")?.Value==="On")$("#summary").append(badge("Sends paused","attention"));
  root.setAttribute("aria-busy",String(!!pending));
  refreshNotice();
  const dialog=$("#confirm");

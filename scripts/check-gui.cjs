@@ -18,6 +18,8 @@ for(const prefix of ["normal-","vr-profile-"]){
 }
 add("audio.record-mic","Record microphone","toggle","On",{Group:"Recording"});
 add("audio.auto-recover","Automatic recovery","toggle","On",{Group:"Shared audio"});
+add("audio.pause-devices","Disable device manipulation","toggle","Off",{Group:"Shared audio"});
+add("audio.pause-sends","Disable send manipulation","toggle","On",{Group:"Shared audio",Status:"3 held"});
 add("audio.engine-restart","Restart audio engine","command","",{Group:"Bindings",SurfaceOnly:true});
 add("aec.mode","Echo cancellation","selection","auto",{Options:["auto","on","off"],OptionLabels:{auto:"Auto",on:"On",off:"Off"},Icon:"echo"});
 add("aec.strength","Echo strength","selection","strong",{Options:["strong","balanced","gentle"],OptionLabels:{strong:"Strong",balanced:"Balanced",gentle:"Gentle"},Icon:"echo"});
@@ -133,6 +135,11 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   const fillWidth=await strip.locator("[data-part=position] > div").first().evaluate(e=>e.style.width);
   assert.equal(fillWidth,"75%","gain position track");
   for(const mark of ["-60","-30","-12","-3","0"])assert.equal(await strip.getByText(mark,{exact:true}).count(),1,"meter scale "+mark);
+  assert.equal(await page.locator("#summary").getByText("Sends paused").count(),1,"paused sends badge");
+  assert.equal(await page.locator("#summary").getByText("Devices paused").count(),0,"devices badge while not paused");
+  const recovery=page.locator("section",{has:page.getByRole("heading",{name:"Routing & recovery"})});
+  assert.equal(await recovery.getByText("Disable send manipulation").count(),1);
+  assert.equal(await recovery.getByText("3 held").count(),1);
   const echo=page.locator("[data-part=echo]");
   assert.equal(await echo.getByRole("heading",{name:"Echo cancellation"}).count(),1);
   assert.equal(await echo.getByText("Active",{exact:true}).count(),1,"echo status value");

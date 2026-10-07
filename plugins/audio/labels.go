@@ -16,7 +16,7 @@ func shortLabel(key string) string {
 	label := map[string]string{
 		"source": "Mic target", "mode": "Mic processing", "monitor": "Monitor", "output": "Playback",
 		"mic-stack": "Mic stack", "mic-mute": "Mute", "speaker-mute": "Mute",
-		"defaults": "Defaults", "auto-recover": "Recovery",
+		"defaults": "Defaults", "auto-recover": "Recovery", "pause-devices": "Pause devices", "pause-sends": "Pause sends",
 		"record-mic": "Record mic", "record-computer": "Record PC", "record-loop": "Loop",
 		"record-vst": "To VST", "record-tap": "Mic stage", "record-start": "Record",
 		"record-stop": "Stop rec", "record-toggle": "Record", "snippet-play": "Play", "snippet-stop": "Stop",

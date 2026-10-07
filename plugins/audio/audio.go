@@ -283,6 +283,27 @@ func controls(s control.State) []snoofer.Control {
 		}
 		add(row.id, row.label, "Shared audio", "toggle", value, nil, "press")
 	}
+	heldDevices, heldSends := 0, 0
+	if s.Plan != nil && s.Plan.Topology != nil {
+		heldDevices, heldSends = s.Plan.Topology.HeldDevices, s.Plan.Topology.HeldSends
+	}
+	for _, row := range []struct {
+		id, label string
+		value     bool
+		held      int
+	}{
+		{"pause-devices", "Disable device manipulation", i.PauseDevices, heldDevices},
+		{"pause-sends", "Disable send manipulation", i.PauseSends, heldSends},
+	} {
+		value := "Off"
+		if row.value {
+			value = "On"
+		}
+		add(row.id, row.label, "Shared audio", "toggle", value, nil, "press")
+		if row.value && row.held > 0 {
+			out[len(out)-1].Status = fmt.Sprintf("%d held", row.held)
+		}
+	}
 	for source, enabled := range i.Playback {
 		value := "Off"
 		if enabled {
