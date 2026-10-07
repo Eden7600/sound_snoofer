@@ -23,5 +23,5 @@ Each numbered block is one reviewable commit.
 - [x] 11. `docs(aec)`: design one reset per new stream and the failure reason.
 - [x] 12. `fix(aec)`: native `AECResetFailure` and `AECReadFailure`, the output-insert generation guard, the Go binding and the offline probe. The probe and the opt-in native test cover reset and reason.
 - [x] 13. `fix(aec)`: publish `EchoTargets.Stream`; the plugin resets once per new stream and shows the reason. Fake-engine tests cover same-stream latching, a new-stream reset and a failure seen before the new count.
-- [ ] 14. Validate, build and relaunch.
+- [x] 14. Validate, build and relaunch. Go tests and vet pass; the native ABI test and the offline probe pass against the new DLL (each fault reports its reason, then a reset resumes processing; echo reduction unchanged at 30.5–36.4 dB). Snoofer relaunched with no arguments.
 - [ ] 15. Hardware: after an engine restart or device switch, echo cancellation returns to Active.
