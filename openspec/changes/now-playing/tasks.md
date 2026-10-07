@@ -55,7 +55,7 @@ Each numbered block is one reviewable commit.
 - [x] 46. Validate: all checks and the canonical build; relaunch.
 - [x] 47. `docs(media)`: sticky focus and Reset focus (§4g); Home strips keep tap and hold.
 - [x] 48. `feat(streamdeck)`: the Reset focus key (publishing, local press, binding eligibility, icon). Includes tests.
-- [ ] 49. `feat(nowplaying)`, `feat(appaudio)`: sticky focus and `reset`; taps no longer focus. Includes tests.
+- [x] 49. `feat(nowplaying)`, `feat(appaudio)`: sticky focus and `reset`; taps no longer focus. Includes tests.
 - [ ] 50. `feat(streamdeck)`: Reset focus at Home r3c9 and Media r4c5 (default and personal). Includes tests.
 - [ ] 51. Validate: all checks and the canonical build; relaunch.
 

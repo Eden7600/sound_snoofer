@@ -298,6 +298,10 @@ func (w *worker) handle(r snoofer.Request, now time.Time) {
 			target = a
 		}
 	}
+	if r.ID == "appaudio.focus" && r.Operation == "reset" {
+		w.focus = "" // Reset focus: the dial follows the first app again.
+		return
+	}
 	if target != nil && r.Operation == "hold" {
 		w.focus = key(target.Name) // A held key gives its app the focus dial.
 		return
@@ -412,7 +416,7 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 	}
 	// The focus dial follows the focused app wherever it sits in the list.
 	focus := snoofer.Control{ID: "appaudio.focus", Label: "Focused app", ShortLabel: "Focused app", Group: "App audio", Kind: "numeric", Icon: "app-audio",
-		Operations: []string{"press", "adjust"}, Hidden: true}
+		Operations: []string{"press", "adjust", "reset"}, Hidden: true}
 	if a := w.focusedApp(shown); a != nil {
 		value, status := w.appValue(a)
 		focus.ShortLabel, focus.Value, focus.Status, focus.Meter, focus.Artwork = a.Name, value, status, w.meter(a, now), w.artwork(a)

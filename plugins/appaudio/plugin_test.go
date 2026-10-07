@@ -558,12 +558,24 @@ func TestHoldGivesAnAppTheFocusDial(t *testing.T) {
 		return backend.writes > 0
 	})
 	backend.mu.Lock()
-	defer backend.mu.Unlock()
 	for _, s := range backend.sessions {
 		if s.Key == "d1" && s.Muted {
-			t.Fatal("focus dial muted the wrong app")
+			t.Error("focus dial muted the wrong app")
 		}
 	}
+	backend.mu.Unlock()
+	// Reset focus returns the dial to the first app.
+	for attempt := 0; ; attempt++ {
+		f := control(h.controls.Snapshot(), "appaudio.focus")
+		if err := h.controls.Dispatch(context.Background(), snoofer.Request{ID: f.ID, Revision: f.Revision, Operation: "reset"}); err == nil {
+			break
+		}
+		if attempt > 50 {
+			t.Fatal("reset rejected")
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+	h.wait("focus reset", func(l []snoofer.Control) bool { return control(l, "appaudio.focus").ShortLabel == "Discord" })
 }
 
 func TestFocusDialFollowsTheDeckFilter(t *testing.T) {

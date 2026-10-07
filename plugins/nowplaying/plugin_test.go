@@ -237,8 +237,8 @@ func TestBrowserTabsReplaceItsWindowsSession(t *testing.T) {
 		}
 	}
 	r.press(episode.ID, "press", 0)
-	if len(r.sent) != 1 || r.sent[0].ID != "2:0" || r.sent[0].Op != "toggle" || r.control("nowplaying.dial").ShortLabel != "Episode" {
-		t.Fatal("tab press", r.sent, r.control("nowplaying.dial").ShortLabel)
+	if len(r.sent) != 1 || r.sent[0].ID != "2:0" || r.sent[0].Op != "toggle" {
+		t.Fatal("tab press", r.sent)
 	}
 	if r.control("nowplaying.mute").Hidden {
 		t.Fatal("tabs can mute")
@@ -257,7 +257,7 @@ func TestBrowserTabsReplaceItsWindowsSession(t *testing.T) {
 	}
 }
 
-func TestFocusFollowsNewPlaybackUnlessChosen(t *testing.T) {
+func TestFocusFollowsPlaybackUntilChosen(t *testing.T) {
 	r := newRig(t, true)
 	a := mediasessions.Session{ID: "A", App: "A.exe", Title: "A", Status: "playing", CanPlay: true}
 	b := mediasessions.Session{ID: "B", App: "B.exe", Title: "B", Status: "paused", CanPlay: true}
@@ -273,23 +273,30 @@ func TestFocusFollowsNewPlaybackUnlessChosen(t *testing.T) {
 	if focus() != "B" {
 		t.Fatal("focus did not follow new playback", focus())
 	}
-	// Choosing A holds focus against new playback for 30 s.
-	// Holding A's key focuses it without toggling.
+	// A tap toggles without moving focus.
+	r.press(controlID("windows:A"), "press", 0)
+	if focus() != "B" || len(r.win.commands) != 1 {
+		t.Fatal("tap moved focus", focus(), r.win.commands)
+	}
+	// Holding A chooses it; it sticks through new playback and long after.
 	r.press(controlID("windows:A"), "hold", 0)
-	if len(r.win.commands) != 0 {
-		t.Fatal("hold toggled", r.win.commands)
-	}
-	if r.control("nowplaying.focus").ID != "" {
-		t.Fatal("the Focus control still exists")
-	}
 	b.Status = "paused"
 	r.win.sessions = []mediasessions.Session{a, b}
 	r.tick(time.Second)
 	b.Status = "playing"
 	r.win.sessions = []mediasessions.Session{a, b}
-	r.tick(time.Second)
+	r.tick(5 * time.Minute)
 	if focus() != "A" {
-		t.Fatal("chosen focus overridden", focus())
+		t.Fatal("chosen focus lost", focus())
+	}
+	if r.control("nowplaying.focus").ID != "" {
+		t.Fatal("the Focus control still exists")
+	}
+	// Reset focus follows playback again: B started most recently.
+	r.press("nowplaying.dial", "reset", 0)
+	r.tick(time.Millisecond)
+	if focus() != "B" {
+		t.Fatal("reset did not restore the default", focus())
 	}
 }
 

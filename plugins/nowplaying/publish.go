@@ -79,7 +79,7 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 	focused, ok := w.find(w.focus)
 
 	dial := snoofer.Control{ID: "nowplaying.dial", Label: "Now playing", ShortLabel: "Nothing playing", Group: "Now playing", Kind: "numeric", Icon: "media-play",
-		Value: "", Operations: []string{"adjust", "press"}, Available: true}
+		Value: "", Operations: []string{"adjust", "press", "reset"}, Available: true}
 	transport := func(id, label, short, icon string, can bool, value string) snoofer.Control {
 		return snoofer.Control{ID: "nowplaying." + id, Label: label, ShortLabel: short, Group: "Now playing", Kind: "command", Icon: icon, Value: value,
 			Operations: []string{"press"}, Hidden: !ok || !can || w.settings.DeckMediaOff, Available: ok && can}

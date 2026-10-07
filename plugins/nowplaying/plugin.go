@@ -41,7 +41,6 @@ func (s Settings) port() int {
 const (
 	seekStep    = 5000                   // Milliseconds per dial detent.
 	scrubSettle = 250 * time.Millisecond // Quiet time after the last detent before seeking.
-	focusHold   = 30 * time.Second
 	seekMatchMs = 3000
 )
 
@@ -141,7 +140,7 @@ type worker struct {
 	started  map[string]time.Time // When each session last began playing.
 	playing  map[string]bool
 	focus    string
-	pressed  time.Time // The last time the user chose what to control.
+	chosen   bool // The user chose focus by holding a session key; it sticks until reset.
 	pending  map[string]pendingCommand
 	failure  map[string]string
 	scrub    *scrub            // The dial seek being gathered, if any.
@@ -315,16 +314,11 @@ func (w *worker) merge(now time.Time) {
 			delete(w.browserArt, k)
 		}
 	}
-	// Focus moves to a session that has just started playing, unless the
-	// user chose a session recently.
 	present := map[string]bool{}
 	for _, s := range all {
 		present[s.Key] = true
 		if s.playing() && !w.playing[s.Key] {
 			w.started[s.Key] = now
-			if now.Sub(w.pressed) > focusHold {
-				w.focus = s.Key
-			}
 		}
 		w.playing[s.Key] = s.playing()
 	}
@@ -336,6 +330,19 @@ func (w *worker) merge(now time.Time) {
 		}
 	}
 	slices.SortStableFunc(all, func(a, b session) int { return w.started[b.Key].Compare(w.started[a.Key]) })
+	// A chosen focus sticks until reset or until its session ends. Otherwise
+	// focus follows the most recently started session that is playing.
+	if !present[w.focus] {
+		w.chosen = false
+	}
+	if !w.chosen {
+		for _, s := range all {
+			if s.playing() {
+				w.focus = s.Key
+				break
+			}
+		}
+	}
 	if !present[w.focus] {
 		w.focus = ""
 		for _, s := range all {
@@ -441,10 +448,14 @@ func (w *worker) handle(r snoofer.Request, now time.Time) {
 		}
 		return
 	case "nowplaying.dial":
+		if r.Operation == "reset" { // Reset focus: follow playback again.
+			w.chosen = false
+			w.merge(now)
+			return
+		}
 		if !ok {
 			return
 		}
-		w.pressed = now
 		if r.Operation == "adjust" {
 			if !focused.CanSeek {
 				return
@@ -461,7 +472,6 @@ func (w *worker) handle(r snoofer.Request, now time.Time) {
 		return
 	case "nowplaying.toggle", "nowplaying.next", "nowplaying.prev", "nowplaying.mute":
 		if ok {
-			w.pressed = now
 			w.command(focused, strings.TrimPrefix(r.ID, "nowplaying."), 0, now)
 		}
 		return
@@ -470,8 +480,8 @@ func (w *worker) handle(r snoofer.Request, now time.Time) {
 		if controlID(s.Key) != r.ID {
 			continue
 		}
-		w.focus, w.pressed = s.Key, now
-		if r.Operation == "hold" { // Held key: focus only.
+		if r.Operation == "hold" { // Held key: choose focus without toggling.
+			w.focus, w.chosen = s.Key, true
 			return
 		}
 		if r.Operation == "set" { // The GUI seek slider: an absolute position in ms.
