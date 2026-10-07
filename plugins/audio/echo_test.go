@@ -54,6 +54,21 @@ func TestEchoTargets(t *testing.T) {
 	}
 }
 
+func TestEchoTargetsStream(t *testing.T) {
+	s := echoState(0, "desk", "A2")
+	if got := echoTargets(s).Stream; got != 0 {
+		t.Fatal("stream without a callback monitor", got)
+	}
+	s.Snapshot.Callback = &model.CallbackStatus{Active: true, Starting: 4}
+	if got := echoTargets(s).Stream; got != 4 {
+		t.Fatal("stream count", got)
+	}
+	s.Snapshot.Callback.Active = false
+	if got := echoTargets(s).Stream; got != 0 {
+		t.Fatal("stream from an inactive monitor", got)
+	}
+}
+
 func echoInstance(s control.State) *Instance {
 	return &Instance{actions: make(chan control.Action, 1), done: make(chan struct{}), state: s}
 }

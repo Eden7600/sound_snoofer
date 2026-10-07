@@ -19,6 +19,7 @@ type fakeEngine struct {
 	configs []engine.Config
 	stats   engine.Stats
 	closed  bool
+	resets  int
 }
 
 func (e *fakeEngine) Configure(c engine.Config) error {
@@ -31,6 +32,12 @@ func (e *fakeEngine) Stats() (engine.Stats, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return e.stats, nil
+}
+func (e *fakeEngine) Reset() error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.resets++
+	return nil
 }
 func (e *fakeEngine) Hook() voicemeeter.InsertHook {
 	return voicemeeter.InsertHook{Input: 1, Output: 2, Context: 3}
@@ -261,5 +268,51 @@ func TestStopFreesEngineOnlyAfterRemoval(t *testing.T) {
 		if !confirmed && (err == nil || closed) {
 			t.Fatal("unconfirmed removal freed the engine", err, closed)
 		}
+	}
+}
+
+func TestFailureResetsOncePerNewStream(t *testing.T) {
+	m := &fakeMixer{targets: speakers}
+	m.targets.Stream = 1
+	e := &fakeEngine{stats: engine.Stats{Active: true, SampleRate: 48000}}
+	w := newWorker(Settings{}, m, e)
+	w.step(context.Background())
+	// A failure on the armed stream stays latched, even when first seen before
+	// the new stream's count is published.
+	e.stats = engine.Stats{Failed: true, Reason: "missing output callback"}
+	w.step(context.Background())
+	w.step(context.Background())
+	if e.resets != 0 {
+		t.Fatal("reset on the armed stream", e.resets)
+	}
+	if status := control(t, w, "aec.status"); status.Value != "Error" || status.Status != "Engine error (missing output callback); mic passes through" {
+		t.Fatal(status.Value, status.Status)
+	}
+	m.targets.Stream = 2
+	w.step(context.Background())
+	if e.resets != 1 {
+		t.Fatal("no reset for the new stream", e.resets)
+	}
+	// The engine keeps failing on the new stream: it stays latched there.
+	w.step(context.Background())
+	w.step(context.Background())
+	if e.resets != 1 {
+		t.Fatal("reset flapped on one stream", e.resets)
+	}
+	e.stats = engine.Stats{Active: true, SampleRate: 48000}
+	w.step(context.Background())
+	if status := control(t, w, "aec.status"); status.Value != "Active" {
+		t.Fatal(status.Value, status.Status)
+	}
+}
+
+func TestFailureWithoutHookIsNotReset(t *testing.T) {
+	m := &fakeMixer{targets: audio.EchoTargets{Reason: "Mic off", Stream: 3}}
+	e := &fakeEngine{stats: engine.Stats{Failed: true}}
+	w := newWorker(Settings{}, m, e)
+	w.engine = e
+	w.step(context.Background())
+	if e.resets != 0 {
+		t.Fatal("reset without an installed hook", e.resets)
 	}
 }

@@ -84,6 +84,7 @@ func validate(raw json.RawMessage) error {
 type canceller interface {
 	Configure(engine.Config) error
 	Stats() (engine.Stats, error)
+	Reset() error
 	Hook() voicemeeter.InsertHook
 	Close() error
 }
@@ -146,7 +147,8 @@ type worker struct {
 
 	engine     canceller
 	engineErr  string
-	hooked     bool // A hook was requested and not confirmed removed.
+	hooked     bool   // A hook was requested and not confirmed removed.
+	armed      uint32 // The audio stream the engine was last armed on.
 	applied    engine.Config
 	configured bool
 	releaseErr string
@@ -234,6 +236,7 @@ func (w *worker) step(ctx context.Context) {
 			w.statsErr = err.Error()
 		}
 	}
+	w.recover(targets.Stream)
 }
 
 func (w *worker) activate(ctx context.Context, targets audio.EchoTargets) {
@@ -260,8 +263,23 @@ func (w *worker) activate(ctx context.Context, targets audio.EchoTargets) {
 			return
 		}
 		w.hooked = true
+		w.armed = targets.Stream
 	}
 	w.engineErr = ""
+}
+
+// recover resets a failed engine once per new audio stream. A stream that ends
+// between the inserts fails the next stream's first callback, possibly before
+// the new stream count is published; a failure on the armed stream stays latched.
+func (w *worker) recover(stream uint32) {
+	if !w.stats.Failed || !w.hooked || stream == w.armed {
+		return
+	}
+	if err := w.engine.Reset(); err != nil {
+		w.engineErr = err.Error()
+		return
+	}
+	w.armed = stream
 }
 
 // deactivate bypasses the engine at once, then removes the hook.
@@ -340,6 +358,9 @@ func (w *worker) status() (string, string) {
 	failure := firstNonEmpty(w.releaseErr, w.engineErr, w.statsErr)
 	switch {
 	case w.stats.Failed:
+		if w.stats.Reason != "" {
+			return "Error", "Engine error (" + w.stats.Reason + "); mic passes through"
+		}
 		return "Error", "Engine error; mic passes through"
 	case failure != "":
 		return "Error", failure

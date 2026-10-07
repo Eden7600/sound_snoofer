@@ -19,6 +19,9 @@ type EchoTargets struct {
 	Reference [8]int // Output-insert channels of the playback bus; -1 when unused.
 	Playback  string // Device assigned to the playback bus, for speaker matching.
 	Reason    string // Why echo cancellation cannot run now; empty when it can.
+	// Stream counts audio stream starts (engine restarts, stream changes and
+	// monitor restarts); 0 without an active callback monitor.
+	Stream uint32
 }
 
 // EchoTargets reports the current targets from the latest observed state.
@@ -32,6 +35,9 @@ const physicalStrips = 5
 
 func echoTargets(s control.State) EchoTargets {
 	t := EchoTargets{Mic: [2]int{-1, -1}, Reference: [8]int{-1, -1, -1, -1, -1, -1, -1, -1}}
+	if cb := s.Snapshot.Callback; cb != nil && cb.Active {
+		t.Stream = cb.Starting
+	}
 	if !s.Live || !s.Connected {
 		t.Reason = "Not live"
 		return t
