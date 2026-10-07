@@ -167,8 +167,10 @@ func (r *recovery) automaticRestart(b *observed, cfg config.Config, live bool, n
 	if err != nil {
 		return err
 	}
-	if p.HasChanges() || p.HasUnresolved() {
-		return fmt.Errorf("waiting for routing to settle")
+	// A stalled engine may never confirm routing writes, so pending changes defer
+	// dispatch only for a bounded time. Unresolved items have their own guards.
+	if target := pendingRoutingTarget(p); target != "" && now.Sub(r.callback.firstFault) < routingSettleLimit {
+		return fmt.Errorf("waiting for routing to settle: %s", target)
 	}
 	recorder, err := b.Recorder()
 	if err != nil {
@@ -187,4 +189,29 @@ func (r *recovery) automaticRestart(b *observed, cfg config.Config, live bool, n
 		return fmt.Errorf("%s", reason)
 	}
 	return r.restart(b, live, time.Now())
+}
+
+// routingSettleLimit bounds how long a qualified stall waits for routing changes.
+const routingSettleLimit = 10 * time.Second
+
+// pendingRoutingTarget names the first planned change, or "" when routing is settled.
+func pendingRoutingTarget(p routing.Plan) string {
+	if p.Topology != nil {
+		for _, op := range p.Topology.Operations {
+			if !op.Change {
+				continue
+			}
+			if op.Parameter != "" {
+				return op.Parameter
+			}
+			return op.Target
+		}
+		return ""
+	}
+	for _, d := range p.Decisions {
+		if d.Change {
+			return d.Target
+		}
+	}
+	return ""
 }

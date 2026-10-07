@@ -148,7 +148,10 @@ type callbackBackend struct {
 func (b *callbackBackend) Snapshot() (model.Snapshot, error)         { return b.s, nil }
 func (b *callbackBackend) Recorder() (model.RecorderSnapshot, error) { return b.transport, nil }
 func (b *callbackBackend) RestartEngine() error                      { b.calls++; return nil }
-func TestAutomaticDispatchFreshGuards(t *testing.T) {
+
+// dispatchFixture returns a stable off voice profile whose routing plan is already applied.
+func dispatchFixture(t *testing.T) (config.Config, model.Snapshot) {
+	t.Helper()
 	c, s := callbackFixture()
 	// A stable off voice profile with Volt playback makes a complete routing plan.
 	c.Studio.Voice = &config.Voice{}
@@ -182,6 +185,11 @@ func TestAutomaticDispatchFreshGuards(t *testing.T) {
 			s.Numbers[op.Parameter] = float32(op.Value)
 		}
 	}
+	return c, s
+}
+
+func TestAutomaticDispatchFreshGuards(t *testing.T) {
+	c, s := dispatchFixture(t)
 	for _, transport := range []string{"Stopped", "Recording", "Paused", "Playing", "Unknown"} {
 		t.Run(transport, func(t *testing.T) {
 			b := &callbackBackend{s: s, transport: model.RecorderSnapshot{Values: map[string]float32{}}}
@@ -280,4 +288,61 @@ func TestCallbackStallOnWDMA1(t *testing.T) {
 	if !qualify(&h, c, s, time.Now()) {
 		t.Fatal("WDM A1 without studio config not detected")
 	}
+}
+
+// stoppedTransport is a recorder that permits automatic dispatch.
+func stoppedTransport() model.RecorderSnapshot {
+	r := model.RecorderSnapshot{Values: map[string]float32{}}
+	for _, key := range model.RecorderParameters() {
+		r.Values[key] = 0
+	}
+	r.Values["Recorder.stop"] = 1
+	return r
+}
+
+// stallSince feeds 500 ms observations of stopped callbacks ending at the real
+// clock, because dispatch rechecks the stall with time.Now().
+func stallSince(h *callbackHealth, c config.Config, s model.Snapshot, span time.Duration) time.Time {
+	now := time.Now()
+	for at := now.Add(-span); !at.After(now); at = at.Add(500 * time.Millisecond) {
+		h.update(c, s, at)
+	}
+	return now
+}
+
+func TestAutomaticDispatchRoutingGate(t *testing.T) {
+	t.Run("pending change defers then dispatches", func(t *testing.T) {
+		c, s := dispatchFixture(t)
+		s.Numbers["Strip[3].B2"] = 1 // Unconfirmed write: the plan wants it off.
+		b := &callbackBackend{s: s, transport: stoppedTransport()}
+		r := newRecovery(filepath.Join(t.TempDir(), "config"))
+		// Grace lasts five seconds; the stall qualifies about two seconds later.
+		now := stallSince(&r.callback, c, s, 9*time.Second)
+		err := r.automaticRestart(&observed{Client: b}, c, true, now)
+		if err == nil || !strings.Contains(err.Error(), "Strip[3].B2") || b.calls != 0 {
+			t.Fatal("pending change not deferred by name", err, b.calls)
+		}
+		r = newRecovery(filepath.Join(t.TempDir(), "config"))
+		now = stallSince(&r.callback, c, s, 18*time.Second)
+		if err = r.automaticRestart(&observed{Client: b}, c, true, now); err != nil || b.calls != 1 {
+			t.Fatal("unconfirmed routing blocked recovery past its bound", err, b.calls)
+		}
+	})
+	t.Run("unresolved routing does not block", func(t *testing.T) {
+		c, s := dispatchFixture(t)
+		c.ProfileMicMissing = true // Settled, but with no eligible microphone.
+		p, err := routing.Build(c, s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !p.HasUnresolved() || pendingRoutingTarget(p) != "" {
+			t.Fatal("fixture needs settled but unresolved routing", p.Topology.Unresolved, pendingRoutingTarget(p))
+		}
+		b := &callbackBackend{s: s, transport: stoppedTransport()}
+		r := newRecovery(filepath.Join(t.TempDir(), "config"))
+		now := stallSince(&r.callback, c, s, 9*time.Second)
+		if err = r.automaticRestart(&observed{Client: b}, c, true, now); err != nil || b.calls != 1 {
+			t.Fatal("unresolved routing blocked recovery", err, b.calls)
+		}
+	})
 }
