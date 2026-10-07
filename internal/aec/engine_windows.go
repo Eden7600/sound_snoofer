@@ -19,6 +19,7 @@ type Engine struct {
 	dll                       *windows.DLL
 	handle                    uintptr
 	destroy, configure, stats *windows.Proc
+	readFailure, resetFailure *windows.Proc
 	inputInsert, outputInsert *windows.Proc
 }
 
@@ -53,6 +54,7 @@ func Open(path string) (*Engine, error) {
 	var create *windows.Proc
 	procs := map[string]**windows.Proc{
 		"AECCreate": &create, "AECDestroy": &e.destroy, "AECConfigureV2": &e.configure, "AECReadStats": &e.stats,
+		"AECReadFailure": &e.readFailure, "AECResetFailure": &e.resetFailure,
 		"AECInputInsert": &e.inputInsert, "AECOutputInsert": &e.outputInsert,
 	}
 	for name, target := range procs {
@@ -90,7 +92,7 @@ func (e *Engine) Stats() (Stats, error) {
 	if err := result("AECReadStats", code); err != nil {
 		return Stats{}, err
 	}
-	return Stats{
+	stats := Stats{
 		Active:     native.active != 0,
 		SampleRate: int(native.sampleRate),
 		ERLEKnown:  native.erleCentiDB >= 0,
@@ -99,7 +101,24 @@ func (e *Engine) Stats() (Stats, error) {
 		DelayMs:    int(native.delayMs),
 		Frames:     native.frames,
 		Failed:     native.failed != 0,
-	}, nil
+	}
+	if !stats.Failed {
+		return stats, nil
+	}
+	var reason int32
+	code, _, _ = e.readFailure.Call(e.handle, uintptr(unsafe.Pointer(&reason)))
+	if err := result("AECReadFailure", code); err != nil {
+		return stats, err
+	}
+	stats.Reason = reasons[reason]
+	return stats, nil
+}
+
+// Reset clears a latched failure. The next input insert rebuilds the engine
+// and its framing before processing resumes.
+func (e *Engine) Reset() error {
+	code, _, _ := e.resetFailure.Call(e.handle)
+	return result("AECResetFailure", code)
 }
 
 // Hook returns the insert stages for the monitor's audio callback.

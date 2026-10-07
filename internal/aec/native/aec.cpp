@@ -27,6 +27,23 @@ namespace {
 constexpr int kNone = -1;
 constexpr int kMaxFrame = 480;  // 10 ms at 48 kHz, the largest supported rate.
 
+// Failure reasons reported by AECReadFailure; 0 means no failure.
+enum Reason {
+    kMissingOutput = 1,
+    kMissingMic = 2,
+    kCaptureFailed = 3,
+    kCaptureUnderflow = 4,
+    kUnpairedOutput = 5,
+    kMissingReference = 6,
+    kReferenceFailed = 7,
+    kUnexpected = 8,
+};
+
+// Fault carries a failure reason out of the processing code.
+struct Fault {
+    int reason;
+};
+
 // Strength presets relax AEC3's suppressor: higher masking thresholds keep
 // more near-end signal. Strong is AEC3's default.
 webrtc::EchoCanceller3Config ConfigFor(int strength) {
@@ -114,6 +131,7 @@ struct AEC {
     std::atomic<unsigned> generation{0};
     // Reported state, written by the audio thread.
     std::atomic<int> active{0}, rate{0}, erle{-1}, delay{-1}, failed{0};
+    std::atomic<int> reason{0};  // Why the engine failed; stored before failed.
     std::atomic<unsigned> frames{0};
 
     // Audio-thread state.
@@ -193,9 +211,9 @@ void Process(AEC* a, AudioBuffer* b) {
     }
     if (!a->processing) return;
     const int frame = a->sample_rate / 100;
-    if (a->expectedReferenceSamples != 0) throw std::runtime_error("missing output callback");
+    if (a->expectedReferenceSamples != 0) throw Fault{kMissingOutput};
     for (int ch = 0; ch < a->micChannels; ++ch) {
-        if (!Has(b, a->mic[ch])) throw std::runtime_error("missing microphone channel");
+        if (!Has(b, a->mic[ch])) throw Fault{kMissingMic};
     }
     a->expectedReferenceSamples = b->samples;
     const webrtc::StreamConfig captureConfig(a->sample_rate, static_cast<size_t>(a->micChannels));
@@ -208,7 +226,7 @@ void Process(AEC* a, AudioBuffer* b) {
         }
         if (++a->captureFill == frame) {
             if (a->apm->ProcessStream(capturePtr, captureConfig, captureConfig, capturePtr) != 0) {
-                throw std::runtime_error("ProcessStream failed");
+                throw Fault{kCaptureFailed};
             }
             for (int ch = 0; ch < a->micChannels; ++ch) {
                 for (int j = 0; j < frame; ++j) a->micOut[ch].Push(a->capture[ch][j]);
@@ -222,10 +240,17 @@ void Process(AEC* a, AudioBuffer* b) {
             }
         }
         for (int ch = 0; ch < a->micChannels; ++ch) {
-            if (!a->micOut[ch].Size()) throw std::runtime_error("capture output underflow");
+            if (!a->micOut[ch].Size()) throw Fault{kCaptureUnderflow};
             b->write[a->mic[ch]][i] = a->micOut[ch].Pop();
         }
     }
+}
+
+// Fail latches pass-through until AECResetFailure; the reason is visible first.
+void Fail(AEC* a, int reason) {
+    a->reason.store(reason);
+    a->failed.store(1);
+    a->active.store(0);
 }
 
 }  // namespace
@@ -275,6 +300,23 @@ __declspec(dllexport) HRESULT __cdecl AECReadStats(AEC* a, AECStats* s) {
     return S_OK;
 }
 
+// AECReadFailure reports why the engine failed (a Reason), or 0.
+__declspec(dllexport) HRESULT __cdecl AECReadFailure(AEC* a, int* reason) {
+    if (!a || !reason) return E_INVALIDARG;
+    *reason = a->failed.load() ? a->reason.load() : 0;
+    return S_OK;
+}
+
+// AECResetFailure clears a latched failure. The generation advances first, so
+// the next input insert rebuilds the engine and its framing before processing.
+__declspec(dllexport) HRESULT __cdecl AECResetFailure(AEC* a) {
+    if (!a) return E_INVALIDARG;
+    a->generation.fetch_add(1, std::memory_order_release);
+    a->reason.store(0);
+    a->failed.store(0);
+    return S_OK;
+}
+
 // AECInputInsert processes the mic channels and passes every other channel through.
 __declspec(dllexport) void __stdcall AECInputInsert(void* context, AudioBuffer* b) {
     AEC* a = static_cast<AEC*>(context);
@@ -283,9 +325,11 @@ __declspec(dllexport) void __stdcall AECInputInsert(void* context, AudioBuffer* 
     if (!a || a->failed.load()) return;
     try {
         Process(a, b);
+    } catch (const Fault& f) {
+        Fail(a, f.reason);
+        PassThrough(b);
     } catch (...) {
-        a->failed.store(1);
-        a->active.store(0);
+        Fail(a, kUnexpected);
         PassThrough(b);
     }
 }
@@ -294,12 +338,14 @@ __declspec(dllexport) void __stdcall AECInputInsert(void* context, AudioBuffer* 
 __declspec(dllexport) void __stdcall AECOutputInsert(void* context, AudioBuffer* b) {
     AEC* a = static_cast<AEC*>(context);
     if (!a || !Valid(b) || !a->processing || a->failed.load()) return;
+    // After a reset, wait for the input insert to rebuild the engine.
+    if (a->applied != a->generation.load(std::memory_order_acquire)) return;
     try {
         if (b->sr != a->sample_rate || b->samples != a->expectedReferenceSamples) {
-            throw std::runtime_error("unpaired output callback");
+            throw Fault{kUnpairedOutput};
         }
         for (int c = 0; c < 8; ++c) {
-            if (!Has(b, a->ref[c])) throw std::runtime_error("missing reference channel");
+            if (!Has(b, a->ref[c])) throw Fault{kMissingReference};
         }
         const int frame = a->sample_rate / 100;
         const webrtc::StreamConfig renderConfig(a->sample_rate, 8);
@@ -309,15 +355,16 @@ __declspec(dllexport) void __stdcall AECOutputInsert(void* context, AudioBuffer*
             for (int c = 0; c < 8; ++c) a->render[c][a->renderFill] = b->read[a->ref[c]][i];
             if (++a->renderFill == frame) {
                 if (a->apm->ProcessReverseStream(renderPtr, renderConfig, renderConfig, renderPtr) != 0) {
-                    throw std::runtime_error("ProcessReverseStream failed");
+                    throw Fault{kReferenceFailed};
                 }
                 a->renderFill = 0;
             }
         }
         a->expectedReferenceSamples = 0;
+    } catch (const Fault& f) {
+        Fail(a, f.reason);
     } catch (...) {
-        a->failed.store(1);
-        a->active.store(0);
+        Fail(a, kUnexpected);
     }
 }
 

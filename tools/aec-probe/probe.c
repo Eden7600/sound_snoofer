@@ -24,11 +24,15 @@ typedef HRESULT (__cdecl *CreateFn)(AEC **);
 typedef HRESULT (__cdecl *DestroyFn)(AEC *);
 typedef HRESULT (__cdecl *ConfigureFn)(AEC *, const AECConfig *);
 typedef HRESULT (__cdecl *StatsFn)(AEC *, AECStats *);
+typedef HRESULT (__cdecl *FailureFn)(AEC *, int *);
+typedef HRESULT (__cdecl *ResetFn)(AEC *);
 
 static CreateFn create;
 static DestroyFn destroy;
 static ConfigureFn configure;
 static StatsFn stats;
+static FailureFn readFailure;
+static ResetFn resetFailure;
 static InsertStage inputInsert, outputInsert;
 
 enum { Channels = 8, MaxSamples = 4096, MicLeft = 2, MicRight = 3, RefLeft = 0, RefRight = 1 };
@@ -225,9 +229,11 @@ int main(int argc, char **argv) {
     destroy = (DestroyFn)(void *)GetProcAddress(dll, "AECDestroy");
     configure = (ConfigureFn)(void *)GetProcAddress(dll, "AECConfigureV2");
     stats = (StatsFn)(void *)GetProcAddress(dll, "AECReadStats");
+    readFailure = (FailureFn)(void *)GetProcAddress(dll, "AECReadFailure");
+    resetFailure = (ResetFn)(void *)GetProcAddress(dll, "AECResetFailure");
     inputInsert = (InsertStage)(void *)GetProcAddress(dll, "AECInputInsert");
     outputInsert = (InsertStage)(void *)GetProcAddress(dll, "AECOutputInsert");
-    if (!create || !destroy || !configure || !stats || !inputInsert || !outputInsert) {
+    if (!create || !destroy || !configure || !stats || !readFailure || !resetFailure || !inputInsert || !outputInsert) {
         fprintf(stderr, "%s lacks an expected export\n", path);
         return 2;
     }
@@ -291,6 +297,22 @@ int main(int argc, char **argv) {
         int same = 1;
         for (int c = 0; c < Channels; ++c) same &= memcmp(readMic[c], writeMic[c], 256*sizeof(float)) == 0;
         check(report.failed && !report.active && same, "callback fault latches failure and passes mic through");
+        /* Missing output, three unpaired outputs, missing reference, unpaired output. */
+        const int reasons[] = {1, 5, 5, 6, 5};
+        int reason = 0;
+        readFailure(aec, &reason);
+        check(reason == reasons[fault], "callback fault reports its reason");
+        /* A reset for a new stream rebuilds the engine; paired callbacks process again. */
+        resetFailure(aec);
+        buffers(&in, &out, 48000, 256);
+        outputInsert(aec, &out); /* Stale output before the rebuild is skipped, not a fault. */
+        for (int cycle = 0; cycle < 10; ++cycle) {
+            inputInsert(aec, &in);
+            outputInsert(aec, &out);
+        }
+        stats(aec, &report);
+        readFailure(aec, &reason);
+        check(report.active && !report.failed && report.frames > 0 && reason == 0, "reset resumes processing on paired callbacks");
         destroy(aec);
     }
 

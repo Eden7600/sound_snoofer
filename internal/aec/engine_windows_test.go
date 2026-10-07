@@ -87,6 +87,22 @@ func TestNativeEngine(t *testing.T) {
 	if !s.Active || s.SampleRate != 48000 || s.Frames < 98 || s.Failed {
 		t.Fatal(s)
 	}
+	// A stream that ends between the inserts latches a failure with its reason.
+	e.inputInsert.Call(hook.Context, uintptr(unsafe.Pointer(b)))
+	e.inputInsert.Call(hook.Context, uintptr(unsafe.Pointer(b)))
+	if s, err := e.Stats(); err != nil || !s.Failed || s.Active || s.Reason != "missing output callback" {
+		t.Fatal("fault not latched with its reason", s, err)
+	}
+	if err := e.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	for range 10 {
+		e.inputInsert.Call(hook.Context, uintptr(unsafe.Pointer(b)))
+		e.outputInsert.Call(hook.Context, uintptr(unsafe.Pointer(b)))
+	}
+	if s, err := e.Stats(); err != nil || s.Failed || !s.Active || s.Reason != "" {
+		t.Fatal("reset did not resume processing", s, err)
+	}
 	if err := e.Configure(Config{Mic: [2]int{0, 1}, Reference: [8]int{0, 1, 2, 3, 4, 5, 6, 7}, Bypass: true}); err != nil {
 		t.Fatal(err)
 	}

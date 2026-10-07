@@ -30,9 +30,22 @@ type Stats struct {
 	DelayMs    int    // Estimated echo delay.
 	Frames     uint32 // 10 ms frames processed.
 	Failed     bool   // An engine error switched to pass-through.
+	Reason     string // Why the engine failed; empty when it has not.
 }
 
 // Supported reports whether the engine processes at a sample rate.
 func Supported(rate int) bool {
 	return rate == 48000 || rate == 32000 || rate == 16000
+}
+
+// reasons maps AECReadFailure codes to status text.
+var reasons = map[int32]string{
+	1: "missing output callback",
+	2: "missing microphone channel",
+	3: "capture failed",
+	4: "capture underflow",
+	5: "unpaired output callback",
+	6: "missing reference channel",
+	7: "reference failed",
+	8: "unexpected exception",
 }
