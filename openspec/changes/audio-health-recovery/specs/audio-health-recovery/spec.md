@@ -68,3 +68,18 @@ The system SHALL use a live-owner native output callback monitor for opt-in reco
 #### Scenario: Uncertain restart persists
 - **WHEN** a restart returns an uncertain outcome
 - **THEN** automatic retry remains blocked across relaunch until manual retry or observed callback recovery
+
+### Requirement: Recovery without playback outputs
+Under the voice profile, missing playback outputs SHALL NOT block microphone routing or automatic engine recovery.
+#### Scenario: Boot before outputs connect
+- **WHEN** no playback candidate is eligible
+- **THEN** the plan has no playback target, keeps the current A1 device, applies the mic stack and is not unresolved
+#### Scenario: Stall with pending routing
+- **WHEN** a qualified stall coincides with a routing change the engine does not confirm
+- **THEN** automatic restart is deferred for at most ten seconds, naming the pending target, and then dispatched subject to the identity, transport and budget guards
+
+### Requirement: Callback monitor continuity
+The live owner SHALL restart its callback monitor after the engine ends or changes the audio stream.
+#### Scenario: Device switch
+- **WHEN** the monitor reports a stream end or change while live
+- **THEN** the monitor is stopped, unregistered, registered and started again on the owning worker, at most once every five seconds

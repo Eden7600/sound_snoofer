@@ -26,3 +26,10 @@
 - [ ] Verify actual incident detection and engine recovery on the affected hardware, separately from mock success.
 - [ ] Check audible output, Element return, mic mute, Volt A1 and recorder behavior after recovery.
 - [ ] Check prolonged silence, ordinary hotplug, VR transitions and suspend/resume cause no spurious restarts.
+
+## 6. Boot without outputs and monitor continuity (2026-10-07)
+- [ ] `fix(routing)`: under the voice profile, no eligible playback device is a resolved no-output plan that still applies the mic stack and keeps A1; reasons stay diagnostic. Tests cover voice and non-voice profiles.
+- [ ] `fix(audio)`: automatic restart ignores unresolved routing, defers on pending changes for at most ten seconds after qualification, and names the pending target. Tests cover the deferral, its bound and unresolved items.
+- [ ] `fix(audio)`: restart the callback monitor after a stream end or change, at most every five seconds, on the live owner. Tests cover end, change, rate limit and preview.
+- [ ] Validate, build and relaunch.
+- [ ] Hardware: booting without outputs, then a stall, is restarted automatically; health stays monitored after a device switch.
