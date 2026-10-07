@@ -244,11 +244,11 @@ __declspec(dllexport) void __stdcall AECInputInsert(void* context, AudioBuffer* 
     if (e->fullband && b->sr != 48000) return;
     if (e->Failed() || (b->sr != 16000 && b->sr != 32000 && b->sr != 48000)) return;
     if (b->samples > kMaxBlock) { e->Fail(gen, 11); return; }
-    if (e->recovering && (e->recoverySamples += b->samples) >= 2 * b->sr) {
+    if (e->recovering && (e->recoverySamples += b->samples) >= 10 * b->sr) {
         e->Fail(gen, 1); return;
     }
     if (!Has(b, e->m[0]) || !Has(b, e->m[1])) { e->Fail(gen, 2); return; }
-    if (!e->referenceReady && (e->startup += b->samples) > b->sr) { e->Fail(gen, 1); return; }
+    if (!e->referenceReady && (e->startup += b->samples) > 5 * b->sr) { e->Fail(gen, 1); return; }
     // Preserve aliased microphone input before committing any processed output.
     for (int i = 0; i < b->samples; ++i) {
         e->capture[i] = .5f * b->read[e->m[0]][i] + .5f * b->read[e->m[1]][i];
@@ -299,7 +299,7 @@ __declspec(dllexport) void __stdcall AECOutputInsert(void* context, AudioBuffer*
     }
     e->cursor += b->samples;
     e->pending = 0; e->referenceReady = true;
-    if (e->recovering && (e->stableSamples += b->samples) >= e->sampleRate) {
+    if (e->recovering && (e->stableSamples += b->samples) >= e->sampleRate / 4) {
         e->recovering = false;
     }
 }

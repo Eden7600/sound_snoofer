@@ -115,10 +115,15 @@ int main(int argc, char** argv) {
     for(int ch=0;ch<8;++ch)assert(!memcmp(samples[ch],writes[ch],512*sizeof(float)));
     // Frequent gaps cannot restart the recovery budget indefinitely.
     c.bypass=0; assert(SUCCEEDED(configure(e,&c)));
-    for(int n=0;n<250;++n) {
+    for(int n=0;n<1500;++n) {
+        if(n==400) {
+            // 267 ms of valid pairs must clear the previous recovery budget.
+            for(int stable=0;stable<25;++stable){input(e,&b);output(e,&b);Sleep(11);}
+        }
         input(e,&b);
         if(n%3==0) output(e,&b);
         read(e,&deadline);
+        if(n<1200)assert(!deadline.failed);
         if(deadline.failed) break;
         Sleep(11);
     }
@@ -126,8 +131,8 @@ int main(int argc, char** argv) {
     assert(deadline.failed && reason==1);
     input(e,&b);output(e,&b);read(e,&deadline);assert(deadline.failed);
     input(e,nullptr);
-    // Reference absent altogether still has a one-second input-audio budget.
-    for(int n=0;n<100;++n) input(e,&b);
+    // Reference absent altogether still has a five-second input-audio budget.
+    for(int n=0;n<480;++n) { input(e,&b);read(e,&deadline);if(n<400)assert(!deadline.failed); }
     read(e,&deadline);failure(e,&reason);assert(deadline.failed && reason==1);
     if(fullband) {
         for(int rate : {16000,32000}) {
