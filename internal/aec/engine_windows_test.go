@@ -121,8 +121,12 @@ func TestNativeNeuralModels(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"localvqe-v1.4-aec-200K-f32.gguf", "localvqe-v1.3-4.8M-f32.gguf", "localvqe-v1.4-aec-200K-f32.gguf"} {
-		e, err := OpenNeural(path, filepath.Join(filepath.Dir(path), "models", name))
+	for i, name := range []string{"localvqe-v1.4-aec-200K-f32.gguf", "localvqe-v1.3-4.8M-f32.gguf", "localvqe-v1.4-aec-200K-f32.gguf"} {
+		openModel := OpenNeural
+		if i == 2 {
+			openModel = OpenFullband
+		}
+		e, err := openModel(path, filepath.Join(filepath.Dir(path), "models", name))
 		if err != nil {
 			t.Fatal(name, err)
 		}

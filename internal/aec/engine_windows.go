@@ -47,12 +47,15 @@ func result(name string, code uintptr) error {
 }
 
 // Open loads the DLL at path and creates an engine.
-func Open(path string) (*Engine, error) { return open(path, "") }
+func Open(path string) (*Engine, error) { return open(path, "", false) }
 
 // OpenNeural loads the neural companion and its selected model.
-func OpenNeural(path, model string) (*Engine, error) { return open(path, model) }
+func OpenNeural(path, model string) (*Engine, error) { return open(path, model, false) }
 
-func open(path, model string) (*Engine, error) {
+// OpenFullband adds echo-controlled upper frequencies to the neural voice model.
+func OpenFullband(path, model string) (*Engine, error) { return open(path, model, true) }
+
+func open(path, model string, fullband bool) (*Engine, error) {
 	handle, err := windows.LoadLibraryEx(path, 0, windows.LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR|windows.LOAD_LIBRARY_SEARCH_DEFAULT_DIRS)
 	dll := &windows.DLL{Name: path, Handle: handle}
 	if err != nil {
@@ -63,6 +66,9 @@ func open(path, model string) (*Engine, error) {
 	createName := "AECCreate"
 	if model != "" {
 		createName = "AECNeuralCreate"
+		if fullband {
+			createName = "AECNeuralFullbandCreate"
+		}
 	}
 	procs := map[string]**windows.Proc{
 		createName: &create, "AECDestroy": &e.destroy, "AECConfigureV2": &e.configure, "AECReadStats": &e.stats,

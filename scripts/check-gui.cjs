@@ -27,7 +27,7 @@ add("audio.pause-devices","Disable device manipulation","toggle","Off",{Group:"S
 add("audio.pause-sends","Disable send manipulation","toggle","On",{Group:"Shared audio",Status:"3 held"});
 add("audio.engine-restart","Restart audio engine","command","",{Group:"Bindings",SurfaceOnly:true});
 add("aec.mode","Echo cancellation","selection","auto",{Options:["auto","on","off"],OptionLabels:{auto:"Auto",on:"On",off:"Off"},Icon:"echo"});
-add("aec.engine","Echo engine","selection","aec3",{Options:["aec3","localvqe-aec","localvqe-voice"],OptionLabels:{aec3:"WebRTC AEC3","localvqe-aec":"LocalVQE echo-only","localvqe-voice":"LocalVQE voice cleanup"},Icon:"echo"});
+add("aec.engine","Echo engine","selection","aec3",{Options:["aec3","localvqe-aec","localvqe-voice","localvqe-full"],OptionLabels:{aec3:"WebRTC AEC3","localvqe-aec":"LocalVQE echo-only","localvqe-voice":"LocalVQE voice cleanup","localvqe-full":"LocalVQE full-band"},Icon:"echo"});
 add("aec.strength","Echo strength","selection","strong",{Options:["strong","balanced","gentle"],OptionLabels:{strong:"Strong",balanced:"Balanced",gentle:"Gentle"},Icon:"echo"});
 add("aec.status","Echo cancellation status","status","Active",{Status:"−32 dB echo · 54 ms",Icon:"echo"});
 add("soundboard.volume","Volume","numeric","0.0 dB");
@@ -169,13 +169,13 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   assert.equal(await echo.getByText("−32 dB echo · 54 ms").count(),1,"echo status detail");
   assert.equal(await echo.getByLabel("Mode").inputValue(),"auto");
   assert.deepEqual(await echo.getByLabel("Strength").locator("option").allTextContents(),["Strong","Balanced","Gentle"]);
-  assert.deepEqual(await echo.getByLabel("Engine").locator("option").allTextContents(),["WebRTC AEC3","LocalVQE echo-only","LocalVQE voice cleanup"]);
-  await echo.getByLabel("Engine").selectOption("localvqe-aec");
-  await page.waitForFunction(()=>window.fixture.Controls.find(c=>c.ID==="aec.engine").Value==="localvqe-aec");
-  await page.evaluate(()=>{window.fixture.Controls.find(c=>c.ID==="aec.strength").Available=false;window.fixture.Controls.find(c=>c.ID==="aec.status").Status="16 kHz mono · ~93 ms processing latency";});
+  assert.deepEqual(await echo.getByLabel("Engine").locator("option").allTextContents(),["WebRTC AEC3","LocalVQE echo-only","LocalVQE voice cleanup","LocalVQE full-band"]);
+  await echo.getByLabel("Engine").selectOption("localvqe-full");
+  await page.waitForFunction(()=>window.fixture.Controls.find(c=>c.ID==="aec.engine").Value==="localvqe-full");
+  await page.evaluate(()=>{window.fixture.Controls.find(c=>c.ID==="aec.strength").Available=false;window.fixture.Controls.find(c=>c.ID==="aec.status").Status="48 kHz mono · hybrid · ~95 ms processing latency";});
   await page.waitForFunction(()=>document.querySelector('[data-part=echo] select[aria-label="Strength"]')?.disabled || [...document.querySelectorAll('[data-part=echo] select')].some(x=>x.disabled));
   assert.equal(await echo.getByLabel("Strength").isDisabled(),true);
-  await echo.getByText("16 kHz mono · ~93 ms processing latency").waitFor();
+  await echo.getByText("48 kHz mono · hybrid · ~95 ms processing latency").waitFor();
   await echo.getByLabel("Mode").selectOption("off");
   await page.waitForFunction(()=>window.fixture.Controls.find(c=>c.ID==="aec.mode").Value==="off");
   await page.evaluate(()=>{window.sent.length=0;});

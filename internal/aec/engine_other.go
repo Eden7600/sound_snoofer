@@ -23,3 +23,5 @@ func (*Engine) Hook() voicemeeter.InsertHook { return voicemeeter.InsertHook{} }
 func (*Engine) Close() error                 { return nil }
 
 func OpenNeural(string, string) (*Engine, error) { return nil, errUnsupported }
+
+func OpenFullband(string, string) (*Engine, error) { return nil, errUnsupported }

@@ -32,8 +32,8 @@ type Settings struct {
 }
 
 var (
-	engines      = []string{"aec3", "localvqe-aec", "localvqe-voice"}
-	engineLabels = map[string]string{"aec3": "WebRTC AEC3", "localvqe-aec": "LocalVQE echo-only", "localvqe-voice": "LocalVQE voice cleanup"}
+	engines      = []string{"aec3", "localvqe-aec", "localvqe-voice", "localvqe-full"}
+	engineLabels = map[string]string{"aec3": "WebRTC AEC3", "localvqe-aec": "LocalVQE echo-only", "localvqe-voice": "LocalVQE voice cleanup", "localvqe-full": "LocalVQE full-band"}
 	modes        = []string{"auto", "on", "off"}
 	strengths    = []string{"strong", "balanced", "gentle"}
 	modeLabels   = map[string]string{"auto": "Auto", "on": "On", "off": "Off"}
@@ -124,14 +124,18 @@ func openBesideExecutable(choice string) (canceller, error) {
 	dir := filepath.Dir(exe)
 	if choice != "aec3" {
 		model := "localvqe-v1.4-aec-200K-f32.gguf"
-		if choice == "localvqe-voice" {
+		if choice == "localvqe-voice" || choice == "localvqe-full" {
 			model = "localvqe-v1.3-4.8M-f32.gguf"
 		}
 		path := filepath.Join(dir, "models", model)
 		if _, err := os.Stat(path); err != nil {
 			return nil, fmt.Errorf("neural model unavailable: %w", err)
 		}
-		e, err := engine.OpenNeural(filepath.Join(dir, "snoofer-neural-aec.dll"), path)
+		openModel := engine.OpenNeural
+		if choice == "localvqe-full" {
+			openModel = engine.OpenFullband
+		}
+		e, err := openModel(filepath.Join(dir, "snoofer-neural-aec.dll"), path)
 		if err != nil {
 			return nil, fmt.Errorf("%s failed to load; mic passes through: %w", engineLabels[choice], err)
 		}
@@ -447,14 +451,18 @@ func (w *worker) status() (string, string) {
 		return "Off", ""
 	case !w.active:
 		return "Idle", w.reason
-	case w.stats.SampleRate != 0 && !engine.Supported(w.stats.SampleRate):
+	case w.stats.SampleRate != 0 && (!engine.Supported(w.stats.SampleRate) || (w.settings.engine() == "localvqe-full" && w.stats.SampleRate != 48000)):
 		return "Idle", "Needs 48 kHz"
 	case !w.stats.Active:
 		return "Wait", ""
 	}
 	detail := []string{}
 	if w.settings.engine() != "aec3" {
-		detail = append(detail, "16 kHz mono")
+		if w.settings.engine() == "localvqe-full" {
+			detail = append(detail, "48 kHz mono · hybrid")
+		} else {
+			detail = append(detail, "16 kHz mono")
+		}
 		if w.stats.LatencyMs > 0 {
 			detail = append(detail, fmt.Sprintf("~%d ms processing latency", w.stats.LatencyMs))
 		}

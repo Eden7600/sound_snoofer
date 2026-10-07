@@ -9,6 +9,7 @@
 #include <thread>
 #include "common_audio/resampler/push_sinc_resampler.h"
 #include "localvqe_api.h"
+#include "fullband.h"
 extern "C" {
 #include "audio_buffer.h"
 }
@@ -41,6 +42,7 @@ template<class T> struct Queue {
 };
 struct Engine {
     localvqe_ctx_t model = 0;
+    bool fullband = false; // Immutable before the worker starts.
     std::atomic<bool> stop{false}, bypass{true};
     std::atomic<unsigned> generation{1}, revision{0}, frames{0};
     std::atomic<int> mic[2], refs[8], rate{0}, active{0}, latency{0};
@@ -90,6 +92,7 @@ struct Engine {
         uint64_t emitted = 0;
         float mic16[160]{}, ref16[160]{}, micHop[256]{}, refHop[256]{}, result[256]{};
         std::unique_ptr<webrtc::PushSincResampler> downMic, downRef, up;
+        std::unique_ptr<snoofer::Fullband> upper;
         Input p{};
         while (!stop.load()) {
             if (!input.Pop(p)) { Sleep(1); continue; }
@@ -101,12 +104,14 @@ struct Engine {
                     factor = p.rate / 16000;
                     accumulated = 0;
                     emitted = 0;
+                    if (fullband) upper = std::make_unique<snoofer::Fullband>();
                     if (factor > 1) {
                         downMic = std::make_unique<webrtc::PushSincResampler>(160 * factor, 160);
                         downRef = std::make_unique<webrtc::PushSincResampler>(160 * factor, 160);
                         up = std::make_unique<webrtc::PushSincResampler>(256, 256 * factor);
                     }
                 }
+                if (upper) upper->Push(p.mic,p.ref);
                 if (factor > 1) {
                     downMic->Resample(p.mic, 160 * factor, mic16, 160);
                     downRef->Resample(p.ref, 160 * factor, ref16, 160);
@@ -129,6 +134,7 @@ struct Engine {
                     emitted += out.count;
                     if (factor > 1) up->Resample(result, kHop, out.data, out.count);
                     else std::memcpy(out.data, result, sizeof(result));
+                    if (upper) upper->Mix(out.start,out.data,out.count);
                     bool finite = true;
                     for (int j = 0; j < out.count; ++j) finite &= std::isfinite(out.data[j]);
                     if (!finite) { Fail(gen, 10); break; }
@@ -150,12 +156,12 @@ void Pass(AudioBuffer* b) {
             std::memmove(b->write[c], b->read[c], b->samples * sizeof(float));
 }
 }
-extern "C" {
-__declspec(dllexport) HRESULT __cdecl AECNeuralCreate(Engine** result, const char* path) {
+static HRESULT CreateNeural(Engine** result, const char* path, bool fullband) {
     if (!result || !path) return E_INVALIDARG;
     *result = nullptr;
     try {
         auto e = std::make_unique<Engine>();
+        e->fullband = fullband;
         auto options = localvqe_options_new();
         if (!options) return E_OUTOFMEMORY;
         localvqe_options_set_model_path(options, path);
@@ -168,6 +174,13 @@ __declspec(dllexport) HRESULT __cdecl AECNeuralCreate(Engine** result, const cha
         *result = e.release();
         return S_OK;
     } catch (...) { return E_FAIL; }
+}
+extern "C" {
+__declspec(dllexport) HRESULT __cdecl AECNeuralCreate(Engine** result, const char* path) {
+    return CreateNeural(result,path,false);
+}
+__declspec(dllexport) HRESULT __cdecl AECNeuralFullbandCreate(Engine** result, const char* path) {
+    return CreateNeural(result,path,true);
 }
 __declspec(dllexport) HRESULT __cdecl AECDestroy(Engine* e) { delete e; return S_OK; }
 __declspec(dllexport) HRESULT __cdecl AECConfigureV2(Engine* e, const Config* c) {
@@ -223,11 +236,12 @@ __declspec(dllexport) void __stdcall AECInputInsert(void* context, AudioBuffer* 
         for (int i = 0; i < 8; ++i) e->r[i] = e->refs[i].load();
         if (rev != e->revision.load()) return;
         e->applied = gen; e->sampleRate = b->sr; e->blockSize = b->samples;
-        e->latency.store(b->sr > 0 ? 80 + (1000 * e->blockSize + b->sr - 1) / b->sr + (b->sr > 16000 ? 2 : 0) : 0);
+        e->latency.store(b->sr > 0 ? 80 + (1000 * e->blockSize + b->sr - 1) / b->sr + (b->sr > 16000 ? 2 : 0) + (e->fullband ? 2 : 0) : 0);
         e->pending = e->fill = e->startup = 0;
         e->cursor = 0; e->referenceReady = e->haveOutput = false;
         e->active.store(0);
     }
+    if (e->fullband && b->sr != 48000) return;
     if (e->Failed() || (b->sr != 16000 && b->sr != 32000 && b->sr != 48000)) return;
     if (b->samples > kMaxBlock) { e->Fail(gen, 11); return; }
     if (e->recovering && (e->recoverySamples += b->samples) >= 2 * b->sr) {
@@ -265,6 +279,7 @@ __declspec(dllexport) void __stdcall AECOutputInsert(void* context, AudioBuffer*
     auto e = static_cast<Engine*>(context);
     if (!e || !Valid(b) || e->bypass.load() || e->Failed()) return;
     unsigned gen = e->generation.load();
+    if (e->fullband && b->sr != 48000) return;
     if (e->applied != gen || (e->sampleRate != 16000 && e->sampleRate != 32000 && e->sampleRate != 48000)) return;
     if (b->sr != e->sampleRate || b->samples != e->pending) {
         e->Discontinuity(); return;

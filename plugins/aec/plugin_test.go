@@ -385,7 +385,7 @@ func TestNeuralLoadFailureCanSwitchBack(t *testing.T) {
 	if w.engine != replacement || !w.hooked || !control(t, w, "aec.strength").Available {
 		t.Fatal("could not switch back")
 	}
-	for _, value := range []string{"aec3", "localvqe-aec", "localvqe-voice"} {
+	for _, value := range []string{"aec3", "localvqe-aec", "localvqe-voice", "localvqe-full"} {
 		if err := validate(snoofer.MarshalSettings(Settings{Engine: value})); err != nil {
 			t.Fatal(err)
 		}
@@ -394,4 +394,25 @@ func TestNeuralLoadFailureCanSwitchBack(t *testing.T) {
 		t.Fatal("unknown engine accepted")
 	}
 	_ = w.shutdown()
+}
+
+func TestFullbandStatus(t *testing.T) {
+	m := &fakeMixer{targets: speakers}
+	e := &fakeEngine{stats: engine.Stats{SampleRate: 32000}}
+	w := newWorker(Settings{Engine: "localvqe-full"}, m, e)
+	w.step(context.Background())
+	if c := control(t, w, "aec.status"); c.Value != "Idle" || c.Status != "Needs 48 kHz" {
+		t.Fatal(c)
+	}
+	e.stats = engine.Stats{Active: true, SampleRate: 48000}
+	w.step(context.Background())
+	if c := control(t, w, "aec.status"); c.Value != "Active" || c.Status != "48 kHz mono · hybrid" {
+		t.Fatal(c)
+	}
+	if control(t, w, "aec.strength").Available {
+		t.Fatal("inapplicable strength")
+	}
+	if control(t, w, "aec.engine").Value != "localvqe-full" {
+		t.Fatal("wrong engine")
+	}
 }
