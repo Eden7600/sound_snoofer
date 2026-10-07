@@ -122,6 +122,7 @@ func TestWorkerInsertOnlyWhileLive(t *testing.T) {
 	var held atomic.Bool
 	b := &monitorWorkerClient{held: &held, transitions: make(chan bool, 8), inserts: make(chan *voicemeeter.InsertHook, 8)}
 	var wanted atomic.Pointer[voicemeeter.InsertHook]
+	var generation atomic.Uint64
 	ctx, cancel := context.WithCancel(context.Background())
 	actions := make(chan Action, 4)
 	states := make(chan State, 1)
@@ -132,7 +133,7 @@ func TestWorkerInsertOnlyWhileLive(t *testing.T) {
 			held.Store(true)
 			return func() { held.Store(false) }, nil
 		},
-		Insert: wanted.Load,
+		Insert: func() (*voicemeeter.InsertHook, uint64) { return wanted.Load(), generation.Load() },
 	}
 	go Work(ctx, c, filepath.Join(t.TempDir(), "config"), "", true, deps, actions, states, done)
 	defer func() {
@@ -148,16 +149,44 @@ func TestWorkerInsertOnlyWhileLive(t *testing.T) {
 			return nil
 		}
 	}
+	// published waits for a state reporting the insert at a generation.
+	published := func(want *voicemeeter.InsertHook, at uint64) {
+		deadline := time.After(3 * time.Second)
+		for {
+			select {
+			case s := <-states:
+				if s.InsertGeneration == at && (s.Insert == nil) == (want == nil) && (want == nil || *s.Insert == *want) {
+					return
+				}
+			case <-deadline:
+				t.Fatalf("no state with insert %v at generation %d", want, at)
+			}
+		}
+	}
 	hook := &voicemeeter.InsertHook{Input: 1, Output: 2, Context: 3}
 	wanted.Store(hook)
+	generation.Store(1)
 	actions <- Refresh
 	if got := receive("insert not installed"); got == nil || *got != *hook {
 		t.Fatal(got)
 	}
+	published(hook, 1)
+	wanted.Store(nil)
+	generation.Store(2)
+	actions <- Refresh
+	if got := receive("insert not removed"); got != nil {
+		t.Fatal(got)
+	}
+	published(nil, 2)
+	wanted.Store(hook)
+	generation.Store(3)
+	actions <- Refresh
+	receive("insert not reinstalled")
 	actions <- ToggleLive
 	if got := receive("insert not removed on leaving live"); got != nil {
 		t.Fatal(got)
 	}
+	published(nil, 3)
 	if b.ownershipError.Load() {
 		t.Fatal("callback changed without ownership")
 	}

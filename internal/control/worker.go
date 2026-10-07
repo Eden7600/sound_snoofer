@@ -30,9 +30,10 @@ type Dependencies struct {
 	Open          func(string) (Client, error)
 	Acquire       func() (func(), error)
 	Load          func(string) (config.Config, error)
-	// Insert returns the wanted audio callback insert stages, or nil. The worker
-	// reads it each step while live and re-registers the callback on change.
-	Insert func() *voicemeeter.InsertHook
+	// Insert returns the wanted audio callback insert stages (or nil) and the
+	// request's generation. The worker reads it each step, applies the stages
+	// while live, and reports the outcome in State.Insert.
+	Insert func() (*voicemeeter.InsertHook, uint64)
 }
 type State struct {
 	Levels                           map[string]float32
@@ -61,6 +62,13 @@ type State struct {
 	Health                              string
 	Defaults                            string
 	RestartConfirmation                 bool
+
+	// Insert is the insert hook the callback is registered with (nil when none)
+	// after applying request InsertGeneration. A failed change leaves both as
+	// they were, so a removed hook is released only once Insert is nil at the
+	// removal's generation or later.
+	Insert           *voicemeeter.InsertHook
+	InsertGeneration uint64
 
 	MicOptions    []string
 	OutputOptions []string
@@ -175,6 +183,18 @@ func (o *observed) SetRecorder(p string, v int) error {
 	return b.SetRecorder(p, v)
 }
 
+func setCallback(client Client, enable bool, insert *voicemeeter.InsertHook) error {
+	if c, ok := client.(interface {
+		SetCallback(bool, *voicemeeter.InsertHook) error
+	}); ok {
+		return c.SetCallback(enable, insert)
+	}
+	if enable {
+		return fmt.Errorf("callback monitoring unsupported by this backend")
+	}
+	return nil
+}
+
 // The actor exclusively owns DLL calls, controller state and writer ownership.
 // State messages contain fresh snapshots; no shared mutable maps reach the UI.
 func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, deps Dependencies, actions <-chan Action, states chan State, done chan struct{}) {
@@ -211,21 +231,26 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 	// configureCallback registers the audio callback for monitoring and, while
 	// enabled, any wanted insert stages.
 	configureCallback := func(enable bool) error {
-		if backend == nil {
-			return nil
-		}
 		var insert *voicemeeter.InsertHook
-		if enable && deps.Insert != nil {
-			insert = deps.Insert()
+		var generation uint64
+		if deps.Insert != nil {
+			insert, generation = deps.Insert()
 		}
-		if c, ok := backend.Client.(interface {
-			SetCallback(bool, *voicemeeter.InsertHook) error
-		}); ok {
-			return c.SetCallback(enable, insert)
+		if !enable || backend == nil {
+			insert = nil
 		}
-		if enable {
-			return fmt.Errorf("callback monitoring unsupported by this backend")
+		// Without a backend nothing was ever registered.
+		if backend != nil {
+			if err := setCallback(backend.Client, enable, insert); err != nil {
+				return err
+			}
 		}
+		state.Insert = nil
+		if insert != nil {
+			copied := *insert
+			state.Insert = &copied
+		}
+		state.InsertGeneration = generation
 		return nil
 	}
 	defer func() {

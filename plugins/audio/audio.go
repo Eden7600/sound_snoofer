@@ -42,6 +42,10 @@ type Instance struct {
 	actions                chan control.Action
 	mu                     sync.Mutex
 	state                  control.State
+
+	// The echo canceller's wanted insert hook and its request generation.
+	echoInsert     *voicemeeter.InsertHook
+	echoGeneration uint64
 }
 
 // Plugin returns inert registration metadata.
@@ -137,7 +141,8 @@ func start(ctx context.Context, services snoofer.Services, raw json.RawMessage, 
 			}
 			return ownership.Acquire()
 		},
-		Load: func(string) (config.Config, error) { return config.LoadChoices(settings.StatePath, cfg), nil },
+		Load:   func(string) (config.Config, error) { return config.LoadChoices(settings.StatePath, cfg), nil },
+		Insert: i.insertRequest,
 	}
 	go control.Work(runCtx, cfg, settings.StatePath, settings.DLL, services.Live, deps, i.actions, states, workerDone)
 	go func() {

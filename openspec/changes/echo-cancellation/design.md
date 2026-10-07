@@ -57,7 +57,8 @@ A C ABI around `webrtc::AudioProcessing`, configured for AEC3, high-pass on, wit
 ## 4. Plugins
 - **`plugins/audio`:**
   - **`EchoTargets()`:** reports the managed mic strip's input-insert channels, the output-insert channels of the bus feeding the current playback destination, and whether the mic stack is on.
-  - **`SetEchoInsert(*voicemeeter.InsertHook)`:** installs the hook through the worker.
+  - **Channels (Potato):** input inserts carry 2 channels per physical strip, then 8 per virtual strip; output inserts carry 8 per bus. The mic uses both channels of `Voice.Strip`, and the reference uses the first two of the A bus in `PlaybackTarget`. Otherwise a short reason is given: Not live, Needs Potato, Mic off, No mic or No playback.
+  - **`SetEchoInsert(ctx, *voicemeeter.InsertHook)`:** installs the hook through the worker (asynchronously). Each request has a generation; the worker publishes the hook it registered and the generation it applied (`State.Insert`, `State.InsertGeneration`). Removal returns only once a state at the removal's generation or later shows no hook, or once the audio plugin stopped cleanly; otherwise it fails and the caller must keep the engine and DLL loaded.
   - **Rules:** only the managed mic strip is touched. A disabled mic stack leaves the engine idle (pass-through), and recorder and routing behaviour are unchanged.
 - **`plugins/aec`** (requires `audio`; settings `mode` and `strength`):
   - **Mode:**
