@@ -23,6 +23,7 @@ import (
 
 // Settings are the saved echo cancellation preferences.
 type Settings struct {
+	Engine   string `json:"engine,omitempty"`   // Empty defaults to WebRTC AEC3.
 	Mode     string `json:"mode,omitempty"`     // "auto" (default), "on" or "off".
 	Strength string `json:"strength,omitempty"` // "strong" (default), "balanced" or "gentle".
 	// SpeakerOutputs are Go regexps naming speaker playback devices for Auto.
@@ -31,6 +32,8 @@ type Settings struct {
 }
 
 var (
+	engines      = []string{"aec3", "localvqe-aec", "localvqe-voice"}
+	engineLabels = map[string]string{"aec3": "WebRTC AEC3", "localvqe-aec": "LocalVQE echo-only", "localvqe-voice": "LocalVQE voice cleanup"}
 	modes        = []string{"auto", "on", "off"}
 	strengths    = []string{"strong", "balanced", "gentle"}
 	modeLabels   = map[string]string{"auto": "Auto", "on": "On", "off": "Off"}
@@ -38,6 +41,13 @@ var (
 	strengthText = map[string]string{"strong": "Strong", "balanced": "Balanced", "gentle": "Gentle"}
 	headphones   = regexp.MustCompile(`(?i)head(phone|set)|ear(phone|bud)|airpods|\bbuds\b`)
 )
+
+func (s Settings) engine() string {
+	if s.Engine == "" {
+		return "aec3"
+	}
+	return s.Engine
+}
 
 func (s Settings) mode() string {
 	if s.Mode == "" {
@@ -69,6 +79,9 @@ func validate(raw json.RawMessage) error {
 	var s Settings
 	if err := snoofer.DecodeSettings(raw, &s); err != nil {
 		return err
+	}
+	if !slices.Contains(engines, s.engine()) {
+		return fmt.Errorf("unknown echo engine %q", s.Engine)
 	}
 	if !slices.Contains(modes, s.mode()) {
 		return fmt.Errorf("mode must be auto, on or off")
@@ -103,12 +116,28 @@ func Plugin() snoofer.Plugin {
 		}}
 }
 
-func openBesideExecutable() (canceller, error) {
+func openBesideExecutable(choice string) (canceller, error) {
 	exe, err := os.Executable()
 	if err != nil {
 		return nil, err
 	}
-	e, err := engine.Open(filepath.Join(filepath.Dir(exe), "snoofer-aec.dll"))
+	dir := filepath.Dir(exe)
+	if choice != "aec3" {
+		model := "localvqe-v1.4-aec-200K-f32.gguf"
+		if choice == "localvqe-voice" {
+			model = "localvqe-v1.3-4.8M-f32.gguf"
+		}
+		path := filepath.Join(dir, "models", model)
+		if _, err := os.Stat(path); err != nil {
+			return nil, fmt.Errorf("neural model unavailable: %w", err)
+		}
+		e, err := engine.OpenNeural(filepath.Join(dir, "snoofer-neural-aec.dll"), path)
+		if err != nil {
+			return nil, fmt.Errorf("%s failed to load; mic passes through: %w", engineLabels[choice], err)
+		}
+		return e, nil
+	}
+	e, err := engine.Open(filepath.Join(dir, "snoofer-aec.dll"))
 	if err != nil {
 		return nil, fmt.Errorf("echo cancellation engine missing or unloadable beside executable: %w", err)
 	}
@@ -139,12 +168,15 @@ const releaseTimeout = 5 * time.Second
 type worker struct {
 	services snoofer.Services
 	mixer    mixer
-	open     func() (canceller, error)
+	open     func(string) (canceller, error)
 	raw      json.RawMessage
 	settings Settings
 	speakers []*regexp.Regexp
 	requests chan snoofer.Request
 
+	loaded     string
+	attempted  string
+	loading    bool
 	engine     canceller
 	engineErr  string
 	hooked     bool   // A hook was requested and not confirmed removed.
@@ -159,7 +191,7 @@ type worker struct {
 	reason     string // Why not active.
 }
 
-func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, m mixer, open func() (canceller, error), interval time.Duration) (snoofer.Instance, error) {
+func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, m mixer, open func(string) (canceller, error), interval time.Duration) (snoofer.Instance, error) {
 	var settings Settings
 	if err := snoofer.DecodeSettings(raw, &settings); err != nil {
 		return nil, err
@@ -221,6 +253,27 @@ func isSpeaker(device string, speakers []*regexp.Regexp) bool {
 }
 
 func (w *worker) step(ctx context.Context) {
+	if w.engine != nil && w.loaded != w.settings.engine() {
+		if w.hooked {
+			w.deactivate(ctx)
+		}
+		if w.hooked {
+			return
+		}
+		closeErr := w.engine.Close()
+		w.engine = nil
+		w.configured = false
+		w.stats = engine.Stats{}
+		w.statsErr = ""
+		if closeErr != nil {
+			w.engineErr = closeErr.Error()
+			w.attempted = w.settings.engine()
+			return
+		}
+	}
+	if w.attempted != w.settings.engine() {
+		w.engineErr = ""
+	}
 	targets := w.mixer.EchoTargets()
 	w.active, w.reason = decide(w.settings, w.speakers, targets)
 	if w.active {
@@ -241,12 +294,27 @@ func (w *worker) step(ctx context.Context) {
 
 func (w *worker) activate(ctx context.Context, targets audio.EchoTargets) {
 	if w.engine == nil {
-		e, err := w.open()
+		if w.attempted == w.settings.engine() && w.engineErr != "" {
+			return
+		}
+		w.loading = true
+		w.publish()
+		w.attempted = w.settings.engine()
+		e, err := w.open(w.settings.engine())
+		w.loading = false
 		if err != nil {
 			w.engineErr = err.Error()
 			return
 		}
 		w.engine, w.engineErr = e, ""
+		w.loaded = w.settings.engine()
+	}
+	// A failed installation may still own a queued hook. Remove it before retrying.
+	if w.hooked && w.engineErr != "" {
+		w.deactivate(ctx)
+		if w.hooked {
+			return
+		}
 	}
 	config := engine.Config{Mic: targets.Mic, Reference: targets.Reference, Strength: strengthOf[w.settings.strength()]}
 	if !w.configured || config != w.applied {
@@ -258,11 +326,11 @@ func (w *worker) activate(ctx context.Context, targets audio.EchoTargets) {
 	}
 	if !w.hooked {
 		hook := w.engine.Hook()
+		w.hooked = true // Keep ownership until removal is acknowledged, even if installation fails.
 		if err := w.mixer.SetEchoInsert(ctx, &hook); err != nil {
 			w.engineErr = err.Error()
 			return
 		}
-		w.hooked = true
 		w.armed = targets.Stream
 	}
 	w.engineErr = ""
@@ -317,6 +385,12 @@ func (w *worker) shutdown() error {
 func (w *worker) handle(r snoofer.Request) {
 	next := w.settings
 	switch r.ID {
+	case "aec.engine":
+		if !slices.Contains(engines, r.Value) {
+			w.saveErr = "unknown engine " + r.Value
+			return
+		}
+		next.Engine = r.Value
 	case "aec.mode":
 		if !slices.Contains(modes, r.Value) {
 			w.saveErr = "unknown mode " + r.Value
@@ -335,6 +409,8 @@ func (w *worker) handle(r snoofer.Request) {
 	w.saveErr = ""
 	if err := w.save(next); err != nil {
 		w.saveErr = err.Error()
+	} else if r.ID == "aec.engine" {
+		w.attempted = ""
 	}
 }
 
@@ -355,6 +431,9 @@ func (w *worker) save(next Settings) error {
 
 // status is the state word and its detail line.
 func (w *worker) status() (string, string) {
+	if w.loading {
+		return "Wait", "Loading " + engineLabels[w.settings.engine()]
+	}
 	failure := firstNonEmpty(w.releaseErr, w.engineErr, w.statsErr)
 	switch {
 	case w.stats.Failed:
@@ -374,6 +453,12 @@ func (w *worker) status() (string, string) {
 		return "Wait", ""
 	}
 	detail := []string{}
+	if w.settings.engine() != "aec3" {
+		detail = append(detail, "16 kHz mono")
+		if w.stats.LatencyMs > 0 {
+			detail = append(detail, fmt.Sprintf("~%d ms processing latency", w.stats.LatencyMs))
+		}
+	}
 	if w.stats.ERLEKnown {
 		detail = append(detail, fmt.Sprintf("−%.0f dB echo", w.stats.ERLE))
 	}
@@ -396,10 +481,11 @@ func (w *worker) publish() {
 	value, detail := w.status()
 	canSave := w.services.SaveSettings != nil
 	controls := []snoofer.Control{
+		{ID: "aec.engine", Label: "Echo engine", ShortLabel: "Engine", Group: "Echo cancellation", Kind: "selection", Icon: "echo", Value: w.settings.engine(), Options: engines, OptionLabels: engineLabels, Status: w.saveErr, Operations: []string{"set"}, Available: canSave},
 		{ID: "aec.mode", Label: "Echo cancellation", ShortLabel: "Echo", Group: "Echo cancellation", Kind: "selection", Icon: "echo",
 			Value: w.settings.mode(), Options: modes, OptionLabels: modeLabels, Status: w.saveErr, Operations: []string{"set"}, Available: canSave},
 		{ID: "aec.strength", Label: "Echo strength", ShortLabel: "Strength", Group: "Echo cancellation", Kind: "selection", Icon: "echo",
-			Value: w.settings.strength(), Options: strengths, OptionLabels: strengthText, Operations: []string{"set"}, Available: canSave},
+			Value: w.settings.strength(), Options: strengths, OptionLabels: strengthText, Operations: []string{"set"}, Available: canSave && w.settings.engine() == "aec3"},
 		{ID: "aec.status", Label: "Echo cancellation status", ShortLabel: "Echo", Group: "Echo cancellation", Kind: "status", Icon: "echo",
 			Value: value, Status: detail, Available: true},
 	}

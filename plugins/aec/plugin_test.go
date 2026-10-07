@@ -85,7 +85,7 @@ var speakers = audio.EchoTargets{Mic: [2]int{0, 1}, Reference: [8]int{8, 9, 10, 
 func newWorker(settings Settings, m *fakeMixer, e *fakeEngine) *worker {
 	raw, _ := json.Marshal(settings)
 	services := snoofer.Services{Controls: snoofer.NewControls(), SaveSettings: func(string, json.RawMessage, json.RawMessage) error { return nil }}
-	return &worker{services: services, mixer: m, open: func() (canceller, error) { return e, nil }, raw: raw, settings: settings, requests: make(chan snoofer.Request, 8)}
+	return &worker{services: services, mixer: m, open: func(string) (canceller, error) { return e, nil }, raw: raw, settings: settings, requests: make(chan snoofer.Request, 8)}
 }
 
 func control(t *testing.T, w *worker, id string) snoofer.Control {
@@ -201,7 +201,7 @@ func TestEngineLoadsOnlyWhenNeeded(t *testing.T) {
 	m := &fakeMixer{targets: audio.EchoTargets{Reason: "Mic off"}}
 	opened := 0
 	w := newWorker(Settings{}, m, &fakeEngine{})
-	w.open = func() (canceller, error) {
+	w.open = func(string) (canceller, error) {
 		opened++
 		return nil, errors.New("missing")
 	}
@@ -241,7 +241,7 @@ func TestStopFreesEngineOnlyAfterRemoval(t *testing.T) {
 		m := &fakeMixer{targets: speakers, refuseNil: !confirmed}
 		e := &fakeEngine{stats: engine.Stats{Active: true, SampleRate: 48000}}
 		services := snoofer.Services{Controls: snoofer.NewControls()}
-		i, err := start(context.Background(), services, json.RawMessage(`{}`), m, func() (canceller, error) { return e, nil }, 10*time.Millisecond)
+		i, err := start(context.Background(), services, json.RawMessage(`{}`), m, func(string) (canceller, error) { return e, nil }, 10*time.Millisecond)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -315,4 +315,83 @@ func TestFailureWithoutHookIsNotReset(t *testing.T) {
 	if e.resets != 0 {
 		t.Fatal("reset without an installed hook", e.resets)
 	}
+}
+
+func TestEngineSwitchOwnershipAndPersistence(t *testing.T) {
+	ctx := context.Background()
+	m := &fakeMixer{targets: speakers}
+	old := &fakeEngine{stats: engine.Stats{Active: true, SampleRate: 48000}}
+	neural := &fakeEngine{}
+	w := newWorker(Settings{}, m, old)
+	w.step(ctx)
+	w.open = func(choice string) (canceller, error) {
+		if choice != "localvqe-aec" || !old.closed || m.hook != nil {
+			t.Fatal("unsafe switch", choice, old.closed, m.hook)
+		}
+		return neural, nil
+	}
+	w.services.SaveSettings = func(string, json.RawMessage, json.RawMessage) error { return errors.New("disk full") }
+	w.handle(snoofer.Request{ID: "aec.engine", Value: "localvqe-aec"})
+	w.step(ctx)
+	if w.settings.engine() != "aec3" || old.closed {
+		t.Fatal("applied an unsaved engine")
+	}
+	w.services.SaveSettings = func(string, json.RawMessage, json.RawMessage) error { return nil }
+	w.handle(snoofer.Request{ID: "aec.engine", Value: "localvqe-aec"})
+	m.refuseNil = true
+	w.step(ctx)
+	if old.closed || w.engine != old || w.releaseErr == "" || !old.last().Bypass {
+		t.Fatal("unconfirmed detach must retain bypassed engine")
+	}
+	m.refuseNil = false
+	w.step(ctx)
+	if w.engine != neural || !w.hooked || !old.closed || w.configured == false {
+		t.Fatal("engine did not switch")
+	}
+	if control(t, w, "aec.strength").Available {
+		t.Fatal("neural engine exposed inapplicable strength")
+	}
+	if control(t, w, "aec.engine").Value != "localvqe-aec" {
+		t.Fatal("wrong selection")
+	}
+	if err := w.shutdown(); err != nil || !neural.closed {
+		t.Fatal("neural cleanup", err)
+	}
+}
+
+func TestNeuralLoadFailureCanSwitchBack(t *testing.T) {
+	ctx := context.Background()
+	m := &fakeMixer{targets: speakers}
+	old := &fakeEngine{}
+	w := newWorker(Settings{}, m, old)
+	w.step(ctx)
+	opens := 0
+	replacement := &fakeEngine{}
+	w.open = func(choice string) (canceller, error) {
+		opens++
+		if choice == "aec3" {
+			return replacement, nil
+		}
+		return nil, errors.New("missing model")
+	}
+	w.handle(snoofer.Request{ID: "aec.engine", Value: "localvqe-voice"})
+	w.step(ctx)
+	w.step(ctx)
+	if !old.closed || m.hook != nil || opens != 1 || control(t, w, "aec.status").Value != "Error" {
+		t.Fatal("load failure retried or retained processing", opens)
+	}
+	w.handle(snoofer.Request{ID: "aec.engine", Value: "aec3"})
+	w.step(ctx)
+	if w.engine != replacement || !w.hooked || !control(t, w, "aec.strength").Available {
+		t.Fatal("could not switch back")
+	}
+	for _, value := range []string{"aec3", "localvqe-aec", "localvqe-voice"} {
+		if err := validate(snoofer.MarshalSettings(Settings{Engine: value})); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if validate(json.RawMessage(`{"engine":"unknown"}`)) == nil {
+		t.Fatal("unknown engine accepted")
+	}
+	_ = w.shutdown()
 }
