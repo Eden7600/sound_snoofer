@@ -8,6 +8,8 @@ test("binding compatibility, semantic states and meter expiry",()=>{
  assert.equal(tone({ID:"audio.mic-mute",Available:true,Value:"On"}),"critical");
  assert.equal(tone({ID:"audio.mic-stack",Available:true,Value:"On"}),"active");
  assert.equal(tone({Available:false,Status:"Error"}),"muted");
+ assert.equal(tone({ID:"aec.status",Available:true,Value:"Error",Status:"echo insert release unconfirmed"}),"critical");
+ assert.equal(tone({ID:"aec.status",Available:true,Value:"Active",Status:"−32 dB echo · 54 ms"}),"active");
  const at=Date.now();
  assert.equal(meterValue({Present:true,Known:true,DB:-18,At:new Date(at).toISOString()},at),-18);
  assert.equal(meterValue({Present:true,Known:true,DB:-18,At:new Date(at-501).toISOString()},at),null);

@@ -19,6 +19,9 @@ for(const prefix of ["normal-","vr-profile-"]){
 add("audio.record-mic","Record microphone","toggle","On",{Group:"Recording"});
 add("audio.auto-recover","Automatic recovery","toggle","On",{Group:"Shared audio"});
 add("audio.engine-restart","Restart audio engine","command","",{Group:"Bindings",SurfaceOnly:true});
+add("aec.mode","Echo cancellation","selection","auto",{Options:["auto","on","off"],OptionLabels:{auto:"Auto",on:"On",off:"Off"},Icon:"echo"});
+add("aec.strength","Echo strength","selection","strong",{Options:["strong","balanced","gentle"],OptionLabels:{strong:"Strong",balanced:"Balanced",gentle:"Gentle"},Icon:"echo"});
+add("aec.status","Echo cancellation status","status","Active",{Status:"−32 dB echo · 54 ms",Icon:"echo"});
 add("soundboard.volume","Volume","numeric","0.0 dB");
 add("soundboard.stop","Stop","command","");
 add("soundboard.status","Soundboard","status","Ready");
@@ -130,6 +133,15 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   const fillWidth=await strip.locator("[data-part=position] > div").first().evaluate(e=>e.style.width);
   assert.equal(fillWidth,"75%","gain position track");
   for(const mark of ["-60","-30","-12","-3","0"])assert.equal(await strip.getByText(mark,{exact:true}).count(),1,"meter scale "+mark);
+  const echo=page.locator("[data-part=echo]");
+  assert.equal(await echo.getByRole("heading",{name:"Echo cancellation"}).count(),1);
+  assert.equal(await echo.getByText("Active",{exact:true}).count(),1,"echo status value");
+  assert.equal(await echo.getByText("−32 dB echo · 54 ms").count(),1,"echo status detail");
+  assert.equal(await echo.getByLabel("Mode").inputValue(),"auto");
+  assert.deepEqual(await echo.getByLabel("Strength").locator("option").allTextContents(),["Strong","Balanced","Gentle"]);
+  await echo.getByLabel("Mode").selectOption("off");
+  await page.waitForFunction(()=>window.fixture.Controls.find(c=>c.ID==="aec.mode").Value==="off");
+  await page.evaluate(()=>{window.sent.length=0;});
   await page.screenshot({path:path.join(root,".local/gui-audio.png"),fullPage:true});
   await page.getByRole("button",{name:"Stream Deck",exact:false}).click();
   await page.getByRole("heading",{name:"Binding",exact:true}).waitFor();

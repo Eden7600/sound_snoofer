@@ -9,7 +9,7 @@ export function compatible(control, dial) {
 export function tone(control) {
  if (!control || !control.Available) return "muted";
  const status=control.Status || "";
- if (/stalled/i.test(control.Value||"")) return "critical";
+ if (/stalled/i.test(control.Value||"") || control.Value==="Error") return "critical";
  if (/failed|error/i.test(status)) return "critical";
  if (/pending|wait|fallback|override/i.test(status) || control.Value==="Wait") return "attention";
  if (control.Value==="On" && /mute/.test(control.ID)) return "critical";
