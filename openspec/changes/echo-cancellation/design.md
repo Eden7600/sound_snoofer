@@ -69,8 +69,9 @@ A C ABI around `webrtc::AudioProcessing`, configured for AEC3, high-pass on, wit
   - **Controls:**
     - `aec.mode` (selection; Auto, On, Off; a deck key cycles it);
     - `aec.strength` (selection);
-    - `aec.status`, whose value is Active, Idle or Bypassed, with a status line such as "−32 dB echo · 54 ms";
-    - `aec.meter`, a display-only meter of echo removed.
+    - `aec.status`: Active with a status line such as "−32 dB echo · 54 ms"; Idle with the reason (Headphones, Mic off, No mic, No playback, Not live, Needs Potato, Needs 48 kHz); Wait until the engine reports processing; Off; or Error (engine failure with the mic passing through, an unloadable engine or an unconfirmed hook removal).
+    - No separate meter: deck meters are dBFS levels, and echo removed is not one.
+  - **Engine life:** the DLL loads on first activation. Deactivating bypasses the engine at once and then removes the hook. Stop frees the engine only after removal is confirmed; otherwise it stays loaded and Stop reports the error.
 - **GUI:** an Echo cancellation card on the Audio screen with mode, strength, live ERLE and delay, and the reason when idle (headphones, mic stack off, 44.1 kHz).
 
 ## 5. Safety

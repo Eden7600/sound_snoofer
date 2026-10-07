@@ -237,6 +237,30 @@ func drawIcon(im *image.RGBA, icon string, ink color.RGBA) bool {
 		line(30, 40, 42, 40)
 		line(70, 40, 82, 40)
 		dot(56, 40, 3)
+	case "echo":
+		// Speaker sound reaching a mic, struck out: echo cancellation.
+		line(16, 33, 24, 33)
+		line(16, 33, 16, 47)
+		line(16, 47, 24, 47)
+		line(24, 33, 35, 23)
+		line(35, 23, 35, 57)
+		line(35, 57, 24, 47)
+		for a := -40; a <= 40; a++ {
+			r := float64(a) * math.Pi / 180
+			dot(37+int(16*math.Cos(r)), 40+int(16*math.Sin(r)), 2)
+			dot(37+int(26*math.Cos(r)), 40+int(26*math.Sin(r)), 2)
+		}
+		line(44, 60, 70, 20)
+		line(80, 20, 92, 20)
+		line(80, 20, 80, 42)
+		line(92, 20, 92, 42)
+		line(80, 42, 92, 42)
+		line(74, 38, 74, 46)
+		line(98, 38, 98, 46)
+		line(74, 46, 86, 54)
+		line(98, 46, 86, 54)
+		line(86, 54, 86, 62)
+		line(78, 62, 94, 62)
 	case "deck-up", "deck-down":
 		// Chevron over a short shaft: scroll the page's sets.
 		tip, wing := 18, 38
