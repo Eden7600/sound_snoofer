@@ -234,7 +234,7 @@ func (c *Controller) changeGain(ctx context.Context, target, identity string, de
 	if e != nil {
 		return e
 	}
-	p, e := routing.Build(c.Config, s)
+	p, e := routing.Build(c.planConfig(), s)
 	if e != nil {
 		return e
 	}

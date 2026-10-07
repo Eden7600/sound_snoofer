@@ -858,7 +858,9 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		}
 		state.Plan = nil
 		if state.Connected {
-			p, e := routing.Build(cfg, state.Snapshot)
+			planCfg := cfg
+			planCfg.TapeListening = ctl != nil && ctl.TapeListening
+			p, e := routing.Build(planCfg, state.Snapshot)
 			if e != nil {
 				state.Error = e.Error()
 			} else {

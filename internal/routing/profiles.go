@@ -10,9 +10,12 @@ import (
 
 // ProfileConfig resolves an immutable saved configuration for each fresh snapshot.
 // ProfileBase prevents derived choices from overwriting saved Normal preferences.
+// Runtime-only state from the caller is kept across that restore.
 func ProfileConfig(c config.Config, s model.Snapshot) config.Config {
 	if c.ProfileBase != nil {
+		tapeListening := c.TapeListening
 		c = *c.ProfileBase
+		c.TapeListening = tapeListening
 	}
 	if c.Profiles == nil || c.Studio == nil || c.VoiceIntent() == nil {
 		return c

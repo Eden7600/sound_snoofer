@@ -179,7 +179,7 @@ func (c *Controller) applyTopology(ctx context.Context, p routing.Plan) error {
 	if routing.InventoryKey(finalSnapshot) != p.Topology.InventoryKey {
 		return fail(ErrPlanChanged)
 	}
-	final, e := routing.Build(c.Config, finalSnapshot)
+	final, e := routing.Build(c.planConfig(), finalSnapshot)
 	if e != nil {
 		return fail(e)
 	}

@@ -83,9 +83,15 @@ func (c *Controller) Plan() (routing.Plan, error) {
 	if !s.Recorder.TapePlaying() {
 		c.TapeListening = false
 	}
+	return routing.Build(c.planConfig(), s)
+}
+
+// planConfig is the configuration every controller plan is built from,
+// including runtime state that is not part of the saved configuration.
+func (c *Controller) planConfig() config.Config {
 	cfg := c.Config
 	cfg.TapeListening = c.TapeListening
-	return routing.Build(cfg, s)
+	return cfg
 }
 
 // Apply revalidates the complete plan before every write. No setter is called

@@ -4,6 +4,8 @@ import (
 	"context"
 	"strings"
 	"testing"
+
+	"sound-snoofer/internal/config"
 )
 
 func converge(t *testing.T, c *Controller) {
@@ -18,9 +20,20 @@ func converge(t *testing.T, c *Controller) {
 }
 
 func TestTapeListenBack(t *testing.T) {
+	testTapeListenBack(t, nil)
+}
+
+// Profile resolution restores the saved base configuration on every plan; the
+// runtime listening flag must survive that.
+func TestTapeListenBackWithProfiles(t *testing.T) {
+	testTapeListenBack(t, &config.Profiles{Microphones: []string{"desk"}})
+}
+
+func testTapeListenBack(t *testing.T, profiles *config.Profiles) {
 	ctx := context.Background()
 	c, b := recorderController(t)
 	c.Config.Intent.Recording.TapeRoutingManaged = true
+	c.Config.Profiles = profiles
 	converge(t, c)
 	b.r.Values["Recorder.A1"] = 1 // Stale routing from elsewhere.
 	if err := c.Tape(ctx, TapePlayPause, true); err != nil {
