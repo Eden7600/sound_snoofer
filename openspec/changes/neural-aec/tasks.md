@@ -1,9 +1,9 @@
 ## 1. Design
 - [x] Specify engine selection, native worker ownership and compatibility limitations.
 ## 2. Dependency and native engine
-- [ ] Build pinned LocalVQE and deploy verified models/licenses.
-- [ ] Implement bounded asynchronous native insert with resampling, generations and failure pass-through.
-- [ ] Verify real inference, framing, reset, signal preservation and deadlines.
+- [x] Build pinned LocalVQE and deploy verified models/licenses.
+- [x] Implement bounded asynchronous native insert with resampling, generations and failure pass-through.
+- [x] Verify real inference, framing, reset, signal preservation and deadlines.
 ## 3. Plugin and GUI
 - [ ] Persist and validate engine selection; safely detach/switch engines.
 - [ ] Add GUI selector and model limitation/status, disable inapplicable Strength.

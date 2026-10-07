@@ -22,6 +22,7 @@ type Config struct {
 
 // Stats is the engine's latest report from the audio thread.
 type Stats struct {
+	LatencyMs  int  // Processing delay, including framing; zero when unknown.
 	Active     bool // Processing with a supported rate and targets.
 	SampleRate int  // As last seen from Voicemeeter; 0 before any audio.
 	ERLEKnown  bool
@@ -40,12 +41,15 @@ func Supported(rate int) bool {
 
 // reasons maps AECReadFailure codes to status text.
 var reasons = map[int32]string{
-	1: "missing output callback",
-	2: "missing microphone channel",
-	3: "capture failed",
-	4: "capture underflow",
-	5: "unpaired output callback",
-	6: "missing reference channel",
-	7: "reference failed",
-	8: "unexpected exception",
+	9:  "neural audio queue overflow",
+	10: "non-finite audio",
+	11: "neural callback exceeds 2048 samples",
+	1:  "missing output callback",
+	2:  "missing microphone channel",
+	3:  "capture failed",
+	4:  "capture underflow",
+	5:  "unpaired output callback",
+	6:  "missing reference channel",
+	7:  "reference failed",
+	8:  "unexpected exception",
 }

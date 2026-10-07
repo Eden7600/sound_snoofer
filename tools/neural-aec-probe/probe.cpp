@@ -1,0 +1,154 @@
+#include <initializer_list>
+#include <vector>
+#include <fstream>
+#include <windows.h>
+#include <mmsystem.h>
+#include <cassert>
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+#include "audio_buffer.h"
+struct Config { int mic[2], reference[8], strength, bypass; };
+struct Stats { int active, rate, erle, delay; unsigned frames; int failed; };
+using Create = HRESULT (__cdecl*)(void**, const char*);
+using Destroy = HRESULT (__cdecl*)(void*);
+using Configure = HRESULT (__cdecl*)(void*, const Config*);
+using Read = HRESULT (__cdecl*)(void*, Stats*);
+using Failure = HRESULT (__cdecl*)(void*, int*);
+static float samples[8][2048], writes[8][2048], original[8][2048];
+int main(int argc, char** argv) {
+    assert(argc == 4);
+    HMODULE dll = LoadLibraryExA(argv[1], nullptr, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+    if (!dll) { fprintf(stderr,"LoadLibrary error %lu\n",GetLastError()); return 1; }
+    auto create = reinterpret_cast<Create>(GetProcAddress(dll,"AECNeuralCreate"));
+    auto destroy = reinterpret_cast<Destroy>(GetProcAddress(dll,"AECDestroy"));
+    auto configure = reinterpret_cast<Configure>(GetProcAddress(dll,"AECConfigureV2"));
+    auto read = reinterpret_cast<Read>(GetProcAddress(dll,"AECReadStats"));
+    auto failure = reinterpret_cast<Failure>(GetProcAddress(dll,"AECReadFailure"));
+    auto input = reinterpret_cast<InsertStage>(GetProcAddress(dll,"AECInputInsert"));
+    auto output = reinterpret_cast<InsertStage>(GetProcAddress(dll,"AECOutputInsert"));
+    assert(create && destroy && configure && read && failure && input && output);
+    void* e = nullptr;
+    assert(FAILED(create(&e,"missing-model.gguf")) && !e);
+    assert(SUCCEEDED(create(&e,argv[2])) && e);
+    Config c{{2,3},{0,1,2,3,4,5,6,7},0,0};
+    assert(SUCCEEDED(configure(e,&c)));
+    timeBeginPeriod(1);
+    int rates[] = {16000,32000,48000};
+    for (int rate : rates) {
+        for (int block : {160,512,1024}) {
+            AudioBuffer b{}; b.sr=rate; b.samples=block; b.inputs=b.outputs=8;
+            for(int ch=0;ch<8;++ch) { b.read[ch]=samples[ch]; b.write[ch]=writes[ch]; }
+            input(e,nullptr);
+            // Repeated input pre-roll must stay exact, including in-place buffers.
+            for(int pre=0;pre<3;++pre) {
+                for(int ch=0;ch<8;++ch) for(int i=0;i<block;++i) samples[ch][i]=float(ch+1)*.01f;
+                input(e,&b);
+                for(int ch=0;ch<8;++ch) assert(!memcmp(samples[ch],writes[ch],block*sizeof(float)));
+            }
+            input(e,nullptr);
+            Stats s{}; int reason=0;
+            uint64_t cursor=0;
+            double before=0, after=0;
+            int loops=rate*2/block;
+            LARGE_INTEGER frequency,start,finish; QueryPerformanceFrequency(&frequency);
+            double maxUs=0;
+            for(int n=0;n<loops;++n) {
+                for(int ch=0;ch<8;++ch) for(int i=0;i<block;++i) {
+                    double t=double(cursor+i)/rate;
+                    samples[ch][i]=float(.08*sin(2*3.141592653589793*233*t)+.03*sin(2*3.141592653589793*677*t));
+                }
+                memcpy(original,samples,sizeof(samples));
+                // Alternate aliased and distinct callback storage.
+                for(int ch=0;ch<8;++ch) b.write[ch]=(n%2 ? samples[ch] : writes[ch]);
+                QueryPerformanceCounter(&start); input(e,&b); QueryPerformanceCounter(&finish);
+                maxUs=std::fmax(maxUs,double(finish.QuadPart-start.QuadPart)*1e6/frequency.QuadPart);
+                assert(SUCCEEDED(read(e,&s)));
+                if(s.failed) { failure(e,&reason); fprintf(stderr,"FAIL rate=%d block=%d step=%d reason=%d\n",rate,block,n,reason); return 1; }
+                for(int ch=0;ch<8;++ch) for(int i=0;i<block;++i) {
+                    assert(std::isfinite(b.write[ch][i]));
+                    if(ch!=2 && ch!=3) assert(b.write[ch][i]==original[ch][i]);
+                    if(cursor > unsigned(rate) && ch==2) {before+=original[ch][i]*original[ch][i];after+=b.write[ch][i]*b.write[ch][i];}
+                }
+                // The playback insert uses a distinct bus: its output is never modified.
+                memcpy(samples,original,sizeof(samples));
+                output(e,&b);
+                assert(!memcmp(samples,original,sizeof(samples)));
+                cursor+=block;
+                Sleep(DWORD(std::ceil(1000.0*block/rate)));
+            }
+            assert(SUCCEEDED(read(e,&s)) && s.active && s.frames && !s.failed && s.erle==-1 && s.delay==-1);
+            printf("PASS %d Hz block %d: active; callback max %.1f us; synthetic attenuation %.1f dB\n",rate,block,maxUs,10*log10((before+1e-20)/(after+1e-20)));
+            // Losing a callback after startup is a latched, bit-exact bypass.
+            input(e,&b); input(e,&b);
+            assert(SUCCEEDED(read(e,&s)) && s.failed && !s.active);
+            for(int ch=0;ch<8;++ch) assert(!memcmp(samples[ch],b.write[ch],block*sizeof(float)));
+            input(e,nullptr);
+            assert(SUCCEEDED(read(e,&s)) && !s.active && !s.failed);
+        }
+    }
+    // Rate/bypass callbacks never corrupt a channel.
+    AudioBuffer b{};b.sr=44100;b.samples=512;b.inputs=b.outputs=8;
+    for(int ch=0;ch<8;++ch){b.read[ch]=samples[ch];b.write[ch]=writes[ch];}
+    input(e,&b);
+    for(int ch=0;ch<8;++ch)assert(!memcmp(samples[ch],writes[ch],512*sizeof(float)));
+    b.sr=48000; input(e,nullptr);
+    Stats deadline{};
+    // Drive faster than wall time: late neural results must fail open, not replay.
+    for(int n=0;n<200;++n) { input(e,&b); output(e,&b); read(e,&deadline); if(deadline.failed) break; }
+    assert(deadline.failed && !deadline.active);
+    input(e,nullptr); read(e,&deadline); assert(!deadline.failed && !deadline.active);
+    c.bypass=1;assert(SUCCEEDED(configure(e,&c)));b.sr=48000;input(e,&b);
+    for(int ch=0;ch<8;++ch)assert(!memcmp(samples[ch],writes[ch],512*sizeof(float)));
+    // Compare the complete callback bridge against direct streaming inference on
+    // upstream's microphone/reference fixture. This catches accidental muting,
+    // reference swaps, sample loss and model-hop alignment errors.
+    std::ifstream file(argv[3],std::ios::binary|std::ios::ate);
+    assert(file);
+    auto bytes=file.tellg(); file.seekg(0);
+    std::vector<float> fixture(size_t(bytes)/sizeof(float));
+    file.read(reinterpret_cast<char*>(fixture.data()),bytes); assert(file);
+    int count=int(fixture.size()/2);
+    auto modelDll=GetModuleHandleA("localvqe.dll"); assert(modelDll);
+    using NewModel=uintptr_t (__cdecl*)(const char*);
+    using Frame=int (__cdecl*)(uintptr_t,const float*,const float*,int,float*);
+    using Free=void (__cdecl*)(uintptr_t);
+    auto newModel=reinterpret_cast<NewModel>(GetProcAddress(modelDll,"localvqe_new"));
+    auto frame=reinterpret_cast<Frame>(GetProcAddress(modelDll,"localvqe_process_frame_f32"));
+    auto freeModel=reinterpret_cast<Free>(GetProcAddress(modelDll,"localvqe_free"));
+    assert(newModel && frame && freeModel);
+    uintptr_t direct=newModel(argv[2]); assert(direct);
+    std::vector<float> expected((count+255)/256*256);
+    for(int n=0;n<count;n+=256){
+        float mic[256]{},ref[256]{};
+        for(int i=0;i<256 && n+i<count;++i){mic[i]=fixture[n+i]; for(int ch=0;ch<8;++ch) ref[i]+=fixture[count+n+i]/8.f;}
+        assert(frame(direct,mic,ref,256,expected.data()+n)==0);
+    }
+    freeModel(direct);
+    c.bypass=0; assert(SUCCEEDED(configure(e,&c)));
+    b.sr=16000;b.samples=160;
+    constexpr int latency=1024+160;
+    double maxError=0,energy=0;
+    for(int n=0;n<count+latency+160;n+=160){
+        for(int ch=0;ch<8;++ch) for(int i=0;i<160;++i)
+            samples[ch][i]=n+i<count ? fixture[n+i] : 0;
+        input(e,&b);
+        Stats report{};read(e,&report);assert(!report.failed);
+        for(int i=0;i<160;++i){
+            int index=n+i-latency;
+            if(index>=0 && index<count){
+                maxError=std::fmax(maxError,std::fabs(writes[2][i]-expected[index]));
+                energy+=expected[index]*expected[index];
+            }
+        }
+        for(int ch=0;ch<8;++ch) for(int i=0;i<160;++i)
+            samples[ch][i]=n+i<count ? fixture[count+n+i] : 0;
+        output(e,&b);Sleep(10);
+    }
+    fprintf(stderr,"Fixture streaming parity: max error %.8f; energy %.6f\n",maxError,energy);
+    assert(energy>1e-6 && maxError<1e-4);
+    assert(SUCCEEDED(destroy(e)));
+    timeEndPeriod(1);
+    FreeLibrary(dll);
+    puts("PASS neural stream lifecycle and pass-through");
+}

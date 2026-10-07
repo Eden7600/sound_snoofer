@@ -5,7 +5,8 @@ $previousCache = $env:GOCACHE
 try {
     & ./scripts/stop.ps1
     # Check before compiling the companion or touching either deployed binary.
-    foreach ($name in @("snoofer.exe", "snoofer-audio-monitor.dll", "snoofer-soundboard.dll", "snoofer-media.dll", "snoofer-aec.dll", "snoofer-camera.dll")) {
+    $companions = @(Get-ChildItem bin -Filter *.dll -ErrorAction SilentlyContinue | ForEach-Object Name)
+    foreach ($name in ($companions + @("snoofer.exe", "snoofer-audio-monitor.dll", "snoofer-soundboard.dll", "snoofer-media.dll", "snoofer-aec.dll", "snoofer-camera.dll"))) {
         $path = Join-Path (Get-Location) "bin/$name"
         if (Test-Path -LiteralPath $path) {
             try {
@@ -24,7 +25,7 @@ try {
     if ($selected -notcontains "core" -and $selected -notcontains "no_audio") {
         & ./scripts/build-monitor.ps1 -OutputDirectory bin
         if ($selected -notcontains "no_soundboard") { & ./scripts/build-soundboard.ps1 }
-        if ($selected -notcontains "no_aec") { & ./scripts/build-aec.ps1 -OutputDirectory bin }
+        if ($selected -notcontains "no_aec") { & ./scripts/build-aec.ps1 -OutputDirectory bin; & ./scripts/build-neural-aec.ps1 -OutputDirectory bin }
     }
     if ($selected -notcontains "core" -and $selected -notcontains "no_nowplaying") { & ./scripts/build-media.ps1 -OutputDirectory bin }
     if ($selected -notcontains "core" -and $selected -notcontains "no_insta360") { & ./scripts/build-camera.ps1 -OutputDirectory bin }

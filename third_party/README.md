@@ -15,3 +15,16 @@ Only `absl/{algorithm,base,functional,memory,meta,numeric,strings,types,utility}
 2. Update the table above.
 3. Update the source lists in `scripts/build-aec.ps1` from upstream's `meson.build` files.
 4. Rebuild and rerun the offline echo cancellation probe.
+
+## LocalVQE (optional neural AEC)
+
+scripts/build-neural-aec.ps1 fetches LocalVQE f53063c9eb2a85f96479867d1dd911dc3bf6319b
+and its GGML submodule c044a8eeae2591faa0950c8b5e514cbc4bbfc4ca to .local/neural-aec.
+Source: https://github.com/localai-org/LocalVQE (Apache-2.0); GGML is MIT.
+Upstream applies its tracked GRU patch. The build substitutes MSVC /fp:strict for
+GCC -ffp-contract=off in the adaptive front end. No model algorithms are changed.
+The script downloads the v1.4-AEC echo-only and v1.3 joint cleanup F32 GGUFs from
+https://huggingface.co/LocalAI-io/LocalVQE, verifies pinned SHA256 hashes and retains
+source licenses under bin/licenses/localvqe. Upstream additionally verifies its
+model allowlist before parsing. Portable CMake 3.31.6 is hash-pinned in the cache;
+MSVC/Windows SDK remain installed prerequisites. No model data goes to a server.

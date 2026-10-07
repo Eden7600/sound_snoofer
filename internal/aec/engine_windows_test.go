@@ -111,3 +111,36 @@ func TestNativeEngine(t *testing.T) {
 		t.Fatal("bypass still active", s)
 	}
 }
+
+func TestNativeNeuralModels(t *testing.T) {
+	path := os.Getenv("SNOOFER_NEURAL_AEC_DLL")
+	if path == "" {
+		t.Skip("set SNOOFER_NEURAL_AEC_DLL to the built neural engine")
+	}
+	path, err := filepath.Abs(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"localvqe-v1.4-aec-200K-f32.gguf", "localvqe-v1.3-4.8M-f32.gguf", "localvqe-v1.4-aec-200K-f32.gguf"} {
+		e, err := OpenNeural(path, filepath.Join(filepath.Dir(path), "models", name))
+		if err != nil {
+			t.Fatal(name, err)
+		}
+		if err := e.Configure(Config{Mic: [2]int{0, 1}, Reference: [8]int{0, 1, 2, 3, 4, 5, 6, 7}}); err != nil {
+			t.Fatal(err)
+		}
+		if s, err := e.Stats(); err != nil || s.Active || s.Failed || s.ERLEKnown || s.DelayKnown {
+			t.Fatal(s, err)
+		}
+		hook := e.Hook()
+		if hook.Input == 0 || hook.Output == 0 || hook.Context == 0 {
+			t.Fatal("missing neural hooks")
+		}
+		if err := e.Reset(); err != nil {
+			t.Fatal(err)
+		}
+		if err := e.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+}

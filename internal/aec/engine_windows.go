@@ -5,6 +5,7 @@ package aec
 import (
 	"errors"
 	"fmt"
+	"runtime"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -21,6 +22,7 @@ type Engine struct {
 	destroy, configure, stats *windows.Proc
 	readFailure, resetFailure *windows.Proc
 	inputInsert, outputInsert *windows.Proc
+	latency                   *windows.Proc
 }
 
 // nativeConfig mirrors AECConfig: twelve 32-bit ints.
@@ -45,15 +47,25 @@ func result(name string, code uintptr) error {
 }
 
 // Open loads the DLL at path and creates an engine.
-func Open(path string) (*Engine, error) {
-	dll, err := windows.LoadDLL(path)
+func Open(path string) (*Engine, error) { return open(path, "") }
+
+// OpenNeural loads the neural companion and its selected model.
+func OpenNeural(path, model string) (*Engine, error) { return open(path, model) }
+
+func open(path, model string) (*Engine, error) {
+	handle, err := windows.LoadLibraryEx(path, 0, windows.LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR|windows.LOAD_LIBRARY_SEARCH_DEFAULT_DIRS)
+	dll := &windows.DLL{Name: path, Handle: handle}
 	if err != nil {
 		return nil, err
 	}
 	e := &Engine{dll: dll}
 	var create *windows.Proc
+	createName := "AECCreate"
+	if model != "" {
+		createName = "AECNeuralCreate"
+	}
 	procs := map[string]**windows.Proc{
-		"AECCreate": &create, "AECDestroy": &e.destroy, "AECConfigureV2": &e.configure, "AECReadStats": &e.stats,
+		createName: &create, "AECDestroy": &e.destroy, "AECConfigureV2": &e.configure, "AECReadStats": &e.stats,
 		"AECReadFailure": &e.readFailure, "AECResetFailure": &e.resetFailure,
 		"AECInputInsert": &e.inputInsert, "AECOutputInsert": &e.outputInsert,
 	}
@@ -62,7 +74,23 @@ func Open(path string) (*Engine, error) {
 			return nil, errors.Join(err, dll.Release())
 		}
 	}
-	code, _, _ := create.Call(uintptr(unsafe.Pointer(&e.handle)))
+	if model != "" {
+		e.latency, err = dll.FindProc("AECReadLatency")
+		if err != nil {
+			return nil, errors.Join(err, dll.Release())
+		}
+	}
+	args := []uintptr{uintptr(unsafe.Pointer(&e.handle))}
+	var modelPath *byte
+	if model != "" {
+		modelPath, err = windows.BytePtrFromString(model)
+		if err != nil {
+			return nil, errors.Join(err, dll.Release())
+		}
+		args = append(args, uintptr(unsafe.Pointer(modelPath)))
+	}
+	code, _, _ := create.Call(args...)
+	runtime.KeepAlive(modelPath)
 	if err := result("AECCreate", code); err != nil {
 		return nil, errors.Join(err, dll.Release())
 	}
@@ -101,6 +129,14 @@ func (e *Engine) Stats() (Stats, error) {
 		DelayMs:    int(native.delayMs),
 		Frames:     native.frames,
 		Failed:     native.failed != 0,
+	}
+	if e.latency != nil {
+		var latency int32
+		code, _, _ := e.latency.Call(e.handle, uintptr(unsafe.Pointer(&latency)))
+		if err := result("AECReadLatency", code); err != nil {
+			return stats, err
+		}
+		stats.LatencyMs = int(latency)
 	}
 	if !stats.Failed {
 		return stats, nil
