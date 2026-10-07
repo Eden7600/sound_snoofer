@@ -12,7 +12,7 @@ func DefaultLayout() Layout {
 	// Motion on the bottom row beside the go-to keys.
 	home := Page{ID: "home", Name: "Home", Regions: []Region{{Source: "nowplaying.sessions", First: 18, Last: 21, Clip: true}, {Source: "appaudio.apps", First: 22, Last: 25, Clip: true}}}
 	for n, id := range map[int]string{0: "audio.mic-mute", 1: "audio.speaker-mute", 2: "audio.monitor", 3: "audio.mode", 9: "audio.record-toggle", 11: "audio.record-mic", 12: "audio.record-computer", 13: "audio.record-tap",
-		27: "nowplaying.prev", 28: "nowplaying.toggle", 29: "nowplaying.next", 30: "hue.brightness", 31: "hue.motion",
+		26: resetFocusID, 27: "nowplaying.prev", 28: "nowplaying.toggle", 29: "nowplaying.next", 30: "hue.brightness", 31: "hue.motion",
 		33: gotoPrefix + "media", 34: gotoPrefix + "soundboard", 35: gotoPrefix + "lights"} {
 		home.Keys[n] = Binding{Control: id, Label: id}
 	}
@@ -44,7 +44,7 @@ func DefaultLayout() Layout {
 		Regions:     []Region{{Source: "nowplaying.sessions", Sources: []string{"appaudio.apps"}, First: 0, Last: 25}},
 		DialRegions: []Region{{Source: "appaudio.apps", First: 0, Last: 4}}}
 	for n, id := range map[int]string{17: scrollPrefix + "up", 26: scrollPrefix + "down", 27: "nowplaying.prev", 28: "nowplaying.toggle", 29: "nowplaying.next",
-		30: "nowplaying.mute", 33: "appaudio.deck-apps", 34: "nowplaying.deck-media"} {
+		30: "nowplaying.mute", 31: resetFocusID, 33: "appaudio.deck-apps", 34: "nowplaying.deck-media"} {
 		media.Keys[n] = Binding{Control: id, Label: id}
 	}
 	for n, id := range map[int]string{0: "audio.gain-playback", 1: "nowplaying.dial", 2: "appaudio.focus"} {

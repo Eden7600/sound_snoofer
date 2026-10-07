@@ -17,8 +17,8 @@ func TestDefaultLayoutPages(t *testing.T) {
 	if len(l.Pages) != 4 || l.Pages[0].ID != "home" || l.Pages[1].ID != "soundboard" || l.Pages[2].ID != "lights" || l.Pages[3].ID != "media" {
 		t.Fatal("default pages", l.Pages)
 	}
-	for n, id := range []string{"nowplaying.prev", "nowplaying.toggle", "nowplaying.next"} {
-		if l.Pages[0].Keys[27+n].Control != id {
+	for n, id := range []string{resetFocusID, "nowplaying.prev", "nowplaying.toggle", "nowplaying.next"} {
+		if l.Pages[0].Keys[26+n].Control != id {
 			t.Fatal("Home transport", l.Pages[0].Keys[27:30])
 		}
 	}
@@ -54,7 +54,7 @@ func TestDefaultLayoutPages(t *testing.T) {
 
 func TestDefaultMediaPage(t *testing.T) {
 	media := DefaultLayout().Pages[3]
-	for n, id := range []string{"nowplaying.prev", "nowplaying.toggle", "nowplaying.next", "nowplaying.mute", "", "", "appaudio.deck-apps", "nowplaying.deck-media"} {
+	for n, id := range []string{"nowplaying.prev", "nowplaying.toggle", "nowplaying.next", "nowplaying.mute", resetFocusID, "", "appaudio.deck-apps", "nowplaying.deck-media"} {
 		if media.Keys[27+n].Control != id {
 			t.Fatalf("bottom row key %d is %q, want %q", 28+n, media.Keys[27+n].Control, id)
 		}
