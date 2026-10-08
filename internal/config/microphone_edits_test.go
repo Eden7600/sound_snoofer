@@ -48,3 +48,69 @@ func TestMicrophoneDefinitionEdits(t *testing.T) {
 		t.Fatal(id)
 	}
 }
+
+func TestMicrophoneReadyAndSourceEdits(t *testing.T) {
+	c, raw := editDefault(t,
+		PriorityEdit{List: ListMics, Op: "set", Index: 1, Field: "ready", Value: "true"},
+		// The desk becomes a device: no interface keeps channels for it.
+		PriorityEdit{List: ListMics, Op: "set", Index: 0, Field: "source", Value: `{"driver":"wdm","id":"{yeti}","name":"Microphone (Yeti)"}`},
+	)
+	if !c.Studio.Microphones[1].Ready || c.Studio.Microphones[0].Ready {
+		t.Fatal(c.Studio.Microphones)
+	}
+	if !c.Studio.Microphones[0].IsDevice() || c.Studio.ASIO[0].Inputs.Left("desk") != 0 || c.Studio.ASIO[0].Inputs.Left("lav") != 2 {
+		t.Fatal(c.Studio.Microphones[0], c.Studio.ASIO[0].Inputs)
+	}
+	raw, err := EditPriorities(raw, PriorityEdit{List: ListMics, Op: "set", Index: 0, Field: "source", Value: "interface"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, _ = Decode(raw)
+	if c.Studio.Microphones[0].IsDevice() {
+		t.Fatal("still a device")
+	}
+	// Channels for it may be mapped again.
+	if _, err := EditPriorities(raw, PriorityEdit{List: ListInterfaces, Op: "set", Index: 0, Field: "input:desk", Value: "3,4"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range []PriorityEdit{
+		{List: ListMics, Op: "set", Index: 0, Field: "ready", Value: "maybe"},
+		{List: ListMics, Op: "set", Index: 0, Field: "source", Value: `{"bogus":1}`},
+	} {
+		if _, err := EditPriorities(raw, e); err == nil {
+			t.Fatalf("accepted %+v", e)
+		}
+	}
+}
+
+func TestActivityEdits(t *testing.T) {
+	c, raw := editDefault(t,
+		PriorityEdit{List: ListActivity, Op: "set", Field: "check", Value: "2"},
+		PriorityEdit{List: ListActivity, Op: "set", Field: "silence_db", Value: "-60"},
+		PriorityEdit{List: ListActivity, Op: "set", Field: "silent_after_s", Value: "5"},
+	)
+	if a := c.Profiles.Activity; a == nil || a.Check != 2 || a.SilenceDB != -60 || a.SilentAfterS != 5 {
+		t.Fatal(c.Profiles.Activity)
+	}
+	for _, e := range []PriorityEdit{
+		{List: ListActivity, Op: "set", Field: "check", Value: "5"},
+		{List: ListActivity, Op: "set", Field: "silence_db", Value: "-5"},
+		{List: ListActivity, Op: "set", Field: "silent_after_s", Value: "x"},
+		{List: ListActivity, Op: "add", Value: "1"},
+	} {
+		if _, err := EditPriorities(raw, e); err == nil {
+			t.Fatalf("accepted %+v", e)
+		}
+	}
+	raw, err := EditPriorities(raw, PriorityEdit{List: ListActivity, Op: "set", Field: "check", Value: "0"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, _ = Decode(raw)
+	if c.Profiles.Activity != nil {
+		t.Fatal("activity kept")
+	}
+	if _, err := EditPriorities(raw, PriorityEdit{List: ListActivity, Op: "set", Field: "silence_db", Value: "-60"}); err == nil {
+		t.Fatal("threshold set with metering off")
+	}
+}

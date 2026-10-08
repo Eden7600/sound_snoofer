@@ -16,6 +16,8 @@ const (
 	ListPlayback    = "playback"
 	ListWebcam      = "webcam"
 	ListMicrophones = "microphones"
+	// ListActivity is not a list: its set edits profiles.activity.
+	ListActivity = "activity"
 )
 
 var studioListKeys = map[string]string{ListInterfaces: "asio", ListPlayback: "playback", ListWebcam: "fallback_mic"}
@@ -65,6 +67,8 @@ func EditPriorities(raw []byte, e PriorityEdit) ([]byte, error) {
 		err = editMicrophoneDefinitions(raw, top, e)
 	} else if e.List == ListMicrophones {
 		err = editMicrophones(top, e)
+	} else if e.List == ListActivity {
+		err = editActivity(top, e)
 	} else if key, ok := studioListKeys[e.List]; ok {
 		err = editStudioList(top, key, e)
 	} else {
@@ -105,6 +109,59 @@ func editMicrophones(top map[string]json.RawMessage, e PriorityEdit) error {
 		return err
 	}
 	if err := setKey(profiles, "microphones", list); err != nil {
+		return err
+	}
+	return setKey(top, "profiles", profiles)
+}
+
+// editActivity sets one activity metering field. Check 0 removes metering;
+// the other fields need it on. Profiles must exist: metering only serves Auto.
+func editActivity(top map[string]json.RawMessage, e PriorityEdit) error {
+	if e.Op != "set" {
+		return fmt.Errorf("activity supports set only")
+	}
+	raw, ok := top["profiles"]
+	if !ok {
+		return fmt.Errorf("activity metering needs a microphone priority")
+	}
+	profiles := map[string]json.RawMessage{}
+	if err := json.Unmarshal(raw, &profiles); err != nil {
+		return fmt.Errorf("profiles: %w", err)
+	}
+	var activity *Activity
+	if raw, ok := profiles["activity"]; ok {
+		if err := json.Unmarshal(raw, &activity); err != nil {
+			return fmt.Errorf("profiles.activity: %w", err)
+		}
+	}
+	value, err := strconv.ParseFloat(strings.TrimSpace(e.Value), 64)
+	if err != nil {
+		return fmt.Errorf("%s must be a number", e.Field)
+	}
+	if e.Field == "check" && value == 0 {
+		delete(profiles, "activity")
+		return setKey(top, "profiles", profiles)
+	}
+	if activity == nil {
+		if e.Field != "check" {
+			return fmt.Errorf("turn activity metering on first")
+		}
+		activity = &Activity{}
+	}
+	switch e.Field {
+	case "check":
+		activity.Check = int(value)
+	case "silence_db":
+		activity.SilenceDB = value
+	case "silent_after_s":
+		activity.SilentAfterS = int(value)
+	default:
+		return fmt.Errorf("unknown field %q", e.Field)
+	}
+	if err := activity.Validate(); err != nil {
+		return err
+	}
+	if err := setKey(profiles, "activity", activity); err != nil {
 		return err
 	}
 	return setKey(top, "profiles", profiles)

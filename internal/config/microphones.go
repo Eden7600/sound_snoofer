@@ -16,6 +16,9 @@ type Microphone struct {
 	ID      string      `json:"id"`
 	Name    string      `json:"name"`
 	Devices []Candidate `json:"devices,omitempty"`
+	// Ready asserts the microphone is usable whenever it is present: it is
+	// never metered, so silence (a hardware mute) never makes Auto skip it.
+	Ready bool `json:"ready,omitempty"`
 }
 
 // IsDevice reports whether the microphone is a Windows input device.

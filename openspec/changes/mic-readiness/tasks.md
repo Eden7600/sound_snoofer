@@ -1,7 +1,7 @@
 # Tasks
 ## Implementation
 - [x] 1. `docs(routing)`: specify microphone readiness and the complete editor.
-- [ ] 2. `feat(config)`: `ready` field; `ready`, `source` and activity edits; tests.
+- [x] 2. `feat(config)`: `ready` field; `ready`, `source` and activity edits; tests.
 - [ ] 3. `feat(audio)`: metering skips ready microphones; view gains Ready, Silent and Activity; tests.
 - [ ] 4. `feat(gui)`: source select, Ready toggle, Silent badge, mono/stereo channels, Activity card, interface add without channels; GUI check; UI contract.
 - [ ] 5. Validate: gofmt, `go test ./...`, `go vet ./...`, GUI check, OpenSpec strict validation, canonical build.

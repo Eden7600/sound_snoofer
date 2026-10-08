@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -52,18 +53,18 @@ func editMicrophoneDefinitions(raw []byte, top map[string]json.RawMessage, e Pri
 			m.Name = strings.TrimSpace(m.Name)
 			m.ID = uniqueMicrophoneID(mics, m.Name)
 			return m, err
-		}, func(m *Microphone, field, value string) error {
-			if field != "name" {
-				return fmt.Errorf("unknown field %q", field)
-			}
-			m.Name = strings.TrimSpace(value)
-			return nil
-		})
+		}, setMicrophoneField)
 		if err != nil {
 			return err
 		}
 		if removed != "" {
 			if err := forgetMicrophone(top, studio, removed); err != nil {
+				return err
+			}
+		}
+		// A microphone that became a device no longer has interface channels.
+		if e.Op == "set" && e.Field == "source" && mics[e.Index].IsDevice() {
+			if err := dropChannels(studio, mics[e.Index].ID); err != nil {
 				return err
 			}
 		}
@@ -74,9 +75,36 @@ func editMicrophoneDefinitions(raw []byte, top map[string]json.RawMessage, e Pri
 	return setKey(top, "studio", studio)
 }
 
-// forgetMicrophone removes references to a removed microphone: its
-// priority entry, interface channels and a voice source naming it.
-func forgetMicrophone(top, studio map[string]json.RawMessage, id string) error {
+// setMicrophoneField sets a microphone's name, ready flag or source:
+// "interface" for interface channels, or a device candidate as JSON.
+func setMicrophoneField(m *Microphone, field, value string) error {
+	switch field {
+	case "name":
+		m.Name = strings.TrimSpace(value)
+	case "ready":
+		ready, err := strconv.ParseBool(value)
+		if err != nil {
+			return fmt.Errorf("ready must be true or false")
+		}
+		m.Ready = ready
+	case "source":
+		if value == "interface" {
+			m.Devices = nil
+			return nil
+		}
+		device, err := parseEntry[Candidate](value)
+		if err != nil {
+			return err
+		}
+		m.Devices = []Candidate{device}
+	default:
+		return fmt.Errorf("unknown field %q", field)
+	}
+	return nil
+}
+
+// dropChannels removes a microphone's channels from every interface.
+func dropChannels(studio map[string]json.RawMessage, id string) error {
 	var interfaces []map[string]json.RawMessage
 	if err := unmarshalList(studio["asio"], &interfaces); err != nil {
 		return err
@@ -93,10 +121,17 @@ func forgetMicrophone(top, studio map[string]json.RawMessage, id string) error {
 			}
 		}
 	}
-	if interfaces != nil {
-		if err := setKey(studio, "asio", interfaces); err != nil {
-			return err
-		}
+	if interfaces == nil {
+		return nil
+	}
+	return setKey(studio, "asio", interfaces)
+}
+
+// forgetMicrophone removes references to a removed microphone: its
+// priority entry, interface channels and a voice source naming it.
+func forgetMicrophone(top, studio map[string]json.RawMessage, id string) error {
+	if err := dropChannels(studio, id); err != nil {
+		return err
 	}
 	var voice map[string]json.RawMessage
 	if raw, ok := studio["voice"]; ok && json.Unmarshal(raw, &voice) == nil {
