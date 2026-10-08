@@ -32,6 +32,10 @@ template<class T> struct Queue {
         head.store(h + 1, std::memory_order_release);
         return true;
     }
+    // Consumer only: release published slots without touching the producer index.
+    void Discard() {
+        tail.store(head.load(std::memory_order_acquire), std::memory_order_release);
+    }
     bool Pop(T& value) {
         unsigned t = tail.load(std::memory_order_relaxed);
         if (t == head.load(std::memory_order_acquire)) return false;
@@ -235,6 +239,10 @@ __declspec(dllexport) void __stdcall AECInputInsert(void* context, AudioBuffer* 
         for (int i = 0; i < 2; ++i) e->m[i] = e->mic[i].load();
         for (int i = 0; i < 8; ++i) e->r[i] = e->refs[i].load();
         if (rev != e->revision.load()) return;
+        // Pre-roll does not consume output. Release old results now so repeated
+        // resets cannot fill the queue before consumption starts. A concurrently
+        // published old result is still rejected by its generation below.
+        e->output.Discard();
         e->applied = gen; e->sampleRate = b->sr; e->blockSize = b->samples;
         e->latency.store(b->sr > 0 ? 80 + (1000 * e->blockSize + b->sr - 1) / b->sr + (b->sr > 16000 ? 2 : 0) + (e->fullband ? 2 : 0) : 0);
         e->pending = e->fill = e->startup = 0;

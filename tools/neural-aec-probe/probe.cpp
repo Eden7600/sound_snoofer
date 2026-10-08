@@ -22,19 +22,48 @@ int main(int argc, char** argv) {
     HMODULE dll = LoadLibraryExA(argv[1], nullptr, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
     if (!dll) { fprintf(stderr,"LoadLibrary error %lu\n",GetLastError()); return 1; }
     auto create = reinterpret_cast<Create>(GetProcAddress(dll,fullband ? "AECNeuralFullbandCreate" : "AECNeuralCreate"));
+    auto reset = reinterpret_cast<Destroy>(GetProcAddress(dll,"AECResetFailure"));
     auto destroy = reinterpret_cast<Destroy>(GetProcAddress(dll,"AECDestroy"));
     auto configure = reinterpret_cast<Configure>(GetProcAddress(dll,"AECConfigureV2"));
     auto read = reinterpret_cast<Read>(GetProcAddress(dll,"AECReadStats"));
     auto failure = reinterpret_cast<Failure>(GetProcAddress(dll,"AECReadFailure"));
     auto input = reinterpret_cast<InsertStage>(GetProcAddress(dll,"AECInputInsert"));
     auto output = reinterpret_cast<InsertStage>(GetProcAddress(dll,"AECOutputInsert"));
-    assert(create && destroy && configure && read && failure && input && output);
+    assert(reset && create && destroy && configure && read && failure && input && output);
     void* e = nullptr;
     assert(FAILED(create(&e,"missing-model.gguf")) && !e);
     assert(SUCCEEDED(create(&e,argv[2])) && e);
     Config c{{2,3},{0,1,2,3,4,5,6,7},0,0};
     assert(SUCCEEDED(configure(e,&c)));
     timeBeginPeriod(1);
+    // Repeated warm-up resets used to fill the output queue with results that
+    // were never consumed. Test all reset callers before sustained playback.
+    {
+        AudioBuffer b{};b.sr=48000;b.samples=480;b.inputs=b.outputs=8;
+        for(int ch=0;ch<8;++ch){b.read[ch]=samples[ch];b.write[ch]=writes[ch];}
+        for(int cycle=0;cycle<30;++cycle){
+            if(cycle%3==0)assert(SUCCEEDED(reset(e)));
+            else if(cycle%3==1)input(e,nullptr);
+            else output(e,&b); // Duplicate output invalidates the previous timeline.
+            for(int n=0;n<5;++n){
+                for(int ch=0;ch<8;++ch)for(int i=0;i<480;++i)samples[ch][i]=float(ch+1)*.001f;
+                input(e,&b);output(e,&b);Sleep(15);
+                Stats report{};read(e,&report);
+                if(report.failed){
+                    int reason=0;failure(e,&reason);
+                    fprintf(stderr,"FAIL warm-up reset cycle %d: reason %d\n",cycle,reason);
+                    destroy(e);return 1;
+                }
+                for(int ch=0;ch<8;++ch)assert(!memcmp(samples[ch],writes[ch],480*sizeof(float)));
+            }
+        }
+        assert(SUCCEEDED(reset(e)));
+        Stats report{};
+        for(int n=0;n<100;++n){input(e,&b);output(e,&b);Sleep(10);read(e,&report);assert(!report.failed);}
+        assert(report.active);
+        fprintf(stderr,"PASS 30 pre-roll resets and sustained recovery\n");
+        input(e,nullptr);
+    }
     int rates[] = {16000,32000,48000};
     for (int rate : rates) {
         if(fullband && rate!=48000)continue;
