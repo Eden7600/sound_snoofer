@@ -14,10 +14,10 @@ func TestDefaultLayoutPages(t *testing.T) {
 	if err := l.Validate(nil); err != nil {
 		t.Fatal(err)
 	}
-	if len(l.Pages) != 5 || l.Pages[0].ID != "home" || l.Pages[1].ID != "soundboard" || l.Pages[2].ID != "lights" || l.Pages[3].ID != "media" || l.Pages[4].ID != "meetings" {
+	if len(l.Pages) != 6 || l.Pages[0].ID != "home" || l.Pages[1].ID != "soundboard" || l.Pages[2].ID != "lights" || l.Pages[3].ID != "media" || l.Pages[4].ID != "meetings" || l.Pages[5].ID != "routing" {
 		t.Fatal("default pages", l.Pages)
 	}
-	for n, id := range []string{"audio.mic-mute", "audio.speaker-mute", "audio.monitor", "audio.mode", "aec.mode", "aec.strength", "", "", "",
+	for n, id := range []string{"audio.mic-mute", "audio.speaker-mute", "audio.monitor", "audio.mode", "aec.mode", "aec.strength", "", "", gotoPrefix + "routing",
 		"audio.record-mic", "audio.record-computer", "audio.record-tap", "audio.record-toggle", "audio.tape-play", "audio.tape-stop", "audio.tape-rew", "audio.tape-ff", ""} {
 		if l.Pages[0].Keys[n].Control != id {
 			t.Fatalf("Home key %d = %q, want %q", n, l.Pages[0].Keys[n].Control, id)
@@ -44,7 +44,7 @@ func TestDefaultLayoutPages(t *testing.T) {
 	expanded := l.expanded(controls)
 	// 31 clip cells: 40 clips overflow to a second Soundboard set, which the
 	// page dial skips because the page binds scroll keys.
-	if len(expanded.Pages) != 6 || expanded.Pages[2].ID != "soundboard~auto~2" || expanded.Pages[5].ID != "meetings" {
+	if len(expanded.Pages) != 7 || expanded.Pages[2].ID != "soundboard~auto~2" || expanded.Pages[5].ID != "meetings" || expanded.Pages[6].ID != "routing" {
 		t.Fatal("expanded pages", len(expanded.Pages))
 	}
 	if expanded.next("media", 1) != "meetings" {
@@ -166,5 +166,26 @@ func TestDefaultMeetingsPage(t *testing.T) {
 	}
 	if meetings.Dials[0].Control != "audio.gain-playback" || meetings.Dials[1].Control != "audio.gain-mic" || meetings.Dials[2].Control != "" {
 		t.Fatal("Meetings dials", meetings.Dials)
+	}
+}
+
+// The Routing page puts destinations on rows and sources on columns; hidden
+// slot positions render as blank keys with their bindings kept.
+func TestDefaultRoutingPage(t *testing.T) {
+	var routing Page
+	for _, p := range DefaultLayout().Pages {
+		if p.ID == "routing" {
+			routing = p
+		}
+	}
+	for n, id := range []string{"audio.playback-device", "audio.playback:virtual:1", "audio.monitor", "", "",
+		"", "", "", "",
+		"audio.slot-1", "audio.slot-1:virtual:1", "audio.slot-1:monitor", "audio.slot-1:soundboard", "audio.slot-1:tape"} {
+		if routing.Keys[n].Control != id {
+			t.Fatalf("Routing key %d = %q, want %q", n, routing.Keys[n].Control, id)
+		}
+	}
+	if routing.Keys[27].Control != "audio.slot-3" || routing.Keys[31].Control != "audio.slot-3:tape" || routing.Dials[0].Control != "audio.gain-playback" || routing.Dials[1].Control != "audio.gain-mic" {
+		t.Fatal("routing page", routing.Keys[27:32], routing.Dials)
 	}
 }

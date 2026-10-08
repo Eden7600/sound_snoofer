@@ -1,10 +1,12 @@
 package streamdeck
 
+import "fmt"
+
 // DefaultLayout preserves the useful Studio keys and adjacent Playback and Mic
 // dials on Home, and adds Soundboard and Lights pages: a fixed frame of keys
 // around a region of clips or the selected room's scenes. Home reaches both
 // in one press, as it does Media and Meetings; the page dial's press returns
-// Home. The Apps page gives each
+// Home. Routing switches sources per destination. The Apps page gives each
 // app a dial and a mute key. Up and Down page through
 // soundboard overflow.
 func DefaultLayout() Layout {
@@ -15,6 +17,7 @@ func DefaultLayout() Layout {
 	// Row 1 is the mic path then echo cancellation; row 2 is recording, left
 	// to right: capture choices, Record, then tape playback.
 	for n, id := range map[int]string{0: "audio.mic-mute", 1: "audio.speaker-mute", 2: "audio.monitor", 3: "audio.mode", 4: "aec.mode", 5: "aec.strength",
+		8: gotoPrefix + "routing",
 		9: "audio.record-mic", 10: "audio.record-computer", 11: "audio.record-tap", 12: "audio.record-toggle", 13: "audio.tape-play", 14: "audio.tape-stop", 15: "audio.tape-rew", 16: "audio.tape-ff",
 		26: resetFocusID, 27: "nowplaying.prev", 28: "nowplaying.toggle", 29: "nowplaying.next", 30: "hue.brightness", 31: "hue.motion",
 		32: gotoPrefix + "meetings", 33: gotoPrefix + "media", 34: gotoPrefix + "soundboard", 35: gotoPrefix + "lights"} {
@@ -64,5 +67,21 @@ func DefaultLayout() Layout {
 	for n, id := range map[int]string{0: "audio.gain-playback", 1: "audio.gain-mic"} {
 		meetings.Dials[n] = Binding{Control: id, Label: id}
 	}
-	return Layout{Home: "home", Pages: []Page{home, sounds, lights, media, meetings}}
+	// Routing: destinations by row (Playback, then output slots 1–3) and
+	// sources by column (Computer, Monitor, Soundboard, Tape). Positions
+	// without a slot or source are blank keys.
+	routing := Page{ID: "routing", Name: "Routing"}
+	for n, id := range []string{"audio.playback-device", "audio.playback:virtual:1", "audio.monitor"} {
+		routing.Keys[n] = Binding{Control: id, Label: id}
+	}
+	for slot := 1; slot <= 3; slot++ {
+		for column, suffix := range []string{"", ":virtual:1", ":monitor", ":soundboard", ":tape"} {
+			id := fmt.Sprintf("audio.slot-%d%s", slot, suffix)
+			routing.Keys[slot*Columns+column] = Binding{Control: id, Label: id}
+		}
+	}
+	for n, id := range map[int]string{0: "audio.gain-playback", 1: "audio.gain-mic"} {
+		routing.Dials[n] = Binding{Control: id, Label: id}
+	}
+	return Layout{Home: "home", Pages: []Page{home, sounds, lights, media, meetings, routing}}
 }
