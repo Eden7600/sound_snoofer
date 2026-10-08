@@ -31,11 +31,19 @@ type ProfilePolicy struct {
 	Microphones []string       `json:"microphones"`
 	Playback    []Candidate    `json:"playback"`
 	Choices     ProfileChoices `json:"choices"`
-	Running     bool           `json:"-"`
-	Known       bool           `json:"-"`
+	// Process is the executable whose presence activates the profile. Empty
+	// means DefaultVRProcess.
+	Process string `json:"process,omitempty"`
+	Running bool   `json:"-"`
+	Known   bool   `json:"-"`
 }
 
 func (p *ProfilePolicy) Validate() error {
+	if p.Process != "" {
+		if err := ValidateProcessName(p.Process); err != nil {
+			return fmt.Errorf("process: %w", err)
+		}
+	}
 	if err := p.Devices.Validate(); err != nil {
 		return err
 	}

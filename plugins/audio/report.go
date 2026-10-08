@@ -1,10 +1,12 @@
 package audio
 
 import (
+	"cmp"
 	"fmt"
 	"strings"
 	"time"
 
+	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/control"
 	"sound-snoofer/internal/windowsaudio"
 	"sound-snoofer/snoofer"
@@ -16,6 +18,7 @@ type reporter struct {
 	voicemeeter, callback, recorder, asio, element, defaults snoofer.ConnectionTracker
 	connected                                                bool
 	buffers                                                  uint32
+	processor                                                string // Processor executable; empty means the default.
 }
 
 type details []snoofer.ConnectionDetail
@@ -210,7 +213,7 @@ func (r *reporter) elementReport(s control.State, now time.Time) snoofer.Control
 		d.add("Processing", s.Plan.Topology.Voice.ProcessingReason)
 	}
 	t.Observe(state, now)
-	return report("element", "Element", value, t.Report("element.exe", d...))
+	return report("element", "Element", value, t.Report(cmp.Or(r.processor, config.DefaultProcessorProcess), d...))
 }
 
 func (r *reporter) defaultsReport(s control.State, now time.Time) snoofer.Control {

@@ -9,9 +9,4 @@
 `voicemeeter.Client` detects the processor by a process name supplied by the audio plugin from `studio.voice.processor_process`. A name is a bare executable name (no path separators). It is matched case-insensitively, as today. The VR plugin reads `process` from its settings the same way. Validation rejects empty-after-trim values that are present.
 
 ## Step sizes
-Each plugin validates its step:
-- `gain_step_db` must be in (0, 6];
-- `volume_step` must be in (0, 0.25];
-- `brightness_step` must be an integer in [1, 25].
-
-Absent means the current value. Clamps such as the −60..+12 dB gain range remain hardware facts in code.
+`gain_step_db` is an audio plugin setting multiplied into each dial detent before the gain action reaches the worker. It must be in (0, 6]; absent means 1 dB. Clamps such as the −60..+12 dB gain range remain hardware facts in code.

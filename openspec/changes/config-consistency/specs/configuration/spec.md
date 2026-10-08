@@ -29,14 +29,14 @@ The audio configuration SHALL NOT accept settings that no component reads.
 - **THEN** decoding fails with an unknown-field error, and the Stream Deck plugin settings remain the only deck layout
 
 ### Requirement: Policy names and steps are configurable
-Process names used for detection and dial step sizes SHALL be optional settings that default to the previous built-in values.
+Process names used for detection and the mixer gain dial step SHALL be optional settings that default to the previous built-in values.
 
 #### Scenario: Custom processor executable
 - **WHEN** `studio.voice.processor_process` names a different executable
 - **THEN** Element-mode availability follows that process, and an absent process falls back to Direct exactly as before
 
 #### Scenario: Invalid step
-- **WHEN** a step setting is outside its allowed range
+- **WHEN** `gain_step_db` is outside (0, 6]
 - **THEN** validation rejects the settings and the previous settings stay active
 
 #### Scenario: Omitted settings

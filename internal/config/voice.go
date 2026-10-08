@@ -10,6 +10,9 @@ type Voice struct {
 	Source  string `json:"source,omitempty"`
 	Mode    string `json:"mode,omitempty"`
 	Monitor string `json:"monitor,omitempty"`
+	// ProcessorProcess is the executable whose presence makes Element mode
+	// available. Empty means DefaultProcessorProcess.
+	ProcessorProcess string `json:"processor_process,omitempty"`
 }
 type Intent struct {
 	VRProfile        *ProfileChoices `json:"vr_profile,omitempty"`
@@ -43,6 +46,12 @@ func (v *Voice) Validate() error {
 	}
 	if v.Monitor == "" {
 		v.Monitor = "off"
+	}
+	if v.ProcessorProcess == "" {
+		v.ProcessorProcess = DefaultProcessorProcess
+	}
+	if e := ValidateProcessName(v.ProcessorProcess); e != nil {
+		return fmt.Errorf("processor_process: %w", e)
 	}
 	return validateChoices(v.Source, v.Mode, v.Monitor)
 }

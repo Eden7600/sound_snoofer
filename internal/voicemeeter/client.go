@@ -31,6 +31,7 @@ type native interface {
 type Client struct {
 	processList      func() ([]string, error)
 	mu               sync.Mutex
+	processorProcess string // Guarded by mu; empty means the default.
 	api              native
 	closed           bool
 	inventory        []model.Device
@@ -88,6 +89,13 @@ func (c *Client) refresh() error {
 	return nil
 }
 func (c *Client) Snapshot() (model.Snapshot, error) { return c.snapshot(true) }
+
+// SetProcessorProcess selects the executable reported as the voice processor.
+func (c *Client) SetProcessorProcess(name string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.processorProcess = name
+}
 
 // ParameterSnapshot reads fresh parameters using the last full inventory.
 // Callers retain full observations around transactions and device assignments.
@@ -187,7 +195,11 @@ func (c *Client) snapshot(enumerate bool) (model.Snapshot, error) {
 	}
 	if c.processList != nil {
 		names, err := c.processList()
-		element := observeProcess(names, err, "element.exe")
+		processor := c.processorProcess
+		if processor == "" {
+			processor = "element.exe" // Matches config.DefaultProcessorProcess.
+		}
+		element := observeProcess(names, err, processor)
 
 		s.Element = &element
 

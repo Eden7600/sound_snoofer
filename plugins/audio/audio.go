@@ -28,6 +28,16 @@ type Settings struct {
 	Config          json.RawMessage `json:"config"`
 	StatePath       string          `json:"state_path"`
 	DLL             string          `json:"dll,omitempty"`
+	// GainStepDB is the mixer gain change per dial detent; nil means 1 dB.
+	GainStepDB *float64 `json:"gain_step_db,omitempty"`
+}
+
+// gainStep is the validated dB change per dial detent.
+func (s Settings) gainStep() float32 {
+	if s.GainStepDB == nil {
+		return 1
+	}
+	return float32(*s.GainStepDB)
 }
 
 // Instance owns the audio actor and its snapshot publisher.
@@ -150,7 +160,8 @@ func start(ctx context.Context, services snoofer.Services, raw json.RawMessage, 
 	go func() {
 		defer close(i.done)
 		defer services.Controls.Remove("audio")
-		var reports reporter
+		gainStep := settings.gainStep()
+		reports := reporter{processor: cfg.ProcessorProcess()}
 		for s := range states {
 			i.mu.Lock()
 			i.state = s
@@ -161,6 +172,9 @@ func start(ctx context.Context, services snoofer.Services, raw json.RawMessage, 
 				action, err := action(snapshot, r)
 				if err != nil {
 					return err
+				}
+				if action.Kind == control.Gain {
+					action.Delta *= gainStep
 				}
 				select {
 				case i.actions <- action:

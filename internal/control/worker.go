@@ -778,6 +778,8 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				return
 			}
 		}
+		// Every iteration, so a reloaded configuration takes effect.
+		ConfigureClient(backend.Client, cfg)
 		// Stall detection runs whenever the live owner holds audio; Auto-recover only
 		// gates automatic dispatch. Preview never registers the callback.
 		monitorWanted := state.Live

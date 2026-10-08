@@ -60,7 +60,7 @@ func Plugin() snoofer.Plugin {
 			}
 			policy.Known = err == nil
 			if err == nil {
-				policy.Running = process.Contains(names, "vrserver.exe")
+				policy.Running = process.Contains(names, policy.ProcessName())
 			}
 			if runCtx.Err() != nil {
 				return runCtx.Err()
@@ -110,7 +110,7 @@ func Plugin() snoofer.Plugin {
 	}}
 }
 
-// steamVRReport describes vrserver.exe detection for the Third-party apps screen.
+// steamVRReport describes VR process detection for the Third-party apps screen.
 // An unknown observation keeps the previous headset profile but reports Unknown.
 func steamVRReport(link *snoofer.ConnectionTracker, policy audio.VRPolicy, now time.Time) snoofer.Control {
 	state, value, profile := snoofer.ConnectionUnknown, "Unknown", ""
@@ -128,5 +128,5 @@ func steamVRReport(link *snoofer.ConnectionTracker, policy audio.VRPolicy, now t
 		details = append(details, snoofer.ConnectionDetail{Label: "Audio profile", Value: profile})
 	}
 	return snoofer.Control{ID: "vr.app-steamvr", Label: "SteamVR", Group: "VR", Kind: "connection", Value: value,
-		SurfaceOnly: true, Available: true, Connection: link.Report("vrserver.exe (this session)", details...)}
+		SurfaceOnly: true, Available: true, Connection: link.Report(policy.ProcessName()+" (this session)", details...)}
 }

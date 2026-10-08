@@ -137,6 +137,7 @@ func Run(ctx context.Context, args []string, out, errout io.Writer, deps Deps) (
 		fmt.Fprintln(errout, e)
 		return 1
 	}
+	control.ConfigureClient(client, cfg)
 	defer func() {
 		if e := client.Close(); e != nil {
 			fmt.Fprintln(errout, e)

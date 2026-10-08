@@ -7,7 +7,7 @@ An audit of how declarative the configuration is found places where what runs di
 - **Missing fixture.** `TestVoiceExample` loads the deleted root `config.voice.json`. The embedded `internal/config/default.json` is the effective factory configuration and should be what is tested.
 - **Hardcoded policy.** These are policy, not ABI:
   - processor and VR process names (`element.exe`, `vrserver.exe`);
-  - dial step sizes (mixer gain, app volume, Hue brightness).
+  - the mixer gain dial step.
 
 ## What Changes
 - Reset choices derives defaults from the configuration the worker is running (its `Load` dependency), never from a separately read file.
@@ -17,13 +17,12 @@ An audit of how declarative the configuration is found places where what runs di
 - New optional fields, each defaulting to today's value:
   - `studio.voice.processor_process` (default `element.exe`);
   - VR plugin `process` (default `vrserver.exe`);
-  - audio `gain_step_db` (default 1);
-  - app audio `volume_step` (default 0.02);
-  - Hue `brightness_step` (default 2).
+  - audio `gain_step_db` (default 1).
 - Out of scope:
+  - **App volume and Hue brightness steps** stay constants: Hue reuses its step as the confirmation tolerance, so making it configurable needs its own design.
   - **Factory hardware patterns** (Volt, AirPods, SteelSeries, Insta360) stay in `default.json` because they seed the personal setup. The priority-list editor (separate change) makes them editable.
   - **The signal graph** (mic strips, B2/AUX/B3 processing, B1 recording, soundboard strip) stays in code. Those are CLAUDE.md invariants, and the slot routing change addresses the user-facing routing gap.
 
 ## Impact
-- **Code:** `internal/config`, `internal/control/worker.go`, `plugins/audio`, `plugins/vr`, `plugins/appaudio`, `plugins/hue`, `internal/voicemeeter` (processor process name).
+- **Code:** `internal/config`, `internal/control/worker.go`, `plugins/audio`, `plugins/vr`, `internal/voicemeeter` (processor process name).
 - **Compatibility:** existing configs keep working unchanged; every new field is optional.
