@@ -61,7 +61,7 @@ type Instance struct {
 	// Settings edits. settings and raw are the saved plugin settings (paths as
 	// written); running is the prepared configuration the worker reloads.
 	// Guarded by mu; only runEdits replaces them.
-	edits        chan string
+	edits        chan editRequest
 	settings     Settings
 	raw          json.RawMessage
 	running      config.Config
@@ -94,7 +94,7 @@ func start(ctx context.Context, services snoofer.Services, raw json.RawMessage, 
 	if err != nil {
 		return nil, err
 	}
-	i := &Instance{done: make(chan struct{}), actions: make(chan control.Action, 8), edits: make(chan string, 4)}
+	i := &Instance{done: make(chan struct{}), actions: make(chan control.Action, 8), edits: make(chan editRequest, 4)}
 	i.statePath = statePath
 	i.soundboardReserved = settings.SoundboardInput
 	i.settings, i.raw, i.saveSettings = settings, raw, services.SaveSettings
@@ -198,11 +198,12 @@ func start(ctx context.Context, services snoofer.Services, raw json.RawMessage, 
 			i.state = s
 			i.mu.Unlock()
 			snapshot := s
-			published := append(controls(snapshot), i.priorityControls(snapshot)...)
+			published := append(controls(snapshot), slotControls(snapshot)...)
+			published = append(published, i.priorityControls(snapshot)...)
 			published = append(published, reports.reports(snapshot, time.Now())...)
 			_ = services.Controls.Publish("audio", published, func(ctx context.Context, r snoofer.Request) error {
-				if r.ID == "audio.priority-edit" {
-					return i.queueEdit(ctx, r.Value)
+				if r.ID == "audio.priority-edit" || r.ID == "audio.output-edit" {
+					return i.queueEdit(ctx, editRequest{control: r.ID, value: r.Value})
 				}
 				action, err := action(snapshot, r)
 				if err != nil {
@@ -514,6 +515,9 @@ func action(s control.State, r snoofer.Request) (control.Action, error) {
 		key = map[string]string{"playback": "speaker-mute", "mic": "mic-mute"}[target]
 		a.Row = key
 		activeKey = key
+	}
+	if strings.HasPrefix(key, "slot-") {
+		return slotAction(s, key, r, a)
 	}
 	switch key {
 	case "engine-restart", "engine-confirm":

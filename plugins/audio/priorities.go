@@ -41,6 +41,9 @@ type priorityView struct {
 	// Interface additions pair an ASIO driver with a WDM presence input.
 	Drivers, Inputs []prioritySuggestion
 	Microphones     []string // Every valid microphone option ID.
+	// OutputDevices are connected outputs an output slot can use: neither
+	// Playback nor another slot.
+	OutputDevices []string
 }
 
 func suggestion(d model.Device) prioritySuggestion {
@@ -117,7 +120,10 @@ func buildPriorityView(cfg config.Config, s control.State) priorityView {
 			}
 		case !d.Available || d.Driver != "wdm":
 		case d.Direction == "output":
-			if !matched(playback, d.Name) {
+			if d.Name != playing && !studio.OutputDevice(d.Name) {
+				view.OutputDevices = append(view.OutputDevices, d.Name)
+			}
+			if !matched(playback, d.Name) && !studio.OutputDevice(d.Name) {
 				view.Suggestions[config.ListPlayback] = append(view.Suggestions[config.ListPlayback], suggestion(d))
 			}
 		case d.Direction == "input":
@@ -146,14 +152,19 @@ func (i *Instance) priorityControls(s control.State) []snoofer.Control {
 		{ID: "audio.priorities", Label: "Device priorities", Group: "Routing", Kind: "status", Value: "", Status: editErr, ViewData: data, Available: true},
 		{ID: "audio.priority-edit", Label: "Device priority edit", Group: "Routing", Kind: "text", Value: fmt.Sprintf("%x", sha256.Sum256(raw))[:12], Status: editErr,
 			Operations: []string{"set"}, Available: i.saveSettings != nil},
+		{ID: "audio.output-edit", Label: "Output edit", Group: "Routing", Kind: "text", Value: fmt.Sprintf("%x", sha256.Sum256(raw))[:12], Status: editErr,
+			Operations: []string{"set"}, Available: i.saveSettings != nil},
 	}
 }
 
+// editRequest is a queued settings edit: the edit control and its JSON value.
+type editRequest struct{ control, value string }
+
 // queueEdit hands an edit to the edit goroutine; requests must not block
 // control dispatch on file writes.
-func (i *Instance) queueEdit(ctx context.Context, value string) error {
+func (i *Instance) queueEdit(ctx context.Context, edit editRequest) error {
 	select {
-	case i.edits <- value:
+	case i.edits <- edit:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -170,8 +181,8 @@ func (i *Instance) runEdits(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case value := <-i.edits:
-			err := i.applyEdit(value)
+		case edit := <-i.edits:
+			err := i.applyEdit(edit)
 			i.mu.Lock()
 			i.editErr = ""
 			if err != nil {
@@ -191,15 +202,11 @@ func (i *Instance) runEdits(ctx context.Context) {
 	}
 }
 
-func (i *Instance) applyEdit(value string) error {
-	var e config.PriorityEdit
-	if err := json.Unmarshal([]byte(value), &e); err != nil {
-		return fmt.Errorf("invalid edit")
-	}
+func (i *Instance) applyEdit(edit editRequest) error {
 	i.mu.Lock()
 	settings, raw := i.settings, i.raw
 	i.mu.Unlock()
-	edited, err := config.EditPriorities(settings.Config, e)
+	edited, err := editConfig(settings.Config, edit)
 	if err != nil {
 		return err
 	}
@@ -222,4 +229,23 @@ func (i *Instance) applyEdit(value string) error {
 	i.settings, i.raw, i.running = settings, next, running
 	i.mu.Unlock()
 	return nil
+}
+
+// editConfig applies a priority or output edit to the audio configuration.
+func editConfig(raw json.RawMessage, edit editRequest) ([]byte, error) {
+	switch edit.control {
+	case "audio.priority-edit":
+		var e config.PriorityEdit
+		if err := json.Unmarshal([]byte(edit.value), &e); err != nil {
+			return nil, fmt.Errorf("invalid edit")
+		}
+		return config.EditPriorities(raw, e)
+	case "audio.output-edit":
+		var e config.OutputEdit
+		if err := json.Unmarshal([]byte(edit.value), &e); err != nil {
+			return nil, fmt.Errorf("invalid edit")
+		}
+		return config.EditOutputs(raw, e)
+	}
+	return nil, fmt.Errorf("unknown edit %s", edit.control)
 }

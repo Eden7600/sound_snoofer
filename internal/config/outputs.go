@@ -1,9 +1,11 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"slices"
+	"strings"
 )
 
 // Output is a named listening destination with one static device, such as
@@ -105,3 +107,84 @@ func (i *Intent) NormalizeOutputs(c Config) {
 func (i *Intent) OutputOn(id, source string) bool {
 	return i != nil && i.Outputs[id][source]
 }
+
+// OutputEdit is one change to the output slots: add (Value is JSON with name
+// and device), remove, rename or device (Value is the new name or device).
+type OutputEdit struct {
+	Op    string `json:"op"`
+	ID    string `json:"id,omitempty"`
+	Value string `json:"value,omitempty"`
+}
+
+// EditOutputs applies e to the audio configuration raw. Only the outputs
+// list is rewritten, and the result must decode and validate.
+func EditOutputs(raw []byte, e OutputEdit) ([]byte, error) {
+	var top, studio map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &top); err != nil {
+		return nil, fmt.Errorf("configuration: %w", err)
+	}
+	if err := json.Unmarshal(top["studio"], &studio); err != nil || studio == nil {
+		return nil, fmt.Errorf("configuration has no studio profile")
+	}
+	var outputs []Output
+	if err := unmarshalList(studio["outputs"], &outputs); err != nil {
+		return nil, err
+	}
+	index := slices.IndexFunc(outputs, func(o Output) bool { return o.ID == e.ID })
+	if e.Op != "add" && index < 0 {
+		return nil, fmt.Errorf("output %q no longer exists", e.ID)
+	}
+	switch e.Op {
+	case "add":
+		var added Output
+		if err := json.Unmarshal([]byte(e.Value), &added); err != nil {
+			return nil, fmt.Errorf("invalid output: %w", err)
+		}
+		added.Name = strings.TrimSpace(added.Name)
+		added.ID = uniqueOutputID(outputs, added.Name)
+		outputs = append(outputs, added)
+	case "remove":
+		outputs = slices.Delete(outputs, index, index+1)
+	case "rename":
+		outputs[index].Name = strings.TrimSpace(e.Value)
+	case "device":
+		outputs[index].Device = e.Value
+	default:
+		return nil, fmt.Errorf("unknown edit %q", e.Op)
+	}
+	if len(outputs) == 0 {
+		delete(studio, "outputs")
+	} else if err := setKey(studio, "outputs", outputs); err != nil {
+		return nil, err
+	}
+	if err := setKey(top, "studio", studio); err != nil {
+		return nil, err
+	}
+	out, err := encode(top, "  ")
+	if err != nil {
+		return nil, err
+	}
+	if _, err := Decode(out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// uniqueOutputID derives a stable ID from a name; it never changes on
+// rename, so saved switches stay attached.
+func uniqueOutputID(outputs []Output, name string) string {
+	base := strings.Trim(nonID.ReplaceAllString(strings.ToLower(name), "-"), "-")
+	if base == "" {
+		base = "output"
+	}
+	if len(base) > 20 {
+		base = base[:20]
+	}
+	id := base
+	for n := 2; slices.ContainsFunc(outputs, func(o Output) bool { return o.ID == id }); n++ {
+		id = fmt.Sprintf("%s-%d", base, n)
+	}
+	return id
+}
+
+var nonID = regexp.MustCompile(`[^a-z0-9]+`)

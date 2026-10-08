@@ -109,6 +109,18 @@ func EditIntent(i *config.Intent, a Action) error {
 		}
 		i.Enabled = b
 	default:
+		if rest, ok := strings.CutPrefix(a.Row, "slot:"); ok {
+			id, source, _ := strings.Cut(rest, ":")
+			if _, ok := i.Outputs[id][source]; !ok {
+				return fmt.Errorf("output switch no longer exists")
+			}
+			on, err := strconv.ParseBool(a.Value)
+			if err != nil {
+				return err
+			}
+			i.Outputs[id][source] = on
+			break
+		}
 		if !strings.HasPrefix(a.Row, "playback:") {
 			return fmt.Errorf("unknown rule")
 		}

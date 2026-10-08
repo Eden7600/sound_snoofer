@@ -101,7 +101,7 @@ func TestPriorityViewDriverWithoutHardware(t *testing.T) {
 func editInstance(t *testing.T, save func(string, json.RawMessage, json.RawMessage) error) *Instance {
 	t.Helper()
 	settings := Settings{Config: config.DefaultBytes(), StatePath: "audio"}
-	i := &Instance{actions: make(chan control.Action, 1), edits: make(chan string, 1), settings: settings, raw: snoofer.MarshalSettings(settings), saveSettings: save}
+	i := &Instance{actions: make(chan control.Action, 1), edits: make(chan editRequest, 1), settings: settings, raw: snoofer.MarshalSettings(settings), saveSettings: save}
 	i.prepare = func(s Settings) (config.Config, error) { return config.Decode(s.Config) }
 	var err error
 	if i.running, err = i.prepare(settings); err != nil {
@@ -119,7 +119,7 @@ func TestPriorityEditSavesThenReloads(t *testing.T) {
 	})
 	original := i.raw
 	value, _ := json.Marshal(config.PriorityEdit{List: config.ListPlayback, Op: "move", Index: 1, Value: "up"})
-	if err := i.applyEdit(string(value)); err != nil {
+	if err := i.applyEdit(editRequest{control: "audio.priority-edit", value: string(value)}); err != nil {
 		t.Fatal(err)
 	}
 	if string(expected) != string(original) || saved == nil {
@@ -146,12 +146,12 @@ func TestRefusedPriorityEdits(t *testing.T) {
 	})
 	before := i.running.Studio.Playback[0].Pattern
 	bad, _ := json.Marshal(config.PriorityEdit{List: config.ListPlayback, Op: "set", Field: "pattern", Value: "(unclosed"})
-	if err := i.applyEdit(string(bad)); err == nil || saves != 0 {
+	if err := i.applyEdit(editRequest{control: "audio.priority-edit", value: string(bad)}); err == nil || saves != 0 {
 		t.Fatal("invalid pattern saved", err, saves)
 	}
 	failSave = true
 	move, _ := json.Marshal(config.PriorityEdit{List: config.ListPlayback, Op: "move", Index: 1, Value: "up"})
-	if err := i.applyEdit(string(move)); err == nil || !strings.Contains(err.Error(), "reload") {
+	if err := i.applyEdit(editRequest{control: "audio.priority-edit", value: string(move)}); err == nil || !strings.Contains(err.Error(), "reload") {
 		t.Fatal("stale save accepted", err)
 	}
 	if i.running.Studio.Playback[0].Pattern != before {
@@ -167,8 +167,8 @@ func TestEditGoroutineReloadsOnlyAfterSave(t *testing.T) {
 	defer func() { cancel(); <-done }()
 	bad, _ := json.Marshal(config.PriorityEdit{List: config.ListPlayback, Op: "remove", Index: 9})
 	good, _ := json.Marshal(config.PriorityEdit{List: config.ListPlayback, Op: "remove", Index: 0})
-	i.edits <- string(bad)
-	i.edits <- string(good)
+	i.edits <- editRequest{control: "audio.priority-edit", value: string(bad)}
+	i.edits <- editRequest{control: "audio.priority-edit", value: string(good)}
 	if a := <-i.actions; a.Kind != control.Reload.Kind {
 		t.Fatal(a)
 	}
