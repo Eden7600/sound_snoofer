@@ -17,8 +17,8 @@ using Read = HRESULT (__cdecl*)(void*, Stats*);
 using Failure = HRESULT (__cdecl*)(void*, int*);
 static float samples[8][2048], writes[8][2048], original[8][2048];
 int main(int argc, char** argv) {
-    assert(argc == 4 || argc == 5);
-    bool fullband = argc == 5 && !strcmp(argv[4],"--fullband");
+    assert(argc >= 4 && argc <= 6);
+    bool fullband = argc >= 5 && !strcmp(argv[4],"--fullband");
     HMODULE dll = LoadLibraryExA(argv[1], nullptr, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
     if (!dll) { fprintf(stderr,"LoadLibrary error %lu\n",GetLastError()); return 1; }
     auto create = reinterpret_cast<Create>(GetProcAddress(dll,fullband ? "AECNeuralFullbandCreate" : "AECNeuralCreate"));
@@ -38,6 +38,22 @@ int main(int argc, char** argv) {
     Config c{{2,3},{0,1,2,3,4,5,6,7},0,0};
     assert(SUCCEEDED(configure(e,&c)));
     timeBeginPeriod(1);
+    if(argc==6 && !strcmp(argv[5],"--soak")) {
+        AudioBuffer b{};b.sr=48000;b.samples=480;b.inputs=b.outputs=8;
+        for(int ch=0;ch<8;++ch){b.read[ch]=samples[ch];b.write[ch]=writes[ch];}
+        Stats report{};
+        for(int n=0;n<6000;++n){
+            for(int ch=0;ch<8;++ch)for(int i=0;i<480;++i)
+                samples[ch][i]=float(.02*sin(2*3.141592653589793*233*(n*480+i)/48000));
+            input(e,&b);read(e,&report);
+            if(report.failed){int reason=0;failure(e,&reason);fprintf(stderr,"SOAK failure at block %d: %d\n",n,reason);destroy(e);return 1;}
+            memset(samples,0,sizeof(samples));output(e,&b);Sleep(10);
+        }
+        int metrics[4]{};timing(e,metrics);
+        assert(report.active && !metrics[2] && !metrics[3]);
+        fprintf(stderr,"PASS 60 seconds continuous: worker peak %.2f ms; queue peak %.2f ms; gaps %d; underruns %d\n",metrics[0]/1000.0,metrics[1]/1000.0,metrics[2],metrics[3]);
+        destroy(e);timeEndPeriod(1);FreeLibrary(dll);return 0;
+    }
     // Repeated warm-up resets used to fill the output queue with results that
     // were never consumed. Test all reset callers before sustained playback.
     {

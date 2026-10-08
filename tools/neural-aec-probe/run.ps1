@@ -1,3 +1,4 @@
+param([switch]$Soak)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 Push-Location $repo
@@ -18,6 +19,11 @@ cl /nologo /W4 /WX /O2 /EHsc /std:c++20 /Iinternal\voicemeeter\callback /Fo"$out
     # GGML's CPU dispatch searches the executable and current directories.
     Push-Location bin
     try {
+        if ($Soak) {
+            & "$out/probe.exe" ([IO.Path]::GetFullPath("$repo/bin/snoofer-neural-aec.dll")) "$repo/bin/models/localvqe-v1.3-4.8M-f32.gguf" unused --fullband --soak
+            if ($LASTEXITCODE) { throw 'Neural soak failed' }
+            return
+        }
         foreach ($model in 'localvqe-v1.4-aec-200K-f32.gguf','localvqe-v1.3-4.8M-f32.gguf') {
             & "$out/probe.exe" ([IO.Path]::GetFullPath("$repo/bin/snoofer-neural-aec.dll")) ([IO.Path]::GetFullPath("$repo/bin/models/$model")) "$repo/.local/neural-aec/LocalVQE/ggml/tests/fixtures/regression_input.f32"
             if ($LASTEXITCODE) { throw "Neural probe failed: $model" }
