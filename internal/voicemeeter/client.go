@@ -149,8 +149,12 @@ func (c *Client) snapshot(enumerate bool) (model.Snapshot, error) {
 	}
 	if model.StripCount(s.Edition) > 0 {
 		s.Numbers = map[string]float32{}
-		params := []string{"Patch.asio[0]", "Patch.asio[1]", "Patch.asio[2]", "Patch.asio[3]"}
 		n, _ := model.Limits(s.Edition)
+		// Two ASIO patch cells (left, right) per hardware input.
+		params := []string{}
+		for cell := 0; cell < 2*n; cell++ {
+			params = append(params, fmt.Sprintf("Patch.asio[%d]", cell))
+		}
 		for strip := 0; strip < model.StripCount(s.Edition); strip++ {
 			for bus := 1; bus <= s.Edition; bus++ {
 				params = append(params, fmt.Sprintf("Strip[%d].B%d", strip, bus))
@@ -237,7 +241,7 @@ func (c *Client) Set(target string, device model.Device) error {
 	return status("assign "+target, c.api.Set(slot.Parameter(device.Driver), device.Name))
 }
 
-var patchParam = regexp.MustCompile(`^Patch\.asio\[([0-3])\]$`)
+var patchParam = regexp.MustCompile(`^Patch\.asio\[([0-9])\]$`)
 var sendParam = regexp.MustCompile(`^Strip\[([0-7])\]\.([AB])([1-5])$`)
 
 func (c *Client) SetNumber(param string, value int) error {
@@ -254,9 +258,12 @@ func (c *Client) SetNumber(param string, value int) error {
 	if e != nil {
 		return e
 	}
-	if patchParam.MatchString(param) {
-		if value < 0 || value > 2 {
-			return errors.New("ASIO input channel must be 0, 1, or 2")
+	if m := patchParam.FindStringSubmatch(param); m != nil {
+		// Two cells per hardware input; the value is an ASIO input channel
+		// (1-based) or 0 for none.
+		cell, _ := strconv.Atoi(m[1])
+		if cell >= 2*n || value < 0 || value > 64 {
+			return errors.New("ASIO patch cell or input channel out of range")
 		}
 	} else if m := sendParam.FindStringSubmatch(param); m != nil {
 		strip, _ := strconv.Atoi(m[1])

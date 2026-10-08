@@ -42,9 +42,6 @@ type Intent struct {
 }
 
 func (v *Voice) Validate() error {
-	if v.Source == "" {
-		v.Source = "desk"
-	}
 	if v.Mode == "" {
 		v.Mode = "element"
 	}
@@ -60,7 +57,9 @@ func (v *Voice) Validate() error {
 	return validateChoices(v.Source, v.Mode, v.Monitor)
 }
 func validateChoices(source, mode, monitor string) error {
-	if source != "auto" && source != "off" && source != "desk" && source != "lav" && source != "webcam" && !strings.HasPrefix(source, "vr:") {
+	// Membership in the configured microphones is checked with the
+	// configuration; here only the form is.
+	if source != "" && source != "auto" && source != "off" && !strings.HasPrefix(source, "vr:") && !microphoneID.MatchString(source) {
 		return fmt.Errorf("invalid voice source %q", source)
 	}
 	if mode != "direct" && mode != "element" {
@@ -172,6 +171,9 @@ func (i Intent) Validate(c Config) error {
 	}
 	if i.Version != 1 {
 		return fmt.Errorf("saved choices version must be 1")
+	}
+	if !c.validMicrophoneChoice(i.Source) {
+		return fmt.Errorf("saved microphone %q is not configured; choose another", i.Source)
 	}
 	if e := validateChoices(i.Source, i.Mode, i.Monitor); e != nil {
 		return e

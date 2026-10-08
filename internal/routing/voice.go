@@ -40,41 +40,58 @@ func addVoice(c config.Config, s model.Snapshot, p Plan) (Plan, error) {
 		v.ProcessingReason = s.ElementStatus() + "; using Direct"
 	}
 	t.Voice = v
-	webcam, reasons := selectDevice(c.Studio.FallbackMic, "input", s.Devices)
-	current := s.Assignments["input:3"]
-	owned := current == ""
-	for _, candidate := range c.Studio.FallbackMic {
-		if candidate.Regex.MatchString(current) {
-			owned = true
+	// The source strip is the chosen microphone's position. An unavailable
+	// choice (or a headset, which addVRMic resolves) falls back to the first
+	// available device microphone.
+	mics := c.Studio.Mics()
+	source := -1
+	if _, n, ok := c.Studio.Microphone(i.Source); ok && slices.Contains(MicrophoneOptions(c, s), i.Source) {
+		source = n
+	}
+	selected := map[string]*model.Device{}
+	var reasons []string
+	for _, m := range mics {
+		if m.IsDevice() {
+			d, why := selectDevice(m.Devices, "input", s.Devices)
+			selected[m.ID] = d
+			reasons = append(reasons, why...)
 		}
 	}
-	if !owned {
-		return p, fmt.Errorf("input:3 is occupied by unmanaged device %q", current)
-	}
-	// Activity metering wires the webcam only when checked or needed as the
-	// source or fallback.
-	webcamWired := c.ProfileWired == nil || slices.Contains(c.ProfileWired, "webcam") || i.Source == "webcam" || !slices.Contains(MicrophoneOptions(c, s), i.Source)
-	if webcam != nil && i.MicActive() && webcamWired {
-		t.Operations = append(t.Operations, Operation{Target: "input:3", Device: webcam, BeforeName: current, Change: current != webcam.Name})
-	} else if !i.MicActive() || !webcamWired {
-		clear := &model.Device{Direction: "input", Driver: "wdm", Available: true}
-		t.Operations = append(t.Operations, Operation{Target: "input:3", Device: clear, BeforeName: current, Change: current != ""})
-	}
-	source := 0
-	if i.Source == "lav" {
-		source = 1
-	}
-	if i.MicActive() && (i.Source == "webcam" || strings.HasPrefix(i.Source, "vr:") || !slices.Contains(MicrophoneOptions(c, s), i.Source)) {
-		source = 2
-		v.Effective = "webcam"
-		if i.Source != "webcam" {
-			v.Reason = "ASIO microphone unavailable; using webcam fallback"
+	if i.MicActive() && source < 0 {
+		for n, m := range mics {
+			if selected[m.ID] != nil {
+				source = n
+				break
+			}
 		}
-		if webcam == nil {
-			source = -1
+		if source >= 0 {
+			v.Effective = mics[source].ID
+			if !strings.HasPrefix(i.Source, "vr:") {
+				v.Reason = microphoneName(c, i.Source) + " unavailable; using " + mics[source].Name
+			}
+		} else {
 			v.Effective = "unavailable"
 			v.Reason = strings.Join(reasons, "; ")
 			t.Unresolved = append(t.Unresolved, "no eligible microphone: "+v.Reason)
+		}
+	}
+	// Each device microphone owns its input. Activity metering wires it only
+	// when checked or in use.
+	for n, m := range mics {
+		if !m.IsDevice() {
+			continue
+		}
+		target := fmt.Sprintf("input:%d", n+1)
+		current := s.Assignments[target]
+		if current != "" && !slices.ContainsFunc(m.Devices, func(d config.Candidate) bool { return d.Regex.MatchString(current) }) {
+			return p, fmt.Errorf("%s is occupied by unmanaged device %q", target, current)
+		}
+		wired := c.ProfileWired == nil || slices.Contains(c.ProfileWired, m.ID) || source == n
+		if d := selected[m.ID]; d != nil && i.MicActive() && wired {
+			t.Operations = append(t.Operations, Operation{Target: target, Device: d, BeforeName: current, Change: current != d.Name})
+		} else if !i.MicActive() || !wired {
+			clear := &model.Device{Direction: "input", Driver: "wdm", Available: true}
+			t.Operations = append(t.Operations, Operation{Target: target, Device: clear, BeforeName: current, Change: current != ""})
 		}
 	}
 	if !i.MicActive() {
@@ -243,4 +260,13 @@ func holdPaused(t *Topology, i *config.Intent) {
 			t.HeldSends++
 		}
 	}
+}
+
+// microphoneName is a microphone's configured name, or its ID when it is
+// not a configured microphone.
+func microphoneName(c config.Config, id string) string {
+	if m, _, ok := c.Studio.Microphone(id); ok {
+		return m.Name
+	}
+	return id
 }

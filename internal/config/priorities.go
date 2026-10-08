@@ -210,20 +210,43 @@ func setInterfaceField(a *ASIOInterface, field, value string) error {
 		a.ASIOPattern = value
 	case "presence_pattern":
 		a.PresencePattern = value
-	case "desk", "lav":
-		channel, err := strconv.Atoi(strings.TrimSpace(value))
-		if err != nil {
-			return fmt.Errorf("%s channel must be a number", field)
-		}
-		if field == "desk" {
-			a.Inputs[0] = channel
-		} else {
-			a.Inputs[1] = channel
-		}
 	default:
-		return fmt.Errorf("unknown field %q", field)
+		id, ok := strings.CutPrefix(field, "input:")
+		if !ok {
+			return fmt.Errorf("unknown field %q", field)
+		}
+		channels, err := parseChannels(value)
+		if err != nil {
+			return fmt.Errorf("%s: %w", id, err)
+		}
+		if a.Inputs == nil {
+			a.Inputs = MicInputs{}
+		}
+		if channels == nil {
+			delete(a.Inputs, id)
+		} else {
+			a.Inputs[id] = channels
+		}
 	}
 	return nil
+}
+
+// parseChannels reads "c" (mono), "l,r" (stereo), or "" / "0" (not on this
+// interface).
+func parseChannels(value string) ([]int, error) {
+	value = strings.TrimSpace(value)
+	if value == "" || value == "0" {
+		return nil, nil
+	}
+	var channels []int
+	for _, part := range strings.Split(value, ",") {
+		channel, err := strconv.Atoi(strings.TrimSpace(part))
+		if err != nil {
+			return nil, fmt.Errorf("channels must be numbers")
+		}
+		channels = append(channels, channel)
+	}
+	return channels, nil
 }
 
 func unmarshalList(raw json.RawMessage, list any) error {

@@ -68,3 +68,15 @@ func TestIdentityValidation(t *testing.T) {
 		t.Fatal("interface by identity", err)
 	}
 }
+
+func TestResolveDeviceMicrophones(t *testing.T) {
+	b := strings.Replace(genericStudio, `"devices":[{"driver":"wdm","pattern":"Yeti"}]`, `"devices":[{"driver":"wdm","id":"{yeti}","name":"Microphone (2- Yeti)"}]`, 1)
+	c, err := Decode([]byte(b))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolved := c.Resolve(DeviceNames{ByID: map[string]string{"{yeti}": "Microphone (3- Yeti)"}})
+	if !resolved.Studio.Microphones[0].Devices[0].Regex.MatchString("Microphone (3- Yeti)") || c.Studio.Microphones[0].Devices[0].Regex.MatchString("Microphone (3- Yeti)") {
+		t.Fatal("device microphone identity not resolved on a copy")
+	}
+}

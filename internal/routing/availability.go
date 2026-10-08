@@ -63,16 +63,18 @@ func MicrophoneOptions(c config.Config, s model.Snapshot) []string {
 	s = VRDevices(c, s)
 	options := []string{}
 	if c.Studio != nil && c.Studio.Voice != nil {
+		var mapped config.MicInputs
 		if asio, a, err := selectInterface(c.Studio, s); err == nil && asio != nil {
-			if a.Inputs[0] > 0 {
-				options = append(options, "desk")
-			}
-			if a.Inputs[1] > 0 {
-				options = append(options, "lav")
-			}
+			mapped = a.Inputs
 		}
-		if webcam, _ := selectDevice(c.Studio.FallbackMic, "input", s.Devices); webcam != nil {
-			options = append(options, "webcam")
+		for _, m := range c.Studio.Mics() {
+			if m.IsDevice() {
+				if d, _ := selectDevice(m.Devices, "input", s.Devices); d != nil {
+					options = append(options, m.ID)
+				}
+			} else if mapped.Left(m.ID) > 0 {
+				options = append(options, m.ID)
+			}
 		}
 	}
 	if c.VR != nil {

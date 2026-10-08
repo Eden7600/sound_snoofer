@@ -75,12 +75,13 @@ func TestEditPlaybackList(t *testing.T) {
 
 func TestEditInterfacesAndMicrophones(t *testing.T) {
 	c, _ := editDefault(t,
-		PriorityEdit{List: ListInterfaces, Op: "set", Index: 0, Field: "lav", Value: "0"},
+		PriorityEdit{List: ListInterfaces, Op: "set", Index: 0, Field: "input:lav", Value: "0"},
+		PriorityEdit{List: ListInterfaces, Op: "set", Index: 0, Field: "input:desk", Value: "3,4"},
 		PriorityEdit{List: ListInterfaces, Op: "set", Index: 0, Field: "presence_pattern", Value: "(?i)volt"},
 		PriorityEdit{List: ListMicrophones, Op: "add", Value: "desk"},
 		PriorityEdit{List: ListMicrophones, Op: "move", Index: 2, Value: "up"},
 	)
-	if c.Studio.ASIO[0].Inputs != [2]int{1, 0} || c.Studio.ASIO[0].PresencePattern != "(?i)volt" {
+	if in := c.Studio.ASIO[0].Inputs; len(in) != 1 || in.Left("desk") != 3 || in.Right("desk") != 4 || in.Left("lav") != 0 || c.Studio.ASIO[0].PresencePattern != "(?i)volt" {
 		t.Fatal(c.Studio.ASIO[0])
 	}
 	if !slices.Equal(c.Profiles.Microphones, []string{"lav", "desk", "webcam"}) {
@@ -93,7 +94,9 @@ func TestRejectedPriorityEdits(t *testing.T) {
 		{List: ListPlayback, Op: "set", Index: 0, Field: "pattern", Value: "(unclosed"},
 		{List: ListWebcam, Op: "set", Index: 0, Field: "driver", Value: "asio"},
 		{List: ListInterfaces, Op: "remove", Index: 0},
-		{List: ListInterfaces, Op: "set", Index: 0, Field: "desk", Value: "65"},
+		{List: ListInterfaces, Op: "set", Index: 0, Field: "input:desk", Value: "65"},
+		{List: ListInterfaces, Op: "set", Index: 0, Field: "input:webcam", Value: "1"},
+		{List: ListInterfaces, Op: "set", Index: 0, Field: "input:desk", Value: "1,2,3"},
 		{List: ListPlayback, Op: "remove", Index: 9},
 		{List: ListPlayback, Op: "move", Index: 0, Value: "up"},
 		{List: ListPlayback, Op: "add", Value: `{"driver":"wdm","pattern":"x","extra":1}`},

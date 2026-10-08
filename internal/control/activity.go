@@ -13,8 +13,14 @@ import (
 // Active again.
 const activeAfter = 300 * time.Millisecond
 
-// micStrips maps microphone options to the hardware strip they feed.
-var micStrips = map[string]int{"desk": 0, "lav": 1, "webcam": 2}
+// micStrip is the hardware strip a microphone feeds: its position.
+func micStrip(c config.Config, id string) (int, bool) {
+	if c.Studio == nil {
+		return 0, false
+	}
+	_, n, ok := c.Studio.Microphone(id)
+	return n, ok
+}
 
 // micLatch is one microphone's activity: when its current run of silence or
 // signal began, and whether it is latched silent.

@@ -75,9 +75,16 @@ func headsetDevice(c config.Config, s model.Snapshot, direction, id string) (*mo
 	return nil, ""
 }
 
-// ManagedMicStrips is the complete microphone/return ownership set.
+// ManagedMicStrips are every microphone's strip (by position), the AUX
+// processing return and the VR input.
 func ManagedMicStrips(c config.Config) []int {
-	out := []int{0, 1, 2, 6}
+	out := []int{}
+	if c.Studio != nil {
+		for n := range c.Studio.Mics() {
+			out = append(out, n)
+		}
+	}
+	out = append(out, 6)
 	if c.VR != nil {
 		out = append(out, c.VR.Input-1)
 	}

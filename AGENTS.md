@@ -87,7 +87,7 @@ provides more specific guidance. Explicit user instructions take precedence.
   not disable computer playback/capture or operate recorder transport.
 - Disabling also clears managed microphone input assignments and ASIO input patches;
   the selected ASIO interface remains assigned to A1 and playback retains its normal output.
-- ASIO priority selects one interface for A1 before microphone/playback selection. Only that interface supplies eligible ASIO inputs/outputs. Per-interface desk/lav channel mappings feed stereo inputs 1/2 (L/R); zero means unavailable. Playback takes the lowest free output and
+- ASIO priority selects one interface for A1 before microphone/playback selection. Only that interface supplies eligible ASIO inputs/outputs. Microphones are user-defined (studio.microphones; legacy configurations mean desk, lav and webcam) and each feeds the input at its position: interface microphones through per-interface channel maps (one channel mono to L/R, or a left/right pair), device microphones through their own device priority. A microphone the selected interface does not map is unavailable. Playback takes the lowest free output and
   its routing follows that output. Selecting the loaded ASIO interface for playback reuses reserved
   ASIO A1; other playback devices still use the lowest free output. Device matching
   uses Go regular expressions.

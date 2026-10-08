@@ -12,14 +12,18 @@ type Studio struct {
 	Recording           *Recording      `json:"recording,omitempty"`
 	Voice               *Voice          `json:"voice,omitempty"`
 	Playback            []Candidate     `json:"playback"`
-	FallbackMic         []Candidate     `json:"fallback_mic"`
+	FallbackMic         []Candidate     `json:"fallback_mic,omitempty"`
 	MovePlaybackRouting bool            `json:"move_playback_routing"`
 	PlaybackSources     []string        `json:"playback_sources"`
-	Outputs             []Output        `json:"outputs,omitempty"`
+	// Microphones in input order; see Microphone. Absent in configurations
+	// from before microphones were configurable, which Validate fills.
+	Microphones       []Microphone `json:"microphones,omitempty"`
+	legacyMicrophones bool
+	Outputs           []Output `json:"outputs,omitempty"`
 }
 
-// ASIOInterface owns the clock and its available desk/lav input channels.
-// A zero channel means that microphone is not attached to this interface.
+// ASIOInterface owns the clock and the input channels of the interface
+// microphones it carries; see MicInputs.
 type ASIOInterface struct {
 	ASIOPattern     string `json:"asio_pattern,omitempty"`
 	PresencePattern string `json:"presence_pattern,omitempty"`
@@ -29,7 +33,7 @@ type ASIOInterface struct {
 	ASIOName      string         `json:"asio_name,omitempty"`
 	PresenceID    string         `json:"presence_id,omitempty"`
 	PresenceName  string         `json:"presence_name,omitempty"`
-	Inputs        [2]int         `json:"inputs"`
+	Inputs        MicInputs      `json:"inputs,omitempty"`
 	ASIORegex     *regexp.Regexp `json:"-"`
 	PresenceRegex *regexp.Regexp `json:"-"`
 }
@@ -84,23 +88,30 @@ func (s *Studio) Validate() error {
 		if e != nil {
 			return e
 		}
-		for _, channel := range a.Inputs {
-			if channel < 0 || channel > 64 {
-				return fmt.Errorf("ASIO input channel must be 0..64")
-			}
+	}
+	if len(s.Playback) == 0 {
+		return fmt.Errorf("studio requires playback candidates")
+	}
+	for i := range s.Playback {
+		if s.Playback[i].Driver != "wdm" && s.Playback[i].Driver != "asio" {
+			return fmt.Errorf("playback requires wdm/asio")
+		}
+		if e = s.Playback[i].compile(fmt.Sprintf("playback %d", i+1)); e != nil {
+			return e
 		}
 	}
-	if len(s.Playback) == 0 || len(s.FallbackMic) == 0 {
-		return fmt.Errorf("studio requires playback and fallback_mic candidates")
+	if e = s.validateMicrophones(); e != nil {
+		return e
 	}
-	for group, list := range [][]Candidate{s.Playback, s.FallbackMic} {
-		for i := range list {
-			if list[i].Driver != "wdm" && !(group == 0 && list[i].Driver == "asio") {
-				return fmt.Errorf("playback requires wdm/asio; fallback mic requires wdm")
+	if s.Voice != nil {
+		if s.Voice.Source == "" {
+			s.Voice.Source = "auto"
+			if _, _, ok := s.Microphone("desk"); ok {
+				s.Voice.Source = "desk"
 			}
-			if e = list[i].compile([]string{"playback", "fallback mic"}[group] + fmt.Sprintf(" %d", i+1)); e != nil {
-				return e
-			}
+		}
+		if !(Config{Studio: s}).validMicrophoneChoice(s.Voice.Source) {
+			return fmt.Errorf("voice source %q is not a configured microphone", s.Voice.Source)
 		}
 	}
 	return nil

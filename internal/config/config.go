@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	"sound-snoofer/internal/model"
@@ -107,11 +108,6 @@ func (c *Config) Validate() error {
 		if len(c.Profiles.Microphones) == 0 {
 			return fmt.Errorf("normal microphone priority is required")
 		}
-		for _, source := range c.Profiles.Microphones {
-			if source != "desk" && source != "lav" && source != "webcam" && source != "off" {
-				return fmt.Errorf("invalid normal microphone priority %s", source)
-			}
-		}
 		if a := c.Profiles.Activity; a != nil {
 			if err := a.Validate(); err != nil {
 				return err
@@ -136,7 +132,21 @@ func (c *Config) Validate() error {
 		if len(c.Routes) != 0 {
 			return fmt.Errorf("studio and fixed routes cannot be combined")
 		}
-		return c.Studio.Validate()
+		if err := c.Studio.Validate(); err != nil {
+			return err
+		}
+		// Priorities name configured microphones, known once the studio is.
+		if c.Profiles != nil {
+			for _, source := range c.Profiles.Microphones {
+				if source == "auto" || strings.HasPrefix(source, "vr:") || !c.validMicrophoneChoice(source) {
+					return fmt.Errorf("invalid normal microphone priority %s", source)
+				}
+			}
+		}
+		return nil
+	}
+	if c.Profiles != nil {
+		return fmt.Errorf("microphone priorities require a studio profile")
 	}
 	if len(c.Routes) == 0 {
 		return fmt.Errorf("at least one managed route is required")

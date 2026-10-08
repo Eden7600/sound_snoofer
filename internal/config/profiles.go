@@ -1,6 +1,9 @@
 package config
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // ProfileChoices contains independent persisted source, playback and processing choices.
 type ProfileChoices struct {
@@ -58,7 +61,9 @@ func (p *ProfilePolicy) Validate() error {
 			}
 			continue
 		}
-		if id == "desk" || id == "lav" || id == "webcam" || id == "off" {
+		// Studio microphones are checked against the audio configuration when
+		// planning; the VR plugin only checks their form.
+		if id == "off" || (microphoneID.MatchString(id) && !strings.HasPrefix(id, "vr")) {
 			continue
 		}
 		found := false

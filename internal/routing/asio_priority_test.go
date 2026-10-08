@@ -10,7 +10,7 @@ import (
 
 func TestASIOPriorityDeterminesMicrophoneAndPlaybackEligibility(t *testing.T) {
 	c, s := voiceFixture(t)
-	c.Studio.ASIO = append([]config.ASIOInterface{{ASIOPattern: "^Other ASIO$", PresencePattern: "^Other input$", Inputs: [2]int{0, 0}}}, c.Studio.ASIO...)
+	c.Studio.ASIO = append([]config.ASIOInterface{{ASIOPattern: "^Other ASIO$", PresencePattern: "^Other input$"}}, c.Studio.ASIO...)
 	c.Studio.Playback = append([]config.Candidate{{Driver: "asio", Pattern: "^Volt ASIO$"}}, c.Studio.Playback...)
 	c.Profiles = &config.Profiles{Microphones: []string{"lav", "desk", "webcam"}}
 	c.Intent = c.VoiceIntent()
@@ -57,7 +57,7 @@ func TestASIOPriorityDeterminesMicrophoneAndPlaybackEligibility(t *testing.T) {
 
 func TestASIOChannelMappingAndAmbiguity(t *testing.T) {
 	c, s := voiceFixture(t)
-	c.Studio.ASIO[0].Inputs = [2]int{4, 0}
+	c.Studio.ASIO[0].Inputs = config.MicInputs{"desk": {4}}
 	p, err := Build(c, s)
 	if err != nil {
 		t.Fatal(err)

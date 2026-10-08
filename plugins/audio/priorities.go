@@ -98,7 +98,7 @@ func buildPriorityView(cfg config.Config, s control.State) priorityView {
 	for _, a := range studio.ASIO {
 		presence, drivers := routing.InterfaceMatches(a, snapshot)
 		inUse := topology != nil && topology.ASIOActive && len(presence) == 1 && slices.Contains(drivers, topology.ASIOName)
-		interfaces = append(interfaces, priorityEntry{ASIOPattern: a.ASIOPattern, PresencePattern: a.PresencePattern, ASIOID: a.ASIOID, ASIOName: a.ASIOName, PresenceID: a.PresenceID, PresenceName: a.PresenceName, Desk: a.Inputs[0], Lav: a.Inputs[1], Matches: presence, Drivers: drivers, InUse: inUse})
+		interfaces = append(interfaces, priorityEntry{ASIOPattern: a.ASIOPattern, PresencePattern: a.PresencePattern, ASIOID: a.ASIOID, ASIOName: a.ASIOName, PresenceID: a.PresenceID, PresenceName: a.PresenceName, Desk: a.Inputs.Left("desk"), Lav: a.Inputs.Left("lav"), Matches: presence, Drivers: drivers, InUse: inUse})
 	}
 	view.Lists[config.ListInterfaces] = interfaces
 

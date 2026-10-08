@@ -80,6 +80,12 @@ func (c Config) Resolve(names DeviceNames) Config {
 	}
 	studio.Playback = resolve(studio.Playback)
 	studio.FallbackMic = resolve(studio.FallbackMic)
+	if studio.Microphones != nil {
+		studio.Microphones = slices.Clone(studio.Microphones)
+		for n := range studio.Microphones {
+			studio.Microphones[n].Devices = resolve(studio.Microphones[n].Devices)
+		}
+	}
 	studio.ASIO = slices.Clone(studio.ASIO)
 	for n := range studio.ASIO {
 		a := &studio.ASIO[n]

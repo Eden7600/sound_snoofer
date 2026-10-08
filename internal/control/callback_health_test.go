@@ -14,7 +14,7 @@ import (
 )
 
 func callbackFixture() (config.Config, model.Snapshot) {
-	c := config.Config{Studio: &config.Studio{ASIO: []config.ASIOInterface{{ASIORegex: regexp.MustCompile("^Universal Audio Volt$"), PresenceRegex: regexp.MustCompile("Volt"), Inputs: [2]int{1, 2}}}}}
+	c := config.Config{Studio: &config.Studio{ASIO: []config.ASIOInterface{{ASIORegex: regexp.MustCompile("^Universal Audio Volt$"), PresenceRegex: regexp.MustCompile("Volt"), Inputs: config.MicInputs{"desk": {1}, "lav": {2}}}}}}
 	s := model.Snapshot{Edition: 3, Assignments: map[string]string{"A1": "Universal Audio Volt"},
 		Devices:  []model.Device{{Name: "Universal Audio Volt", Driver: "asio", Direction: "output"}, {Name: "Volt input", ID: "physical", Driver: "wdm", Direction: "input", Available: true}},
 		Callback: &model.CallbackStatus{Active: true, Starting: 1, Buffers: 100, Synced: 100}}

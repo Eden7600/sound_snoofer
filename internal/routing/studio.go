@@ -235,20 +235,38 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 	}
 	// Disable the old input patch before installing a direct fallback mic.
 	// Off disconnects ASIO inputs without releasing the A1 output device.
+	// Interface microphones own their strip's two patch cells; device
+	// microphones' cells are left alone.
+	patchCells := func(n int) [2]string {
+		return [2]string{fmt.Sprintf("Patch.asio[%d]", 2*n), fmt.Sprintf("Patch.asio[%d]", 2*n+1)}
+	}
+	if profile.Voice != nil && c.VR != nil && c.VR.Input-1 < len(profile.Mics()) {
+		return p, fmt.Errorf("VR input %d is microphone %s's input; use fewer microphones or another VR input", c.VR.Input, profile.Mics()[c.VR.Input-1].Name)
+	}
 	if !t.ASIOActive || !micActive {
-		for i := 0; i < 4; i++ {
-			if e := numberOp(fmt.Sprintf("Patch.asio[%d]", i), 0); e != nil {
-				return p, e
+		for n, m := range profile.Mics() {
+			if m.IsDevice() {
+				continue
+			}
+			for _, cell := range patchCells(n) {
+				if e := numberOp(cell, 0); e != nil {
+					return p, e
+				}
+			}
+		}
+	}
+	interfaceInputs := func() {
+		for n, m := range profile.Mics() {
+			if !m.IsDevice() {
+				deviceOp(fmt.Sprintf("input:%d", n+1), clear)
 			}
 		}
 	}
 	if t.ASIOActive {
-		deviceOp("input:1", clear)
-		deviceOp("input:2", clear)
+		interfaceInputs()
 		deviceOp("A1", *asio)
 	} else if profile.Voice != nil {
-		deviceOp("input:1", clear)
-		deviceOp("input:2", clear)
+		interfaceInputs()
 	} else {
 		mic, why := selectDevice(profile.FallbackMic, "input", s.Devices)
 		if mic == nil {
@@ -271,19 +289,19 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 		deviceOp(bus, clear)
 	}
 	if t.ASIOActive && micActive {
-		desk, lav := selectedInterface.Inputs[0], selectedInterface.Inputs[1]
-		// Activity metering wires only the checked microphones.
-		if c.ProfileWired != nil {
-			if !slices.Contains(c.ProfileWired, "desk") {
-				desk = 0
+		for n, m := range profile.Mics() {
+			if m.IsDevice() {
+				continue
 			}
-			if !slices.Contains(c.ProfileWired, "lav") {
-				lav = 0
+			left, right := selectedInterface.Inputs.Left(m.ID), selectedInterface.Inputs.Right(m.ID)
+			// Activity metering wires only the checked microphones.
+			if c.ProfileWired != nil && !slices.Contains(c.ProfileWired, m.ID) {
+				left, right = 0, 0
 			}
-		}
-		for i, v := range []int{desk, desk, lav, lav} {
-			if e := numberOp(fmt.Sprintf("Patch.asio[%d]", i), v); e != nil {
-				return p, e
+			for side, v := range []int{left, right} {
+				if e := numberOp(patchCells(n)[side], v); e != nil {
+					return p, e
+				}
 			}
 		}
 	}
@@ -291,7 +309,7 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 	// interrupted transitions where both old and new device slots are assigned.
 	if playback != nil && profile.MovePlaybackRouting && len(oldBuses) > 0 {
 		for strip := 0; strip < model.StripCount(s.Edition); strip++ {
-			if profile.Voice != nil && (strip < 3 || strip == 6 || (c.VR != nil && strip == c.VR.Input-1)) {
+			if profile.Voice != nil && slices.Contains(ManagedMicStrips(c), strip) {
 				continue
 			}
 			enabled := 0

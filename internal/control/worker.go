@@ -483,7 +483,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 					vrConfig.Studio = &studio
 				}
 			}
-			state.VRSourceOptions = append(state.VRSourceOptions, "desk", "lav", "webcam")
+			state.VRSourceOptions = append(state.VRSourceOptions, cfg.Studio.MicrophoneIDs()...)
 			state.VROutputOptions = routing.PlaybackOptions(vrConfig, vrSnapshot)
 		}
 		if cfg.Profiles != nil {
@@ -533,14 +533,14 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		}
 		strips := []int{}
 		for _, id := range wired {
-			if strip, ok := micStrips[id]; ok {
+			if strip, ok := micStrip(cfg, id); ok {
 				strips = append(strips, strip)
 			}
 		}
 		levels := reader.InputLevels(strips)
 		byID := map[string]float32{}
 		for _, id := range wired {
-			strip, mapped := micStrips[id]
+			strip, mapped := micStrip(cfg, id)
 			if level, ok := levels[strip]; mapped && ok {
 				byID[id] = level
 			}
