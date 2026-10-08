@@ -57,6 +57,17 @@ type Instance struct {
 	// The echo canceller's wanted insert hook and its request generation.
 	echoInsert     *voicemeeter.InsertHook
 	echoGeneration uint64
+
+	// Settings edits. settings and raw are the saved plugin settings (paths as
+	// written); running is the prepared configuration the worker reloads.
+	// Guarded by mu; only runEdits replaces them.
+	edits        chan string
+	settings     Settings
+	raw          json.RawMessage
+	running      config.Config
+	editErr      string
+	prepare      func(Settings) (config.Config, error)
+	saveSettings func(string, json.RawMessage, json.RawMessage) error
 }
 
 // Plugin returns inert registration metadata.
@@ -69,26 +80,53 @@ func start(ctx context.Context, services snoofer.Services, raw json.RawMessage, 
 	if err := snoofer.DecodeSettings(raw, &settings); err != nil {
 		return nil, err
 	}
-	cfg, err := config.Decode(settings.Config)
-	if err != nil {
+	if _, err := config.Decode(settings.Config); err != nil {
 		return nil, err
 	}
 	if settings.StatePath == "" {
 		return nil, fmt.Errorf("audio state_path is required to preserve operational journals")
 	}
-	if !filepath.IsAbs(settings.StatePath) {
-		settings.StatePath = filepath.Join(filepath.Dir(services.Path), settings.StatePath)
+	statePath := settings.StatePath
+	if !filepath.IsAbs(statePath) {
+		statePath = filepath.Join(filepath.Dir(services.Path), statePath)
 	}
-	owned, err := loadPolicyOwnership(settings.StatePath)
+	owned, err := loadPolicyOwnership(statePath)
 	if err != nil {
 		return nil, err
 	}
+	i := &Instance{done: make(chan struct{}), actions: make(chan control.Action, 8), edits: make(chan string, 4)}
+	i.statePath = statePath
+	i.soundboardReserved = settings.SoundboardInput
+	i.settings, i.raw, i.saveSettings = settings, raw, services.SaveSettings
 	if owned != nil {
-		cfg.VR = &owned.Devices
-		cfg.PolicyPlayback = owned.Playback
+		data, _ := json.Marshal(owned)
+		i.ownedPolicy = string(data)
+		i.ownedInput = owned.Devices.Input
 	}
-	cfg = config.LoadChoices(settings.StatePath, cfg)
-	cfg.SoundboardReserved = settings.SoundboardInput
+	// prepare turns saved settings into the configuration the worker runs,
+	// both at start and after an edit.
+	i.prepare = func(settings Settings) (config.Config, error) {
+		cfg, err := config.Decode(settings.Config)
+		if err != nil {
+			return cfg, err
+		}
+		if owned != nil {
+			cfg.VR = &owned.Devices
+			cfg.PolicyPlayback = owned.Playback
+		}
+		cfg.SoundboardReserved = settings.SoundboardInput
+		cfg.SoundboardPolicy = i.soundboardSnapshot
+		if cfg.Profiles == nil {
+			// Older configurations omit profiles; see config.DefaultProfiles.
+			cfg.Profiles = config.DefaultProfiles()
+		}
+		cfg.Policy = i.policySnapshot
+		return cfg, nil
+	}
+	if i.running, err = i.prepare(settings); err != nil {
+		return nil, err
+	}
+	cfg := config.LoadChoices(statePath, i.running)
 	var initialLease func()
 	if services.Live && cfg.StateError == "" {
 		initialLease, err = ownership.Acquire()
@@ -97,22 +135,9 @@ func start(ctx context.Context, services snoofer.Services, raw json.RawMessage, 
 		}
 	}
 	runCtx, cancel := context.WithCancel(ctx)
-	i := &Instance{cancel: cancel, done: make(chan struct{}), actions: make(chan control.Action, 8)}
-	i.statePath = settings.StatePath
-	i.soundboardReserved = settings.SoundboardInput
-	cfg.SoundboardPolicy = i.soundboardSnapshot
-	if owned != nil {
-		data, _ := json.Marshal(owned)
-		i.ownedPolicy = string(data)
-		i.ownedInput = owned.Devices.Input
-	}
+	i.cancel = cancel
 	states := make(chan control.State, 1)
 	workerDone := make(chan struct{})
-	if cfg.Profiles == nil {
-		// Older configurations omit profiles; see config.DefaultProfiles.
-		cfg.Profiles = config.DefaultProfiles()
-	}
-	cfg.Policy = i.policySnapshot
 	started := make(chan error, 1)
 	firstOpen := true
 	deps := control.Dependencies{
@@ -153,10 +178,16 @@ func start(ctx context.Context, services snoofer.Services, raw json.RawMessage, 
 			}
 			return ownership.Acquire()
 		},
-		Load:   func(string) (config.Config, error) { return config.LoadChoices(settings.StatePath, cfg), nil },
+		Load: func(string) (config.Config, error) {
+			i.mu.Lock()
+			running := i.running
+			i.mu.Unlock()
+			return config.LoadChoices(statePath, running), nil
+		},
 		Insert: i.insertRequest,
 	}
-	go control.Work(runCtx, cfg, settings.StatePath, settings.DLL, services.Live, deps, i.actions, states, workerDone)
+	go control.Work(runCtx, cfg, statePath, settings.DLL, services.Live, deps, i.actions, states, workerDone)
+	go i.runEdits(runCtx)
 	go func() {
 		defer close(i.done)
 		defer services.Controls.Remove("audio")
@@ -167,8 +198,12 @@ func start(ctx context.Context, services snoofer.Services, raw json.RawMessage, 
 			i.state = s
 			i.mu.Unlock()
 			snapshot := s
-			published := append(controls(snapshot), reports.reports(snapshot, time.Now())...)
+			published := append(controls(snapshot), i.priorityControls(snapshot)...)
+			published = append(published, reports.reports(snapshot, time.Now())...)
 			_ = services.Controls.Publish("audio", published, func(ctx context.Context, r snoofer.Request) error {
+				if r.ID == "audio.priority-edit" {
+					return i.queueEdit(ctx, r.Value)
+				}
 				action, err := action(snapshot, r)
 				if err != nil {
 					return err

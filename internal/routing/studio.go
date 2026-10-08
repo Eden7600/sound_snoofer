@@ -77,7 +77,7 @@ func selectDevice(list []config.Candidate, direction string, devices []model.Dev
 	for _, c := range list {
 		matches := []model.Device{}
 		for _, d := range devices {
-			if d.Available && d.Driver == c.Driver && d.Direction == direction && c.Regex.MatchString(d.Name) {
+			if candidateMatch(c, direction, d) {
 				matches = append(matches, d)
 			}
 		}
