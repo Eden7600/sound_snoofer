@@ -15,10 +15,10 @@ extern "C" {
 }
 
 namespace {
-constexpr int kHop = 256, kMaxBlock = 2048, kQueue = 32;
+constexpr int kHop = 256, kMaxBlock = 2048, kQueue = 32, kBufferMs = 32;
 struct Config { int mic[2], reference[8], strength, bypass; };
 struct Stats { int active, sample_rate, erle, delay; unsigned frames; int failed; };
-struct Input { unsigned generation; int rate; float mic[480], ref[480]; };
+struct Input { unsigned generation; int rate; uint64_t queued; float mic[480], ref[480]; };
 struct Output { unsigned generation; int count; uint64_t start; float data[768]; };
 
 // Single producer and single consumer; indices never reset across generations.
@@ -44,7 +44,17 @@ template<class T> struct Queue {
         return true;
     }
 };
+uint64_t Counter() { LARGE_INTEGER v; QueryPerformanceCounter(&v); return static_cast<uint64_t>(v.QuadPart); }
+void Peak(std::atomic<int>& peak, int value) {
+    int old=peak.load();
+    while(value>old && !peak.compare_exchange_weak(old,value)) {}
+}
 struct Engine {
+    HANDLE ready = CreateEventW(nullptr,FALSE,FALSE,nullptr);
+    LARGE_INTEGER frequency{};
+    std::atomic<int> workerUs{0}, queueUs{0}, gaps{0}, underruns{0};
+    Engine() { QueryPerformanceFrequency(&frequency); }
+    int Micros(uint64_t ticks) const { return static_cast<int>(std::min(2147483647.0,double(ticks)*1000000.0/double(frequency.QuadPart))); }
     localvqe_ctx_t model = 0;
     bool fullband = false; // Immutable before the worker starts.
     std::atomic<bool> stop{false}, bypass{true};
@@ -67,7 +77,9 @@ struct Engine {
     Output current{};
     ~Engine() {
         stop.store(true);
+        if (ready) SetEvent(ready);
         if (worker.joinable()) worker.join();
+        if (ready) CloseHandle(ready);
         if (model) localvqe_free(model);
     }
     int Failed() const {
@@ -75,6 +87,7 @@ struct Engine {
         return unsigned(f >> 32) == generation.load() ? int(f & 0xffffffffu) : 0;
     }
     void Fail(unsigned gen, int reason) {
+        if (reason == 4) underruns.fetch_add(1);
         uint64_t previous = failure.load();
         // An old worker result must never erase a newer stream's failure.
         while (unsigned(previous >> 32) <= gen && gen == generation.load()) {
@@ -85,6 +98,7 @@ struct Engine {
     // Callback thread only: discard both timelines, never pair an old mic with
     // a later reference. Further gaps retain the same bounded recovery budget.
     void Discontinuity() {
+        gaps.fetch_add(1);
         if (!recovering) recoverySamples = 0;
         recovering = true;
         stableSamples = 0;
@@ -99,8 +113,10 @@ struct Engine {
         std::unique_ptr<snoofer::Fullband> upper;
         Input p{};
         while (!stop.load()) {
-            if (!input.Pop(p)) { Sleep(1); continue; }
+            if (!input.Pop(p)) { WaitForSingleObject(ready,INFINITE); continue; }
             if (p.generation != generation.load() || Failed()) continue;
+            uint64_t started=Counter();
+            Peak(queueUs,Micros(started-p.queued));
             try {
                 if (gen != p.generation) {
                     gen = p.generation;
@@ -147,6 +163,7 @@ struct Engine {
                     frames.fetch_add(1);
                 }
             } catch (...) { Fail(p.generation, 8); }
+            Peak(workerUs,Micros(Counter()-started));
         }
     }
 };
@@ -165,6 +182,7 @@ static HRESULT CreateNeural(Engine** result, const char* path, bool fullband) {
     *result = nullptr;
     try {
         auto e = std::make_unique<Engine>();
+        if (!e->ready) return HRESULT_FROM_WIN32(GetLastError());
         e->fullband = fullband;
         auto options = localvqe_options_new();
         if (!options) return E_OUTOFMEMORY;
@@ -206,6 +224,12 @@ __declspec(dllexport) HRESULT __cdecl AECReadStats(Engine* e, Stats* s) {
     *s = {e->active.load() && !failed && !e->bypass.load(), e->rate.load(), -1, -1, e->frames.load(), failed != 0};
     return S_OK;
 }
+// Four signed 32-bit fields: peak worker/queue microseconds, gaps, underruns.
+__declspec(dllexport) HRESULT __cdecl AECReadTiming(Engine* e, int* values) {
+    if (!e || !values) return E_INVALIDARG;
+    values[0]=e->workerUs.load(); values[1]=e->queueUs.load();
+    values[2]=e->gaps.load(); values[3]=e->underruns.load(); return S_OK;
+}
 __declspec(dllexport) HRESULT __cdecl AECReadLatency(Engine* e, int* milliseconds) {
     if (!e || !milliseconds) return E_INVALIDARG;
     *milliseconds = e->latency.load(); return S_OK;
@@ -244,7 +268,7 @@ __declspec(dllexport) void __stdcall AECInputInsert(void* context, AudioBuffer* 
         // published old result is still rejected by its generation below.
         e->output.Discard();
         e->applied = gen; e->sampleRate = b->sr; e->blockSize = b->samples;
-        e->latency.store(b->sr > 0 ? 80 + (1000 * e->blockSize + b->sr - 1) / b->sr + (b->sr > 16000 ? 2 : 0) + (e->fullband ? 2 : 0) : 0);
+        e->latency.store(b->sr > 0 ? kBufferMs + 16 + (1000 * e->blockSize + b->sr - 1) / b->sr + (b->sr > 16000 ? 2 : 0) + (e->fullband ? 2 : 0) : 0);
         e->pending = e->fill = e->startup = 0;
         e->cursor = 0; e->referenceReady = e->haveOutput = false;
         e->active.store(0);
@@ -263,7 +287,7 @@ __declspec(dllexport) void __stdcall AECInputInsert(void* context, AudioBuffer* 
         if (!std::isfinite(e->capture[i])) { e->Fail(gen, 10); return; }
     }
     e->pending = b->samples;
-    const uint64_t latency = uint64_t(b->sr) * 64 / 1000 + e->blockSize;
+    const uint64_t latency = uint64_t(b->sr) * kBufferMs / 1000 + e->blockSize;
     for (int i = 0; i < b->samples; ++i) {
         uint64_t time = e->cursor + i;
         if (time < latency) { e->processed[i] = e->capture[i]; continue; }
@@ -301,7 +325,9 @@ __declspec(dllexport) void __stdcall AECOutputInsert(void* context, AudioBuffer*
         e->packet.ref[e->fill++] = ref;
         if (e->fill == e->sampleRate / 100) {
             e->packet.generation = gen; e->packet.rate = e->sampleRate;
+            e->packet.queued=Counter();
             if (!e->input.Push(e->packet)) { e->Fail(gen, 9); return; }
+            SetEvent(e->ready);
             e->fill = 0;
         }
     }

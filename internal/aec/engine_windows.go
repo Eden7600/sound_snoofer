@@ -23,6 +23,7 @@ type Engine struct {
 	readFailure, resetFailure *windows.Proc
 	inputInsert, outputInsert *windows.Proc
 	latency                   *windows.Proc
+	timing                    *windows.Proc
 }
 
 // nativeConfig mirrors AECConfig: twelve 32-bit ints.
@@ -81,6 +82,7 @@ func open(path, model string, fullband bool) (*Engine, error) {
 		}
 	}
 	if model != "" {
+		e.timing, _ = dll.FindProc("AECReadTiming") // Optional for older neural companions.
 		e.latency, err = dll.FindProc("AECReadLatency")
 		if err != nil {
 			return nil, errors.Join(err, dll.Release())
@@ -143,6 +145,16 @@ func (e *Engine) Stats() (Stats, error) {
 			return stats, err
 		}
 		stats.LatencyMs = int(latency)
+	}
+	if e.timing != nil {
+		var timing [4]int32
+		code, _, _ := e.timing.Call(e.handle, uintptr(unsafe.Pointer(&timing)))
+		if err := result("AECReadTiming", code); err != nil {
+			return stats, err
+		}
+		stats.TimingKnown = true
+		stats.WorkerPeakMs, stats.QueuePeakMs = float64(timing[0])/1000, float64(timing[1])/1000
+		stats.Gaps, stats.Underruns = timing[2], timing[3]
 	}
 	if !stats.Failed {
 		return stats, nil

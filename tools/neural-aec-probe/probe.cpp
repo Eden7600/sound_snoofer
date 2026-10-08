@@ -26,10 +26,12 @@ int main(int argc, char** argv) {
     auto destroy = reinterpret_cast<Destroy>(GetProcAddress(dll,"AECDestroy"));
     auto configure = reinterpret_cast<Configure>(GetProcAddress(dll,"AECConfigureV2"));
     auto read = reinterpret_cast<Read>(GetProcAddress(dll,"AECReadStats"));
+    auto timing = reinterpret_cast<Failure>(GetProcAddress(dll,"AECReadTiming"));
+    auto latencyRead = reinterpret_cast<Failure>(GetProcAddress(dll,"AECReadLatency"));
     auto failure = reinterpret_cast<Failure>(GetProcAddress(dll,"AECReadFailure"));
     auto input = reinterpret_cast<InsertStage>(GetProcAddress(dll,"AECInputInsert"));
     auto output = reinterpret_cast<InsertStage>(GetProcAddress(dll,"AECOutputInsert"));
-    assert(reset && create && destroy && configure && read && failure && input && output);
+    assert(timing && latencyRead && reset && create && destroy && configure && read && failure && input && output);
     void* e = nullptr;
     assert(FAILED(create(&e,"missing-model.gguf")) && !e);
     assert(SUCCEEDED(create(&e,argv[2])) && e);
@@ -41,11 +43,11 @@ int main(int argc, char** argv) {
     {
         AudioBuffer b{};b.sr=48000;b.samples=480;b.inputs=b.outputs=8;
         for(int ch=0;ch<8;++ch){b.read[ch]=samples[ch];b.write[ch]=writes[ch];}
-        for(int cycle=0;cycle<30;++cycle){
+        for(int cycle=0;cycle<40;++cycle){
             if(cycle%3==0)assert(SUCCEEDED(reset(e)));
             else if(cycle%3==1)input(e,nullptr);
             else output(e,&b); // Duplicate output invalidates the previous timeline.
-            for(int n=0;n<5;++n){
+            for(int n=0;n<3;++n){
                 for(int ch=0;ch<8;++ch)for(int i=0;i<480;++i)samples[ch][i]=float(ch+1)*.001f;
                 input(e,&b);output(e,&b);Sleep(15);
                 Stats report{};read(e,&report);
@@ -61,7 +63,7 @@ int main(int argc, char** argv) {
         Stats report{};
         for(int n=0;n<100;++n){input(e,&b);output(e,&b);Sleep(10);read(e,&report);assert(!report.failed);}
         assert(report.active);
-        fprintf(stderr,"PASS 30 pre-roll resets and sustained recovery\n");
+        fprintf(stderr,"PASS 40 pre-roll resets and sustained recovery\n");
         input(e,nullptr);
     }
     int rates[] = {16000,32000,48000};
@@ -109,6 +111,9 @@ int main(int argc, char** argv) {
                 Sleep(DWORD(std::ceil(1000.0*block/rate)));
             }
             assert(SUCCEEDED(read(e,&s)) && s.active && s.frames && !s.failed && s.erle==-1 && s.delay==-1);
+            int metrics[4]{},latencyMs=0;assert(SUCCEEDED(timing(e,metrics)) && SUCCEEDED(latencyRead(e,&latencyMs)));
+            assert(latencyMs==48+(1000*block+rate-1)/rate+(rate>16000?2:0)+(fullband?2:0));
+            fprintf(stderr,"TIMING %d Hz block %d: peak worker %.2f ms; queue %.2f ms; reported latency %d ms\n",rate,block,metrics[0]/1000.0,metrics[1]/1000.0,latencyMs);
             printf("PASS %d Hz block %d: active; callback max %.1f us; synthetic attenuation %.1f dB\n",rate,block,maxUs,10*log10((before+1e-20)/(after+1e-20)));
             // A single missing callback must re-prime with exact pass-through.
             input(e,&b); input(e,&b);
@@ -178,7 +183,7 @@ int main(int argc, char** argv) {
             memset(samples,0,sizeof(samples));output(e,&b);Sleep(10);
         }
         double gain=20*log10(2*sqrt(sine*sine+cosine*cosine)/measured/.04);
-        fprintf(stderr,"Full-band callback 10 kHz gain %.2f dB\n",gain);assert(gain>-1 && gain<1);
+        fprintf(stderr,"Full-band isolated 10 kHz gate gain %.2f dB\n",gain);assert(gain < -25);
     }
     if (!fullband) {
     // Compare the complete callback bridge against direct streaming inference on
@@ -208,7 +213,7 @@ int main(int argc, char** argv) {
     freeModel(direct);
     c.bypass=0; assert(SUCCEEDED(configure(e,&c)));
     b.sr=16000;b.samples=160;
-    constexpr int latency=1024+160;
+    constexpr int latency=512+160;
     for(int pass=0;pass<2;++pass) {
     if(pass) {
         input(e,&b); input(e,&b); // Recover without a lifecycle/reset call.

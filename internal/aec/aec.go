@@ -22,16 +22,19 @@ type Config struct {
 
 // Stats is the engine's latest report from the audio thread.
 type Stats struct {
-	LatencyMs  int  // Processing delay, including framing; zero when unknown.
-	Active     bool // Processing with a supported rate and targets.
-	SampleRate int  // As last seen from Voicemeeter; 0 before any audio.
-	ERLEKnown  bool
-	ERLE       float64 // Echo return loss enhancement in dB.
-	DelayKnown bool
-	DelayMs    int    // Estimated echo delay.
-	Frames     uint32 // 10 ms frames processed.
-	Failed     bool   // An engine error switched to pass-through.
-	Reason     string // Why the engine failed; empty when it has not.
+	TimingKnown               bool
+	WorkerPeakMs, QueuePeakMs float64 // Peaks since engine load, including warm-up.
+	Gaps, Underruns           int32
+	LatencyMs                 int  // Processing delay, including framing; zero when unknown.
+	Active                    bool // Processing with a supported rate and targets.
+	SampleRate                int  // As last seen from Voicemeeter; 0 before any audio.
+	ERLEKnown                 bool
+	ERLE                      float64 // Echo return loss enhancement in dB.
+	DelayKnown                bool
+	DelayMs                   int    // Estimated echo delay.
+	Frames                    uint32 // 10 ms frames processed.
+	Failed                    bool   // An engine error switched to pass-through.
+	Reason                    string // Why the engine failed; empty when it has not.
 }
 
 // Supported reports whether the engine processes at a sample rate.

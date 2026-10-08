@@ -139,7 +139,7 @@ func TestNativeNeuralModels(t *testing.T) {
 		if err := e.Configure(Config{Mic: [2]int{0, 1}, Reference: [8]int{0, 1, 2, 3, 4, 5, 6, 7}}); err != nil {
 			t.Fatal(err)
 		}
-		if s, err := e.Stats(); err != nil || s.Active || s.Failed || s.ERLEKnown || s.DelayKnown {
+		if s, err := e.Stats(); err != nil || s.Active || s.Failed || s.ERLEKnown || s.DelayKnown || !s.TimingKnown {
 			t.Fatal(s, err)
 		}
 		hook := e.Hook()
