@@ -12,7 +12,7 @@ static void Acoustic(bool echo, bool voice) {
     unsigned seed=928;
     for(auto& f:farEnd){seed=seed*1664525u+1013904223u;f=echo ? float(int(seed>>16)-32768)/327680.f : 0;}
     snoofer::Fullband engine;
-    snoofer::Crossover dry;
+    snoofer::Crossover dry, wet;
     double inputPower=0,outputPower=0,sinPart=0,cosPart=0;
     int measured=0;
     for(int n=0;n<count;n+=480){
@@ -24,11 +24,12 @@ static void Acoustic(bool echo, bool voice) {
             if(voice)mic[i]+=float(.08*sin(2*pi*1100*t/48000)+.04*sin(2*pi*10000*t/48000));
         }
         engine.Push(mic,reference);
+        for(int i=0;i<480;++i)out[i]=voice ? float(.08*sin(2*pi*1100*(n+i-834)/48000)) : 0;
         engine.Mix(n,out,480);
         for(int i=0;i<480;++i){
-            float raw=dry.Process(0,mic[i]);
+            float raw=dry.Process(0,mic[i]); float upper=wet.Process(0,out[i]);
             if(n<15*48000)continue;
-            inputPower+=raw*raw;outputPower+=out[i]*out[i];
+            inputPower+=raw*raw;outputPower+=upper*upper;
             sinPart+=out[i]*sin(2*pi*10000*(n+i)/48000);
             cosPart+=out[i]*cos(2*pi*10000*(n+i)/48000);measured++;
         }
@@ -92,6 +93,15 @@ int main() {
             else assert(gain<-60);
         }
     }
+    snoofer::UpperGate gate;
+    for(int i=0;i<4800;++i)assert(gate.Process(0)==0);
+    float gain=0;
+    for(int i=0;i<2400;++i)gain=gate.Process(.02f);
+    assert(gain>.99f);
+    float previousGain=gain;
+    for(int i=0;i<48000;++i){gain=gate.Process(0);assert(gain>=0 && gain<=previousGain+.000001f);previousGain=gain;}
+    assert(gain<.001f);
+    puts("PASS: gate stays closed on silence, opens on neural voice and smoothly releases");
     Acoustic(false,true);Acoustic(true,false);Acoustic(true,true);
 }
 

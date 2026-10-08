@@ -49,9 +49,23 @@ public:
     }
 };
 
+// ponytail: fixed trial thresholds; expose calibration if quiet speech is clipped.
+class UpperGate {
+    float power=0, gain=0;
+public:
+    float Process(float neural) {
+        float squared=neural*neural;
+        power+=(squared-power)*(squared>power ? .004157998f : .000347162f); // 5/60 ms.
+        float target=std::fmax(0.f,std::fmin(1.f,(std::sqrt(power)-.0003f)/.0027f));
+        gain+=(target-gain)*(target>gain ? .010362601f : .000520698f); // 2/40 ms.
+        return gain;
+    }
+};
+
 class Fullband {
     rtc::scoped_refptr<webrtc::AudioProcessing> apm = HighBandAEC();
     Crossover crossover;
+    UpperGate gate;
     std::array<float,4096> history{};
     uint64_t written = 0;
 public:
@@ -81,7 +95,7 @@ public:
                     throw std::runtime_error("high-band framing mismatch");
                 high = history[index % history.size()];
             }
-            neural[i] = crossover.Process(neural[i],high);
+            neural[i] = crossover.Process(neural[i],high*gate.Process(neural[i]));
         }
     }
 };
