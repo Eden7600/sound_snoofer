@@ -3,8 +3,10 @@ package controller
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
+	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/model"
 )
 
@@ -83,8 +85,8 @@ func (c *Controller) Tape(ctx context.Context, command TapeCommand, live bool) e
 	return nil
 }
 
-// routeTape sends the tape to the Playback destination's bus only, before
-// playback starts, so the first second is audible. The planner keeps it
+// routeTape sends the tape to the Playback destination and tape-enabled
+// output slots before playback starts, so the first second is audible. The planner keeps it
 // there while the tape plays and clears it afterwards.
 func (c *Controller) routeTape(ctx context.Context, b RecorderBackend, r model.RecorderSnapshot) error {
 	p, e := c.Plan()
@@ -94,10 +96,11 @@ func (c *Controller) routeTape(ctx context.Context, b RecorderBackend, r model.R
 	if p.Topology == nil || p.Topology.PlaybackTarget == "" {
 		return fmt.Errorf("no playback")
 	}
+	slotTape := p.Topology.OutputBuses(config.SourceTape)
 	for _, bus := range tapeBuses {
 		param := "Recorder." + bus
 		want := 0
-		if bus == p.Topology.PlaybackTarget {
+		if bus == p.Topology.PlaybackTarget || slices.Contains(slotTape, bus) {
 			want = 1
 		}
 		if r.Values[param] == float32(want) {

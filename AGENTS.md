@@ -91,6 +91,11 @@ provides more specific guidance. Explicit user instructions take precedence.
   its routing follows that output. Selecting the loaded ASIO interface for playback reuses reserved
   ASIO A1; other playback devices still use the lowest free output. Device matching
   uses Go regular expressions.
+- Output slots (up to three) name one static device each. A bus holding a slot device
+  is not free for Playback (Playback takes the last slot's bus only when nothing else
+  is left) and stays reserved while the device is disconnected. Slot devices are never
+  playback candidates. Snoofer owns only the slot's source sends (playback sources,
+  monitor tap, soundboard, tape) on its bus; removed slots become unmanaged.
 - Treat presence, absence and ambiguous matches distinctly; installed ASIO
   drivers alone do not prove hardware presence. Preserve fallback priorities.
 - Potato voice routing uses B2 to Element through AUX Virtual ASIO, AUX as the

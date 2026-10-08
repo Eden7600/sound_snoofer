@@ -126,6 +126,10 @@ func playbackDevices(profile *config.Studio, s model.Snapshot) []model.Device {
 		if devices[n].Driver == "asio" {
 			devices[n].Available = selected != nil && devices[n].Direction == "output" && devices[n].Name == selected.Name
 		}
+		// Output slot devices belong to their slot, never to Playback.
+		if profile != nil && devices[n].Direction == "output" && profile.OutputDevice(devices[n].Name) {
+			devices[n].Available = false
+		}
 	}
 	return devices
 }

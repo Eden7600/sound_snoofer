@@ -29,6 +29,8 @@ type Topology struct {
 	PlaybackTarget  string           `json:"playback_target,omitempty"`
 	Operations      []Operation      `json:"operations"`
 	Unresolved      []string         `json:"unresolved,omitempty"`
+	// Outputs are the output slots in configuration order.
+	Outputs []OutputStatus `json:"outputs,omitempty"`
 	// PlaybackUnavailable explains a voice-profile plan without a playback output.
 	PlaybackUnavailable []string `json:"playback_unavailable,omitempty"`
 	InventoryKey        string   `json:"-"`
@@ -113,7 +115,9 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 		}
 	}
 	ownsPlayback := func(name string) bool {
-		if name == "" {
+		// An output slot's device is never a playback output, even if it
+		// matches a playback pattern.
+		if name == "" || profile.OutputDevice(name) {
 			return false
 		}
 		for _, c := range profile.Playback {
@@ -124,7 +128,7 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 		return false
 	}
 	ownsASIO := profile.OwnsASIO
-	if t.ASIOActive && s.Assignments["A1"] != "" && !ownsASIO(s.Assignments["A1"]) && !ownsPlayback(s.Assignments["A1"]) {
+	if t.ASIOActive && s.Assignments["A1"] != "" && !ownsASIO(s.Assignments["A1"]) && !ownsPlayback(s.Assignments["A1"]) && !profile.OutputDevice(s.Assignments["A1"]) {
 		return p, fmt.Errorf("A1 is occupied by unmanaged device %q; cannot reserve it for ASIO", s.Assignments["A1"])
 	}
 	playback, reasons := selectDevice(profile.Playback, "output", playbackDevices(profile, s))
@@ -179,6 +183,12 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 		if t.PlaybackTarget == "" && !(t.ASIOActive && i == 1) && (current == "" || ownsPlayback(current) || (i == 1 && ownsASIO(current))) {
 			t.PlaybackTarget = target
 		}
+	}
+	// Buses holding an output slot's device are not free for Playback, which
+	// only takes the last slot's bus when nothing else is left.
+	slots := holdOutputBuses(profile, s, n, t.ASIOActive)
+	if t.PlaybackTarget == "" && playback != nil {
+		t.PlaybackTarget = slots.evict()
 	}
 	if t.PlaybackTarget == "" {
 		if profile.Voice == nil {
@@ -247,6 +257,15 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 	if playback != nil && playback.Driver != "asio" {
 		deviceOp(t.PlaybackTarget, *playback)
 	}
+	slots.place(c, t, ownsPlayback)
+	for _, o := range t.Outputs {
+		if o.State == OutputOK && s.Assignments[o.Bus] != o.Device {
+			deviceOp(o.Bus, model.Device{Name: o.Device, Driver: "wdm", Available: true})
+		}
+	}
+	for _, bus := range slots.duplicates {
+		deviceOp(bus, clear)
+	}
 	if t.ASIOActive && micActive {
 		for i, v := range []int{selectedInterface.Inputs[0], selectedInterface.Inputs[0], selectedInterface.Inputs[1], selectedInterface.Inputs[1]} {
 			if e := numberOp(fmt.Sprintf("Patch.asio[%d]", i), v); e != nil {
@@ -309,10 +328,22 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 			}
 		}
 	}
+	// Each output slot receives only its switched-on playback sources.
+	for _, o := range t.Outputs {
+		if o.Bus == "" {
+			continue
+		}
+		for _, source := range profile.PlaybackSources {
+			strip := n + int(source[len(source)-1]-'1')
+			if e := numberOp(fmt.Sprintf("Strip[%d].%s", strip, o.Bus), boolValue(o.Receives(source))); e != nil {
+				return p, e
+			}
+		}
+	}
 	// Release former playback outputs last. Match ownership across restarts;
 	// never clear unrelated occupied outputs.
 	for _, bus := range oldBuses {
-		if playback != nil && bus != t.PlaybackTarget && !(t.ASIOActive && bus == "A1") {
+		if playback != nil && bus != t.PlaybackTarget && !(t.ASIOActive && bus == "A1") && t.OutputAt(bus) == nil {
 			deviceOp(bus, clear)
 		}
 	}

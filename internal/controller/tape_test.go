@@ -29,6 +29,33 @@ func TestTapeListenBackWithProfiles(t *testing.T) {
 	testTapeListenBack(t, &config.Profiles{Microphones: []string{"desk"}})
 }
 
+// Play routes the tape to tape-enabled output slots as well as Playback,
+// and later plans keep it there.
+func TestTapeListenBackToOutputSlot(t *testing.T) {
+	ctx := context.Background()
+	c, b := recorderController(t)
+	c.Config.Studio.Outputs = []config.Output{{ID: "music", Name: "Music", Device: "speakers", Sources: []string{config.SourceTape}}}
+	if err := c.Config.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	c.Config.Intent = c.Config.VoiceIntent()
+	c.Config.Intent.Recording.TapeRoutingManaged = true
+	c.Config.Profiles = config.DefaultProfiles()
+	converge(t, c)
+	if b.s.Assignments["A3"] != "speakers" {
+		t.Fatal("slot not placed", b.s.Assignments)
+	}
+	if err := c.Tape(ctx, TapePlayPause, true); err != nil {
+		t.Fatal(err)
+	}
+	if b.r.Values["Recorder.A2"] != 1 || b.r.Values["Recorder.A3"] != 1 || b.r.Values["Recorder.A1"] != 0 {
+		t.Fatal(b.r.Values["Recorder.A1"], b.r.Values["Recorder.A2"], b.r.Values["Recorder.A3"])
+	}
+	if p, _ := c.Plan(); p.HasChanges() {
+		t.Fatal("planner fights slot listening playback")
+	}
+}
+
 func testTapeListenBack(t *testing.T, profiles *config.Profiles) {
 	ctx := context.Background()
 	c, b := recorderController(t)

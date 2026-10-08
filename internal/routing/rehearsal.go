@@ -2,6 +2,7 @@ package routing
 
 import (
 	"fmt"
+	"slices"
 
 	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/model"
@@ -32,12 +33,17 @@ func addRehearsal(c config.Config, s model.Snapshot, t *Topology) error {
 		return err
 	}
 	// Tape A sends are owned for rehearsal and listening playback, and
-	// cleared otherwise. Listening playback follows the Playback destination.
+	// cleared otherwise. Listening playback follows the Playback destination
+	// and output slots with Tape on.
 	listening := c.TapeListening && !r.ToVST && s.Recorder.TapePlaying() && s.Recorder.Values["Recorder.B2"] == 0
 	if r.ToVST || r.TapeRoutingManaged || s.Recorder.Values["Recorder.B2"] != 0 {
+		slotTape := t.OutputBuses(config.SourceTape)
 		for _, bus := range []string{"A1", "A2", "A3", "A4", "A5", "B1", "B3"} {
 			value := 0
 			if t.PlaybackTarget == bus && ((r.ToVST && i.Monitor == "pre") || listening) {
+				value = 1
+			}
+			if listening && slices.Contains(slotTape, bus) {
 				value = 1
 			}
 			if err := add("Recorder."+bus, value); err != nil {

@@ -141,6 +141,10 @@ func addVoice(c config.Config, s model.Snapshot, p Plan) (Plan, error) {
 	}
 	if monitor >= 0 {
 		desired[fmt.Sprintf("Strip[%d].%s", monitor, t.PlaybackTarget)] = 1
+		// Output slots with Monitor on receive the same tap.
+		for _, bus := range t.OutputBuses(config.SourceMonitor) {
+			desired[fmt.Sprintf("Strip[%d].%s", monitor, bus)] = 1
+		}
 	}
 	if c.SoundboardReserved {
 		for bus := 1; bus <= 5; bus++ {
@@ -155,6 +159,9 @@ func addVoice(c config.Config, s model.Snapshot, p Plan) (Plan, error) {
 					desired["Strip[7]."+t.PlaybackTarget] = 1
 				}
 			}
+		}
+		for _, bus := range t.OutputBuses(config.SourceSoundboard) {
+			desired["Strip[7]."+bus] = 1
 		}
 	}
 	// Stable strip/bus ordering places the processing feed before the AUX return.
