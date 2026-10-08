@@ -1,0 +1,2 @@
+# Design
+First extend the existing paired callback probe to record input/output formats and mismatches without recording audio. Reproduce the observed pairing failure before changing the bridge. Apply the smallest correction to callback framing shared by neural modes; retain bounded queues, pass-through on failure, and the existing recovery cooldown. Record the measured cause and precise correction here before implementation. Validate with the real model and live host after the canonical build.
