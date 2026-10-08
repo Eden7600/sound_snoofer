@@ -206,7 +206,7 @@ function buildAudio() {
  }
  const recording=[...controls.values()].filter(v=>v.Group==="Recording"&&!v.SurfaceOnly);
  if(recording.length){const card=panel("Recording",grid);for(const item of recording){control(item.ID,card);used.add(item.ID);}if(c("audio.tape-play"))transport(card);}
- if(c("aec.mode")){const card=panel("Echo cancellation",grid);card.dataset.part="echo";control("aec.status",card,"Status");control("aec.mode",card,"Mode");control("aec.engine",card,"Engine");control("aec.strength",card,"Strength");control("aec.retry",card,"Retry");}
+ if(c("aec.mode")){const card=panel("Echo cancellation",grid);card.dataset.part="echo";control("aec.status",card,"Status");control("aec.mode",card,"Mode");control("aec.engine",card,"Engine");control("aec.strength",card,"Strength");control("aec.retry",card,"Retry");control("aec.timing",card,"Timing");}
  const other=[...controls.values()].filter(v=>v.ID.startsWith("audio.")&&!v.SurfaceOnly&&!used.has(v.ID)&&v.Group!=="Routing");
  if(other.length||c("audio.engine-restart")){
   const card=panel("Routing & recovery",grid);for(const item of other)control(item.ID,card);

@@ -510,3 +510,12 @@ func TestRetryFailedLoad(t *testing.T) {
 		t.Fatal("load not retried", attempts)
 	}
 }
+
+func TestTimingReport(t *testing.T) {
+	w := newWorker(Settings{Engine: "localvqe-full"}, &fakeMixer{targets: speakers}, &fakeEngine{})
+	w.stats = engine.Stats{TimingKnown: true, WorkerPeakMs: 2.5, QueuePeakMs: 1.2, Gaps: 3, Underruns: 1}
+	c := control(t, w, "aec.timing")
+	if c.Value != "2.5 / 1.2 ms" || c.Status != "Peak worker / queue · gaps 3 · underruns 1" {
+		t.Fatal(c)
+	}
+}

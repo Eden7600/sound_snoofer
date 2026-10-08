@@ -555,6 +555,11 @@ func (w *worker) publish() {
 		{ID: "aec.status", Label: "Echo cancellation status", ShortLabel: "Echo", Group: "Echo cancellation", Kind: "status", Icon: "echo",
 			Value: value, Status: detail, Available: true},
 	}
+	if w.stats.TimingKnown {
+		controls = append(controls, snoofer.Control{ID: "aec.timing", Label: "Neural timing", Kind: "status", Group: "Echo cancellation", Available: true,
+			Value:  fmt.Sprintf("%.1f / %.1f ms", w.stats.WorkerPeakMs, w.stats.QueuePeakMs),
+			Status: fmt.Sprintf("Peak worker / queue · gaps %d · underruns %d", w.stats.Gaps, w.stats.Underruns)})
+	}
 	requests := w.requests
 	_ = w.services.Controls.Publish("aec", controls, func(ctx context.Context, r snoofer.Request) error {
 		select {
