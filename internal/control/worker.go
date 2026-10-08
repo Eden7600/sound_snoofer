@@ -525,7 +525,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		}
 		var wired []string
 		if state.Plan != nil && state.Plan.Topology != nil {
-			wired = state.Plan.Topology.WiredMics
+			wired = meteredMics(cfg, state.Plan.Topology.WiredMics)
 		}
 		var reader inputLevelReader
 		if backend != nil {

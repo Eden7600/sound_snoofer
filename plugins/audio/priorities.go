@@ -55,6 +55,10 @@ type priorityView struct {
 	// OutputDevices are connected outputs an output slot can use: neither
 	// Playback nor another slot.
 	OutputDevices []prioritySuggestion
+	// Profiles reports whether Auto has a microphone priority; only then is
+	// Activity (nil when metering is off) editable.
+	Profiles bool
+	Activity *config.Activity `json:",omitempty"`
 }
 
 // micView is a microphone as the Routing screen shows it.
@@ -62,6 +66,8 @@ type micView struct {
 	ID, Name      string
 	Device        bool // A Windows input device rather than interface channels.
 	InUse, Option bool
+	Ready         bool // Never metered.
+	Silent        bool // Latched silent by activity metering.
 }
 
 // suggestion offers a device with generated patterns and, when it is
@@ -134,7 +140,7 @@ func buildPriorityView(cfg config.Config, s control.State) priorityView {
 	// in use.
 	deviceMics := []priorityEntry{}
 	for n, m := range studio.Mics() {
-		view.Mics = append(view.Mics, micView{ID: m.ID, Name: m.Name, Device: m.IsDevice(), InUse: m.ID == effective, Option: slices.Contains(s.MicOptions, m.ID)})
+		view.Mics = append(view.Mics, micView{ID: m.ID, Name: m.Name, Device: m.IsDevice(), Ready: m.Ready, Silent: slices.Contains(s.SilentMics, m.ID), InUse: m.ID == effective, Option: slices.Contains(s.MicOptions, m.ID)})
 		view.Microphones = append(view.Microphones, m.ID)
 		if !m.IsDevice() {
 			continue
@@ -158,6 +164,13 @@ func buildPriorityView(cfg config.Config, s control.State) priorityView {
 		microphones = append(microphones, priorityEntry{ID: id, Option: slices.Contains(s.MicOptions, id), InUse: id == effective})
 	}
 	view.Lists[config.ListMicrophones] = microphones
+	if cfg.Profiles != nil {
+		view.Profiles = true
+		if a := cfg.Profiles.Activity; a != nil {
+			copied := *a
+			view.Activity = &copied
+		}
+	}
 
 	matched := func(entries []priorityEntry, name string) bool {
 		return slices.ContainsFunc(entries, func(e priorityEntry) bool { return slices.Contains(e.Matches, name) })

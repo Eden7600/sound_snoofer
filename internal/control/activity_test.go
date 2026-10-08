@@ -48,3 +48,10 @@ func TestActivityLatch(t *testing.T) {
 		t.Fatal("dbfs")
 	}
 }
+
+func TestReadyMicrophonesAreNotMetered(t *testing.T) {
+	c := config.Config{Studio: &config.Studio{Microphones: []config.Microphone{{ID: "desk", Name: "Desk"}, {ID: "lav", Name: "Lav", Ready: true}}}}
+	if got := meteredMics(c, []string{"lav", "desk", "gone"}); !slices.Equal(got, []string{"desk"}) {
+		t.Fatal(got)
+	}
+}

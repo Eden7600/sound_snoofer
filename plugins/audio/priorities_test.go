@@ -235,3 +235,24 @@ func TestOutputDeviceByIdentity(t *testing.T) {
 		t.Fatal("unassign", err)
 	}
 }
+
+// Microphone rows carry Ready and Silent; Activity is a copy.
+func TestPriorityViewReadiness(t *testing.T) {
+	c := defaultConfig(t)
+	c.Studio.Microphones = slices.Clone(c.Studio.Mics())
+	c.Studio.Microphones[1].Ready = true
+	c.Profiles.Activity = &config.Activity{Check: 2, SilenceDB: -70, SilentAfterS: 10}
+	s := priorityState()
+	s.SilentMics = []string{"desk"}
+	view := buildPriorityView(c, s)
+	if !view.Mics[0].Silent || view.Mics[0].Ready || !view.Mics[1].Ready || view.Mics[1].Silent {
+		t.Fatal(view.Mics)
+	}
+	if !view.Profiles || view.Activity == nil || view.Activity.Check != 2 {
+		t.Fatal(view.Activity)
+	}
+	view.Activity.Check = 4
+	if c.Profiles.Activity.Check != 2 {
+		t.Fatal("view shares the configuration's activity")
+	}
+}

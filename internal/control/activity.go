@@ -22,6 +22,21 @@ func micStrip(c config.Config, id string) (int, bool) {
 	return n, ok
 }
 
+// meteredMics are the wired microphones activity metering samples: ready
+// microphones are never metered, so they never latch silent.
+func meteredMics(c config.Config, wired []string) []string {
+	if c.Studio == nil {
+		return nil
+	}
+	metered := []string{}
+	for _, id := range wired {
+		if m, _, ok := c.Studio.Microphone(id); ok && !m.Ready {
+			metered = append(metered, id)
+		}
+	}
+	return metered
+}
+
 // micLatch is one microphone's activity: when its current run of silence or
 // signal began, and whether it is latched silent.
 type micLatch struct {
