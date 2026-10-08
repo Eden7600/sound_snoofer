@@ -45,7 +45,6 @@ type Config struct {
 	ProfileResolved    bool                     `json:"-"`
 	ProfileMicMissing  bool                     `json:"-"`
 	ProfilePlayback    *model.Device            `json:"-"`
-	StreamDeck         *StreamDeck              `json:"stream_deck,omitempty"`
 	VR                 *VR                      `json:"vr,omitempty"`
 	Intent             *Intent                  `json:"-"`
 	StateError         string                   `json:"-"`
@@ -101,11 +100,6 @@ func (c *Config) Validate() error {
 			if source != "desk" && source != "lav" && source != "webcam" && source != "off" {
 				return fmt.Errorf("invalid normal microphone priority %s", source)
 			}
-		}
-	}
-	if c.StreamDeck != nil {
-		if err := c.StreamDeck.Validate(); err != nil {
-			return err
 		}
 	}
 	if c.VR != nil {

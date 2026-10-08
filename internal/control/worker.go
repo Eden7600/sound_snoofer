@@ -234,6 +234,9 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 	if deps.Save == nil {
 		deps.Save = config.SaveIntent
 	}
+	if deps.Load == nil {
+		deps.Load = config.LoadEffective
+	}
 	revision := uint64(1)
 	var release func()
 	var ctl *controller.Controller
@@ -667,7 +670,9 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				var e error
 				candidateConfig := cfg
 				if action.Kind == resetChoices {
-					base, err := config.LoadEffective(path)
+					// The running configuration's source, never path read as a file:
+					// plugin hosts pass a state path, not a configuration.
+					base, err := deps.Load(path)
 					e = err
 					if e == nil {
 						base.Intent = nil

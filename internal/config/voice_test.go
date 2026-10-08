@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -33,14 +34,25 @@ func TestVoiceConfig(t *testing.T) {
 	}
 }
 
+// The embedded default is the effective factory configuration.
 func TestVoiceExample(t *testing.T) {
-	c, e := Load("../../config.voice.json")
+	c, e := Decode(DefaultBytes())
 	if e != nil {
 		t.Fatal(e)
 	}
 	i := c.VoiceIntent()
 	if i == nil || i.Source != "desk" || i.Mode != "element" || i.Monitor != "off" {
 		t.Fatal(i)
+	}
+	if c.Profiles == nil || !slices.Equal(c.Profiles.Microphones, DefaultProfiles().Microphones) {
+		t.Fatal("default configuration must state the Normal microphone priority", c.Profiles)
+	}
+}
+
+func TestAudioConfigRejectsDeckProfiles(t *testing.T) {
+	b := strings.Replace(string(DefaultBytes()), `"version": 1,`, `"version": 1, "stream_deck": {"profiles": []},`, 1)
+	if _, e := Decode([]byte(b)); e == nil || !strings.Contains(e.Error(), "unknown field") {
+		t.Fatal("unread stream_deck schema accepted", e)
 	}
 }
 func TestIntentPersistence(t *testing.T) {

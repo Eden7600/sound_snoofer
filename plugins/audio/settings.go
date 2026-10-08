@@ -23,8 +23,8 @@ func validateSettings(raw json.RawMessage) error {
 	if settings.StatePath == "" {
 		return fmt.Errorf("state_path is required")
 	}
-	if c.VR != nil || c.StreamDeck != nil {
-		return fmt.Errorf("VR and Stream Deck belong in their plugin settings")
+	if c.VR != nil {
+		return fmt.Errorf("VR belongs in its plugin settings")
 	}
 	return nil
 }

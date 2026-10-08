@@ -18,6 +18,13 @@ type Profiles struct {
 	Microphones []string `json:"microphones"`
 }
 
+// DefaultProfiles is the Normal source priority for configurations written
+// before profiles existed. The embedded default configuration states the same
+// priority explicitly.
+func DefaultProfiles() *Profiles {
+	return &Profiles{Microphones: []string{"lav", "webcam"}}
+}
+
 // ProfilePolicy is supplied by an enabled dependent plugin, never discovered by audio.
 type ProfilePolicy struct {
 	Devices     VR             `json:"devices"`

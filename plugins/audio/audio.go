@@ -99,7 +99,8 @@ func start(ctx context.Context, services snoofer.Services, raw json.RawMessage, 
 	states := make(chan control.State, 1)
 	workerDone := make(chan struct{})
 	if cfg.Profiles == nil {
-		cfg.Profiles = &config.Profiles{Microphones: []string{"lav", "webcam"}}
+		// Older configurations omit profiles; see config.DefaultProfiles.
+		cfg.Profiles = config.DefaultProfiles()
 	}
 	cfg.Policy = i.policySnapshot
 	started := make(chan error, 1)

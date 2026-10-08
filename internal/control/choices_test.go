@@ -53,6 +53,39 @@ func TestResetCorruptSavedState(t *testing.T) {
 	<-done
 }
 
+// The audio plugin runs an inline configuration; its state path is not a
+// configuration file, so reset must not read it as one.
+func TestResetUsesRunningConfiguration(t *testing.T) {
+	c, e := config.Decode([]byte(ruleConfig))
+	if e != nil {
+		t.Fatal(e)
+	}
+	path := filepath.Join(t.TempDir(), "config.json")
+	running := c
+	c = config.LoadChoices(path, running)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	client := &ruleClient{&fakeClient{}}
+	deps := Dependencies{Open: func(string) (Client, error) { return client, nil }, Load: func(p string) (config.Config, error) { return config.LoadChoices(p, running), nil }}
+	states := make(chan State, 1)
+	actions := make(chan Action, 2)
+	done := make(chan struct{})
+	go Work(ctx, c, path, "", false, deps, actions, states, done)
+	s := nextState(t, states)
+	actions <- Action{Kind: editRule, Row: "source", Value: "lav", Revision: s.Revision}
+	s = nextState(t, states)
+	if s.Intent.Source != "lav" {
+		t.Fatal(s)
+	}
+	actions <- Action{Kind: resetChoices, Revision: s.Revision}
+	s = nextState(t, states)
+	if s.Intent.Source != "desk" || !strings.Contains(s.Notice, "Saved") {
+		t.Fatal("reset did not use the running configuration", s)
+	}
+	cancel()
+	<-done
+}
+
 const ruleConfig = `{"version":1,"poll_ms":60000,"studio":{"asio":[{"asio_pattern":"Volt ASIO","presence_pattern":"Volt input","inputs":[1,2]}],"playback":[{"driver":"wdm","pattern":"speakers"}],"fallback_mic":[{"driver":"wdm","pattern":"webcam"}],"playback_sources":["virtual:1"],"voice":{}}}`
 
 type ruleClient struct{ *fakeClient }
