@@ -52,14 +52,14 @@ func defaultConfig(t *testing.T) config.Config {
 func TestPriorityView(t *testing.T) {
 	view := buildPriorityView(defaultConfig(t), priorityState())
 	interfaces := view.Lists[config.ListInterfaces]
-	if len(interfaces) != 1 || !interfaces[0].InUse || !slices.Equal(interfaces[0].Matches, []string{"INPUT 1/2 (Volt 2)"}) || interfaces[0].Desk != 1 || interfaces[0].Lav != 2 {
+	if len(interfaces) != 1 || !interfaces[0].InUse || !slices.Equal(interfaces[0].Matches, []string{"INPUT 1/2 (Volt 2)"}) || interfaces[0].Inputs.Left("desk") != 1 || interfaces[0].Inputs.Left("lav") != 2 {
 		t.Fatal(interfaces)
 	}
 	playback := view.Lists[config.ListPlayback]
 	if !playback[0].InUse || len(playback[1].Matches) != 2 || playback[1].InUse || playback[2].InUse || !slices.Equal(playback[2].Matches, []string{"Universal Audio Volt"}) {
 		t.Fatal("playback matches", playback)
 	}
-	if webcam := view.Lists[config.ListWebcam]; !webcam[0].InUse {
+	if webcam := view.Lists[config.ListMicDevices+"webcam"]; !webcam[0].InUse {
 		t.Fatal(webcam)
 	}
 	mics := view.Lists[config.ListMicrophones]
@@ -77,10 +77,10 @@ func TestPriorityView(t *testing.T) {
 		t.Fatal("playback suggestions", got)
 	}
 	// The interface's companion input is not offered as a webcam.
-	if got := names(view.Suggestions[config.ListWebcam]); !slices.Equal(got, []string{"Microphone (Realtek Audio)"}) {
+	if got := names(view.Suggestions[config.ListMicDevices]); !slices.Equal(got, []string{"Microphone (Realtek Audio)"}) {
 		t.Fatal("webcam suggestions", got)
 	}
-	s := view.Suggestions[config.ListWebcam][0]
+	s := view.Suggestions[config.ListMicDevices][0]
 	if s.Exact != `(?i)^Microphone \(Realtek Audio\)$` || s.Device != `(?i)Realtek Audio` {
 		t.Fatal(s)
 	}
@@ -200,7 +200,7 @@ func TestPriorityViewIdentity(t *testing.T) {
 	if got := view.Suggestions[config.ListPlayback][0]; got.ID != "{realtek-out}" {
 		t.Fatal(got)
 	}
-	if got := view.Suggestions[config.ListWebcam][0]; got.ID != "{realtek-in}" {
+	if got := view.Suggestions[config.ListMicDevices][0]; got.ID != "{realtek-in}" {
 		t.Fatal(got)
 	}
 	if view.Drivers[0].ID != "{focusrite-clsid}" {

@@ -290,8 +290,8 @@ func controls(s control.State) []snoofer.Control {
 			if label := s.ChoiceLabels[micName]; label != "" {
 				micName = label
 			}
-			if label := map[string]string{"desk": "Desk", "lav": "Lavalier", "webcam": "Webcam", "off": "Off"}[micName]; label != "" {
-				micName = label
+			if micName == "off" {
+				micName = "Off"
 			}
 		}
 		if t.ASIOName != "" {
@@ -427,7 +427,7 @@ func controls(s control.State) []snoofer.Control {
 	for n := range out {
 		out[n].Epoch = s.Revision
 		out[n].SurfaceOnly = out[n].Group == "Transport" || out[n].Group == "Bindings" || out[n].Group == "Diagnostics" || out[n].ID == "audio.playback-device" || out[n].ID == "audio.mic-device"
-		out[n].OptionLabels = map[string]string{"auto": "Automatic", "": "Automatic", "desk": "Desk microphone", "lav": "Lavalier", "webcam": "Webcam microphone"}
+		out[n].OptionLabels = map[string]string{"auto": "Automatic", "": "Automatic"}
 		for id, label := range s.ChoiceLabels {
 			out[n].OptionLabels[id] = label
 		}

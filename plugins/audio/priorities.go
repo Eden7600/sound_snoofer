@@ -24,13 +24,13 @@ type priorityEntry struct {
 	PresencePattern string `json:",omitempty"`
 	// Entries by identity: the device ID and its label (current name when
 	// active). Interfaces name their driver and presence input.
-	DeviceID, DeviceName     string   `json:",omitempty"`
-	ASIOID, ASIOName         string   `json:",omitempty"`
-	PresenceID, PresenceName string   `json:",omitempty"`
-	Desk, Lav                int      `json:",omitempty"`
-	ID                       string   `json:",omitempty"` // Microphone option.
-	Matches                  []string // Presence matches for interfaces.
-	Drivers                  []string `json:",omitempty"` // Interface driver matches.
+	DeviceID, DeviceName     string           `json:",omitempty"`
+	ASIOID, ASIOName         string           `json:",omitempty"`
+	PresenceID, PresenceName string           `json:",omitempty"`
+	Inputs                   config.MicInputs `json:",omitempty"` // Interface channels by microphone.
+	ID                       string           `json:",omitempty"` // Microphone option.
+	Matches                  []string         // Presence matches for interfaces.
+	Drivers                  []string         `json:",omitempty"` // Interface driver matches.
 	InUse                    bool
 	Option                   bool `json:",omitempty"` // Microphone currently selectable.
 }
@@ -48,10 +48,20 @@ type priorityView struct {
 	Suggestions map[string][]prioritySuggestion
 	// Interface additions pair an ASIO driver with a WDM presence input.
 	Drivers, Inputs []prioritySuggestion
-	Microphones     []string // Every valid microphone option ID.
+	Microphones     []string // Every valid microphone priority choice.
+	// Mics are the microphones in input order; a device microphone'"'"'s
+	// devices are the list ListMicDevices+ID.
+	Mics []micView
 	// OutputDevices are connected outputs an output slot can use: neither
 	// Playback nor another slot.
 	OutputDevices []prioritySuggestion
+}
+
+// micView is a microphone as the Routing screen shows it.
+type micView struct {
+	ID, Name      string
+	Device        bool // A Windows input device rather than interface channels.
+	InUse, Option bool
 }
 
 // suggestion offers a device with generated patterns and, when it is
@@ -80,7 +90,7 @@ func suggestion(d model.Device, endpoints []windowsaudio.Endpoint) prioritySugge
 // buildPriorityView reports cfg's lists against the latest observation. It
 // uses the planner's matching rules so the editor and routing agree.
 func buildPriorityView(cfg config.Config, s control.State) priorityView {
-	view := priorityView{Lists: map[string][]priorityEntry{}, Suggestions: map[string][]prioritySuggestion{}, Microphones: []string{"desk", "lav", "webcam", "off"}}
+	view := priorityView{Lists: map[string][]priorityEntry{}, Suggestions: map[string][]prioritySuggestion{}}
 	cfg = cfg.Resolve(control.DeviceNames(s.DefaultsDetail.Endpoints, s.Snapshot))
 	endpoints := s.DefaultsDetail.Endpoints
 	studio := cfg.Studio
@@ -98,7 +108,7 @@ func buildPriorityView(cfg config.Config, s control.State) priorityView {
 	for _, a := range studio.ASIO {
 		presence, drivers := routing.InterfaceMatches(a, snapshot)
 		inUse := topology != nil && topology.ASIOActive && len(presence) == 1 && slices.Contains(drivers, topology.ASIOName)
-		interfaces = append(interfaces, priorityEntry{ASIOPattern: a.ASIOPattern, PresencePattern: a.PresencePattern, ASIOID: a.ASIOID, ASIOName: a.ASIOName, PresenceID: a.PresenceID, PresenceName: a.PresenceName, Desk: a.Inputs.Left("desk"), Lav: a.Inputs.Left("lav"), Matches: presence, Drivers: drivers, InUse: inUse})
+		interfaces = append(interfaces, priorityEntry{ASIOPattern: a.ASIOPattern, PresencePattern: a.PresencePattern, ASIOID: a.ASIOID, ASIOName: a.ASIOName, PresenceID: a.PresenceID, PresenceName: a.PresenceName, Inputs: a.Inputs, Matches: presence, Drivers: drivers, InUse: inUse})
 	}
 	view.Lists[config.ListInterfaces] = interfaces
 
@@ -116,18 +126,29 @@ func buildPriorityView(cfg config.Config, s control.State) priorityView {
 	}
 	view.Lists[config.ListPlayback] = playback
 
-	webcam := []priorityEntry{}
-	assigned := snapshot.Assignments["input:3"]
-	for _, c := range studio.FallbackMic {
-		matches := routing.WebcamMatches(c, snapshot)
-		webcam = append(webcam, priorityEntry{Driver: c.Driver, Pattern: c.Pattern, DeviceID: c.ID, DeviceName: c.Name, Matches: matches, InUse: len(matches) == 1 && matches[0] == assigned})
-	}
-	view.Lists[config.ListWebcam] = webcam
-
 	effective := ""
 	if topology != nil && topology.Voice != nil {
 		effective = topology.Voice.Effective
 	}
+	// Each device microphone'"'"'s devices are a list; the one on its input is
+	// in use.
+	deviceMics := []priorityEntry{}
+	for n, m := range studio.Mics() {
+		view.Mics = append(view.Mics, micView{ID: m.ID, Name: m.Name, Device: m.IsDevice(), InUse: m.ID == effective, Option: slices.Contains(s.MicOptions, m.ID)})
+		view.Microphones = append(view.Microphones, m.ID)
+		if !m.IsDevice() {
+			continue
+		}
+		assigned := snapshot.Assignments[fmt.Sprintf("input:%d", n+1)]
+		entries := []priorityEntry{}
+		for _, c := range m.Devices {
+			matches := routing.WebcamMatches(c, snapshot)
+			entries = append(entries, priorityEntry{Driver: c.Driver, Pattern: c.Pattern, DeviceID: c.ID, DeviceName: c.Name, Matches: matches, InUse: len(matches) == 1 && matches[0] == assigned})
+		}
+		view.Lists[config.ListMicDevices+m.ID] = entries
+		deviceMics = append(deviceMics, entries...)
+	}
+	view.Microphones = append(view.Microphones, "off")
 	microphones := []priorityEntry{}
 	priority := config.DefaultProfiles().Microphones
 	if cfg.Profiles != nil {
@@ -157,9 +178,10 @@ func buildPriorityView(cfg config.Config, s control.State) priorityView {
 			}
 		case d.Direction == "input":
 			view.Inputs = append(view.Inputs, suggestion(d, endpoints))
-			// An interface's companion input is not a webcam candidate.
-			if !matched(webcam, d.Name) && !matched(interfaces, d.Name) {
-				view.Suggestions[config.ListWebcam] = append(view.Suggestions[config.ListWebcam], suggestion(d, endpoints))
+			// Inputs no device microphone uses, and no interface'"'"'s companion,
+			// are offered to every device microphone and as new ones.
+			if !matched(deviceMics, d.Name) && !matched(interfaces, d.Name) {
+				view.Suggestions[config.ListMicDevices] = append(view.Suggestions[config.ListMicDevices], suggestion(d, endpoints))
 			}
 		}
 	}

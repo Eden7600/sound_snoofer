@@ -82,13 +82,13 @@ add("appaudio.edit","App audio edit","text","abc");
 // Routing: one interface, playback with an ambiguous entry, a webcam and the mic priority.
 const suggestion=(Name,Driver,Exact,Device,ID="")=>({Name,Driver,Exact,Device,ID});
 add("audio.priorities","Device priorities","status","",{Group:"Routing",ViewData:{
- Lists:{interfaces:[{ASIOPattern:"(?i)^Universal Audio Volt$",PresencePattern:"(?i)^INPUT 1/2 \\(Volt 2\\)$",Desk:1,Lav:2,Matches:["INPUT 1/2 (Volt 2)"],Drivers:["Universal Audio Volt"],InUse:true}],
+ Lists:{interfaces:[{ASIOPattern:"(?i)^Universal Audio Volt$",PresencePattern:"(?i)^INPUT 1/2 \\(Volt 2\\)$",Inputs:{desk:[1],lav:[2]},Matches:["INPUT 1/2 (Volt 2)"],Drivers:["Universal Audio Volt"],InUse:true}],
   playback:[{Driver:"wdm",DeviceID:"{airpods}",DeviceName:"Headphones (AirPods)",Matches:["Headphones (AirPods Pro)"],InUse:true},{Driver:"wdm",Pattern:"(?i)steelseries.*arena",Matches:["Speakers (Arena 7)","Game (Arena 7)"]},{Driver:"asio",Pattern:"(?i)^Universal Audio Volt$",Matches:["Universal Audio Volt"]}],
-  webcam:[{Driver:"wdm",Pattern:"(?i)insta360.*link.*2",Matches:[]}],
+  "mic-devices:webcam":[{Driver:"wdm",Pattern:"(?i)insta360.*link.*2",Matches:[]}],
   microphones:[{ID:"lav",Option:true,InUse:true},{ID:"webcam",Option:false}]},
  Suggestions:{playback:[suggestion("Speakers (Realtek Audio)","wdm","(?i)^Speakers \\(Realtek Audio\\)$","(?i)Realtek Audio","{realtek}")]},
  Drivers:[suggestion("Focusrite USB ASIO","asio","(?i)^Focusrite USB ASIO$","","{focusrite}")],Inputs:[suggestion("Analogue 1 + 2 (Focusrite USB)","wdm","(?i)^Analogue 1 \\+ 2 \\(Focusrite USB\\)$","(?i)Focusrite USB")],
- Microphones:["desk","lav","webcam","off"]}});
+ Microphones:["desk","lav","webcam","off"],Mics:[{ID:"desk",Name:"Desk"},{ID:"lav",Name:"Lavalier",InUse:true,Option:true},{ID:"webcam",Name:"Webcam",Device:true}]}});
 add("audio.priority-edit","Device priority edit","text","abc",{Group:"Routing"});
 // Outputs: Playback plus a Music slot; positions 2 and 3 are hidden.
 controls.find(c=>c.ID==="audio.priorities").ViewData.OutputDevices=[suggestion("Speakers (Realtek Audio)","wdm","","","{realtek}"),suggestion("Speakers (Arena 7)","wdm","","")];
@@ -212,7 +212,7 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.screenshot({path:path.join(root,".local/gui-audio.png"),fullPage:true});
   assert.equal(await page.getByText("Device priorities").count(),0,"priority controls leaked onto the Audio screen");
   await page.getByRole("button",{name:"Routing",exact:true}).click();
-  for(const name of ["Outputs","Interfaces","Playback","Webcam","Mic priority"])await page.getByRole("heading",{name,exact:true}).waitFor();
+  for(const name of ["Outputs","Microphones","Interfaces","Playback","Mic priority"])await page.getByRole("heading",{name,exact:true}).waitFor();
   // Outputs matrix: sources by destination; hidden slots get no column.
   const outputs=page.locator("[data-part=outputs]");
   assert.equal(await outputs.locator("[data-part=output-slot]").count(),1,"hidden slot positions shown");
@@ -242,7 +242,12 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   assert.deepEqual(await playbackList.locator("[data-part=match]").allTextContents(),["In use","Ambiguous · 2","Ready"]);
   assert.equal(await playbackList.getByRole("button",{name:"Move Playback 1 up"}).isDisabled(),true,"first entry moves up");
   assert.equal(await page.locator("[data-part=list-interfaces]").getByRole("button",{name:"Remove interface 1"}).isDisabled(),true,"last interface removable");
-  assert.equal(await page.locator("[data-part=list-webcam] [data-part=match]").textContent(),"No match");
+  // Microphones: named, numbered by input; device microphones list their devices.
+  const mics=page.locator("[data-part=mics]");
+  assert.equal(await mics.locator("[data-part=mic]").count(),3);
+  assert.equal(await mics.getByLabel("Microphone 2 name").inputValue(),"Lavalier");
+  assert.equal(await mics.locator("[data-part=match]").textContent(),"No match");
+  assert.equal(await page.locator("[data-part=list-microphones]").getByText("Lavalier").count(),1,"priority shows configured names");
   assert.deepEqual(await page.locator("[data-part=list-microphones] [data-part=priority] [data-tone]").allTextContents(),["In use","Unavailable"]);
   // Identity entries show the device, not a pattern.
   assert.equal(await playbackList.locator("[data-part=device-entry]").first().textContent(),"Headphones (AirPods Pro)");
@@ -264,6 +269,21 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.locator("[data-part=interface-add]").getByRole("button",{name:"Add"}).click();
   await page.waitForFunction(()=>window.sent.filter(a=>a.Request?.ID==="audio.priority-edit").length===3);
   assert.deepEqual(JSON.parse(JSON.parse(await page.evaluate(()=>window.sent.at(-1).Request.Value)).value),{asio_id:"{focusrite}",asio_name:"Focusrite USB ASIO",presence_pattern:"(?i)^Analogue 1 \\+ 2 \\(Focusrite USB\\)$",inputs:[1,2]});
+  await page.getByText("Sending",{exact:true}).waitFor({state:"hidden"});
+  // Interface channels: one field per interface microphone, "left,right" for stereo.
+  const ifaces=page.locator("[data-part=list-interfaces]");
+  assert.equal(await ifaces.getByLabel("Desk channels for interface 1").inputValue(),"1");
+  assert.equal(await ifaces.getByLabel("Webcam channels for interface 1").count(),0,"device microphone offered interface channels");
+  await ifaces.getByLabel("Lavalier channels for interface 1").fill("3,4");
+  await ifaces.getByLabel("Lavalier channels for interface 1").press("Tab");
+  await page.waitForFunction(()=>window.sent.filter(a=>a.Request?.ID==="audio.priority-edit").length===4);
+  assert.deepEqual(JSON.parse(await page.evaluate(()=>window.sent.at(-1).Request.Value)),{list:"interfaces",op:"set",index:0,value:"3,4",field:"input:lav"});
+  await page.getByText("Sending",{exact:true}).waitFor({state:"hidden"});
+  // A new microphone: interface channels by default.
+  await mics.getByLabel("New microphone name").fill("Guest");
+  await mics.getByRole("button",{name:"Add microphone"}).click();
+  await page.waitForFunction(()=>window.sent.filter(a=>a.Request?.ID==="audio.priority-edit").length===5);
+  assert.deepEqual(JSON.parse(await page.evaluate(()=>window.sent.at(-1).Request.Value)),{list:"mics",op:"add",index:0,value:JSON.stringify({name:"Guest"}),field:""});
   await page.getByText("Sending",{exact:true}).waitFor({state:"hidden"});
   await page.evaluate(()=>{window.fixture.Controls.find(c=>c.ID==="audio.priority-edit").Status="error parsing regexp: missing closing ): `(unclosed`";window.sent.length=0;});
   await page.locator("[data-part=priority-error]").getByText("missing closing").waitFor();

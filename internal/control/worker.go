@@ -395,6 +395,11 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		state.PublishedAt = time.Now()
 		state.ConfigPath = path
 		state.ChoiceLabels = map[string]string{}
+		if cfg.Studio != nil {
+			for _, m := range cfg.Studio.Mics() {
+				state.ChoiceLabels[m.ID] = m.Name
+			}
+		}
 		if cfg.VR != nil {
 			for _, h := range cfg.VR.Headsets {
 				state.ChoiceLabels["vr:"+h.ID] = h.Label

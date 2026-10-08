@@ -95,7 +95,7 @@ func TestOutputEdits(t *testing.T) {
 }
 
 func TestSilentMicrophoneLabels(t *testing.T) {
-	s := control.State{Intent: &config.Intent{Source: "auto", Enabled: true, Mode: "direct", Monitor: "off"}, MicOptions: []string{"desk", "lav", "off"}, SilentMics: []string{"lav"}}
+	s := control.State{Intent: &config.Intent{Source: "auto", Enabled: true, Mode: "direct", Monitor: "off"}, MicOptions: []string{"desk", "lav", "off"}, SilentMics: []string{"lav"}, ChoiceLabels: map[string]string{"desk": "Desk microphone", "lav": "Lavalier"}}
 	source := controlByID(t, controls(s), "audio.normal-source")
 	if source.OptionLabels["lav"] != "Lavalier · Silent" || source.OptionLabels["desk"] != "Desk microphone" {
 		t.Fatal(source.OptionLabels)

@@ -61,7 +61,9 @@ func EditPriorities(raw []byte, e PriorityEdit) ([]byte, error) {
 		return nil, fmt.Errorf("configuration: %w", err)
 	}
 	var err error
-	if e.List == ListMicrophones {
+	if e.List == ListMics || strings.HasPrefix(e.List, ListMicDevices) {
+		err = editMicrophoneDefinitions(raw, top, e)
+	} else if e.List == ListMicrophones {
 		err = editMicrophones(top, e)
 	} else if key, ok := studioListKeys[e.List]; ok {
 		err = editStudioList(top, key, e)

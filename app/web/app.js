@@ -213,7 +213,6 @@ function buildAudio() {
   const engine=el("div",ui.actions+" mt-3");card.append(engine);command("audio.engine-restart","Restart audio engine",engine,"","refresh-cw");
  }
 }
-const micNames={desk:"Desk",lav:"Lavalier",webcam:"Webcam",off:"Off"};
 // priorityEdit sends one change to a device priority list; Snoofer validates,
 // saves and applies it.
 function priorityEdit(list,op,index=0,value="",field=""){request(c("audio.priority-edit"),"set",JSON.stringify({list,op,index,value,field}));}
@@ -266,7 +265,11 @@ function deviceName(label,matches){
  return node;
 }
 function candidateCard(parent,title,list,view){
- const card=panel(title,parent),entries=view.Lists?.[list]||[];card.dataset.part="list-"+list;
+ const card=panel(title,parent);card.dataset.part="list-"+list;
+ candidateRows(card,title,list,view.Lists?.[list]||[],view.Suggestions?.[list],list==="playback");
+}
+// candidateRows lists device entries in priority order, then suggestions.
+function candidateRows(card,title,list,entries,suggestions,driverLabel){
  entries.forEach((entry,n)=>{
   const row=entryRow(card,n);
   row.append(entry.DeviceID?deviceName(entry.DeviceName,entry.Matches):patternField(entry.Pattern,title+" "+(n+1)+" pattern",value=>priorityEdit(list,"set",n,value,"pattern")));
@@ -276,7 +279,39 @@ function candidateCard(parent,title,list,view){
   const names=entry.Matches||[];if(names.length&&!(entry.DeviceID&&names.length===1))row.append(el("small","basis-full pl-7 text-[11px] break-words text-muted",names.join(" · ")));
  });
  if(!entries.length)card.append(el("p","text-muted","No entries."));
- suggestionRows(card,list,view.Suggestions?.[list],list==="playback");
+ suggestionRows(card,list,suggestions,driverLabel);
+}
+function micName(view,id){return id==="off"?"Off":(view.Mics||[]).find(m=>m.ID===id)?.Name||id;}
+// textField is a plain text input that applies on Enter or Apply.
+function textField(value,label,max,apply){
+ const wrap=el("div","flex min-w-[min(100%,12rem)] flex-1 gap-[7px]"),input=el("input","min-w-0 flex-1"),b=button("Apply",()=>apply(input.value.trim()),ui.small);
+ input.type="text";input.value=value;input.maxLength=max;input.setAttribute("aria-label",label);
+ input.onkeydown=e=>{if(e.key==="Enter")b.click();if(e.key==="Escape"){input.value=value;input.blur();}};
+ const sync=()=>{b.disabled=!editable()||!input.value.trim()||input.value.trim()===value;input.disabled=!editable();};
+ input.addEventListener("input",sync);updaters.push(sync);wrap.append(input,b);return wrap;
+}
+// micsCard defines the microphones; the number is the input each one uses.
+// Device microphones list their devices in priority order.
+function micsCard(parent,view){
+ const card=panel("Microphones",parent,"col-span-full"),mics=view.Mics||[];card.dataset.part="mics";
+ mics.forEach((m,n)=>{
+  const row=entryRow(card,n);row.dataset.part="mic";
+  row.append(textField(m.Name,"Microphone "+(n+1)+" name",16,v=>priorityEdit("mics","set",n,v,"name")),badge(m.Device?"Device":"Interface"),m.InUse?badge("In use","active"):badge(m.Option?"Ready":"Unavailable"),entryButtons("mics",n,mics.length,m.Name));
+  if(m.Device){const box=el("div","basis-full pl-7");candidateRows(box,m.Name,"mic-devices:"+m.ID,view.Lists?.["mic-devices:"+m.ID]||[],view.Suggestions?.["mic-devices:"],false);row.append(box);}
+ });
+ if(mics.length<5){
+  // A new microphone uses interface channels, or a connected input device.
+  const add=el("div","mt-4 flex flex-wrap items-center gap-2 border-t border-[#25323e] pt-3"),name=el("input","w-40"),kind=el("select","min-w-0 flex-1");add.dataset.part="mic-add";
+  name.type="text";name.placeholder="Microphone";name.maxLength=16;name.setAttribute("aria-label","New microphone name");kind.setAttribute("aria-label","New microphone source");
+  kind.append(Object.assign(el("option","","Interface channels"),{value:""}));
+  const devices=view.Suggestions?.["mic-devices:"]||[];
+  devices.forEach((s,n)=>{const o=el("option","",s.Name);o.value=String(n);kind.append(o);});
+  const added=()=>{const s=devices[Number(kind.value)];return kind.value===""?{name:name.value.trim()}:{name:name.value.trim(),devices:[s.ID?{driver:s.Driver,id:s.ID,name:s.Name}:{driver:s.Driver,pattern:s.Exact}]};};
+  const b=withIcon(button("Add microphone",()=>{if(name.value.trim())priorityEdit("mics","add",0,JSON.stringify(added()));},ui.small),"plus");
+  name.onkeydown=e=>{if(e.key==="Enter")b.click();};name.addEventListener("input",update);
+  updaters.push(()=>{name.disabled=kind.disabled=!editable();b.disabled=!editable()||!name.value.trim();});
+  add.append(name,kind,b);card.append(add);
+ }
 }
 function interfaceCard(parent,view){
  const card=panel("Interfaces",parent,"col-span-full"),entries=view.Lists?.interfaces||[];card.dataset.part="list-interfaces";
@@ -284,11 +319,13 @@ function interfaceCard(parent,view){
   const row=entryRow(card,n),fields=el("div","grid min-w-0 flex-1 grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-3 gap-y-2");
   fields.append(el("span","text-xs text-muted","Driver"),entry.ASIOID?deviceName(entry.ASIOName,entry.Drivers):patternField(entry.ASIOPattern,"Interface "+(n+1)+" driver pattern",v=>priorityEdit("interfaces","set",n,v,"asio_pattern")));
   fields.append(el("span","text-xs text-muted","Presence"),entry.PresenceID?deviceName(entry.PresenceName,entry.Matches):patternField(entry.PresencePattern,"Interface "+(n+1)+" presence pattern",v=>priorityEdit("interfaces","set",n,v,"presence_pattern")));
-  const channels=el("div","flex items-center gap-3");
-  for(const [field,label] of [["desk","Desk"],["lav","Lav"]]){
-   const input=el("input","w-16 tabular-nums");input.type="number";input.min="0";input.max="64";input.value=String(entry[field[0].toUpperCase()+field.slice(1)]||0);input.setAttribute("aria-label",label+" channel for interface "+(n+1));input.title="0 = none";
-   input.onchange=()=>priorityEdit("interfaces","set",n,input.value,field);updaters.push(()=>{input.disabled=!editable();});
-   const l=el("label","flex items-center gap-1.5 text-xs text-muted",label);l.append(input);channels.append(l);
+  // One field per interface microphone: a channel (mono), "left,right"
+  // (stereo), or empty when this interface does not carry it.
+  const channels=el("div","flex flex-wrap items-center gap-3");
+  for(const m of (view.Mics||[]).filter(m=>!m.Device)){
+   const input=el("input","w-20 tabular-nums");input.type="text";input.inputMode="numeric";input.value=(entry.Inputs?.[m.ID]||[]).join(",");input.placeholder="–";input.setAttribute("aria-label",m.Name+" channels for interface "+(n+1));input.title="Channel, or left,right";
+   input.onchange=()=>priorityEdit("interfaces","set",n,input.value,"input:"+m.ID);updaters.push(()=>{input.disabled=!editable();});
+   const l=el("label","flex items-center gap-1.5 text-xs text-muted",m.Name);l.append(input);channels.append(l);
   }
   fields.append(el("span","text-xs text-muted","Channels"),channels);
   row.append(fields,matchBadge(entry),entryButtons("interfaces",n,entries.length,"interface "+(n+1)));
@@ -311,13 +348,13 @@ function interfaceCard(parent,view){
 function micPriorityCard(parent,view){
  const card=panel("Mic priority",parent),entries=view.Lists?.microphones||[];card.dataset.part="list-microphones";
  entries.forEach((entry,n)=>{
-  const row=entryRow(card,n);row.append(el("span","min-w-0 flex-1",micNames[entry.ID]||entry.ID));
-  row.append(entry.InUse?badge("In use","active"):badge(entry.Option?"Ready":"Unavailable"),entryButtons("microphones",n,entries.length,micNames[entry.ID]||entry.ID));
+  const row=entryRow(card,n);row.append(el("span","min-w-0 flex-1",micName(view,entry.ID)));
+  row.append(entry.InUse?badge("In use","active"):badge(entry.Option?"Ready":"Unavailable"),entryButtons("microphones",n,entries.length,micName(view,entry.ID)));
  });
  const missing=(view.Microphones||[]).filter(id=>!entries.some(e=>e.ID===id));
  if(missing.length){
   const add=el("div","mt-4 flex gap-2 border-t border-[#25323e] pt-3"),select=el("select","min-w-0 flex-1");select.setAttribute("aria-label","Microphone to add");
-  for(const id of missing){const o=el("option","",micNames[id]||id);o.value=id;select.append(o);}
+  for(const id of missing){const o=el("option","",micName(view,id));o.value=id;select.append(o);}
   const b=withIcon(button("Add",()=>priorityEdit("microphones","add",0,select.value),ui.small),"plus");
   updaters.push(()=>{b.disabled=select.disabled=!editable();});add.append(select,b);card.append(add);
  }
@@ -407,7 +444,7 @@ function buildRouting(){
  const view=status.ViewData||{},error=el("p","mb-[18px] text-critical");error.dataset.part="priority-error";root.append(error);
  updaters.push(()=>{error.textContent=c("audio.priority-edit")?.Status||"";error.hidden=!error.textContent;});
  const grid=el("div",ui.grid);root.append(grid);
- outputsCard(grid,view);interfaceCard(grid,view);candidateCard(grid,"Playback","playback",view);candidateCard(grid,"Webcam","webcam",view);micPriorityCard(grid,view);
+ outputsCard(grid,view);micsCard(grid,view);interfaceCard(grid,view);candidateCard(grid,"Playback","playback",view);micPriorityCard(grid,view);
 }
 // transport is the Recording card's recorder row: Record, then playback of
 // the loaded file. Labels follow the recorder state; availability comes from
