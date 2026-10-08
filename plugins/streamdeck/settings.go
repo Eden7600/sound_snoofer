@@ -12,6 +12,9 @@ func validateSettings(raw json.RawMessage) error {
 	if err := snoofer.DecodeSettings(raw, &settings); err != nil {
 		return err
 	}
+	if b := settings.Brightness; b != nil && (*b < 1 || *b > 100) {
+		return fmt.Errorf("brightness must be 1-100")
+	}
 	if err := settings.Layout.Validate(nil); err != nil {
 		return err
 	}

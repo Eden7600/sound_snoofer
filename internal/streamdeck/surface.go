@@ -22,8 +22,12 @@ type TimerTile struct {
 }
 
 // Frame contains one complete layout generation. Dial 6 is navigation.
+// A Dark frame shows nothing and turns the backlight off; Brightness (1-100)
+// is the backlight otherwise.
 type Frame struct {
 	Generation uint64
+	Dark       bool
+	Brightness int
 	Keys       [Keys]Tile
 	Dials      [Encoders]Tile
 }

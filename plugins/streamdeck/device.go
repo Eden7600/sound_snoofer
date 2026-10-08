@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"time"
 
+	"sound-snoofer/internal/presence"
 	"sound-snoofer/snoofer"
 )
 
@@ -14,6 +15,7 @@ type deviceLink struct {
 	connected bool
 	serial    string
 	connects  int
+	display   string // Dark or on, from the session and monitor state.
 }
 
 func (d *deviceLink) connectedTo(serial string, now time.Time) {
@@ -42,6 +44,22 @@ func (d *deviceLink) report(now time.Time) snoofer.Control {
 	if d.connects > 1 {
 		details = append(details, snoofer.ConnectionDetail{Label: "Reconnects", Value: strconv.Itoa(d.connects - 1)})
 	}
+	if d.display != "" {
+		details = append(details, snoofer.ConnectionDetail{Label: "Display", Value: d.display})
+	}
 	return snoofer.Control{ID: "streamdeck.app-device", Label: "Stream Deck + XL", Group: "Stream Deck", Kind: "connection", Value: value,
 		SurfaceOnly: true, Available: true, Connection: d.link.Report("USB HID 0FD9:00C6", details...)}
+}
+
+// displayState describes the deck's display for the connection report.
+func displayState(s presence.State) string {
+	switch {
+	case !s.Known:
+		return "On (lock state unknown)"
+	case s.Locked:
+		return "Dark (locked)"
+	case s.DisplayOff:
+		return "Dark (displays off)"
+	}
+	return "On"
 }

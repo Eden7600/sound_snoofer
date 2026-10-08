@@ -18,6 +18,7 @@ var cm = windows.NewLazySystemDLL("cfgmgr32.dll")
 type device struct {
 	handle        windows.Handle
 	input, output int
+	feature       int // Feature report length; 0 when the device has none.
 	serial        string
 }
 
@@ -83,6 +84,7 @@ func openDevice(path string) (*device, error) {
 	}
 	d.input = int(caps[2])
 	d.output = int(caps[3])
+	d.feature = int(caps[4])
 	var serial [128]uint16
 	r, _, _ = hid.NewProc("HidD_GetSerialNumberString").Call(uintptr(h), uintptr(unsafe.Pointer(&serial[0])), uintptr(unsafe.Sizeof(serial)))
 	if r != 0 {
@@ -129,4 +131,19 @@ func (d *device) io(ctx context.Context, b []byte, write bool) (int, error) {
 			return int(n), e
 		}
 	}
+}
+
+// setBrightness sends the Stream Deck v2 brightness feature report
+// [0x03, 0x08, percent], padded to the device's feature report length.
+func (d *device) setBrightness(percent int) error {
+	if d.feature < 3 {
+		return fmt.Errorf("Stream Deck has no feature report for brightness")
+	}
+	report := make([]byte, d.feature)
+	report[0], report[1], report[2] = 0x03, 0x08, byte(min(100, max(0, percent)))
+	r, _, e := hid.NewProc("HidD_SetFeature").Call(uintptr(d.handle), uintptr(unsafe.Pointer(&report[0])), uintptr(len(report)))
+	if r == 0 {
+		return fmt.Errorf("set Stream Deck brightness: %w", e)
+	}
+	return nil
 }

@@ -43,6 +43,17 @@ type Layout struct {
 type Settings struct {
 	Layout  Layout            `json:"layout"`
 	Serials map[string]Layout `json:"serials,omitempty"`
+	// Brightness is the backlight (1-100) when the deck is not dark; nil
+	// means 100.
+	Brightness *int `json:"brightness,omitempty"`
+}
+
+// backlight is the validated brightness.
+func (s Settings) backlight() int {
+	if s.Brightness == nil {
+		return 100
+	}
+	return *s.Brightness
 }
 
 // clone copies pages deeply enough for draft edits, including region lists.

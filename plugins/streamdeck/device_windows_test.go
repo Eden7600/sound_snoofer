@@ -78,7 +78,7 @@ func TestDeviceReportSeparateFromLayoutStatus(t *testing.T) {
 	}
 	events <- device.Event{Connected: true, Serial: "A00WA4012345"}
 	report = wait(func(c snoofer.Control) bool { return c.Connection.State == snoofer.ConnectionConnected })
-	if len(report.Connection.Details) != 2 || report.Connection.Details[1].Value != "1" || report.Connection.LastError == "" {
+	if len(report.Connection.Details) != 3 || report.Connection.Details[1].Value != "1" || report.Connection.Details[2].Label != "Display" || report.Connection.LastError == "" {
 		t.Fatalf("reconnect report %+v", report.Connection)
 	}
 }

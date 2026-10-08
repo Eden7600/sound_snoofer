@@ -111,13 +111,28 @@ func surfaceSession(parent context.Context, d *device, frames <-chan Frame, even
 		}
 	}()
 	var previous [][]byte
-	var lastFrame Frame
+	var lastFrame, lastShown Frame
 	haveFrame := false
+	brightness := -1 // Last backlight sent; -1 before any.
 	draw := func(frame Frame) error {
 		if haveFrame && frame == lastFrame {
 			return nil
 		}
-		tiles, touch := renderChangedFrame(frame, lastFrame, previous)
+		// A dark frame shows nothing: blank images, then the backlight off.
+		// Otherwise the images come first, then the backlight.
+		shown, want := frame, frame.Brightness
+		if frame.Dark {
+			shown, want = Frame{}, 0
+		}
+		defer func() {
+			if want != brightness && (want > 0 || frame.Dark) {
+				// The black frame already hides the deck; a device without the
+				// brightness report only keeps its backlight.
+				_ = d.setBrightness(want)
+				brightness = want
+			}
+		}()
+		tiles, touch := renderChangedFrame(shown, lastShown, previous)
 		all := append(tiles, touch)
 		for n, tile := range all {
 			if len(previous) == len(all) && bytes.Equal(previous[n], tile) {
@@ -134,7 +149,7 @@ func surfaceSession(parent context.Context, d *device, frames <-chan Frame, even
 			}
 		}
 		previous = all
-		lastFrame = frame
+		lastFrame, lastShown = frame, shown
 		haveFrame = true
 		return nil
 	}

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"sound-snoofer/internal/presence"
 	device "sound-snoofer/internal/streamdeck"
 	"sound-snoofer/snoofer"
 )
@@ -34,6 +35,10 @@ func (i *instance) Stop(ctx context.Context) error {
 func Plugin() snoofer.Plugin {
 	return snoofer.Plugin{ID: "streamdeck", Validate: validateSettings, Label: "Stream Deck", Defaults: snoofer.MarshalSettings(Settings{Layout: DefaultLayout()}), Start: start}
 }
+
+// watchPresence observes the session lock and monitors; tests replace it.
+var watchPresence = presence.Watch
+
 func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, _ map[string]snoofer.Instance) (snoofer.Instance, error) {
 	return startWithSurface(ctx, s, raw, device.StartSurface)
 }
@@ -41,6 +46,9 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 	var settings Settings
 	if err := snoofer.DecodeSettings(raw, &settings); err != nil {
 		return nil, err
+	}
+	if b := settings.Brightness; b != nil && (*b < 1 || *b > 100) {
+		return nil, fmt.Errorf("brightness must be 1-100")
 	}
 	if err := settings.Layout.Validate(s.Controls.Snapshot()); err != nil {
 		return nil, err
@@ -69,6 +77,15 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 		editSerial := "Default"
 		status := "" // Layout editor feedback only; device state lives in hardware.
 		var hardware deviceLink
+		// away: the session is locked or the monitors are off, so the deck is
+		// dark and ignores input. The watcher stops before the plugin is done.
+		away := false
+		presenceCtx, stopPresence := context.WithCancel(runCtx)
+		presenceStates, presenceDone := watchPresence(presenceCtx)
+		defer func() {
+			stopPresence()
+			<-presenceDone
+		}()
 		generation := uint64(1)
 		dirty := false
 		editorEpoch := uint64(1)
@@ -169,6 +186,10 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			}
 			names := l.pageNames(p.ID)
 			frame.Dials[5] = device.Tile{Label: names[0], Value: names[1], Icon: names[2]}
+			frame.Brightness = settings.backlight()
+			if away {
+				frame = device.Frame{Generation: generation, Dark: true}
+			}
 			select {
 			case <-frames:
 			default:
@@ -320,6 +341,15 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					}
 				}
 				publish()
+			case st := <-presenceStates:
+				if st.Away() != away {
+					away = st.Away()
+					// A key down across the change never fires.
+					held = nil
+					generation++
+				}
+				hardware.display = displayState(st)
+				publish()
 			case event, ok := <-events:
 				if runCtx.Err() != nil {
 					<-deviceDone
@@ -340,6 +370,10 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					page = active().Home
 					generation++
 					publish()
+					continue
+				}
+				// A dark deck is inert: nothing is dispatched, navigated or held.
+				if away {
 					continue
 				}
 				// Releases match the held key by position, even if the layout
