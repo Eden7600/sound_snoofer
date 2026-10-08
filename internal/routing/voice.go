@@ -48,9 +48,12 @@ func addVoice(c config.Config, s model.Snapshot, p Plan) (Plan, error) {
 	if !owned {
 		return p, fmt.Errorf("input:3 is occupied by unmanaged device %q", current)
 	}
-	if webcam != nil && i.MicActive() {
+	// Activity metering wires the webcam only when checked or needed as the
+	// source or fallback.
+	webcamWired := c.ProfileWired == nil || slices.Contains(c.ProfileWired, "webcam") || i.Source == "webcam" || !slices.Contains(MicrophoneOptions(c, s), i.Source)
+	if webcam != nil && i.MicActive() && webcamWired {
 		t.Operations = append(t.Operations, Operation{Target: "input:3", Device: webcam, BeforeName: current, Change: current != webcam.Name})
-	} else if !i.MicActive() {
+	} else if !i.MicActive() || !webcamWired {
 		clear := &model.Device{Direction: "input", Driver: "wdm", Available: true}
 		t.Operations = append(t.Operations, Operation{Target: "input:3", Device: clear, BeforeName: current, Change: current != ""})
 	}

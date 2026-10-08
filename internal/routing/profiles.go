@@ -13,9 +13,9 @@ import (
 // Runtime-only state from the caller is kept across that restore.
 func ProfileConfig(c config.Config, s model.Snapshot) config.Config {
 	if c.ProfileBase != nil {
-		tapeListening := c.TapeListening
+		tapeListening, silent := c.TapeListening, c.SilentMics
 		c = *c.ProfileBase
-		c.TapeListening = tapeListening
+		c.TapeListening, c.SilentMics = tapeListening, silent
 	}
 	if c.Profiles == nil || c.Studio == nil || c.VoiceIntent() == nil {
 		return c
@@ -44,14 +44,22 @@ func ProfileConfig(c config.Config, s model.Snapshot) config.Config {
 	if normalSource == "auto" || !slices.Contains(options, normalSource) {
 		normalSource = "off"
 		normalMissing = true
-		for _, id := range c.Profiles.Microphones {
-			if slices.Contains(options, id) {
-				normalSource = id
-				normalMissing = false
+		// With activity metering, Auto skips silent microphones; when every
+		// option is silent, the priority applies regardless.
+		for _, skipSilent := range []bool{c.Profiles.Activity != nil, false} {
+			for _, id := range c.Profiles.Microphones {
+				if slices.Contains(options, id) && !(skipSilent && slices.Contains(c.SilentMics, id)) {
+					normalSource = id
+					normalMissing = false
+					break
+				}
+			}
+			if !normalMissing {
 				break
 			}
 		}
 	}
+	c.ProfileWired = wiredMics(c.Profiles, options, normalSource)
 	normalPlayback, _ := selectDevice(profile.Playback, "output", playbackDevices(&profile, available))
 	asio, _ := SelectASIO(&profile, available)
 	chooseOverride := func(name string, current *model.Device, choices config.Config) *model.Device {
@@ -79,6 +87,8 @@ func ProfileConfig(c config.Config, s model.Snapshot) config.Config {
 	i.Source = normalSource
 	i.Enabled = normalSource != "off"
 	if c.ProfileRunning && policy != nil {
+		// The VR profile keeps every microphone wired.
+		c.ProfileWired = nil
 		choices := policy.Choices
 		if i.VRProfile != nil {
 			choices = *i.VRProfile
@@ -164,4 +174,26 @@ func ProfileConfig(c config.Config, s model.Snapshot) config.Config {
 	c.ProfileResolved = true
 	c.ProfileBase = &base
 	return c
+}
+
+// wiredMics lists the microphones wired for activity metering: the first
+// Check available options in priority order and the effective source. Nil,
+// without activity metering, wires every available microphone.
+func wiredMics(p *config.Profiles, options []string, effective string) []string {
+	if p.Activity == nil {
+		return nil
+	}
+	wired := []string{}
+	for _, id := range p.Microphones {
+		if len(wired) == p.Activity.Check {
+			break
+		}
+		if id != "off" && slices.Contains(options, id) {
+			wired = append(wired, id)
+		}
+	}
+	if effective != "off" && !slices.Contains(wired, effective) {
+		wired = append(wired, effective)
+	}
+	return wired
 }

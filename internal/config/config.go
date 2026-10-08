@@ -59,6 +59,13 @@ type Config struct {
 	// TapeListening marks tape playback started by Snoofer's Play, which the
 	// planner routes to the Playback destination. Runtime only.
 	TapeListening bool `json:"-"`
+
+	// SilentMics are microphone options latched silent by activity metering.
+	// Runtime only.
+	SilentMics []string `json:"-"`
+	// ProfileWired lists the microphone options wired for metering; nil wires
+	// every available microphone. Derived by profile resolution.
+	ProfileWired []string `json:"-"`
 }
 
 func Load(path string) (Config, error) {

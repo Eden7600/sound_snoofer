@@ -3,6 +3,7 @@ package routing
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 
 	"sound-snoofer/internal/config"
@@ -267,7 +268,17 @@ func buildStudio(c config.Config, s model.Snapshot) (Plan, error) {
 		deviceOp(bus, clear)
 	}
 	if t.ASIOActive && micActive {
-		for i, v := range []int{selectedInterface.Inputs[0], selectedInterface.Inputs[0], selectedInterface.Inputs[1], selectedInterface.Inputs[1]} {
+		desk, lav := selectedInterface.Inputs[0], selectedInterface.Inputs[1]
+		// Activity metering wires only the checked microphones.
+		if c.ProfileWired != nil {
+			if !slices.Contains(c.ProfileWired, "desk") {
+				desk = 0
+			}
+			if !slices.Contains(c.ProfileWired, "lav") {
+				lav = 0
+			}
+		}
+		for i, v := range []int{desk, desk, lav, lav} {
 			if e := numberOp(fmt.Sprintf("Patch.asio[%d]", i), v); e != nil {
 				return p, e
 			}
