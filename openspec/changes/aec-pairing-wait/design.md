@@ -1,2 +1,4 @@
 # Design
 First extend the existing paired callback probe to record input/output formats and mismatches without recording audio. Reproduce the observed pairing failure before changing the bridge. Apply the smallest correction to callback framing shared by neural modes; retain bounded queues, pass-through on failure, and the existing recovery cooldown. Record the measured cause and precise correction here before implementation. Validate with the real model and live host after the canonical build.
+
+Paired pass-through capture is healthy at 48 kHz/512. Extend the existing probe with an opt-in neural observer: feed both stages to the deployed neural DLL, restore input pass-through afterward, and report native state beside callback counts. This records no audio and changes no routing. Resolve all exports and configure before registration; destroy only after successful unregister.
