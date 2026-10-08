@@ -89,6 +89,14 @@ add("audio.priorities","Device priorities","status","",{Group:"Routing",ViewData
  Drivers:[suggestion("Focusrite USB ASIO","asio","(?i)^Focusrite USB ASIO$","")],Inputs:[suggestion("Analogue 1 + 2 (Focusrite USB)","wdm","(?i)^Analogue 1 \\+ 2 \\(Focusrite USB\\)$","(?i)Focusrite USB")],
  Microphones:["desk","lav","webcam","off"]}});
 add("audio.priority-edit","Device priority edit","text","abc",{Group:"Routing"});
+// Outputs: Playback plus a Music slot; positions 2 and 3 are hidden.
+controls.find(c=>c.ID==="audio.priorities").ViewData.OutputDevices=["Speakers (Realtek Audio)","Speakers (Arena 7)"];
+add("audio.playback:virtual:1","virtual:1 playback","toggle","On",{Group:"Shared audio"});
+add("audio.monitor","Monitor","selection","pre",{Group:"Bindings",Options:["off","pre","post"],OptionLabels:{off:"Off",pre:"Pre",post:"Post"},Operations:["set","press"],SurfaceOnly:true});
+add("audio.output-edit","Output edit","text","abc",{Group:"Routing"});
+add("audio.slot-1","Music","status","In use",{Group:"Routing",Status:"Speakers (Arena 7)",ViewData:{ID:"music",Bus:"A3"}});
+for(const [source,value,available] of [["virtual:1","On",true],["virtual:2","Off",false],["virtual:3","Off",false],["monitor","Off",true],["soundboard","Off",true],["tape","On",true]])add("audio.slot-1:"+source,"Music "+source,"toggle",value,{Group:"Routing",Available:available,Hidden:!available});
+for(const n of [2,3]){add("audio.slot-"+n,"Output "+n,"status","",{Group:"Routing",Available:false,Hidden:true});for(const source of ["virtual:1","monitor","soundboard","tape"])add("audio.slot-"+n+":"+source,"Output "+n+" "+source,"toggle","Off",{Group:"Routing",Available:false,Hidden:true});}
 // Now playing: a focused YouTube tab and a paused Windows player.
 add("nowplaying.s-tab","Video A","command","Playing",{ShortLabel:"Video A",Group:"Now playing",Collection:"nowplaying.sessions",CollectionLabel:"Media sessions",Order:1,Icon:"media-play",Operations:["press","set"]});
 add("nowplaying.s-spotify","Song","command","Paused",{ShortLabel:"Song",Group:"Now playing",Collection:"nowplaying.sessions",CollectionLabel:"Media sessions",Order:2,Icon:"media-play",Operations:["press","set"]});
@@ -201,7 +209,28 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.screenshot({path:path.join(root,".local/gui-audio.png"),fullPage:true});
   assert.equal(await page.getByText("Device priorities").count(),0,"priority controls leaked onto the Audio screen");
   await page.getByRole("button",{name:"Routing",exact:true}).click();
-  for(const name of ["Interfaces","Playback","Webcam","Mic priority"])await page.getByRole("heading",{name,exact:true}).waitFor();
+  for(const name of ["Outputs","Interfaces","Playback","Webcam","Mic priority"])await page.getByRole("heading",{name,exact:true}).waitFor();
+  // Outputs matrix: sources by destination; hidden slots get no column.
+  const outputs=page.locator("[data-part=outputs]");
+  assert.equal(await outputs.locator("[data-part=output-slot]").count(),1,"hidden slot positions shown");
+  assert.deepEqual(await outputs.locator("tbody th").allTextContents(),["Computer","Monitor","Soundboard","Tape"]);
+  assert.deepEqual(await outputs.locator("[data-part=route]").allTextContents(),["On","On","Pre","Off","Off","On"]);
+  await outputs.getByRole("button",{name:"Music Monitor"}).focus();
+  await page.keyboard.press("Tab");
+  assert.equal(await page.evaluate(()=>window.sent.length),0,"focus moves dispatched a route");
+  await outputs.getByRole("button",{name:"Music Monitor"}).click();
+  await page.waitForFunction(()=>window.sent.some(a=>a.Request?.ID==="audio.slot-1:monitor"&&a.Request.Operation==="press"));
+  await page.getByText("Sending",{exact:true}).waitFor({state:"hidden"});
+  await outputs.getByLabel("New output name").fill("Monitor output");
+  await outputs.getByRole("button",{name:"Add output"}).click();
+  await page.waitForFunction(()=>window.sent.some(a=>a.Request?.ID==="audio.output-edit"));
+  assert.deepEqual(JSON.parse(await page.evaluate(()=>window.sent.at(-1).Request.Value)),{op:"add",id:"",value:JSON.stringify({name:"Monitor output",device:"Speakers (Realtek Audio)"})});
+  await page.getByText("Sending",{exact:true}).waitFor({state:"hidden"});
+  await outputs.getByRole("button",{name:"Remove Music"}).click();
+  await page.waitForFunction(()=>window.sent.filter(a=>a.Request?.ID==="audio.output-edit").length===2);
+  assert.deepEqual(JSON.parse(await page.evaluate(()=>window.sent.at(-1).Request.Value)),{op:"remove",id:"music",value:""});
+  await page.getByText("Sending",{exact:true}).waitFor({state:"hidden"});
+  await page.evaluate(()=>{window.sent.length=0;});
   const playbackList=page.locator("[data-part=list-playback]");
   assert.deepEqual(await playbackList.locator("[data-part=match]").allTextContents(),["In use","Ambiguous · 2","Ready"]);
   assert.equal(await playbackList.getByRole("button",{name:"Move Playback 1 up"}).isDisabled(),true,"first entry moves up");

@@ -30,7 +30,7 @@ func controlByID(t *testing.T, controls []snoofer.Control, id string) snoofer.Co
 func TestSlotControls(t *testing.T) {
 	controls := slotControls(slotState())
 	header := controlByID(t, controls, "audio.slot-1")
-	if header.Label != "Music" || header.Value != "In use" || header.Status != "Speakers (Arena)" || header.Hidden {
+	if header.Label != "Music" || header.Value != "In use" || header.Status != "Speakers (Arena)" || header.Hidden || string(header.ViewData) != `{"ID":"music","Bus":"A3"}` {
 		t.Fatal(header)
 	}
 	if c := controlByID(t, controls, "audio.slot-1:virtual:1"); c.Value != "On" || !c.Available || c.ShortLabel != "Computer" {

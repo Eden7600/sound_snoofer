@@ -309,13 +309,83 @@ function micPriorityCard(parent,view){
   updaters.push(()=>{b.disabled=select.disabled=!editable();});add.append(select,b);card.append(add);
  }
 }
+const sourceNames={"virtual:1":"Computer","virtual:2":"Virtual 2","virtual:3":"Virtual 3",monitor:"Monitor",soundboard:"Soundboard",tape:"Tape"};
+const sourceIcons={"virtual:1":"monitor","virtual:2":"monitor","virtual:3":"monitor",monitor:"headphones",soundboard:"music",tape:"cassette-tape"};
+const outputTones={"In use":"active","No output":"attention"};
+// outputEdit adds, renames, re-assigns or removes an output slot by ID.
+function outputEdit(op,id,value=""){request(c("audio.output-edit"),"set",JSON.stringify({op,id,value}));}
+// routeCell is one source-to-destination switch; pressing it toggles (or
+// cycles Monitor on Playback). Moving focus never dispatches.
+function routeCell(id,label){
+ const b=button("",()=>press(id),ui.toggle+" w-full min-w-0 px-2 py-1.5");b.dataset.part="route";b.setAttribute("aria-label",label);
+ updaters.push(()=>{
+  const item=c(id),on=!!item&&item.Value!=="Off"&&item.Value!=="off";
+  b.textContent=item?display(item):"N/A";b.setAttribute("aria-pressed",String(on));b.disabled=!!pending||!item?.Available;
+ });
+ return b;
+}
+function outputsCard(parent,view){
+ const card=panel("Outputs",parent,"col-span-full");card.dataset.part="outputs";
+ const slots=[1,2,3].map(n=>"audio.slot-"+n).filter(id=>c(id)&&!c(id).Hidden);
+ const editableOutputs=()=>!pending&&!!c("audio.output-edit")?.Available;
+ const playbackSources=[...controls.keys()].filter(id=>id.startsWith("audio.playback:")).map(id=>id.slice("audio.playback:".length)).sort();
+ const sources=[...playbackSources,"monitor"];
+ for(const source of ["soundboard","tape"])if(slots.some(id=>c(id+":"+source)?.Available))sources.push(source);
+ const scroll=el("div","overflow-x-auto"),table=el("table","w-full min-w-[520px] border-separate border-spacing-x-2 border-spacing-y-1.5 text-[13px]");scroll.append(table);card.append(scroll);
+ const head=el("tr");table.append(el("thead"),el("tbody"));table.tHead.append(head);head.append(el("th","w-[150px]"));
+ const column=(title,device,stateID)=>{
+  const th=el("th","min-w-[150px] pb-2 text-left align-top font-normal"),name=el("div","flex items-center gap-1.5 font-semibold"),deviceText=el("div","mt-0.5 text-[11px] break-words text-muted"),state=badge("");
+  name.append(icon("speaker","size-4 shrink-0 text-muted"),document.createTextNode(title));th.append(name,deviceText,state);head.append(th);
+  updaters.push(()=>{deviceText.textContent=device()||"";const v=stateID?c(stateID)?.Value||"":"";state.textContent=v;state.dataset.tone=outputTones[v]||"";state.hidden=!v;});
+  return th;
+ };
+ column("Playback",()=>c("audio.playback-device")?.Value,"").dataset.part="output-playback";
+ for(const id of slots){
+  const slot=c(id),slotID=slot.ViewData?.ID||"",th=column(slot.Label,()=>c(id)?.Status,id);th.dataset.part="output-slot";
+  // Slot management: device, rename, remove.
+  const tools=el("div","mt-2 flex flex-col gap-1.5"),device=el("select","w-full min-w-0 text-xs"),rename=el("input","min-w-0 flex-1 text-xs"),renameRow=el("div","flex gap-1.5");
+  device.setAttribute("aria-label",slot.Label+" device");
+  for(const name of [slot.Status,...(view.OutputDevices||[])].filter((v,n,a)=>v&&a.indexOf(v)===n)){const o=el("option","",name);o.value=name;device.append(o);}
+  device.value=slot.Status||"";device.onchange=()=>outputEdit("device",slotID,device.value);
+  rename.type="text";rename.value=slot.Label;rename.maxLength=16;rename.setAttribute("aria-label","Rename "+slot.Label);
+  const apply=button("Rename",()=>outputEdit("rename",slotID,rename.value.trim()),ui.small),remove=iconButton("trash-2","Remove "+slot.Label,()=>outputEdit("remove",slotID));remove.classList.add(ui.danger);
+  rename.onkeydown=e=>{if(e.key==="Enter")apply.click();};
+  renameRow.append(rename,apply,remove);tools.append(device,renameRow);th.append(tools);
+  updaters.push(()=>{for(const n of [device,rename,remove])n.disabled=!editableOutputs();apply.disabled=!editableOutputs()||!rename.value.trim()||rename.value.trim()===slot.Label;});
+ }
+ for(const source of sources){
+  const tr=el("tr"),th=el("th","text-left font-normal text-muted"),label=el("span","inline-flex items-center gap-2");
+  label.append(icon(sourceIcons[source]||"audio-lines","size-4 shrink-0"),document.createTextNode(sourceNames[source]||source));th.append(label);tr.append(th);
+  const playback=el("td");playback.dataset.part="cell";
+  if(source==="monitor")playback.append(routeCell("audio.monitor","Playback Monitor"));
+  else if(source==="tape")playback.append(el("span","text-xs text-muted","Always"));
+  else if(c("audio.playback:"+source))playback.append(routeCell("audio.playback:"+source,"Playback "+(sourceNames[source]||source)));
+  tr.append(playback);
+  for(const id of slots){
+   const td=el("td");td.dataset.part="cell";
+   if(c(id+":"+source)?.Available)td.append(routeCell(id+":"+source,c(id).Label+" "+(sourceNames[source]||source)));
+   tr.append(td);
+  }
+  table.tBodies[0].append(tr);
+ }
+ // A new output takes a connected device that is neither Playback nor a slot.
+ if(slots.length<3&&view.OutputDevices?.length){
+  const add=el("div","mt-4 flex flex-wrap items-center gap-2 border-t border-[#25323e] pt-3"),name=el("input","w-40"),device=el("select","min-w-0 flex-1");add.dataset.part="output-add";
+  name.type="text";name.placeholder="Monitor output";name.maxLength=16;name.setAttribute("aria-label","New output name");device.setAttribute("aria-label","New output device");
+  for(const d of view.OutputDevices){const o=el("option","",d);o.value=d;device.append(o);}
+  const b=withIcon(button("Add output",()=>{if(name.value.trim())outputEdit("add","",JSON.stringify({name:name.value.trim(),device:device.value}));},ui.small),"plus");
+  name.onkeydown=e=>{if(e.key==="Enter")b.click();};
+  updaters.push(()=>{name.disabled=device.disabled=!editableOutputs();b.disabled=!editableOutputs()||!name.value.trim();});
+  name.addEventListener("input",update);add.append(name,device,b);card.append(add);
+ }
+}
 function buildRouting(){
  const status=c("audio.priorities");
  if(!status){empty(root,"Audio is disabled. Enable it in Plugins.");return;}
  const view=status.ViewData||{},error=el("p","mb-[18px] text-critical");error.dataset.part="priority-error";root.append(error);
  updaters.push(()=>{error.textContent=c("audio.priority-edit")?.Status||"";error.hidden=!error.textContent;});
  const grid=el("div",ui.grid);root.append(grid);
- interfaceCard(grid,view);candidateCard(grid,"Playback","playback",view);candidateCard(grid,"Webcam","webcam",view);micPriorityCard(grid,view);
+ outputsCard(grid,view);interfaceCard(grid,view);candidateCard(grid,"Playback","playback",view);candidateCard(grid,"Webcam","webcam",view);micPriorityCard(grid,view);
 }
 // transport is the Recording card's recorder row: Record, then playback of
 // the loaded file. Labels follow the recorder state; availability comes from
@@ -948,7 +1018,7 @@ function buildDiagnostics(){
 function layoutKey(){
  // Values and telemetry are updated in place. Only structure/context rebuilds a screen.
  const list=[...controls.values()].map(v=>[v.ID,v.Label,v.Kind,v.Group,v.Options,v.OptionLabels]);
- return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="lights"?[state.Enabled?.hue,c("hue.group")?.Value,c("hue.rooms")?.ViewData]:null,screen==="meetings"?[state.Enabled?.insta360,state.Enabled?.discord]:null,screen==="media"?[state.Enabled?.nowplaying,(c("nowplaying.status")?.ViewData?.Sessions||[]).map(s=>[s.ID,s.CanSeek,s.CanMute]),(c("nowplaying.status")?.ViewData?.Browsers||[]).map(b=>b.Name)]:null,screen==="appaudio"?[state.Enabled?.appaudio,(c("appaudio.status")?.ViewData?.Apps||[]).map(a=>[a.ID,a.Name,a.Hidden,a.Picked,a.Open,a.Rule]),c("appaudio.status")?.ViewData?.Exclude]:null,screen==="routing"?[c("audio.priorities")?.ViewData]:null,screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value,c("streamdeck.preview")?.ViewData?.Regions,c("streamdeck.preview")?.ViewData?.Collections]:null]);
+ return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="lights"?[state.Enabled?.hue,c("hue.group")?.Value,c("hue.rooms")?.ViewData]:null,screen==="meetings"?[state.Enabled?.insta360,state.Enabled?.discord]:null,screen==="media"?[state.Enabled?.nowplaying,(c("nowplaying.status")?.ViewData?.Sessions||[]).map(s=>[s.ID,s.CanSeek,s.CanMute]),(c("nowplaying.status")?.ViewData?.Browsers||[]).map(b=>b.Name)]:null,screen==="appaudio"?[state.Enabled?.appaudio,(c("appaudio.status")?.ViewData?.Apps||[]).map(a=>[a.ID,a.Name,a.Hidden,a.Picked,a.Open,a.Rule]),c("appaudio.status")?.ViewData?.Exclude]:null,screen==="routing"?[c("audio.priorities")?.ViewData,[1,2,3].map(n=>[c("audio.slot-"+n)?.Hidden,c("audio.slot-"+n)?.Status,c("audio.slot-"+n)?.ViewData])]:null,screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value,c("streamdeck.preview")?.ViewData?.Regions,c("streamdeck.preview")?.ViewData?.Collections]:null]);
 }
 function build(){
  widgets.length=0;updaters.length=0;root.replaceChildren();

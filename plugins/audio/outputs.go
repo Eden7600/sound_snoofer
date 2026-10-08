@@ -1,6 +1,7 @@
 package audio
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -45,6 +46,8 @@ func slotControls(s control.State) []snoofer.Control {
 			header.Label, header.ShortLabel, header.Value = slot.Name, slot.Name, outputStates[slot.State]
 			header.Status = slot.Device
 			header.Available = true
+			// The GUI addresses edits by ID, never by position.
+			header.ViewData, _ = json.Marshal(struct{ ID, Bus string }{slot.ID, slot.Bus})
 		}
 		header.Hidden = slot == nil
 		out = append(out, header)
