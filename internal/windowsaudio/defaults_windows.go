@@ -138,7 +138,7 @@ func (n *native) Endpoints(flow int) ([]Endpoint, error) {
 		}
 		release(d)
 		if e == nil {
-			out = append(out, Endpoint{id, name})
+			out = append(out, Endpoint{ID: id, Name: name})
 		}
 	}
 	return out, nil
@@ -195,6 +195,7 @@ func run(ctx context.Context, requests <-chan Request, results chan Result) {
 	request := Request{}
 	guard := Guard{}
 	var targets, names [2]string
+	var endpoints []Endpoint
 	var scan time.Time
 	for {
 		select {
@@ -214,24 +215,39 @@ func run(ctx context.Context, requests <-chan Request, results chan Result) {
 		if ctx.Err() != nil {
 			return
 		}
-		if request.Enabled && time.Since(scan) > 5*time.Second {
+		if time.Since(scan) > 5*time.Second {
 			scan = time.Now()
+			var scanned []Endpoint
+			complete := true
 			for flow := 0; flow < 2; flow++ {
-				endpoints, e := b.Endpoints(flow)
+				list, e := b.Endpoints(flow)
 				if e != nil {
 					targets[flow], names[flow] = "", ""
+					complete = false
+					continue
+				}
+				for _, endpoint := range list {
+					endpoint.Flow = flow
+					scanned = append(scanned, endpoint)
+				}
+				if !request.Enabled {
 					continue
 				}
 				want := request.Playback
 				if flow == 1 {
 					want = request.Capture
 				}
-				targets[flow] = resolve(endpoints, want, flow)
-				names[flow] = endpointName(endpoints, targets[flow])
+				targets[flow] = resolve(list, want, flow)
+				names[flow] = endpointName(list, targets[flow])
+			}
+			// A failed scan keeps the previous inventory.
+			if complete {
+				endpoints = scanned
 			}
 		}
 		status := guard.Reconcile(b, request, targets, time.Now())
 		status.Playback, status.Capture = names[0], names[1]
+		status.Endpoints = endpoints
 		status.Suspended = guard.Suspended[0] || guard.Suspended[1]
 		for _, times := range guard.Last {
 			for _, at := range times {

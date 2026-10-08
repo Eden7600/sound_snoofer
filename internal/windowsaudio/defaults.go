@@ -33,8 +33,17 @@ type Result struct {
 	Playback, Capture string
 	Suspended         bool
 	LastCorrection    time.Time
+	// Endpoints are the active endpoints from the latest successful scan,
+	// enumerated whether or not default protection is on.
+	Endpoints []Endpoint
 }
-type Endpoint struct{ ID, Name string }
+
+// Endpoint is an active Windows audio endpoint. Flow is 0 for render
+// (outputs) and 1 for capture (inputs).
+type Endpoint struct {
+	ID, Name string
+	Flow     int
+}
 type Backend interface {
 	Endpoints(int) ([]Endpoint, error)
 	Default(int, int) (string, error)
