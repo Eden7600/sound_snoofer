@@ -15,7 +15,8 @@ type ProfileChoices struct {
 
 // Profiles configures the Normal source priority. Playback retains Studio.Playback.
 type Profiles struct {
-	Microphones []string `json:"microphones"`
+	Microphones []string  `json:"microphones"`
+	Activity    *Activity `json:"activity,omitempty"`
 }
 
 // DefaultProfiles is the Normal source priority for configurations written
@@ -95,4 +96,38 @@ func ValidateProfileChoices(p ProfileChoices) error {
 		return fmt.Errorf("profile source must be auto, off or a configured source")
 	}
 	return validateChoices(p.Source, p.Mode, p.Monitor)
+}
+
+// Activity opts automatic microphone selection into skipping microphones
+// that deliver no signal. Absent, selection ignores signal entirely.
+type Activity struct {
+	// Check is how many leading available Normal priority options stay wired
+	// and metered.
+	Check int `json:"check"`
+	// SilenceDB is the pre-fader peak below which a microphone counts as
+	// silent; zero means -70 dBFS.
+	SilenceDB float64 `json:"silence_db,omitempty"`
+	// SilentAfterS is how long a microphone must stay silent before Auto
+	// skips it; zero means 10 seconds.
+	SilentAfterS int `json:"silent_after_s,omitempty"`
+}
+
+// Validate fills defaults and checks ranges.
+func (a *Activity) Validate() error {
+	if a.SilenceDB == 0 {
+		a.SilenceDB = -70
+	}
+	if a.SilentAfterS == 0 {
+		a.SilentAfterS = 10
+	}
+	if a.Check < 1 || a.Check > 4 {
+		return fmt.Errorf("activity check must be 1-4")
+	}
+	if a.SilenceDB < -120 || a.SilenceDB > -20 {
+		return fmt.Errorf("activity silence_db must be between -120 and -20")
+	}
+	if a.SilentAfterS < 2 || a.SilentAfterS > 600 {
+		return fmt.Errorf("activity silent_after_s must be 2-600")
+	}
+	return nil
 }

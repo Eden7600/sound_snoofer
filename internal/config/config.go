@@ -101,6 +101,11 @@ func (c *Config) Validate() error {
 				return fmt.Errorf("invalid normal microphone priority %s", source)
 			}
 		}
+		if a := c.Profiles.Activity; a != nil {
+			if err := a.Validate(); err != nil {
+				return err
+			}
+		}
 	}
 	if c.VR != nil {
 		if err := c.VR.Validate(); err != nil {
