@@ -15,6 +15,7 @@ type Studio struct {
 	FallbackMic         []Candidate     `json:"fallback_mic"`
 	MovePlaybackRouting bool            `json:"move_playback_routing"`
 	PlaybackSources     []string        `json:"playback_sources"`
+	Outputs             []Output        `json:"outputs,omitempty"`
 }
 
 // ASIOInterface owns the clock and its available desk/lav input channels.
@@ -49,6 +50,9 @@ func (s *Studio) Validate() error {
 		if e := s.Voice.Validate(); e != nil {
 			return e
 		}
+	}
+	if e := s.validateOutputs(); e != nil {
+		return e
 	}
 	seen := map[string]bool{}
 	for _, source := range s.PlaybackSources {

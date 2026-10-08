@@ -18,9 +18,9 @@ Snoofer SHALL support up to three named output slots, each with one static devic
 - **WHEN** Playback needs a bus and every free bus is held by slots
 - **THEN** Playback takes the last slot's bus, and that slot shows No output
 
-#### Scenario: Conflicting configuration
+#### Scenario: Slot device also matches a playback pattern
 - **WHEN** a slot device also matches a playback candidate pattern
-- **THEN** validation rejects the configuration and names the conflicting candidate
+- **THEN** the slot keeps the device, and Playback never selects, offers or clears it
 
 #### Scenario: Slot removed
 - **WHEN** the user removes a slot

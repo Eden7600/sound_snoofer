@@ -7,7 +7,7 @@
 ```
 - **`id`:** `^[a-z0-9-]{1,24}$`, unique.
 - **`name`:** non-empty, at most 16 characters (it is a deck label).
-- **`device`:** an exact WDM output name, matched only when available. It must not match a playback candidate pattern of the same driver. The two would compete, so validation rejects it with a message naming the candidate.
+- **`device`:** an exact WDM output name, matched only when available, and unique across slots. A slot device that also matches a playback pattern belongs to the slot: playback selection, options and ownership skip it, so the two never compete.
 - **`sources`:** each entry is a configured `playback_sources` value, `monitor`, `soundboard` or `tape`.
 - **Count:** at most three slots. Planning also caps slots by the edition's A buses.
 

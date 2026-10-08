@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 )
 
@@ -26,6 +27,9 @@ type Intent struct {
 	// routing-parameter writes for testing; planning continues.
 	PauseDevices bool `json:"pause_devices,omitempty"`
 	PauseSends   bool `json:"pause_sends,omitempty"`
+
+	// Outputs holds each output slot's per-source switches.
+	Outputs map[string]map[string]bool `json:"outputs,omitempty"`
 
 	PlaybackDevice string            `json:"playback_device,omitempty"`
 	Recording      *RecordingChoices `json:"recording,omitempty"`
@@ -75,6 +79,7 @@ func (c Config) VoiceIntent() *Intent {
 		i := c.Intent.Clone()
 		i.normalizeSource()
 		i.NormalizeRecording(c)
+		i.NormalizeOutputs(c)
 		return i
 	}
 	v := c.Studio.Voice
@@ -83,6 +88,7 @@ func (c Config) VoiceIntent() *Intent {
 		i.Playback[s] = true
 	}
 	i.NormalizeRecording(c)
+	i.NormalizeOutputs(c)
 	i.normalizeSource()
 	return i
 }
@@ -115,6 +121,12 @@ func (i *Intent) Clone() *Intent {
 	n.Playback = map[string]bool{}
 	for k, v := range i.Playback {
 		n.Playback[k] = v
+	}
+	if i.Outputs != nil {
+		n.Outputs = map[string]map[string]bool{}
+		for id, switches := range i.Outputs {
+			n.Outputs[id] = maps.Clone(switches)
+		}
 	}
 	return &n
 }
