@@ -73,6 +73,15 @@ func (w *worker) applyEdit(e edit) (Settings, error) {
 		}
 		next.RecentMinutes = minutes
 		return next, nil
+	case "separate":
+		// Removes a rule naming programs into this app; combined programs
+		// return as their own apps and a rename reverts.
+		index := slices.IndexFunc(next.Rules, func(r Rule) bool { return r.Match == e.Value && !r.Hide && key(r.Name) == key(e.App) })
+		if index < 0 {
+			return next, fmt.Errorf("that rule no longer exists")
+		}
+		next.Rules = slices.Delete(next.Rules, index, index+1)
+		return next, nil
 	case "move":
 		to := pickIndex - 1
 		if e.Value == "down" {

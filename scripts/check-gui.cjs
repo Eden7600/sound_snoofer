@@ -71,7 +71,7 @@ controls.find(c=>c.ID==="streamdeck.preview").ViewData=view;
 const appMeter={Present:true,Known:true,DB:-18,At:new Date().toISOString()};
 [["discord","Discord","40%"],["chrome","Google Chrome","Mixed"],["spotify","Spotify","Closed"]].forEach(([id,label,value],n)=>add("appaudio.app-"+id,label,"numeric",value,{ShortLabel:label,Group:"App audio",Collection:"appaudio.apps",CollectionLabel:"Apps",Order:n+1,Icon:"app-audio",Operations:["press","adjust","set"],Meter:value==="Closed"?{Present:true}:appMeter}));
 add("appaudio.status","App audio","status","3 apps",{ViewData:{RecentMinutes:5,Apps:[
- {ID:"appaudio.app-discord",Name:"Discord",Picked:true,Open:true,Sessions:2,Executables:["C:\\Discord\\Discord.exe"],Devices:["Voicemeeter Input"],PIDs:[11,12]},
+ {ID:"appaudio.app-discord",Name:"Discord",Picked:true,Open:true,Sessions:2,Executables:["C:\\Discord\\Discord.exe"],Devices:["Voicemeeter Input"],PIDs:[11,12],Naming:[{Match:"(^|\\\\)updater\\.exe$",Programs:["updater.exe"]}]},
  {ID:"appaudio.app-chrome",Name:"Google Chrome",Open:true,Sessions:3,Executables:["C:\\Chrome\\chrome.exe"],Devices:["Voicemeeter Input"],PIDs:[21],LastHeard:new Date().toISOString()},
  {ID:"appaudio.app-spotify",Name:"Spotify",Picked:true,Open:false},
  {ID:"appaudio.app-vm",Name:"Voicemeeter",Hidden:true,Open:true,Sessions:1,Rule:"Excluded (voicemeeter*.exe)"},
@@ -410,6 +410,13 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.waitForTimeout(300);
   await page.getByRole("button",{name:"Pin Google Chrome",exact:true}).click();
   assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,JSON.parse(r.Value)];}),["appaudio.edit",{op:"pick",app:"Google Chrome",value:""}]);
+  await page.evaluate(()=>{const e=window.fixture.Controls.find(c=>c.ID==="appaudio.edit");e.Revision++;});
+  await page.waitForTimeout(300);
+  // Separate undoes a rule that named programs into an app.
+  await page.locator("[data-part=app]").first().locator("summary").click();
+  assert.equal(await page.locator("[data-part=app]").first().locator("[data-part=naming]").getByText("updater.exe").count(),1);
+  await page.getByRole("button",{name:"Separate updater.exe",exact:true}).click();
+  assert.deepEqual(await page.evaluate(()=>JSON.parse(window.sent.at(-1).Request.Value)),{op:"separate",app:"Discord",value:"(^|\\\\)updater\\.exe$"});
   await page.evaluate(()=>{const e=window.fixture.Controls.find(c=>c.ID==="appaudio.edit");e.Revision++;});
   await page.waitForTimeout(300);
   await page.locator("[data-part=app]").nth(1).locator("summary").click();

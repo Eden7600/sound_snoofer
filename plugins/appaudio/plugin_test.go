@@ -589,3 +589,67 @@ func TestFocusDialFollowsTheDeckFilter(t *testing.T) {
 		return false
 	})
 }
+
+func TestSeparateCombinedApps(t *testing.T) {
+	backend := studio()
+	h := startHarness(t, backend, Settings{}, true)
+	h.wait("apps", func(l []snoofer.Control) bool { return len(apps(l)) == 3 })
+	h.edit("combine", "Launcher", "Game")
+	view := func(l []snoofer.Control) (names []string, naming []namingView) {
+		for _, c := range l {
+			if c.ID != "appaudio.status" {
+				continue
+			}
+			var v statusView
+			json.Unmarshal(c.ViewData, &v)
+			for _, a := range v.Apps {
+				names = append(names, a.Name)
+				if a.Name == "Game" {
+					naming = a.Naming
+				}
+			}
+		}
+		return names, naming
+	}
+	naming := func(l []snoofer.Control) []namingView { _, n := view(l); return n }
+	listed := func(l []snoofer.Control, name string) bool { names, _ := view(l); return slices.Contains(names, name) }
+	list := h.wait("combined", func(l []snoofer.Control) bool { return !listed(l, "Launcher") && len(naming(l)) == 1 })
+	rule := naming(list)[0]
+	h.edit("separate", "Game", rule.Match)
+	h.wait("separated", func(l []snoofer.Control) bool { return listed(l, "Launcher") && len(naming(l)) == 0 })
+	h.mu.Lock()
+	if len(h.saved.Rules) != 0 {
+		t.Error("rule kept", h.saved.Rules)
+	}
+	h.mu.Unlock()
+	// A rule already gone is refused without saving.
+	h.edit("separate", "Game", rule.Match)
+	h.wait("refused", func(l []snoofer.Control) bool {
+		for _, c := range l {
+			if c.ID == "appaudio.edit" {
+				return c.Status == "that rule no longer exists"
+			}
+		}
+		return false
+	})
+}
+
+func TestRulePrograms(t *testing.T) {
+	for paths, want := range map[string][]string{
+		`C:\a\Launcher.exe`:                       {"launcher.exe"},
+		`C:\a\b.exe|C:\c\my+app.exe`:              {"b.exe", "my+app.exe"},
+		windowsaudio.SystemSounds:                 {"System sounds"},
+		`C:\a\x.exe|` + windowsaudio.SystemSounds: {"x.exe", "System sounds"},
+	} {
+		match, err := exeMatch(strings.Split(paths, "|"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := rulePrograms(match); !slices.Equal(got, want) {
+			t.Fatalf("%s: %q, want %q", match, got, want)
+		}
+	}
+	if got := rulePrograms("custom.*pattern"); !slices.Equal(got, []string{"custom.*pattern"}) {
+		t.Fatal(got)
+	}
+}

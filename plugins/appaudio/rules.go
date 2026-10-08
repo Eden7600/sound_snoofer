@@ -95,3 +95,44 @@ func exeMatch(paths []string) (string, error) {
 	}
 	return strings.Join(parts, "|"), nil
 }
+
+// namingView is a rule that names programs into an app, with the programs
+// it matches in readable form.
+type namingView struct {
+	Match    string
+	Programs []string
+}
+
+// exePart is one program alternative written by exeMatch: (^|\\)name$ with
+// name escaped by QuoteMeta, or ^system$.
+var exePart = regexp.MustCompile(`\(\^\|\\\\\)((?:[^\\$|]|\\.)+)\$|\^system\$`)
+
+// rulePrograms lists the program file names a GUI rule matches. A rule that
+// was not written by the GUI is shown as its pattern.
+func rulePrograms(match string) []string {
+	var programs, parts []string
+	for _, m := range exePart.FindAllStringSubmatch(match, -1) {
+		parts = append(parts, m[0])
+		if m[0] == "^system$" {
+			programs = append(programs, "System sounds")
+		} else {
+			programs = append(programs, unquoteMeta(m[1]))
+		}
+	}
+	if len(parts) == 0 || strings.Join(parts, "|") != match {
+		return []string{match}
+	}
+	return programs
+}
+
+// unquoteMeta reverses regexp.QuoteMeta.
+func unquoteMeta(s string) string {
+	var b strings.Builder
+	for n := 0; n < len(s); n++ {
+		if s[n] == '\\' && n+1 < len(s) {
+			n++
+		}
+		b.WriteByte(s[n])
+	}
+	return b.String()
+}

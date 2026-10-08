@@ -390,6 +390,9 @@ func (w *worker) appValue(a *app) (string, string) {
 type appView struct {
 	ID, Name, Rule       string
 	Picked, Hidden, Open bool
+	// Naming lists the rules that name programs into this app: its rename
+	// and programs combined into it.
+	Naming               []namingView `json:",omitempty"`
 	Executables, Devices []string
 	PIDs                 []uint32
 	Sessions             int
@@ -443,6 +446,11 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 		listed[k] = true
 		v := appView{ID: controlID(a.Name), Name: a.Name, Rule: a.Rule, Hidden: a.Hidden, Open: len(a.Sessions) > 0, Sessions: len(a.Sessions),
 			Picked: slices.ContainsFunc(w.settings.Picked, func(p string) bool { return key(p) == key(a.Name) })}
+		for _, r := range w.settings.Rules {
+			if !r.Hide && r.Name != "" && key(r.Name) == key(a.Name) {
+				v.Naming = append(v.Naming, namingView{Match: r.Match, Programs: rulePrograms(r.Match)})
+			}
+		}
 		for _, s := range a.Sessions {
 			if s.Path != "" && !slices.Contains(v.Executables, s.Path) {
 				v.Executables = append(v.Executables, s.Path)

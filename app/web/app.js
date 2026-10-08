@@ -593,6 +593,18 @@ function appStrip(id,parent){
  const hide=button("Hide",()=>appEdit("hide",initial.Label),ui.small+" "+ui.danger);hide.dataset.part="hide";
  const details=el("dl","mt-3 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-1 text-[12px] text-muted");
  more.append(renameRow,combineRow,el("div",ui.actions+" mt-2"),details);more.children[3].append(hide);
+ // Rules naming programs into this app (its rename, combined programs);
+ // Separate undoes one.
+ const naming=info().Naming||[],separates=[];
+ if(naming.length){
+  const list=el("div","mt-3 border-t border-[#25323e] pt-2");list.dataset.part="naming";list.append(el("h4","text-[11px] font-bold text-muted","Named here"));
+  for(const rule of naming){
+   const row=el("div","flex items-center justify-between gap-2 py-1"),programs=(rule.Programs||[]).join(", ");
+   const b=button("Separate",()=>appEdit("separate",initial.Label,rule.Match),ui.small);b.setAttribute("aria-label","Separate "+programs);separates.push(b);
+   row.append(el("span","min-w-0 break-all text-ink",programs),b);list.append(row);
+  }
+  more.insertBefore(list,details);
+ }
  node.append(head,value,status,slider,...meter.nodes,mute,more);
  updaters.push(()=>{
   const item=c(id);if(!item)return;
@@ -606,7 +618,7 @@ function appStrip(id,parent){
   earlier.hidden=later.hidden=!a.Picked;
   for(const b of [slider,mute])b.disabled=!!pending||!item.Available||closed;
   for(const n of [slider,mute,...meter.nodes])n.hidden=closed;
-  for(const b of [pin,earlier,later,renameApply,combineApply,hide,rename,combine])b.disabled=!!pending||!c("appaudio.edit")?.Available;
+  for(const b of [pin,earlier,later,renameApply,combineApply,hide,rename,combine,...separates])b.disabled=!!pending||!c("appaudio.edit")?.Available;
   for(const b of [renameApply,combineApply,hide,rename,combine])b.disabled||=closed;
   details.replaceChildren();
   for(const [label,text] of [["Programs",(a.Executables||[]).join("\n")],["Devices",(a.Devices||[]).join("\n")],["Processes",(a.PIDs||[]).join(", ")],["Sessions",String(a.Sessions||0)],["Rule",a.Rule||"None"],["Heard",a.LastHeard?relativeTime(a.LastHeard):"Not yet"]]){
@@ -1021,7 +1033,7 @@ function buildDiagnostics(){
 function layoutKey(){
  // Values and telemetry are updated in place. Only structure/context rebuilds a screen.
  const list=[...controls.values()].map(v=>[v.ID,v.Label,v.Kind,v.Group,v.Options,v.OptionLabels]);
- return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="lights"?[state.Enabled?.hue,c("hue.group")?.Value,c("hue.rooms")?.ViewData]:null,screen==="meetings"?[state.Enabled?.insta360,state.Enabled?.discord]:null,screen==="media"?[state.Enabled?.nowplaying,(c("nowplaying.status")?.ViewData?.Sessions||[]).map(s=>[s.ID,s.CanSeek,s.CanMute]),(c("nowplaying.status")?.ViewData?.Browsers||[]).map(b=>b.Name)]:null,screen==="appaudio"?[state.Enabled?.appaudio,(c("appaudio.status")?.ViewData?.Apps||[]).map(a=>[a.ID,a.Name,a.Hidden,a.Picked,a.Open,a.Rule]),c("appaudio.status")?.ViewData?.Exclude]:null,screen==="routing"?[c("audio.priorities")?.ViewData,[1,2,3].map(n=>[c("audio.slot-"+n)?.Hidden,c("audio.slot-"+n)?.Status,c("audio.slot-"+n)?.ViewData])]:null,screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value,c("streamdeck.preview")?.ViewData?.Regions,c("streamdeck.preview")?.ViewData?.Collections]:null]);
+ return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="lights"?[state.Enabled?.hue,c("hue.group")?.Value,c("hue.rooms")?.ViewData]:null,screen==="meetings"?[state.Enabled?.insta360,state.Enabled?.discord]:null,screen==="media"?[state.Enabled?.nowplaying,(c("nowplaying.status")?.ViewData?.Sessions||[]).map(s=>[s.ID,s.CanSeek,s.CanMute]),(c("nowplaying.status")?.ViewData?.Browsers||[]).map(b=>b.Name)]:null,screen==="appaudio"?[state.Enabled?.appaudio,(c("appaudio.status")?.ViewData?.Apps||[]).map(a=>[a.ID,a.Name,a.Hidden,a.Picked,a.Open,a.Rule,a.Naming]),c("appaudio.status")?.ViewData?.Exclude]:null,screen==="routing"?[c("audio.priorities")?.ViewData,[1,2,3].map(n=>[c("audio.slot-"+n)?.Hidden,c("audio.slot-"+n)?.Status,c("audio.slot-"+n)?.ViewData])]:null,screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value,c("streamdeck.preview")?.ViewData?.Regions,c("streamdeck.preview")?.ViewData?.Collections]:null]);
 }
 function build(){
  widgets.length=0;updaters.length=0;root.replaceChildren();
