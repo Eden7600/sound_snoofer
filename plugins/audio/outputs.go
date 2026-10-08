@@ -22,7 +22,7 @@ var sourceLabels = map[string]string{"virtual:1": "Computer", "virtual:2": "Virt
 var sourceIcons = map[string]string{"virtual:1": "record-computer", "virtual:2": "record-computer", "virtual:3": "record-computer",
 	config.SourceMonitor: "monitor", config.SourceSoundboard: "soundboard-play", config.SourceTape: "tape-play"}
 
-var outputStates = map[string]string{routing.OutputOK: "In use", routing.OutputMissing: "Missing", routing.OutputNoOutput: "No output"}
+var outputStates = map[string]string{routing.OutputOK: "In use", routing.OutputEmpty: "No device", routing.OutputMissing: "Disconnected", routing.OutputNoOutput: "No output"}
 
 func planOutputs(s control.State) []routing.OutputStatus {
 	if s.Plan == nil || s.Plan.Topology == nil {

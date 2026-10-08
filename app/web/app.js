@@ -345,6 +345,7 @@ function outputsCard(parent,view){
   // Slot management: device, rename, remove.
   const tools=el("div","mt-2 flex flex-col gap-1.5"),device=el("select","w-full min-w-0 text-xs"),rename=el("input","min-w-0 flex-1 text-xs"),renameRow=el("div","flex gap-1.5");
   device.setAttribute("aria-label",slot.Label+" device");
+  device.append(Object.assign(el("option","","No device"),{value:""}));
   for(const name of [slot.Status,...(view.OutputDevices||[])].filter((v,n,a)=>v&&a.indexOf(v)===n)){const o=el("option","",name);o.value=name;device.append(o);}
   device.value=slot.Status||"";device.onchange=()=>outputEdit("device",slotID,device.value);
   rename.type="text";rename.value=slot.Label;rename.maxLength=16;rename.setAttribute("aria-label","Rename "+slot.Label);
@@ -368,11 +369,13 @@ function outputsCard(parent,view){
   }
   table.tBodies[0].append(tr);
  }
- // A new output takes a connected device that is neither Playback nor a slot.
- if(slots.length<3&&view.OutputDevices?.length){
+ // A new output may start without a device; one can be assigned later from
+ // connected devices that are neither Playback nor another slot.
+ if(slots.length<3){
   const add=el("div","mt-4 flex flex-wrap items-center gap-2 border-t border-[#25323e] pt-3"),name=el("input","w-40"),device=el("select","min-w-0 flex-1");add.dataset.part="output-add";
   name.type="text";name.placeholder="Monitor output";name.maxLength=16;name.setAttribute("aria-label","New output name");device.setAttribute("aria-label","New output device");
-  for(const d of view.OutputDevices){const o=el("option","",d);o.value=d;device.append(o);}
+  device.append(Object.assign(el("option","","No device"),{value:""}));
+  for(const d of view.OutputDevices||[]){const o=el("option","",d);o.value=d;device.append(o);}
   const b=withIcon(button("Add output",()=>{if(name.value.trim())outputEdit("add","",JSON.stringify({name:name.value.trim(),device:device.value}));},ui.small),"plus");
   name.onkeydown=e=>{if(e.key==="Enter")b.click();};
   updaters.push(()=>{name.disabled=device.disabled=!editableOutputs();b.disabled=!editableOutputs()||!name.value.trim();});

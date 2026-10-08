@@ -6,6 +6,7 @@
 - [x] 4. `feat(gui)`: Outputs matrix on the Routing screen; GUI check; UI contract.
 - [x] 5. `feat(streamdeck)`: default Routing page and Home go-to key; presentation check.
 - [x] 6. Validate: gofmt, `go test ./...`, `go vet ./...`, GUI and desktop checks, OpenSpec strict validation, canonical build and renderer inspection.
+- [x] 8. `feat(routing)`: slots without a device (config, planning, controls, GUI, deck states); tests.
 
 ## Acceptance
 - [ ] 7. With speakers in a Music slot and headphones as Playback, music plays on the speakers and monitoring on the headphones with no writes from Snoofer fighting them; tape plays to both when enabled.

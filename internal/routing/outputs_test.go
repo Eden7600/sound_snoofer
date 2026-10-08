@@ -157,3 +157,25 @@ func TestOutputTape(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+// A slot without a device keeps its switches but holds no bus and plans no
+// sends; assigning a device later places it.
+func TestOutputWithoutDevice(t *testing.T) {
+	c, s := outputFixture(t)
+	c.Studio.Outputs = append(c.Studio.Outputs, config.Output{ID: "monitor", Name: "Monitor output", Sources: []string{config.SourceMonitor}})
+	if e := c.Validate(); e != nil {
+		t.Fatal(e)
+	}
+	c.Intent = c.VoiceIntent()
+	before := len(s.Assignments)
+	p := converge(t, c, &s)
+	o := p.Topology.Outputs[1]
+	if o.State != OutputEmpty || o.Bus != "" || !o.Receives(config.SourceMonitor) || len(s.Assignments) != before || s.Assignments["A4"] != "" {
+		t.Fatal(o, s.Assignments)
+	}
+	c.Studio.Outputs[1].Device = "AirPods"
+	c.Studio.Playback = c.Studio.Playback[1:] // Playback falls back to the next candidate.
+	if p = converge(t, c, &s); p.Topology.Outputs[1].State != OutputOK || p.Topology.Outputs[1].Bus == "" {
+		t.Fatal(p.Topology.Outputs[1])
+	}
+}

@@ -15,7 +15,7 @@ import (
 type Output struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
-	Device string `json:"device"` // Exact WDM output name.
+	Device string `json:"device,omitempty"` // Exact WDM output name; empty until assigned.
 	// Sources are the defaults for the saved per-source switches.
 	Sources []string `json:"sources,omitempty"`
 }
@@ -62,10 +62,7 @@ func (s *Studio) validateOutputs() error {
 		if o.Name == "" || len(o.Name) > 16 {
 			return fmt.Errorf("output %s name must be 1-16 characters", o.ID)
 		}
-		if o.Device == "" {
-			return fmt.Errorf("output %s needs a device", o.ID)
-		}
-		if devices[o.Device] {
+		if o.Device != "" && devices[o.Device] {
 			return fmt.Errorf("device %q is used by two outputs", o.Device)
 		}
 		devices[o.Device] = true

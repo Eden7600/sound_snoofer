@@ -224,6 +224,10 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await outputs.getByRole("button",{name:"Music Monitor"}).click();
   await page.waitForFunction(()=>window.sent.some(a=>a.Request?.ID==="audio.slot-1:monitor"&&a.Request.Operation==="press"));
   await page.getByText("Sending",{exact:true}).waitFor({state:"hidden"});
+  // Slots may exist without a device.
+  assert.equal(await outputs.getByLabel("New output device").locator("option").first().textContent(),"No device");
+  assert.equal(await outputs.getByLabel("Music device").locator("option").first().textContent(),"No device");
+  await outputs.getByLabel("New output device").selectOption("Speakers (Realtek Audio)");
   await outputs.getByLabel("New output name").fill("Monitor output");
   await outputs.getByRole("button",{name:"Add output"}).click();
   await page.waitForFunction(()=>window.sent.some(a=>a.Request?.ID==="audio.output-edit"));

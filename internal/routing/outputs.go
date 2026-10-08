@@ -11,6 +11,7 @@ import (
 // Output slot states.
 const (
 	OutputOK       = "ok"        // The device is available on its bus.
+	OutputEmpty    = "empty"     // No device is assigned yet.
 	OutputMissing  = "missing"   // The device is unavailable; any held bus stays reserved.
 	OutputNoOutput = "no-output" // No bus is free for the device.
 )
@@ -70,7 +71,7 @@ func holdOutputBuses(profile *config.Studio, s model.Snapshot, buses int, asioAc
 			continue // ASIO replaces a slot device found on A1.
 		}
 		for _, o := range profile.Outputs {
-			if s.Assignments[bus] != o.Device {
+			if o.Device == "" || s.Assignments[bus] != o.Device {
 				continue
 			}
 			if slots.held[o.ID] == "" {
@@ -120,6 +121,8 @@ func (slots *outputSlots) place(c config.Config, t *Topology, ownsPlayback func(
 			return d.Available && d.Direction == "output" && d.Driver == "wdm" && d.Name == o.Device
 		})
 		switch {
+		case o.Device == "":
+			status.State = OutputEmpty
 		case slots.evicted[o.ID]:
 			status.State = OutputNoOutput
 		case !available:

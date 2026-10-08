@@ -28,7 +28,6 @@ func TestOutputsValidation(t *testing.T) {
 		`,"outputs":[{"id":"Music","name":"Music","device":"x"}]`,
 		`,"outputs":[{"id":"a","name":"","device":"x"}]`,
 		`,"outputs":[{"id":"a","name":"Seventeen chars!!","device":"x"}]`,
-		`,"outputs":[{"id":"a","name":"A","device":""}]`,
 		`,"outputs":[{"id":"a","name":"A","device":"x"},{"id":"a","name":"B","device":"y"}]`,
 		`,"outputs":[{"id":"a","name":"A","device":"x"},{"id":"b","name":"B","device":"x"}]`,
 		`,"outputs":[{"id":"a","name":"A","device":"x","sources":["virtual:2"]}]`,
@@ -68,5 +67,15 @@ func TestOutputChoicesNormalize(t *testing.T) {
 	}
 	if err := i.Validate(c); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestOutputWithoutDevice(t *testing.T) {
+	c, err := outputConfig(t, `,"outputs":[{"id":"a","name":"A","sources":["monitor"]},{"id":"b","name":"B"}]`)
+	if err != nil {
+		t.Fatal("slots without a device must be valid", err)
+	}
+	if c.Studio.OutputDevice("") || !c.VoiceIntent().OutputOn("a", SourceMonitor) {
+		t.Fatal("empty slot")
 	}
 }

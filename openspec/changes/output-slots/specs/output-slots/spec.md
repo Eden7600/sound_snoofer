@@ -63,3 +63,18 @@ The GUI Routing screen SHALL show sources against destinations as a toggle matri
 #### Scenario: Selecting never dispatches
 - **WHEN** the user moves focus across matrix cells
 - **THEN** nothing changes until a cell is activated
+
+### Requirement: Slots without a device
+An output slot SHALL be valid without a device. Its routing switches SHALL stay editable, and it SHALL hold no bus and plan no sends until a device is assigned.
+
+#### Scenario: Set up routing before the device
+- **WHEN** the user creates a "Monitor output" slot without a device and turns on Monitor
+- **THEN** the slot shows No device, the switch is saved, and no bus or send changes
+
+#### Scenario: Assign the device later
+- **WHEN** a connected device is then assigned to the slot
+- **THEN** the slot takes a bus and receives the switched-on sources
+
+#### Scenario: Device disconnected
+- **WHEN** the assigned device disconnects
+- **THEN** the slot shows Disconnected and keeps its routing and its reserved bus, like a slot without a device
