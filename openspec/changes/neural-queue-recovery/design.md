@@ -1,0 +1,4 @@
+# Design
+The audio callback owns the output queue consumer. When it applies a new generation, discard the published output queue snapshot from that consumer only. Never reset both indices or mutate the producer index from the control thread. The worker continues to drain and reject obsolete input generations; generation checks reject any old result published concurrently with the discard. At most one in-flight old output can cross that boundary, safely consumed/rejected later. Keep bounded capacity, latency, model behavior, pass-through and the existing retry cadence unchanged.
+
+Add a native regression that repeatedly resets during the 64 ms pre-roll, using lifecycle, explicit reset and discontinuity paths, then requires Active without failure on sustained paired audio. First run it against the current DLL to establish reproduction. Retain original-model fixture parity and full-band checks. All neural variants share the fix.
