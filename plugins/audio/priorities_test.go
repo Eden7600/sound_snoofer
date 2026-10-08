@@ -83,7 +83,7 @@ func TestPriorityView(t *testing.T) {
 	if s.Exact != `(?i)^Microphone \(Realtek Audio\)$` || s.Device != `(?i)Realtek Audio` {
 		t.Fatal(s)
 	}
-	if !slices.Equal(view.Drivers, []string{"Focusrite USB ASIO"}) || !slices.Contains(view.Inputs, "INPUT 1/2 (Volt 2)") {
+	if !slices.Equal(names(view.Drivers), []string{"Focusrite USB ASIO"}) || !slices.Contains(names(view.Inputs), "INPUT 1/2 (Volt 2)") || view.Drivers[0].Exact != `(?i)^Focusrite USB ASIO$` {
 		t.Fatal(view.Drivers, view.Inputs)
 	}
 }

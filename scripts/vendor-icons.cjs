@@ -9,6 +9,7 @@ const ICONS = [
   "power", "headphones", "audio-lines", "sun", "link", "monitor", "layers", "waves", "sliders-horizontal",
   "circle", "minus", "plus", "chevron-left", "chevron-right", "copy", "check", "search", "house", "refresh-cw", "radar", "folder", "chevron-up", "chevron-down", "app-window", "pin", "disc-3", "pause", "crosshair", "rewind", "fast-forward",
   "video", "video-off", "eye-off", "scan-face", "frame", "rotate-ccw", "headphone-off", "screen-share", "phone", "phone-off",
+  "route", "trash-2", "speaker", "cassette-tape",
 ];
 
 const root = path.resolve(__dirname, "..");

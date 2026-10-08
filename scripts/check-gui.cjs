@@ -78,6 +78,17 @@ add("appaudio.status","App audio","status","3 apps",{ViewData:{RecentMinutes:5,A
  {ID:"appaudio.app-rule",Name:"Launcher",Hidden:true,Open:true,Sessions:1,Rule:"Hidden (launcher)"}],
  Exclude:["snoofer.exe","voicemeeter*.exe","audiodg.exe","huesync.exe"]}});
 add("appaudio.edit","App audio edit","text","abc");
+// Routing: one interface, playback with an ambiguous entry, a webcam and the mic priority.
+const suggestion=(Name,Driver,Exact,Device)=>({Name,Driver,Exact,Device});
+add("audio.priorities","Device priorities","status","",{Group:"Routing",ViewData:{
+ Lists:{interfaces:[{ASIOPattern:"(?i)^Universal Audio Volt$",PresencePattern:"(?i)^INPUT 1/2 \\(Volt 2\\)$",Desk:1,Lav:2,Matches:["INPUT 1/2 (Volt 2)"],Drivers:["Universal Audio Volt"],InUse:true}],
+  playback:[{Driver:"wdm",Pattern:"(?i)airpods",Matches:["Headphones (AirPods Pro)"],InUse:true},{Driver:"wdm",Pattern:"(?i)steelseries.*arena",Matches:["Speakers (Arena 7)","Game (Arena 7)"]},{Driver:"asio",Pattern:"(?i)^Universal Audio Volt$",Matches:["Universal Audio Volt"]}],
+  webcam:[{Driver:"wdm",Pattern:"(?i)insta360.*link.*2",Matches:[]}],
+  microphones:[{ID:"lav",Option:true,InUse:true},{ID:"webcam",Option:false}]},
+ Suggestions:{playback:[suggestion("Speakers (Realtek Audio)","wdm","(?i)^Speakers \\(Realtek Audio\\)$","(?i)Realtek Audio")]},
+ Drivers:[suggestion("Focusrite USB ASIO","asio","(?i)^Focusrite USB ASIO$","")],Inputs:[suggestion("Analogue 1 + 2 (Focusrite USB)","wdm","(?i)^Analogue 1 \\+ 2 \\(Focusrite USB\\)$","(?i)Focusrite USB")],
+ Microphones:["desk","lav","webcam","off"]}});
+add("audio.priority-edit","Device priority edit","text","abc",{Group:"Routing"});
 // Now playing: a focused YouTube tab and a paused Windows player.
 add("nowplaying.s-tab","Video A","command","Playing",{ShortLabel:"Video A",Group:"Now playing",Collection:"nowplaying.sessions",CollectionLabel:"Media sessions",Order:1,Icon:"media-play",Operations:["press","set"]});
 add("nowplaying.s-spotify","Song","command","Paused",{ShortLabel:"Song",Group:"Now playing",Collection:"nowplaying.sessions",CollectionLabel:"Media sessions",Order:2,Icon:"media-play",Operations:["press","set"]});
@@ -188,6 +199,36 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.evaluate(()=>{window.sent.length=0;});
   await page.getByText("Sending",{exact:true}).waitFor({state:"hidden"});
   await page.screenshot({path:path.join(root,".local/gui-audio.png"),fullPage:true});
+  assert.equal(await page.getByText("Device priorities").count(),0,"priority controls leaked onto the Audio screen");
+  await page.getByRole("button",{name:"Routing",exact:true}).click();
+  for(const name of ["Interfaces","Playback","Webcam","Mic priority"])await page.getByRole("heading",{name,exact:true}).waitFor();
+  const playbackList=page.locator("[data-part=list-playback]");
+  assert.deepEqual(await playbackList.locator("[data-part=match]").allTextContents(),["In use","Ambiguous · 2","Ready"]);
+  assert.equal(await playbackList.getByRole("button",{name:"Move Playback 1 up"}).isDisabled(),true,"first entry moves up");
+  assert.equal(await page.locator("[data-part=list-interfaces]").getByRole("button",{name:"Remove interface 1"}).isDisabled(),true,"last interface removable");
+  assert.equal(await page.locator("[data-part=list-webcam] [data-part=match]").textContent(),"No match");
+  assert.deepEqual(await page.locator("[data-part=list-microphones] [data-part=priority] [data-tone]").allTextContents(),["In use","Unavailable"]);
+  // Suggestions use Snoofer's generated patterns; the GUI only forwards them.
+  await playbackList.getByRole("button",{name:"Add Speakers (Realtek Audio) device"}).click();
+  await page.waitForFunction(()=>window.sent.some(a=>a.Request?.ID==="audio.priority-edit"));
+  assert.deepEqual(JSON.parse(await page.evaluate(()=>window.sent.at(-1).Request.Value)),{list:"playback",op:"add",index:0,value:JSON.stringify({driver:"wdm",pattern:"(?i)Realtek Audio"}),field:""});
+  await page.getByText("Sending",{exact:true}).waitFor({state:"hidden"});
+  // A pattern applies only on Enter or Apply, never while typing.
+  const pattern=playbackList.getByLabel("Playback 2 pattern");
+  await pattern.fill("(?i)arena 7");
+  assert.equal(await page.evaluate(()=>window.sent.filter(a=>a.Request?.ID==="audio.priority-edit").length),1,"typing dispatched an edit");
+  await pattern.press("Enter");
+  await page.waitForFunction(()=>window.sent.filter(a=>a.Request?.ID==="audio.priority-edit").length===2);
+  assert.equal(JSON.parse(await page.evaluate(()=>window.sent.at(-1).Request.Value)).value,"(?i)arena 7");
+  await page.getByText("Sending",{exact:true}).waitFor({state:"hidden"});
+  await page.locator("[data-part=interface-add]").getByRole("button",{name:"Add"}).click();
+  await page.waitForFunction(()=>window.sent.filter(a=>a.Request?.ID==="audio.priority-edit").length===3);
+  assert.deepEqual(JSON.parse(JSON.parse(await page.evaluate(()=>window.sent.at(-1).Request.Value)).value),{asio_pattern:"(?i)^Focusrite USB ASIO$",presence_pattern:"(?i)^Analogue 1 \\+ 2 \\(Focusrite USB\\)$",inputs:[1,2]});
+  await page.getByText("Sending",{exact:true}).waitFor({state:"hidden"});
+  await page.evaluate(()=>{window.fixture.Controls.find(c=>c.ID==="audio.priority-edit").Status="error parsing regexp: missing closing ): `(unclosed`";window.sent.length=0;});
+  await page.locator("[data-part=priority-error]").getByText("missing closing").waitFor();
+  await page.screenshot({path:path.join(root,".local/gui-routing.png"),fullPage:true});
+  await page.evaluate(()=>{window.fixture.Controls.find(c=>c.ID==="audio.priority-edit").Status="";});
   await page.getByRole("button",{name:"Stream Deck",exact:false}).click();
   await page.getByRole("heading",{name:"Binding",exact:true}).waitFor();
   assert.equal(await page.locator("[data-part=deck-key]").count(),36);

@@ -6,7 +6,7 @@ const root=$("#content");
 let state={Controls:[],Plugins:{},Enabled:{}}, controls=new Map(), screen="audio", signature="", pending=null;
 let localError="", dismissedNotice="";
 const widgets=[], updaters=[];
-const titles={audio:["AUDIO","Audio"],soundboard:["LIBRARY","Soundboard"],lights:["LIGHTING","Lights"],appaudio:["MIXER","App audio"],meetings:["CALLS","Meetings"],media:["NOW PLAYING","Media"],deck:["CONTROL SURFACE","Stream Deck"],plugins:["SYSTEM","Plugins"],apps:["SYSTEM","Third-party apps"],diagnostics:["SYSTEM","Diagnostics"]};
+const titles={audio:["AUDIO","Audio"],routing:["AUDIO","Routing"],soundboard:["LIBRARY","Soundboard"],lights:["LIGHTING","Lights"],appaudio:["MIXER","App audio"],meetings:["CALLS","Meetings"],media:["NOW PLAYING","Media"],deck:["CONTROL SURFACE","Stream Deck"],plugins:["SYSTEM","Plugins"],apps:["SYSTEM","Third-party apps"],diagnostics:["SYSTEM","Diagnostics"]};
 
 // Utility groups reused across screens. They are plain Tailwind utility
 // literals (no component classes), kept complete so the CSS build finds them.
@@ -207,11 +207,115 @@ function buildAudio() {
  const recording=[...controls.values()].filter(v=>v.Group==="Recording"&&!v.SurfaceOnly);
  if(recording.length){const card=panel("Recording",grid);for(const item of recording){control(item.ID,card);used.add(item.ID);}if(c("audio.tape-play"))transport(card);}
  if(c("aec.mode")){const card=panel("Echo cancellation",grid);card.dataset.part="echo";control("aec.status",card,"Status");control("aec.mode",card,"Mode");control("aec.engine",card,"Engine");control("aec.strength",card,"Strength");control("aec.retry",card,"Retry");}
- const other=[...controls.values()].filter(v=>v.ID.startsWith("audio.")&&!v.SurfaceOnly&&!used.has(v.ID));
+ const other=[...controls.values()].filter(v=>v.ID.startsWith("audio.")&&!v.SurfaceOnly&&!used.has(v.ID)&&v.Group!=="Routing");
  if(other.length||c("audio.engine-restart")){
   const card=panel("Routing & recovery",grid);for(const item of other)control(item.ID,card);
   const engine=el("div",ui.actions+" mt-3");card.append(engine);command("audio.engine-restart","Restart audio engine",engine,"","refresh-cw");
  }
+}
+const micNames={desk:"Desk",lav:"Lavalier",webcam:"Webcam",off:"Off"};
+// priorityEdit sends one change to a device priority list; Snoofer validates,
+// saves and applies it.
+function priorityEdit(list,op,index=0,value="",field=""){request(c("audio.priority-edit"),"set",JSON.stringify({list,op,index,value,field}));}
+function editable(){return !pending&&!!c("audio.priority-edit")?.Available;}
+// matchBadge states what an entry matches under the planner's rules.
+function matchBadge(entry,missing="No match"){
+ const matches=entry.Matches||[];
+ const b=entry.InUse?badge("In use","active"):matches.length>1?badge("Ambiguous · "+matches.length,"attention"):badge(matches.length?"Ready":missing);
+ b.dataset.part="match";if(matches.length)b.title=matches.join("\n");return b;
+}
+// patternField is a pattern input that applies on Enter or Apply.
+function patternField(value,label,apply){
+ const wrap=el("div","flex min-w-[min(100%,16rem)] flex-1 gap-[7px]"),input=el("input","min-w-0 flex-1 font-mono text-xs"),b=button("Apply",()=>apply(input.value),ui.small);
+ input.type="text";input.value=value;input.setAttribute("aria-label",label);input.spellcheck=false;
+ input.onkeydown=e=>{if(e.key==="Enter")b.click();if(e.key==="Escape"){input.value=value;input.blur();}};
+ const sync=()=>{b.disabled=!editable()||input.value===value;input.disabled=!editable();};
+ input.addEventListener("input",sync);updaters.push(sync);wrap.append(input,b);return wrap;
+}
+function entryButtons(list,index,count,name){
+ const box=el("div","flex shrink-0 gap-1"),buttons=[iconButton("chevron-up","Move "+name+" up",()=>priorityEdit(list,"move",index,"up")),iconButton("chevron-down","Move "+name+" down",()=>priorityEdit(list,"move",index,"down")),iconButton("trash-2","Remove "+name,()=>priorityEdit(list,"remove",index))];
+ buttons[2].classList.add(ui.danger);box.append(...buttons);
+ updaters.push(()=>{for(const b of buttons)b.disabled=!editable();buttons[0].disabled||=index===0;buttons[1].disabled||=index===count-1;buttons[2].disabled||=count===1;});
+ return box;
+}
+function entryRow(parent,index){
+ const row=el("div","flex flex-wrap items-center gap-2.5 border-t border-[#25323e] py-3 first:border-t-0 first:pt-0");row.dataset.part="priority";
+ row.append(el("span","w-5 shrink-0 text-right text-muted tabular-nums",String(index+1)));parent.append(row);return row;
+}
+// suggestionRows offers connected devices no entry matches, with patterns
+// Snoofer generated.
+function suggestionRows(parent,list,suggestions,driverLabel=true){
+ if(!suggestions?.length)return;
+ const box=el("div","mt-4 border-t border-[#25323e] pt-3");box.dataset.part="suggestions";box.append(el("h3",ui.stripTitle,"Suggestions"));parent.append(box);
+ for(const s of suggestions){
+  const row=el("div","flex flex-wrap items-center gap-2 py-1.5"),name=el("span","min-w-0 flex-1 break-words",s.Name);
+  row.append(name);if(driverLabel)row.append(badge(s.Driver.toUpperCase()));
+  const add=(pattern,label)=>{const b=withIcon(button(label,()=>priorityEdit(list,"add",0,JSON.stringify({driver:s.Driver,pattern})),ui.small),"plus");b.title=pattern;b.setAttribute("aria-label","Add "+s.Name+" "+label.toLowerCase());row.append(b);updaters.push(()=>{b.disabled=!editable();});};
+  add(s.Exact,"Exact");if(s.Device)add(s.Device,"Device");
+  box.append(row);
+ }
+}
+function candidateCard(parent,title,list,view){
+ const card=panel(title,parent),entries=view.Lists?.[list]||[];card.dataset.part="list-"+list;
+ entries.forEach((entry,n)=>{
+  const row=entryRow(card,n);
+  row.append(patternField(entry.Pattern,title+" "+(n+1)+" pattern",value=>priorityEdit(list,"set",n,value,"pattern")));
+  if(list==="playback")row.append(badge(entry.Driver.toUpperCase()));
+  row.append(matchBadge(entry),entryButtons(list,n,entries.length,title+" "+(n+1)));
+  const names=entry.Matches||[];if(names.length)row.append(el("small","basis-full pl-7 text-[11px] break-words text-muted",names.join(" · ")));
+ });
+ if(!entries.length)card.append(el("p","text-muted","No entries."));
+ suggestionRows(card,list,view.Suggestions?.[list],list==="playback");
+}
+function interfaceCard(parent,view){
+ const card=panel("Interfaces",parent,"col-span-full"),entries=view.Lists?.interfaces||[];card.dataset.part="list-interfaces";
+ entries.forEach((entry,n)=>{
+  const row=entryRow(card,n),fields=el("div","grid min-w-0 flex-1 grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-3 gap-y-2");
+  fields.append(el("span","text-xs text-muted","Driver"),patternField(entry.ASIOPattern,"Interface "+(n+1)+" driver pattern",v=>priorityEdit("interfaces","set",n,v,"asio_pattern")));
+  fields.append(el("span","text-xs text-muted","Presence"),patternField(entry.PresencePattern,"Interface "+(n+1)+" presence pattern",v=>priorityEdit("interfaces","set",n,v,"presence_pattern")));
+  const channels=el("div","flex items-center gap-3");
+  for(const [field,label] of [["desk","Desk"],["lav","Lav"]]){
+   const input=el("input","w-16 tabular-nums");input.type="number";input.min="0";input.max="64";input.value=String(entry[field[0].toUpperCase()+field.slice(1)]||0);input.setAttribute("aria-label",label+" channel for interface "+(n+1));input.title="0 = none";
+   input.onchange=()=>priorityEdit("interfaces","set",n,input.value,field);updaters.push(()=>{input.disabled=!editable();});
+   const l=el("label","flex items-center gap-1.5 text-xs text-muted",label);l.append(input);channels.append(l);
+  }
+  fields.append(el("span","text-xs text-muted","Channels"),channels);
+  row.append(fields,matchBadge(entry),entryButtons("interfaces",n,entries.length,"interface "+(n+1)));
+  const drivers=entry.Drivers||[];row.append(el("small","basis-full pl-7 text-[11px] break-words text-muted",(entry.Matches||[]).join(" · ")+(drivers.length?" · driver "+drivers.join(", "):" · no driver")));
+ });
+ // A new interface pairs an installed driver with the WDM input that proves
+ // its hardware is connected.
+ if(view.Drivers?.length&&view.Inputs?.length){
+  const add=el("div","mt-4 flex flex-wrap items-center gap-2 border-t border-[#25323e] pt-3"),driver=el("select","min-w-0 flex-1"),input=el("select","min-w-0 flex-1");add.dataset.part="interface-add";
+  driver.setAttribute("aria-label","New interface driver");input.setAttribute("aria-label","New interface presence input");
+  for(const s of view.Drivers){const o=el("option","",s.Name);o.value=s.Exact;driver.append(o);}
+  for(const s of view.Inputs){const o=el("option","",s.Name);o.value=s.Exact;input.append(o);}
+  const b=withIcon(button("Add",()=>priorityEdit("interfaces","add",0,JSON.stringify({asio_pattern:driver.value,presence_pattern:input.value,inputs:[1,2]})),ui.small),"plus");
+  updaters.push(()=>{b.disabled=driver.disabled=input.disabled=!editable();});
+  add.append(el("h3",ui.stripTitle+" mb-0 basis-full","Add interface"),driver,input,b);card.append(add);
+ }
+}
+function micPriorityCard(parent,view){
+ const card=panel("Mic priority",parent),entries=view.Lists?.microphones||[];card.dataset.part="list-microphones";
+ entries.forEach((entry,n)=>{
+  const row=entryRow(card,n);row.append(el("span","min-w-0 flex-1",micNames[entry.ID]||entry.ID));
+  row.append(entry.InUse?badge("In use","active"):badge(entry.Option?"Ready":"Unavailable"),entryButtons("microphones",n,entries.length,micNames[entry.ID]||entry.ID));
+ });
+ const missing=(view.Microphones||[]).filter(id=>!entries.some(e=>e.ID===id));
+ if(missing.length){
+  const add=el("div","mt-4 flex gap-2 border-t border-[#25323e] pt-3"),select=el("select","min-w-0 flex-1");select.setAttribute("aria-label","Microphone to add");
+  for(const id of missing){const o=el("option","",micNames[id]||id);o.value=id;select.append(o);}
+  const b=withIcon(button("Add",()=>priorityEdit("microphones","add",0,select.value),ui.small),"plus");
+  updaters.push(()=>{b.disabled=select.disabled=!editable();});add.append(select,b);card.append(add);
+ }
+}
+function buildRouting(){
+ const status=c("audio.priorities");
+ if(!status){empty(root,"Audio is disabled. Enable it in Plugins.");return;}
+ const view=status.ViewData||{},error=el("p","mb-[18px] text-critical");error.dataset.part="priority-error";root.append(error);
+ updaters.push(()=>{error.textContent=c("audio.priority-edit")?.Status||"";error.hidden=!error.textContent;});
+ const grid=el("div",ui.grid);root.append(grid);
+ interfaceCard(grid,view);candidateCard(grid,"Playback","playback",view);candidateCard(grid,"Webcam","webcam",view);micPriorityCard(grid,view);
 }
 // transport is the Recording card's recorder row: Record, then playback of
 // the loaded file. Labels follow the recorder state; availability comes from
@@ -844,13 +948,13 @@ function buildDiagnostics(){
 function layoutKey(){
  // Values and telemetry are updated in place. Only structure/context rebuilds a screen.
  const list=[...controls.values()].map(v=>[v.ID,v.Label,v.Kind,v.Group,v.Options,v.OptionLabels]);
- return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="lights"?[state.Enabled?.hue,c("hue.group")?.Value,c("hue.rooms")?.ViewData]:null,screen==="meetings"?[state.Enabled?.insta360,state.Enabled?.discord]:null,screen==="media"?[state.Enabled?.nowplaying,(c("nowplaying.status")?.ViewData?.Sessions||[]).map(s=>[s.ID,s.CanSeek,s.CanMute]),(c("nowplaying.status")?.ViewData?.Browsers||[]).map(b=>b.Name)]:null,screen==="appaudio"?[state.Enabled?.appaudio,(c("appaudio.status")?.ViewData?.Apps||[]).map(a=>[a.ID,a.Name,a.Hidden,a.Picked,a.Open,a.Rule]),c("appaudio.status")?.ViewData?.Exclude]:null,screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value,c("streamdeck.preview")?.ViewData?.Regions,c("streamdeck.preview")?.ViewData?.Collections]:null]);
+ return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="lights"?[state.Enabled?.hue,c("hue.group")?.Value,c("hue.rooms")?.ViewData]:null,screen==="meetings"?[state.Enabled?.insta360,state.Enabled?.discord]:null,screen==="media"?[state.Enabled?.nowplaying,(c("nowplaying.status")?.ViewData?.Sessions||[]).map(s=>[s.ID,s.CanSeek,s.CanMute]),(c("nowplaying.status")?.ViewData?.Browsers||[]).map(b=>b.Name)]:null,screen==="appaudio"?[state.Enabled?.appaudio,(c("appaudio.status")?.ViewData?.Apps||[]).map(a=>[a.ID,a.Name,a.Hidden,a.Picked,a.Open,a.Rule]),c("appaudio.status")?.ViewData?.Exclude]:null,screen==="routing"?[c("audio.priorities")?.ViewData]:null,screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value,c("streamdeck.preview")?.ViewData?.Regions,c("streamdeck.preview")?.ViewData?.Collections]:null]);
 }
 function build(){
  widgets.length=0;updaters.length=0;root.replaceChildren();
  for(const b of document.querySelectorAll("[data-screen]")){if(b.dataset.screen===screen)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current");}
  $("#eyebrow").textContent=titles[screen][0];$("#title").textContent=titles[screen][1];
- ({audio:buildAudio,soundboard:buildSoundboard,lights:buildLights,appaudio:buildAppAudio,meetings:buildMeetings,media:buildMedia,deck:buildDeck,plugins:buildPlugins,apps:buildApps,diagnostics:buildDiagnostics})[screen]();
+ ({audio:buildAudio,routing:buildRouting,soundboard:buildSoundboard,lights:buildLights,appaudio:buildAppAudio,meetings:buildMeetings,media:buildMedia,deck:buildDeck,plugins:buildPlugins,apps:buildApps,diagnostics:buildDiagnostics})[screen]();
 }
 function update(){
  if(pending&&(Date.now()>pending.until || state.Notice!==pending.notice || (pending.id&&c(pending.id)?.Revision!==pending.revision) || (!pending.id&&state.Confirmation)))pending=null;
@@ -887,7 +991,7 @@ function receive(next){
  }
  update();
 }
-const navIcons={audio:"audio-waveform",soundboard:"music",lights:"lightbulb",appaudio:"app-window",meetings:"video",media:"disc-3",deck:"layout-grid",plugins:"puzzle",apps:"plug",diagnostics:"activity"};
+const navIcons={audio:"audio-waveform",routing:"route",soundboard:"music",lights:"lightbulb",appaudio:"app-window",meetings:"video",media:"disc-3",deck:"layout-grid",plugins:"puzzle",apps:"plug",diagnostics:"activity"};
 for(const b of document.querySelectorAll("[data-screen]")){
  b.className=ui.nav;
  b.prepend(icon(navIcons[b.dataset.screen],"size-5 shrink-0"));

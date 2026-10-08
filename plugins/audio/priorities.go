@@ -39,7 +39,7 @@ type priorityView struct {
 	Lists       map[string][]priorityEntry
 	Suggestions map[string][]prioritySuggestion
 	// Interface additions pair an ASIO driver with a WDM presence input.
-	Drivers, Inputs []string
+	Drivers, Inputs []prioritySuggestion
 	Microphones     []string // Every valid microphone option ID.
 }
 
@@ -113,7 +113,7 @@ func buildPriorityView(cfg config.Config, s control.State) priorityView {
 		switch {
 		case d.Driver == "asio" && d.Direction == "output":
 			if !slices.ContainsFunc(interfaces, func(e priorityEntry) bool { return slices.Contains(e.Drivers, d.Name) }) {
-				view.Drivers = append(view.Drivers, d.Name)
+				view.Drivers = append(view.Drivers, suggestion(d))
 			}
 		case !d.Available || d.Driver != "wdm":
 		case d.Direction == "output":
@@ -121,7 +121,7 @@ func buildPriorityView(cfg config.Config, s control.State) priorityView {
 				view.Suggestions[config.ListPlayback] = append(view.Suggestions[config.ListPlayback], suggestion(d))
 			}
 		case d.Direction == "input":
-			view.Inputs = append(view.Inputs, d.Name)
+			view.Inputs = append(view.Inputs, suggestion(d))
 			// An interface's companion input is not a webcam candidate.
 			if !matched(webcam, d.Name) && !matched(interfaces, d.Name) {
 				view.Suggestions[config.ListWebcam] = append(view.Suggestions[config.ListWebcam], suggestion(d))
