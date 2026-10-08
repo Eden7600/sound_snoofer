@@ -296,7 +296,8 @@ function micsCard(parent,view){
  const card=panel("Microphones",parent,"col-span-full"),mics=view.Mics||[];card.dataset.part="mics";
  mics.forEach((m,n)=>{
   const row=entryRow(card,n);row.dataset.part="mic";
-  row.append(textField(m.Name,"Microphone "+(n+1)+" name",16,v=>priorityEdit("mics","set",n,v,"name")),badge(m.Device?"Device":"Interface"),m.InUse?badge("In use","active"):badge(m.Option?"Ready":"Unavailable"),entryButtons("mics",n,mics.length,m.Name));
+  const state=m.InUse?badge("In use","active"):m.Silent?badge("Silent","attention"):badge(m.Option?"Ready":"Unavailable");state.dataset.part="mic-state";
+  row.append(textField(m.Name,"Microphone "+(n+1)+" name",16,v=>priorityEdit("mics","set",n,v,"name")),micSource(m,n,view),readyToggle(m,n),state,entryButtons("mics",n,mics.length,m.Name));
   if(m.Device){const box=el("div","basis-full pl-7");candidateRows(box,m.Name,"mic-devices:"+m.ID,view.Lists?.["mic-devices:"+m.ID]||[],view.Suggestions?.["mic-devices:"],false);row.append(box);}
  });
  if(mics.length<5){
@@ -313,20 +314,64 @@ function micsCard(parent,view){
   add.append(name,kind,b);card.append(add);
  }
 }
+// micSource switches a microphone between interface channels and a
+// connected input device; a device microphone keeps its current devices.
+function micSource(m,n,view){
+ const select=el("select","min-w-0 max-w-[16rem]"),devices=view.Suggestions?.["mic-devices:"]||[];select.setAttribute("aria-label",m.Name+" source");
+ select.append(Object.assign(el("option","","Interface channels"),{value:"interface"}));
+ if(m.Device)select.append(Object.assign(el("option","","Device"),{value:"current"}));
+ devices.forEach((s,i)=>{const o=el("option","",s.Name);o.value=String(i);select.append(o);});
+ select.value=m.Device?"current":"interface";
+ select.onchange=()=>{const s=devices[Number(select.value)];priorityEdit("mics","set",n,select.value==="interface"?"interface":JSON.stringify(s.ID?{driver:s.Driver,id:s.ID,name:s.Name}:{driver:s.Driver,pattern:s.Exact}),"source");};
+ updaters.push(()=>{select.disabled=!editable();});
+ return select;
+}
+// readyToggle asserts a microphone is usable whenever present: Auto never
+// skips it for silence.
+function readyToggle(m,n){
+ const b=button("Always ready",()=>priorityEdit("mics","set",n,String(!m.Ready),"ready"),ui.toggle+" "+ui.small);b.setAttribute("aria-pressed",String(!!m.Ready));b.setAttribute("aria-label",m.Name+" always ready");b.title="Auto never skips it for silence";
+ updaters.push(()=>{b.disabled=!editable();});
+ return b;
+}
+// channelFields sets one interface microphone's channels: Off, Mono (one
+// channel) or Stereo (left and right).
+function channelFields(entry,n,m){
+ const field="input:"+m.ID,current=entry.Inputs?.[m.ID]||[],wrap=el("div","flex flex-wrap items-center gap-1.5");wrap.dataset.part="channels";
+ const mode=el("select","w-24");mode.setAttribute("aria-label",m.Name+" on interface "+(n+1));
+ for(const [value,label] of [["off","Off"],["mono","Mono"],["stereo","Stereo"]])mode.append(Object.assign(el("option","",label),{value}));
+ mode.value=current.length===2?"stereo":current.length?"mono":"off";
+ const number=(value,label)=>{const i=el("input","w-16 tabular-nums");i.type="number";i.min="1";i.max="64";i.value=String(value);i.setAttribute("aria-label",label);return i;};
+ const left=current[0]||1,name=m.Name,where=" for interface "+(n+1);
+ const inputs=mode.value==="stereo"?[number(left,name+" left channel"+where),number(current[1],name+" right channel"+where)]:mode.value==="mono"?[number(left,name+" channel"+where)]:[];
+ const send=value=>priorityEdit("interfaces","set",n,value,field);
+ mode.onchange=()=>send(mode.value==="off"?"":mode.value==="mono"?String(left):left+","+(current[1]||left+1));
+ for(const i of inputs)i.onchange=()=>send(inputs.map(x=>x.value).join(","));
+ updaters.push(()=>{for(const x of [mode,...inputs])x.disabled=!editable();});
+ wrap.append(el("span","text-xs text-muted",name),mode,...inputs);return wrap;
+}
+// activityCard edits metering: how many leading options are metered (Off
+// removes metering), the silence threshold and the delay before Auto skips.
+function activityCard(parent,view){
+ if(!view.Profiles)return;
+ const card=panel("Activity",parent),a=view.Activity,fields=el("div","grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-3 gap-y-2");card.dataset.part="activity";
+ const check=el("select","min-w-0");check.setAttribute("aria-label","Meter");
+ check.append(Object.assign(el("option","","Off"),{value:"0"}));
+ for(let k=1;k<=4;k++)check.append(Object.assign(el("option","","Top "+k),{value:String(k)}));
+ check.value=String(a?.Check||0);check.onchange=()=>priorityEdit("activity","set",0,check.value,"check");
+ const number=(value,label,field,min,max)=>{const i=el("input","w-24 tabular-nums");i.type="number";i.min=String(min);i.max=String(max);i.value=a?String(value):"";i.setAttribute("aria-label",label);i.onchange=()=>priorityEdit("activity","set",0,i.value,field);return i;};
+ const threshold=number(a?.SilenceDB,"Silence below (dBFS)","silence_db",-120,-20),delay=number(a?.SilentAfterS,"Silent after (s)","silent_after_s",2,600);
+ fields.append(el("span","text-xs text-muted","Meter"),check,el("span","text-xs text-muted","Silence below (dBFS)"),threshold,el("span","text-xs text-muted","Silent after (s)"),delay);
+ card.append(fields);
+ updaters.push(()=>{check.disabled=!editable();threshold.disabled=delay.disabled=!editable()||!a;});
+}
 function interfaceCard(parent,view){
  const card=panel("Interfaces",parent,"col-span-full"),entries=view.Lists?.interfaces||[];card.dataset.part="list-interfaces";
  entries.forEach((entry,n)=>{
   const row=entryRow(card,n),fields=el("div","grid min-w-0 flex-1 grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-3 gap-y-2");
   fields.append(el("span","text-xs text-muted","Driver"),entry.ASIOID?deviceName(entry.ASIOName,entry.Drivers):patternField(entry.ASIOPattern,"Interface "+(n+1)+" driver pattern",v=>priorityEdit("interfaces","set",n,v,"asio_pattern")));
   fields.append(el("span","text-xs text-muted","Presence"),entry.PresenceID?deviceName(entry.PresenceName,entry.Matches):patternField(entry.PresencePattern,"Interface "+(n+1)+" presence pattern",v=>priorityEdit("interfaces","set",n,v,"presence_pattern")));
-  // One field per interface microphone: a channel (mono), "left,right"
-  // (stereo), or empty when this interface does not carry it.
-  const channels=el("div","flex flex-wrap items-center gap-3");
-  for(const m of (view.Mics||[]).filter(m=>!m.Device)){
-   const input=el("input","w-20 tabular-nums");input.type="text";input.inputMode="numeric";input.value=(entry.Inputs?.[m.ID]||[]).join(",");input.placeholder="–";input.setAttribute("aria-label",m.Name+" channels for interface "+(n+1));input.title="Channel, or left,right";
-   input.onchange=()=>priorityEdit("interfaces","set",n,input.value,"input:"+m.ID);updaters.push(()=>{input.disabled=!editable();});
-   const l=el("label","flex items-center gap-1.5 text-xs text-muted",m.Name);l.append(input);channels.append(l);
-  }
+  const channels=el("div","flex flex-wrap items-center gap-x-4 gap-y-2");
+  for(const m of (view.Mics||[]).filter(m=>!m.Device))channels.append(channelFields(entry,n,m));
   fields.append(el("span","text-xs text-muted","Channels"),channels);
   row.append(fields,matchBadge(entry),entryButtons("interfaces",n,entries.length,"interface "+(n+1)));
   const drivers=entry.Drivers||[];row.append(el("small","basis-full pl-7 text-[11px] break-words text-muted",(entry.Matches||[]).join(" · ")+(drivers.length?" · driver "+drivers.join(", "):" · no driver")));
@@ -339,7 +384,7 @@ function interfaceCard(parent,view){
   view.Drivers.forEach((s,n)=>{const o=el("option","",s.Name);o.value=String(n);driver.append(o);});
   view.Inputs.forEach((s,n)=>{const o=el("option","",s.Name);o.value=String(n);input.append(o);});
   // Both are saved by identity when Snoofer knows it, else as exact patterns.
-  const added=()=>{const d=view.Drivers[Number(driver.value)],p=view.Inputs[Number(input.value)];return {...(d.ID?{asio_id:d.ID,asio_name:d.Name}:{asio_pattern:d.Exact}),...(p.ID?{presence_id:p.ID,presence_name:p.Name}:{presence_pattern:p.Exact}),inputs:[1,2]};};
+  const added=()=>{const d=view.Drivers[Number(driver.value)],p=view.Inputs[Number(input.value)];return {...(d.ID?{asio_id:d.ID,asio_name:d.Name}:{asio_pattern:d.Exact}),...(p.ID?{presence_id:p.ID,presence_name:p.Name}:{presence_pattern:p.Exact}),inputs:{}};};
   const b=withIcon(button("Add",()=>priorityEdit("interfaces","add",0,JSON.stringify(added())),ui.small),"plus");
   updaters.push(()=>{b.disabled=driver.disabled=input.disabled=!editable();});
   add.append(el("h3",ui.stripTitle+" mb-0 basis-full","Add interface"),driver,input,b);card.append(add);
@@ -444,7 +489,7 @@ function buildRouting(){
  const view=status.ViewData||{},error=el("p","mb-[18px] text-critical");error.dataset.part="priority-error";root.append(error);
  updaters.push(()=>{error.textContent=c("audio.priority-edit")?.Status||"";error.hidden=!error.textContent;});
  const grid=el("div",ui.grid);root.append(grid);
- outputsCard(grid,view);micsCard(grid,view);interfaceCard(grid,view);candidateCard(grid,"Playback","playback",view);micPriorityCard(grid,view);
+ outputsCard(grid,view);micsCard(grid,view);interfaceCard(grid,view);candidateCard(grid,"Playback","playback",view);micPriorityCard(grid,view);activityCard(grid,view);
 }
 // transport is the Recording card's recorder row: Record, then playback of
 // the loaded file. Labels follow the recorder state; availability comes from
