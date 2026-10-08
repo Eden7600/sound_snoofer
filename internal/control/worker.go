@@ -232,6 +232,11 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		return windowsaudio.Revoke(stopCtx, defaultRequests, defaultDone)
 	}
 	state := State{Acks: map[string]Ack{}}
+	// planning is cfg with device identities resolved to the names devices
+	// have now; edits and saves always use cfg itself.
+	planning := func() config.Config {
+		return cfg.Resolve(DeviceNames(state.DefaultsDetail.Endpoints, state.Snapshot))
+	}
 	seen := map[string]uint64{}
 	if deps.Save == nil {
 		deps.Save = config.SaveIntent
@@ -336,7 +341,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				return e
 			}
 			cfg.Intent, cfg.StateToken = i, token
-			ctl.Config = cfg
+			ctl.Config = planning()
 		}
 		return ctl.Tape(ctx, command, state.Live)
 	}
@@ -426,8 +431,8 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		state.MicOptions = []string{"off"}
 		state.OutputOptions = []string{""}
 		if state.Connected {
-			state.MicOptions = routing.MicrophoneOptions(cfg, state.Snapshot)
-			state.OutputOptions = routing.PlaybackOptions(cfg, state.Snapshot)
+			state.MicOptions = routing.MicrophoneOptions(planning(), state.Snapshot)
+			state.OutputOptions = routing.PlaybackOptions(planning(), state.Snapshot)
 		}
 		state.VRMicAvailable = false
 		state.VRPlaybackAvailable = false
@@ -444,7 +449,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 			state.VRMic = "Configure headset matchers"
 			state.VRPlayback = "Configure headset matchers"
 		} else {
-			for _, d := range routing.VRDevices(cfg, state.Snapshot).Devices {
+			for _, d := range routing.VRDevices(planning(), state.Snapshot).Devices {
 				if d.Available && d.Direction == "output" && d.Driver == "wdm" {
 					for _, h := range cfg.VR.Headsets {
 						if h.PlaybackRegex != nil && h.PlaybackRegex.MatchString(d.Name) {
@@ -456,7 +461,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 			}
 		}
 		state.Intent = cfg.VoiceIntent()
-		state.ActiveIntent = routing.ProfileConfig(cfg, state.Snapshot).VoiceIntent()
+		state.ActiveIntent = routing.ProfileConfig(planning(), state.Snapshot).VoiceIntent()
 		state.VRSourceOptions = []string{"auto", "off"}
 		if cfg.VR != nil {
 			for _, h := range cfg.VR.Headsets {
@@ -842,7 +847,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				state.Error = err.Error()
 			}
 		} else {
-			ctl.Config = cfg
+			ctl.Config = planning()
 			ctl.SilentMics = latch.silent()
 			ctl.FastObservation = !lastInventory.IsZero() && time.Since(lastInventory) < time.Second
 			if !ctl.FastObservation {
@@ -865,7 +870,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		fault := false
 		callbackMessage := ""
 		if monitorWanted {
-			fault, callbackMessage = recovery.callback.update(cfg, healthSnapshot, time.Now())
+			fault, callbackMessage = recovery.callback.update(planning(), healthSnapshot, time.Now())
 			if monitorErr != nil {
 				fault = false
 				callbackMessage = "Callback monitor unavailable: " + monitorErr.Error()
@@ -882,7 +887,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				state.Health += " · restart required"
 			}
 			if fault && !recovery.pending && autoRecover {
-				if err := recovery.automaticRestart(backend, cfg, state.Live, time.Now()); err != nil {
+				if err := recovery.automaticRestart(backend, planning(), state.Live, time.Now()); err != nil {
 					state.Health += " · Auto: " + err.Error()
 				} else {
 					revision++
@@ -915,7 +920,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		}
 		state.Plan = nil
 		if state.Connected {
-			planCfg := cfg
+			planCfg := planning()
 			planCfg.TapeListening = ctl != nil && ctl.TapeListening
 			planCfg.SilentMics = latch.silent()
 			state.SilentMics = planCfg.SilentMics

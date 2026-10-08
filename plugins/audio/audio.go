@@ -61,12 +61,16 @@ type Instance struct {
 	// Settings edits. settings and raw are the saved plugin settings (paths as
 	// written); running is the prepared configuration the worker reloads.
 	// Guarded by mu; only runEdits replaces them.
-	edits        chan editRequest
-	settings     Settings
-	raw          json.RawMessage
-	running      config.Config
-	editErr      string
-	prepare      func(Settings) (config.Config, error)
+	edits    chan editRequest
+	settings Settings
+	raw      json.RawMessage
+	running  config.Config
+	editErr  string
+	prepare  func(Settings) (config.Config, error)
+	// The Routing view, rebuilt by the publisher goroutine only.
+	viewData     json.RawMessage
+	viewRaw      string
+	viewAt       time.Time
 	saveSettings func(string, json.RawMessage, json.RawMessage) error
 }
 

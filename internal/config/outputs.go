@@ -113,7 +113,8 @@ func (i *Intent) OutputOn(id, source string) bool {
 }
 
 // OutputEdit is one change to the output slots: add (Value is JSON with name
-// and device), remove, rename or device (Value is the new name or device).
+// and optionally device and device_id), remove, rename or device (Value is
+// the new name, or the device as a name or as JSON {ID, Name}).
 type OutputEdit struct {
 	Op    string `json:"op"`
 	ID    string `json:"id,omitempty"`
@@ -152,7 +153,15 @@ func EditOutputs(raw []byte, e OutputEdit) ([]byte, error) {
 	case "rename":
 		outputs[index].Name = strings.TrimSpace(e.Value)
 	case "device":
-		outputs[index].Device = e.Value
+		// A JSON value names the device by identity; a plain one by name.
+		outputs[index].Device, outputs[index].DeviceID = e.Value, ""
+		if strings.HasPrefix(e.Value, "{") {
+			var device struct{ ID, Name string }
+			if err := json.Unmarshal([]byte(e.Value), &device); err != nil {
+				return nil, fmt.Errorf("invalid device: %w", err)
+			}
+			outputs[index].Device, outputs[index].DeviceID = device.Name, device.ID
+		}
 	default:
 		return nil, fmt.Errorf("unknown edit %q", e.Op)
 	}

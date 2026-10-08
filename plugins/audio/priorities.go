@@ -6,31 +6,39 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"time"
 
 	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/control"
 	"sound-snoofer/internal/model"
 	"sound-snoofer/internal/routing"
+	"sound-snoofer/internal/windowsaudio"
 	"sound-snoofer/snoofer"
 )
 
 // priorityEntry is one priority list entry with its current match.
 type priorityEntry struct {
-	Driver          string   `json:",omitempty"`
-	Pattern         string   `json:",omitempty"`
-	ASIOPattern     string   `json:",omitempty"`
-	PresencePattern string   `json:",omitempty"`
-	Desk, Lav       int      `json:",omitempty"`
-	ID              string   `json:",omitempty"` // Microphone option.
-	Matches         []string // Presence matches for interfaces.
-	Drivers         []string `json:",omitempty"` // Interface driver matches.
-	InUse           bool
-	Option          bool `json:",omitempty"` // Microphone currently selectable.
+	Driver          string `json:",omitempty"`
+	Pattern         string `json:",omitempty"`
+	ASIOPattern     string `json:",omitempty"`
+	PresencePattern string `json:",omitempty"`
+	// Entries by identity: the device ID and its label (current name when
+	// active). Interfaces name their driver and presence input.
+	DeviceID, DeviceName     string   `json:",omitempty"`
+	ASIOID, ASIOName         string   `json:",omitempty"`
+	PresenceID, PresenceName string   `json:",omitempty"`
+	Desk, Lav                int      `json:",omitempty"`
+	ID                       string   `json:",omitempty"` // Microphone option.
+	Matches                  []string // Presence matches for interfaces.
+	Drivers                  []string `json:",omitempty"` // Interface driver matches.
+	InUse                    bool
+	Option                   bool `json:",omitempty"` // Microphone currently selectable.
 }
 
 // prioritySuggestion is a connected device no entry of a list matches.
 type prioritySuggestion struct {
 	Name, Driver  string
+	ID            string `json:",omitempty"` // Identity, when unique.
 	Exact, Device string
 }
 
@@ -43,17 +51,38 @@ type priorityView struct {
 	Microphones     []string // Every valid microphone option ID.
 	// OutputDevices are connected outputs an output slot can use: neither
 	// Playback nor another slot.
-	OutputDevices []string
+	OutputDevices []prioritySuggestion
 }
 
-func suggestion(d model.Device) prioritySuggestion {
-	return prioritySuggestion{Name: d.Name, Driver: d.Driver, Exact: config.ExactPattern(d.Name), Device: config.DevicePattern(d.Name)}
+// suggestion offers a device with generated patterns and, when it is
+// unique, its identity: the ASIO driver CLSID, or the one active Windows
+// endpoint of its direction with its name.
+func suggestion(d model.Device, endpoints []windowsaudio.Endpoint) prioritySuggestion {
+	s := prioritySuggestion{Name: d.Name, Driver: d.Driver, Exact: config.ExactPattern(d.Name), Device: config.DevicePattern(d.Name)}
+	if d.Driver == "asio" {
+		s.ID = d.ID
+		return s
+	}
+	flow := map[string]int{"output": 0, "input": 1}[d.Direction]
+	for _, e := range endpoints {
+		if e.Flow != flow || e.Name != d.Name {
+			continue
+		}
+		if s.ID != "" {
+			s.ID = ""
+			break
+		}
+		s.ID = e.ID
+	}
+	return s
 }
 
 // buildPriorityView reports cfg's lists against the latest observation. It
 // uses the planner's matching rules so the editor and routing agree.
 func buildPriorityView(cfg config.Config, s control.State) priorityView {
 	view := priorityView{Lists: map[string][]priorityEntry{}, Suggestions: map[string][]prioritySuggestion{}, Microphones: []string{"desk", "lav", "webcam", "off"}}
+	cfg = cfg.Resolve(control.DeviceNames(s.DefaultsDetail.Endpoints, s.Snapshot))
+	endpoints := s.DefaultsDetail.Endpoints
 	studio := cfg.Studio
 	if studio == nil {
 		return view
@@ -69,7 +98,7 @@ func buildPriorityView(cfg config.Config, s control.State) priorityView {
 	for _, a := range studio.ASIO {
 		presence, drivers := routing.InterfaceMatches(a, snapshot)
 		inUse := topology != nil && topology.ASIOActive && len(presence) == 1 && slices.Contains(drivers, topology.ASIOName)
-		interfaces = append(interfaces, priorityEntry{ASIOPattern: a.ASIOPattern, PresencePattern: a.PresencePattern, Desk: a.Inputs[0], Lav: a.Inputs[1], Matches: presence, Drivers: drivers, InUse: inUse})
+		interfaces = append(interfaces, priorityEntry{ASIOPattern: a.ASIOPattern, PresencePattern: a.PresencePattern, ASIOID: a.ASIOID, ASIOName: a.ASIOName, PresenceID: a.PresenceID, PresenceName: a.PresenceName, Desk: a.Inputs[0], Lav: a.Inputs[1], Matches: presence, Drivers: drivers, InUse: inUse})
 	}
 	view.Lists[config.ListInterfaces] = interfaces
 
@@ -83,7 +112,7 @@ func buildPriorityView(cfg config.Config, s control.State) priorityView {
 	playback := []priorityEntry{}
 	for _, c := range studio.Playback {
 		matches := routing.PlaybackMatches(studio, c, snapshot)
-		playback = append(playback, priorityEntry{Driver: c.Driver, Pattern: c.Pattern, Matches: matches, InUse: len(matches) == 1 && matches[0] == playing})
+		playback = append(playback, priorityEntry{Driver: c.Driver, Pattern: c.Pattern, DeviceID: c.ID, DeviceName: c.Name, Matches: matches, InUse: len(matches) == 1 && matches[0] == playing})
 	}
 	view.Lists[config.ListPlayback] = playback
 
@@ -91,7 +120,7 @@ func buildPriorityView(cfg config.Config, s control.State) priorityView {
 	assigned := snapshot.Assignments["input:3"]
 	for _, c := range studio.FallbackMic {
 		matches := routing.WebcamMatches(c, snapshot)
-		webcam = append(webcam, priorityEntry{Driver: c.Driver, Pattern: c.Pattern, Matches: matches, InUse: len(matches) == 1 && matches[0] == assigned})
+		webcam = append(webcam, priorityEntry{Driver: c.Driver, Pattern: c.Pattern, DeviceID: c.ID, DeviceName: c.Name, Matches: matches, InUse: len(matches) == 1 && matches[0] == assigned})
 	}
 	view.Lists[config.ListWebcam] = webcam
 
@@ -116,27 +145,27 @@ func buildPriorityView(cfg config.Config, s control.State) priorityView {
 		switch {
 		case d.Driver == "asio" && d.Direction == "output":
 			if !slices.ContainsFunc(interfaces, func(e priorityEntry) bool { return slices.Contains(e.Drivers, d.Name) }) {
-				view.Drivers = append(view.Drivers, suggestion(d))
+				view.Drivers = append(view.Drivers, suggestion(d, endpoints))
 			}
 		case !d.Available || d.Driver != "wdm":
 		case d.Direction == "output":
 			if d.Name != playing && !studio.OutputDevice(d.Name) {
-				view.OutputDevices = append(view.OutputDevices, d.Name)
+				view.OutputDevices = append(view.OutputDevices, suggestion(d, endpoints))
 			}
 			if !matched(playback, d.Name) && !studio.OutputDevice(d.Name) {
-				view.Suggestions[config.ListPlayback] = append(view.Suggestions[config.ListPlayback], suggestion(d))
+				view.Suggestions[config.ListPlayback] = append(view.Suggestions[config.ListPlayback], suggestion(d, endpoints))
 			}
 		case d.Direction == "input":
-			view.Inputs = append(view.Inputs, suggestion(d))
+			view.Inputs = append(view.Inputs, suggestion(d, endpoints))
 			// An interface's companion input is not a webcam candidate.
 			if !matched(webcam, d.Name) && !matched(interfaces, d.Name) {
-				view.Suggestions[config.ListWebcam] = append(view.Suggestions[config.ListWebcam], suggestion(d))
+				view.Suggestions[config.ListWebcam] = append(view.Suggestions[config.ListWebcam], suggestion(d, endpoints))
 			}
 		}
 	}
 	// The selected interface's ASIO output is a playback choice.
 	if topology != nil && topology.ASIOActive && !matched(playback, topology.ASIOName) {
-		view.Suggestions[config.ListPlayback] = append(view.Suggestions[config.ListPlayback], suggestion(model.Device{Name: topology.ASIOName, Driver: "asio"}))
+		view.Suggestions[config.ListPlayback] = append(view.Suggestions[config.ListPlayback], suggestion(model.Device{Name: topology.ASIOName, Driver: "asio", ID: asioID(snapshot, topology.ASIOName)}, endpoints))
 	}
 	return view
 }
@@ -147,7 +176,14 @@ func (i *Instance) priorityControls(s control.State) []snoofer.Control {
 	i.mu.Lock()
 	cfg, raw, editErr := i.running, i.raw, i.editErr
 	i.mu.Unlock()
-	data, _ := json.Marshal(buildPriorityView(cfg, s))
+	// Meter ticks publish 20 times a second; devices and matches change far
+	// more slowly, so the view is rebuilt after an edit or at most twice a
+	// second.
+	if now := time.Now(); i.viewData == nil || string(raw) != i.viewRaw || now.Sub(i.viewAt) >= 500*time.Millisecond {
+		i.viewData, _ = json.Marshal(buildPriorityView(cfg, s))
+		i.viewRaw, i.viewAt = string(raw), now
+	}
+	data := i.viewData
 	return []snoofer.Control{
 		{ID: "audio.priorities", Label: "Device priorities", Group: "Routing", Kind: "status", Value: "", Status: editErr, ViewData: data, Available: true},
 		{ID: "audio.priority-edit", Label: "Device priority edit", Group: "Routing", Kind: "text", Value: fmt.Sprintf("%x", sha256.Sum256(raw))[:12], Status: editErr,
@@ -248,4 +284,14 @@ func editConfig(raw json.RawMessage, edit editRequest) ([]byte, error) {
 		return config.EditOutputs(raw, e)
 	}
 	return nil, fmt.Errorf("unknown edit %s", edit.control)
+}
+
+// asioID is the CLSID Voicemeeter reports for an ASIO driver.
+func asioID(s model.Snapshot, name string) string {
+	for _, d := range s.Devices {
+		if d.Driver == "asio" && d.Name == name {
+			return d.ID
+		}
+	}
+	return ""
 }

@@ -12,6 +12,7 @@ import (
 	"sound-snoofer/internal/control"
 	"sound-snoofer/internal/model"
 	"sound-snoofer/internal/routing"
+	"sound-snoofer/internal/windowsaudio"
 	"sound-snoofer/snoofer"
 )
 
@@ -176,5 +177,61 @@ func TestEditGoroutineReloadsOnlyAfterSave(t *testing.T) {
 	defer i.mu.Unlock()
 	if i.editErr != "" || len(i.running.Studio.Playback) != 2 {
 		t.Fatal(i.editErr, i.running.Studio.Playback)
+	}
+}
+
+// Suggestions carry a device's identity when exactly one active endpoint of
+// its direction has its name; identity entries match through resolution.
+func TestPriorityViewIdentity(t *testing.T) {
+	s := priorityState()
+	s.DefaultsDetail.Endpoints = []windowsaudio.Endpoint{
+		{ID: "{realtek-out}", Name: "Speakers (Realtek Audio)", Flow: 0},
+		{ID: "{realtek-in}", Name: "Microphone (Realtek Audio)", Flow: 1},
+		{ID: "{dup-1}", Name: "Microphone (Insta360 Link 2)", Flow: 1},
+		{ID: "{dup-2}", Name: "Microphone (Insta360 Link 2)", Flow: 1},
+		{ID: "{airpods}", Name: "Headphones (AirPods Pro)", Flow: 0},
+	}
+	for n := range s.Snapshot.Devices {
+		if s.Snapshot.Devices[n].Name == "Focusrite USB ASIO" {
+			s.Snapshot.Devices[n].ID = "{focusrite-clsid}"
+		}
+	}
+	view := buildPriorityView(defaultConfig(t), s)
+	if got := view.Suggestions[config.ListPlayback][0]; got.ID != "{realtek-out}" {
+		t.Fatal(got)
+	}
+	if got := view.Suggestions[config.ListWebcam][0]; got.ID != "{realtek-in}" {
+		t.Fatal(got)
+	}
+	if view.Drivers[0].ID != "{focusrite-clsid}" {
+		t.Fatal(view.Drivers)
+	}
+	// An identity entry for AirPods matches through the endpoint inventory.
+	c := defaultConfig(t)
+	c.Studio.Playback[0] = config.Candidate{Driver: "wdm", ID: "{airpods}", Name: "Old AirPods name"}
+	c.Validate()
+	entry := buildPriorityView(c, s).Lists[config.ListPlayback][0]
+	if entry.DeviceID != "{airpods}" || !entry.InUse || len(entry.Matches) != 1 || entry.Matches[0] != "Headphones (AirPods Pro)" {
+		t.Fatal(entry)
+	}
+}
+
+func TestOutputDeviceByIdentity(t *testing.T) {
+	i := editInstance(t, func(string, json.RawMessage, json.RawMessage) error { return nil })
+	edit := func(e config.OutputEdit) error {
+		value, _ := json.Marshal(e)
+		return i.applyEdit(editRequest{control: "audio.output-edit", value: string(value)})
+	}
+	if err := edit(config.OutputEdit{Op: "add", Value: `{"name":"Music"}`}); err != nil {
+		t.Fatal(err)
+	}
+	if err := edit(config.OutputEdit{Op: "device", ID: "music", Value: `{"ID":"{arena}","Name":"Speakers (3- Arena)"}`}); err != nil {
+		t.Fatal(err)
+	}
+	if o := i.running.Studio.Outputs[0]; o.DeviceID != "{arena}" || o.Device != "Speakers (3- Arena)" {
+		t.Fatal(o)
+	}
+	if err := edit(config.OutputEdit{Op: "device", ID: "music", Value: ""}); err != nil || i.running.Studio.Outputs[0].DeviceID != "" {
+		t.Fatal("unassign", err)
 	}
 }
