@@ -27,6 +27,9 @@ func addVoice(c config.Config, s model.Snapshot, p Plan) (Plan, error) {
 	}
 	t := p.Topology
 	t.MicStrips = ManagedMicStrips(c)
+	if i.MicActive() {
+		t.WiredMics = c.ProfileWired
+	}
 	if c.ProfileMicMissing {
 		t.Unresolved = append(t.Unresolved, "No eligible microphone in active profile; no configured fallback")
 	}

@@ -54,3 +54,46 @@ func (c *Client) GainLevels(micStrip int) map[string]float32 {
 	}
 	return levels
 }
+
+// InputLevels reads the pre-fader input peak (linear) of physical strips on
+// the caller's native worker thread. Pre-fader levels ignore strip mute, so a
+// muted microphone still reads its signal. Strips with a missing or invalid
+// reading are omitted: unknown, never silent.
+func (c *Client) InputLevels(strips []int) map[int]float32 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.refresh() != nil {
+		return nil
+	}
+	reader, ok := c.api.(interface {
+		GetLevel(int, int) (float32, int32)
+	})
+	if !ok {
+		return nil
+	}
+	edition, code := c.api.Edition()
+	if code != 0 || edition < 1 || edition > 3 {
+		return nil
+	}
+	physical := map[int32]int{1: 2, 2: 3, 3: 5}[edition]
+	levels := map[int]float32{}
+	for _, strip := range strips {
+		if strip < 0 || strip >= physical {
+			continue
+		}
+		var peak float32
+		valid := true
+		for ch := strip * 2; ch < strip*2+2; ch++ {
+			value, code := reader.GetLevel(0, ch)
+			if code != 0 || value < 0 || math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
+				valid = false
+				break
+			}
+			peak = max(peak, value)
+		}
+		if valid {
+			levels[strip] = peak
+		}
+	}
+	return levels
+}

@@ -30,6 +30,9 @@ type Topology struct {
 	PlaybackTarget  string           `json:"playback_target,omitempty"`
 	Operations      []Operation      `json:"operations"`
 	Unresolved      []string         `json:"unresolved,omitempty"`
+	// WiredMics are the microphones wired for activity metering; nil when
+	// activity metering is off.
+	WiredMics []string `json:"wired_mics,omitempty"`
 	// Outputs are the output slots in configuration order.
 	Outputs []OutputStatus `json:"outputs,omitempty"`
 	// PlaybackUnavailable explains a voice-profile plan without a playback output.

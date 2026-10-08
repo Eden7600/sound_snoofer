@@ -66,3 +66,26 @@ func TestGainLevelsMappingAndFailures(t *testing.T) {
 		t.Fatal("disconnected retained meter")
 	}
 }
+
+// Input levels are pre-fader (type 0), per physical strip; a failed channel
+// leaves its strip unknown, never silent.
+func TestInputLevels(t *testing.T) {
+	a := &levelAPI{fakeAPI: fakeAPI{edition: 3}, values: map[[2]int]float32{{0, 0}: 0.1, {0, 1}: 0.3, {0, 2}: 0.0001}, failure: [2]int{0, 5}}
+	c, _ := connect(a)
+	defer c.Close()
+	levels := c.InputLevels([]int{0, 1, 2, 6})
+	if levels[0] != 0.3 || levels[1] != 0.0001 {
+		t.Fatal(levels)
+	}
+	if _, ok := levels[2]; ok {
+		t.Fatal("failed read became silence")
+	}
+	if _, ok := levels[6]; ok {
+		t.Fatal("virtual strip read as a microphone")
+	}
+	for _, call := range a.calls {
+		if call[0] != 0 {
+			t.Fatal("not pre-fader", call)
+		}
+	}
+}

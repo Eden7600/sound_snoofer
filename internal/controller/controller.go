@@ -59,6 +59,9 @@ type Controller struct {
 	// TapeListening is set by a successful tape Play and cleared once the
 	// tape stops; the planner routes the tape to the Playback bus meanwhile.
 	TapeListening bool
+	// SilentMics are microphone options the owner latched silent; planning
+	// skips them for Auto when activity metering is configured.
+	SilentMics []string
 }
 
 func (c *Controller) event(e Event) {
@@ -91,6 +94,7 @@ func (c *Controller) Plan() (routing.Plan, error) {
 func (c *Controller) planConfig() config.Config {
 	cfg := c.Config
 	cfg.TapeListening = c.TapeListening
+	cfg.SilentMics = c.SilentMics
 	return cfg
 }
 

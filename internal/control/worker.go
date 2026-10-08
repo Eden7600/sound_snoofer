@@ -70,6 +70,8 @@ type State struct {
 	Insert           *voicemeeter.InsertHook
 	InsertGeneration uint64
 
+	// SilentMics are microphone options latched silent by activity metering.
+	SilentMics    []string
 	MicOptions    []string
 	OutputOptions []string
 	EditAck       uint64
@@ -501,6 +503,45 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		state.StateError = cfg.StateError
 		emit()
 	}
+	// Activity metering samples wired microphones on this goroutine, which
+	// owns native reads.
+	var latch activityLatch
+	activityTicker := time.NewTicker(100 * time.Millisecond)
+	defer activityTicker.Stop()
+	sampleActivity := func() bool {
+		var activity *config.Activity
+		if cfg.Profiles != nil {
+			activity = cfg.Profiles.Activity
+		}
+		var wired []string
+		if state.Plan != nil && state.Plan.Topology != nil {
+			wired = state.Plan.Topology.WiredMics
+		}
+		var reader inputLevelReader
+		if backend != nil {
+			reader, _ = backend.Client.(inputLevelReader)
+		}
+		if activity == nil || reader == nil || !state.Connected || state.RecoveryPending || len(wired) == 0 {
+			changed := len(latch.silent()) > 0
+			latch.reset()
+			return changed
+		}
+		strips := []int{}
+		for _, id := range wired {
+			if strip, ok := micStrips[id]; ok {
+				strips = append(strips, strip)
+			}
+		}
+		levels := reader.InputLevels(strips)
+		byID := map[string]float32{}
+		for _, id := range wired {
+			strip, mapped := micStrips[id]
+			if level, ok := levels[strip]; mapped && ok {
+				byID[id] = level
+			}
+		}
+		return latch.observe(activity, byID, time.Now())
+	}
 	var meterTicks <-chan time.Time
 	if deps.Meters {
 		ticker := time.NewTicker(50 * time.Millisecond)
@@ -519,6 +560,14 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		case <-ctx.Done():
 			timer.Stop()
 			return
+		case <-activityTicker.C:
+			timer.Stop()
+			// A changed silent set re-plans now; otherwise keep the schedule.
+			delay = time.Until(pollAt)
+			if sampleActivity() {
+				delay = 0
+			}
+			continue
 		case <-meterTicks:
 			timer.Stop()
 			sampleLevels()
@@ -794,6 +843,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 			}
 		} else {
 			ctl.Config = cfg
+			ctl.SilentMics = latch.silent()
 			ctl.FastObservation = !lastInventory.IsZero() && time.Since(lastInventory) < time.Second
 			if !ctl.FastObservation {
 				lastInventory = time.Now()
@@ -867,6 +917,8 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		if state.Connected {
 			planCfg := cfg
 			planCfg.TapeListening = ctl != nil && ctl.TapeListening
+			planCfg.SilentMics = latch.silent()
+			state.SilentMics = planCfg.SilentMics
 			p, e := routing.Build(planCfg, state.Snapshot)
 			if e != nil {
 				state.Error = e.Error()

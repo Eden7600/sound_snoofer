@@ -427,6 +427,12 @@ func controls(s control.State) []snoofer.Control {
 		for id, label := range s.ChoiceLabels {
 			out[n].OptionLabels[id] = label
 		}
+		// Activity metering marks microphones Auto currently skips.
+		for _, id := range s.SilentMics {
+			if label, ok := out[n].OptionLabels[id]; ok {
+				out[n].OptionLabels[id] = label + " · Silent"
+			}
+		}
 		key := strings.TrimPrefix(out[n].ID, "audio.")
 		out[n].ShortLabel = shortLabel(key)
 		switch key {
