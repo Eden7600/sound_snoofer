@@ -250,19 +250,30 @@ function suggestionRows(parent,list,suggestions,driverLabel=true){
  for(const s of suggestions){
   const row=el("div","flex flex-wrap items-center gap-2 py-1.5"),name=el("span","min-w-0 flex-1 break-words",s.Name);
   row.append(name);if(driverLabel)row.append(badge(s.Driver.toUpperCase()));
-  const add=(pattern,label)=>{const b=withIcon(button(label,()=>priorityEdit(list,"add",0,JSON.stringify({driver:s.Driver,pattern})),ui.small),"plus");b.title=pattern;b.setAttribute("aria-label","Add "+s.Name+" "+label.toLowerCase());row.append(b);updaters.push(()=>{b.disabled=!editable();});};
-  add(s.Exact,"Exact");if(s.Device)add(s.Device,"Device");
+  // Add saves the device by identity; patterns are the advanced forms.
+  const add=(entry,label,title,primary)=>{const b=withIcon(button(label,()=>priorityEdit(list,"add",0,JSON.stringify(entry)),ui.small+(primary?" "+ui.primary:"")),"plus");b.title=title;b.setAttribute("aria-label",label+" "+s.Name);row.append(b);updaters.push(()=>{b.disabled=!editable();});};
+  if(s.ID)add({driver:s.Driver,id:s.ID,name:s.Name},"Add","This device, even if Windows renames it",true);
+  add({driver:s.Driver,pattern:s.Exact},"Exact pattern",s.Exact,!s.ID);if(s.Device)add({driver:s.Driver,pattern:s.Device},"Partial pattern",s.Device,false);
   box.append(row);
  }
+}
+// deviceName shows an entry chosen by identity: the device's current name, or
+// its stored label while disconnected.
+function deviceName(label,matches){
+ const node=el("span","flex min-w-[min(100%,16rem)] flex-1 items-center gap-2 break-words");node.dataset.part="device-entry";
+ node.append(icon("speaker","size-4 shrink-0 text-muted"),document.createTextNode(matches?.length===1?matches[0]:label));
+ if(!matches?.length)node.append(badge("Disconnected"));
+ return node;
 }
 function candidateCard(parent,title,list,view){
  const card=panel(title,parent),entries=view.Lists?.[list]||[];card.dataset.part="list-"+list;
  entries.forEach((entry,n)=>{
   const row=entryRow(card,n);
-  row.append(patternField(entry.Pattern,title+" "+(n+1)+" pattern",value=>priorityEdit(list,"set",n,value,"pattern")));
+  row.append(entry.DeviceID?deviceName(entry.DeviceName,entry.Matches):patternField(entry.Pattern,title+" "+(n+1)+" pattern",value=>priorityEdit(list,"set",n,value,"pattern")));
   if(list==="playback")row.append(badge(entry.Driver.toUpperCase()));
   row.append(matchBadge(entry),entryButtons(list,n,entries.length,title+" "+(n+1)));
-  const names=entry.Matches||[];if(names.length)row.append(el("small","basis-full pl-7 text-[11px] break-words text-muted",names.join(" · ")));
+  // An identity row already names its device.
+  const names=entry.Matches||[];if(names.length&&!(entry.DeviceID&&names.length===1))row.append(el("small","basis-full pl-7 text-[11px] break-words text-muted",names.join(" · ")));
  });
  if(!entries.length)card.append(el("p","text-muted","No entries."));
  suggestionRows(card,list,view.Suggestions?.[list],list==="playback");
@@ -271,8 +282,8 @@ function interfaceCard(parent,view){
  const card=panel("Interfaces",parent,"col-span-full"),entries=view.Lists?.interfaces||[];card.dataset.part="list-interfaces";
  entries.forEach((entry,n)=>{
   const row=entryRow(card,n),fields=el("div","grid min-w-0 flex-1 grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-3 gap-y-2");
-  fields.append(el("span","text-xs text-muted","Driver"),patternField(entry.ASIOPattern,"Interface "+(n+1)+" driver pattern",v=>priorityEdit("interfaces","set",n,v,"asio_pattern")));
-  fields.append(el("span","text-xs text-muted","Presence"),patternField(entry.PresencePattern,"Interface "+(n+1)+" presence pattern",v=>priorityEdit("interfaces","set",n,v,"presence_pattern")));
+  fields.append(el("span","text-xs text-muted","Driver"),entry.ASIOID?deviceName(entry.ASIOName,entry.Drivers):patternField(entry.ASIOPattern,"Interface "+(n+1)+" driver pattern",v=>priorityEdit("interfaces","set",n,v,"asio_pattern")));
+  fields.append(el("span","text-xs text-muted","Presence"),entry.PresenceID?deviceName(entry.PresenceName,entry.Matches):patternField(entry.PresencePattern,"Interface "+(n+1)+" presence pattern",v=>priorityEdit("interfaces","set",n,v,"presence_pattern")));
   const channels=el("div","flex items-center gap-3");
   for(const [field,label] of [["desk","Desk"],["lav","Lav"]]){
    const input=el("input","w-16 tabular-nums");input.type="number";input.min="0";input.max="64";input.value=String(entry[field[0].toUpperCase()+field.slice(1)]||0);input.setAttribute("aria-label",label+" channel for interface "+(n+1));input.title="0 = none";
@@ -288,9 +299,11 @@ function interfaceCard(parent,view){
  if(view.Drivers?.length&&view.Inputs?.length){
   const add=el("div","mt-4 flex flex-wrap items-center gap-2 border-t border-[#25323e] pt-3"),driver=el("select","min-w-0 flex-1"),input=el("select","min-w-0 flex-1");add.dataset.part="interface-add";
   driver.setAttribute("aria-label","New interface driver");input.setAttribute("aria-label","New interface presence input");
-  for(const s of view.Drivers){const o=el("option","",s.Name);o.value=s.Exact;driver.append(o);}
-  for(const s of view.Inputs){const o=el("option","",s.Name);o.value=s.Exact;input.append(o);}
-  const b=withIcon(button("Add",()=>priorityEdit("interfaces","add",0,JSON.stringify({asio_pattern:driver.value,presence_pattern:input.value,inputs:[1,2]})),ui.small),"plus");
+  view.Drivers.forEach((s,n)=>{const o=el("option","",s.Name);o.value=String(n);driver.append(o);});
+  view.Inputs.forEach((s,n)=>{const o=el("option","",s.Name);o.value=String(n);input.append(o);});
+  // Both are saved by identity when Snoofer knows it, else as exact patterns.
+  const added=()=>{const d=view.Drivers[Number(driver.value)],p=view.Inputs[Number(input.value)];return {...(d.ID?{asio_id:d.ID,asio_name:d.Name}:{asio_pattern:d.Exact}),...(p.ID?{presence_id:p.ID,presence_name:p.Name}:{presence_pattern:p.Exact}),inputs:[1,2]};};
+  const b=withIcon(button("Add",()=>priorityEdit("interfaces","add",0,JSON.stringify(added())),ui.small),"plus");
   updaters.push(()=>{b.disabled=driver.disabled=input.disabled=!editable();});
   add.append(el("h3",ui.stripTitle+" mb-0 basis-full","Add interface"),driver,input,b);card.append(add);
  }
@@ -346,8 +359,12 @@ function outputsCard(parent,view){
   const tools=el("div","mt-2 flex flex-col gap-1.5"),device=el("select","w-full min-w-0 text-xs"),rename=el("input","min-w-0 flex-1 text-xs"),renameRow=el("div","flex gap-1.5");
   device.setAttribute("aria-label",slot.Label+" device");
   device.append(Object.assign(el("option","","No device"),{value:""}));
-  for(const name of [slot.Status,...(view.OutputDevices||[])].filter((v,n,a)=>v&&a.indexOf(v)===n)){const o=el("option","",name);o.value=name;device.append(o);}
-  device.value=slot.Status||"";device.onchange=()=>outputEdit("device",slotID,device.value);
+  // The current device keeps its saved form; others are saved by identity.
+  if(slot.Status){const o=el("option","",slot.Status);o.value="current";device.append(o);}
+  const choices=(view.OutputDevices||[]).filter(d=>d.Name!==slot.Status);
+  choices.forEach((d,n)=>{const o=el("option","",d.Name);o.value=String(n);device.append(o);});
+  device.value=slot.Status?"current":"";
+  device.onchange=()=>{const d=choices[Number(device.value)];outputEdit("device",slotID,device.value===""?"":d.ID?JSON.stringify({ID:d.ID,Name:d.Name}):d.Name);};
   rename.type="text";rename.value=slot.Label;rename.maxLength=16;rename.setAttribute("aria-label","Rename "+slot.Label);
   const apply=button("Rename",()=>outputEdit("rename",slotID,rename.value.trim()),ui.small),remove=iconButton("trash-2","Remove "+slot.Label,()=>outputEdit("remove",slotID));remove.classList.add(ui.danger);
   rename.onkeydown=e=>{if(e.key==="Enter")apply.click();};
@@ -375,8 +392,10 @@ function outputsCard(parent,view){
   const add=el("div","mt-4 flex flex-wrap items-center gap-2 border-t border-[#25323e] pt-3"),name=el("input","w-40"),device=el("select","min-w-0 flex-1");add.dataset.part="output-add";
   name.type="text";name.placeholder="Monitor output";name.maxLength=16;name.setAttribute("aria-label","New output name");device.setAttribute("aria-label","New output device");
   device.append(Object.assign(el("option","","No device"),{value:""}));
-  for(const d of view.OutputDevices||[]){const o=el("option","",d);o.value=d;device.append(o);}
-  const b=withIcon(button("Add output",()=>{if(name.value.trim())outputEdit("add","",JSON.stringify({name:name.value.trim(),device:device.value}));},ui.small),"plus");
+  const devices=view.OutputDevices||[];
+  devices.forEach((d,n)=>{const o=el("option","",d.Name);o.value=String(n);device.append(o);});
+  const added=()=>{const d=devices[Number(device.value)];return d?{name:name.value.trim(),device:d.Name,...(d.ID?{device_id:d.ID}:{})}:{name:name.value.trim()};};
+  const b=withIcon(button("Add output",()=>{if(name.value.trim())outputEdit("add","",JSON.stringify(added()));},ui.small),"plus");
   name.onkeydown=e=>{if(e.key==="Enter")b.click();};
   updaters.push(()=>{name.disabled=device.disabled=!editableOutputs();b.disabled=!editableOutputs()||!name.value.trim();});
   name.addEventListener("input",update);add.append(name,device,b);card.append(add);
