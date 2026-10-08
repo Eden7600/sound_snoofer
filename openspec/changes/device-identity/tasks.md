@@ -1,7 +1,7 @@
 # Tasks
 ## Implementation
 - [x] 1. `feat(windowsaudio)`: always enumerate active endpoints into results; tests.
-- [ ] 2. `feat(config)`: identity fields, validation and resolution; tests for rename, disconnect, label collision and ambiguity.
+- [x] 2. `feat(config)`: identity fields, validation and resolution; tests for rename, disconnect, label collision and ambiguity.
 - [ ] 3. `feat(audio)`: endpoints in worker state, resolution before every plan, identity suggestions and edits; tests.
 - [ ] 4. `feat(gui)`: Add by identity, Pattern as advanced, identity rows, slot picker by identity; GUI check; UI contract.
 - [ ] 5. Validate: gofmt, `go test ./...`, `go vet ./...`, GUI check, OpenSpec strict validation, canonical build.

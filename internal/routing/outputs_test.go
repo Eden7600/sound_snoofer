@@ -179,3 +179,25 @@ func TestOutputWithoutDevice(t *testing.T) {
 		t.Fatal(p.Topology.Outputs[1])
 	}
 }
+
+// A slot device chosen by identity that is not active is Disconnected and
+// keeps its bus, unless a different connected device now shows its label.
+func TestOutputIdentityInactive(t *testing.T) {
+	c, s := outputFixture(t)
+	c.Studio.Outputs[0].DeviceID = "{speakers}"
+	converge(t, c, &s)             // Placed by its label before resolution.
+	s.Devices[3].Available = false // The endpoint is gone from Voicemeeter too.
+	inactive := c.Resolve(config.DeviceNames{})
+	p, e := Build(inactive, s)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if o := p.Topology.Outputs[0]; o.State != OutputMissing || o.Bus != "A3" {
+		t.Fatal(o)
+	}
+	s.Devices[3].Available = true // A different device now shows the label.
+	collided := c.Resolve(config.DeviceNames{Available: map[string]bool{"speakers": true}})
+	if p, e = Build(collided, s); e != nil || p.Topology.Outputs[0].Bus != "" {
+		t.Fatal("held a bus showing another device's name", p.Topology.Outputs[0], e)
+	}
+}

@@ -16,6 +16,10 @@ type Output struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
 	Device string `json:"device,omitempty"` // Exact WDM output name; empty until assigned.
+	// DeviceID is the device's Windows endpoint ID; Device is then its label.
+	DeviceID string `json:"device_id,omitempty"`
+	// Inactive marks a device chosen by ID that is not active. Runtime only.
+	Inactive bool `json:"-"`
 	// Sources are the defaults for the saved per-source switches.
 	Sources []string `json:"sources,omitempty"`
 }
@@ -61,6 +65,9 @@ func (s *Studio) validateOutputs() error {
 		ids[o.ID] = true
 		if o.Name == "" || len(o.Name) > 16 {
 			return fmt.Errorf("output %s name must be 1-16 characters", o.ID)
+		}
+		if o.DeviceID != "" && o.Device == "" {
+			return fmt.Errorf("output %s device needs a name", o.ID)
 		}
 		if o.Device != "" && devices[o.Device] {
 			return fmt.Errorf("device %q is used by two outputs", o.Device)

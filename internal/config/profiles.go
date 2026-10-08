@@ -1,9 +1,6 @@
 package config
 
-import (
-	"fmt"
-	"regexp"
-)
+import "fmt"
 
 // ProfileChoices contains independent persisted source, playback and processing choices.
 type ProfileChoices struct {
@@ -80,14 +77,12 @@ func (p *ProfilePolicy) Validate() error {
 			}
 			continue
 		}
-		if (c.Driver != "wdm" && c.Driver != "asio") || c.Pattern == "" {
-			return fmt.Errorf("playback requires wdm/asio and pattern")
+		if c.Driver != "wdm" && c.Driver != "asio" {
+			return fmt.Errorf("playback requires wdm/asio")
 		}
-		re, err := regexp.Compile(c.Pattern)
-		if err != nil {
+		if err := c.compile("VR playback"); err != nil {
 			return err
 		}
-		c.Regex = re
 	}
 	return nil
 }

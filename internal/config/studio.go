@@ -21,11 +21,17 @@ type Studio struct {
 // ASIOInterface owns the clock and its available desk/lav input channels.
 // A zero channel means that microphone is not attached to this interface.
 type ASIOInterface struct {
-	ASIOPattern     string         `json:"asio_pattern"`
-	PresencePattern string         `json:"presence_pattern"`
-	Inputs          [2]int         `json:"inputs"`
-	ASIORegex       *regexp.Regexp `json:"-"`
-	PresenceRegex   *regexp.Regexp `json:"-"`
+	ASIOPattern     string `json:"asio_pattern,omitempty"`
+	PresencePattern string `json:"presence_pattern,omitempty"`
+	// Identity alternatives to the patterns: the ASIO driver CLSID and the
+	// presence input's Windows endpoint ID, with names as labels.
+	ASIOID        string         `json:"asio_id,omitempty"`
+	ASIOName      string         `json:"asio_name,omitempty"`
+	PresenceID    string         `json:"presence_id,omitempty"`
+	PresenceName  string         `json:"presence_name,omitempty"`
+	Inputs        [2]int         `json:"inputs"`
+	ASIORegex     *regexp.Regexp `json:"-"`
+	PresenceRegex *regexp.Regexp `json:"-"`
 }
 
 func (s *Studio) OwnsASIO(name string) bool {
@@ -70,16 +76,13 @@ func (s *Studio) Validate() error {
 	var e error
 	for n := range s.ASIO {
 		a := &s.ASIO[n]
-		if a.ASIOPattern == "" || a.PresencePattern == "" {
-			return fmt.Errorf("ASIO interface %d requires driver and presence patterns", n+1)
-		}
-		a.ASIORegex, e = regexp.Compile(a.ASIOPattern)
+		a.ASIORegex, e = compileMatcher(a.ASIOPattern, a.ASIOID, a.ASIOName, fmt.Sprintf("ASIO interface %d driver", n+1))
 		if e != nil {
-			return fmt.Errorf("ASIO interface %d: %w", n+1, e)
+			return e
 		}
-		a.PresenceRegex, e = regexp.Compile(a.PresencePattern)
+		a.PresenceRegex, e = compileMatcher(a.PresencePattern, a.PresenceID, a.PresenceName, fmt.Sprintf("ASIO interface %d presence", n+1))
 		if e != nil {
-			return fmt.Errorf("ASIO presence %d: %w", n+1, e)
+			return e
 		}
 		for _, channel := range a.Inputs {
 			if channel < 0 || channel > 64 {
@@ -92,11 +95,10 @@ func (s *Studio) Validate() error {
 	}
 	for group, list := range [][]Candidate{s.Playback, s.FallbackMic} {
 		for i := range list {
-			if (list[i].Driver != "wdm" && !(group == 0 && list[i].Driver == "asio")) || list[i].Pattern == "" {
-				return fmt.Errorf("playback requires wdm/asio; fallback mic requires wdm; patterns must be nonempty")
+			if list[i].Driver != "wdm" && !(group == 0 && list[i].Driver == "asio") {
+				return fmt.Errorf("playback requires wdm/asio; fallback mic requires wdm")
 			}
-			list[i].Regex, e = regexp.Compile(list[i].Pattern)
-			if e != nil {
+			if e = list[i].compile([]string{"playback", "fallback mic"}[group] + fmt.Sprintf(" %d", i+1)); e != nil {
 				return e
 			}
 		}

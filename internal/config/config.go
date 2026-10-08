@@ -13,9 +13,13 @@ import (
 	"sound-snoofer/internal/storage"
 )
 
+// Candidate names a device by a pattern over device names or by identity
+// (ID, with Name as its label); see Resolve.
 type Candidate struct {
 	Driver  string         `json:"driver"`
-	Pattern string         `json:"pattern"`
+	Pattern string         `json:"pattern,omitempty"`
+	ID      string         `json:"id,omitempty"`
+	Name    string         `json:"name,omitempty"`
 	Regex   *regexp.Regexp `json:"-"`
 }
 type Route struct {

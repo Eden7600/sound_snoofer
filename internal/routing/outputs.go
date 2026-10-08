@@ -71,7 +71,9 @@ func holdOutputBuses(profile *config.Studio, s model.Snapshot, buses int, asioAc
 			continue // ASIO replaces a slot device found on A1.
 		}
 		for _, o := range profile.Outputs {
-			if o.Device == "" || s.Assignments[bus] != o.Device {
+			// An inactive identity whose label another connected device now
+			// shows does not hold that device's bus.
+			if o.Device == "" || s.Assignments[bus] != o.Device || (o.Inactive && outputAvailable(s, o.Device)) {
 				continue
 			}
 			if slots.held[o.ID] == "" {
@@ -117,9 +119,7 @@ func (slots *outputSlots) place(c config.Config, t *Topology, ownsPlayback func(
 				status.Sources = append(status.Sources, source)
 			}
 		}
-		available := slices.ContainsFunc(slots.snapshot.Devices, func(d model.Device) bool {
-			return d.Available && d.Direction == "output" && d.Driver == "wdm" && d.Name == o.Device
-		})
+		available := !o.Inactive && outputAvailable(slots.snapshot, o.Device)
 		switch {
 		case o.Device == "":
 			status.State = OutputEmpty
@@ -151,4 +151,11 @@ func boolValue(on bool) int {
 		return 1
 	}
 	return 0
+}
+
+// outputAvailable reports whether an available WDM output has name.
+func outputAvailable(s model.Snapshot, name string) bool {
+	return slices.ContainsFunc(s.Devices, func(d model.Device) bool {
+		return d.Available && d.Direction == "output" && d.Driver == "wdm" && d.Name == name
+	})
 }
