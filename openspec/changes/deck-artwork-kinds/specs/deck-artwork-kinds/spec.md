@@ -8,11 +8,22 @@ Deck artwork SHALL be drawn by content type, named by the control's icon: covers
 
 #### Scenario: Program key
 - **WHEN** an app key shows its program icon
-- **THEN** the icon sits in the icon slot between the app name and its volume, at icon size, uncropped
+- **THEN** the icon sits above the app name at icon size, uncropped, and the name is one line above the volume, scrolling when too long
 
 #### Scenario: Program placeholder
 - **WHEN** an app has no logo
-- **THEN** its name-coloured placeholder tile is drawn in the icon slot the same way
+- **THEN** its name-coloured placeholder tile is drawn above the name the same way
+
+### Requirement: Sharp scene and cover artwork
+Scene and cover artwork SHALL be produced and accepted at up to 128 px, so it is not upscaled from 64 px on the deck.
+
+#### Scenario: Scene key
+- **WHEN** a scene key shows its wedges
+- **THEN** the artwork comes from a 128 px image
+
+#### Scenario: Oversized artwork
+- **WHEN** artwork is larger than 128 px or 128 KiB encoded
+- **THEN** it is rejected, and the key falls back to its icon
 
 #### Scenario: Album cover and scene unchanged
 - **WHEN** a media session or scene key shows artwork

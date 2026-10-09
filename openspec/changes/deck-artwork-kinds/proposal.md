@@ -12,11 +12,15 @@ The key's icon identifier names its artwork's content type, and each type gets i
 | Cover | `media-*` and any other | Band crop, as today |
 | Pie | `hue-scene` | Rectangle inscribed in the circle, as today |
 | Clip | `soundboard-*` | The whole image, fitted inside the artwork area without cropping and centred; the key's fill shows around it. Animation is unchanged |
-| Program icon | `app-audio` | Drawn as the key's icon in the normal row layout (label, icon, value), smoothly scaled, never cropped |
+| Program icon | `app-audio` | Icon-sized above the title; the title stays one line (scrolling when long) above the value, as it read before; never cropped |
 
 - **Media dial:** a program icon on the dial (the focused app) is drawn icon-sized beside the text, not as a 100 px cover. Clip timers keep their fitted thumbnails.
 - **Detection:** pie cropping follows the content type, no longer a transparent corner pixel.
 
+- **Resolution:** the artwork contract rises from 64 px to 128 px, and encoded size from 32 KB to 128 KB, so scenes and covers stay sharp when cropped and scaled to the key's width.
+  - Scenes and covers (Windows media, and the browser extension) are produced at 128 px, and covers are scaled with Catmull-Rom.
+  - Soundboard clips and program icons stay at 64 px: they are shown at or below that size, and clip animations would quadruple in memory.
+
 ## Impact
-- **Code:** `internal/streamdeck` (key layout, artwork band, strip), `docs/ui-contract.md`.
-- **Unchanged:** providers, the artwork contract (64 px PNG), animation, the GUI.
+- **Code:** `internal/streamdeck` (key layout, artwork band, strip, artwork limit), `snoofer/controls.go` (contract comment), `plugins/hue` and `plugins/nowplaying` (128 px art), `extension` (128 px art), `docs/ui-contract.md`.
+- **Unchanged:** animation, the GUI, soundboard and program artwork sizes.
