@@ -37,7 +37,11 @@ The worker clears it the same way on each poll, and copies it across controller 
   - value Ready, Playing, Paused (tape paused, or playback paused), Rec (recording), or Paused (recording paused); N/A when unknown.
 - **Stop** (`tape-stop`): available while Playing, playback paused, tape paused, Recording or recording paused.
 - **Rew, FF:** available unless recording, recording paused or unknown.
-- **Stop, Rew, FF values:** Ready while available, N/A otherwise.
+- **Stop, Rew, FF values:** Ready while applicable.
+- **Not applicable vs unknown:**
+  - A key with nothing to do in the observed state is **inactive**: greyed and inert on the deck, and disabled on the GUI's Recording card. That covers Stop when nothing plays, is paused or records, and Rew and FF while recording.
+  - Every transport key, Record included, is **unavailable** (N/A) only when the recorder state is unknown, or Snoofer is disconnected or not live.
+- **Availability bug:** a later pass in `controls` used to overwrite every Transport control's availability with "connected and live", discarding the state check, so Stop, Rew and FF looked pressable and failed with an error. The pass now narrows availability instead of replacing it.
 - **Option labels:** only selection controls carry option labels. Every audio control used to receive `"": "Automatic"` (meant for the mic target, where empty means Auto), so keys with an empty value, such as Stop, Rew, FF and Restart, read Automatic.
 
 ## GUI

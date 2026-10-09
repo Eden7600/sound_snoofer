@@ -30,6 +30,14 @@ The Record, Play/Pause, Stop, Rewind and Fast-forward commands SHALL act accordi
 - **WHEN** the tape is playing and Record is pressed
 - **THEN** Snoofer stops playback and verifies Stopped before preparing and starting the recording, and a failed stop aborts the Start without retrying
 
+#### Scenario: Nothing to stop
+- **WHEN** nothing is playing, paused or recording
+- **THEN** Stop is greyed out and ignores presses, and no error is shown
+
+#### Scenario: Recorder state unknown
+- **WHEN** the recorder's state cannot be read
+- **THEN** Record, Play/Pause, Stop, Rewind and Fast-forward show N/A and ignore presses
+
 #### Scenario: Idle transport keys
 - **WHEN** the tape is paused and Stop, Rewind and Fast-forward are available
 - **THEN** each shows Ready, never Automatic
