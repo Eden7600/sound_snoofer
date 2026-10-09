@@ -28,3 +28,7 @@ https://huggingface.co/LocalAI-io/LocalVQE, verifies pinned SHA256 hashes and re
 source licenses under bin/licenses/localvqe. Upstream additionally verifies its
 model allowlist before parsing. Portable CMake 3.31.6 is hash-pinned in the cache;
 MSVC/Windows SDK remain installed prerequisites. No model data goes to a server.
+
+## Archivo (Stream Deck typeface)
+
+`internal/streamdeck/fonts/` embeds `Archivo-Bold.ttf` (SHA-256 `951a0ebab63b1bb0d90a26c27625bda803d570dace3851fa2f1eea65852d8983`) and `ArchivoCondensed-ExtraBold.ttf` (SHA-256 `2a3198ab615344b280e6412cf3f60a92c5a8e74f076e2f8030a1583747e6ea2a`), unmodified, from https://github.com/Omnibus-Type/Archivo `fonts/ttf` at commit `211127690e8ff106c36c935f7e5e697114cff103`. Licence: SIL Open Font License 1.1 (`internal/streamdeck/fonts/OFL.txt`). The deck renderer rasterizes them with `golang.org/x/image/font/opentype`; see `openspec/changes/deck-rows-left`.
