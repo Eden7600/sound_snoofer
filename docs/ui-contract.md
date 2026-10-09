@@ -6,7 +6,7 @@ This is the baseline for every build, not a redesign prompt. Change it only when
 Use the existing Snoofer mascot from app/tray.ico (source artwork in docs/assets). Do not invent a replacement logo or monogram for a new surface. Preserve the existing centered painterly mascot at the top of README.md when rewriting documentation.
 
 ## Goals and tone
-Fast recognition, truthful state, predictable actions. Users know Snoofer. Use short nouns and state words, sentence case in source, no tutorial copy, enthusiasm, redundant qualifiers or implementation terminology. Keep consequential warnings (restart/recording interruption) and actionable error details.
+Fast recognition, truthful state, predictable actions. Users know Snoofer. Use short nouns and state words, title case for built-in labels (control and option names, headings, buttons, fields: "Record Mic", "Apps on the Deck"; minor words such as a, the, and, of, on, to stay lower case unless first; acronyms keep their case), sentence case for notes and errors, content names as written, no tutorial copy, enthusiasm, redundant qualifiers or implementation terminology. Keep consequential warnings (restart/recording interruption) and actionable error details.
 
 ## Content by surface
 | Surface | Content |
@@ -23,13 +23,13 @@ Provider Label identifies an action without an icon. Optional ShortLabel is for 
 | --- | --- |
 | Mic mute / speaker mute | Mute (different mic/speaker icons) |
 | Monitoring | Monitor; Off / Pre / Post |
-| Processing | Mic processing; Direct / Element |
-| Stack enablement | Mic stack; On / Off |
-| Mic stack Off on the deck | Mic mute, Mic target, Processing, Monitor, Mic gain, Record mic and Mic stage keys/dials are blank and inert (bindings kept); Mic stack stays visible. The GUI keeps showing them. |
-| Input selection | Mic target; Auto / selected device |
-| Recording capture | Record mic / Record PC; On / Off |
-| Recording tap | Mic stage; Pre / Post |
-| Recorder transport | Record / Stop rec; Ready / Rec |
+| Processing | Mic Path; Direct / Element |
+| Stack enablement | Mic Stack; On / Off |
+| Mic stack Off on the deck | Mic Mute, Mic Target, Mic Path, Monitor, Mic gain, Record Mic and Mic Stage keys/dials are blank and inert (bindings kept); Mic stack stays visible. The GUI keeps showing them. |
+| Input selection | Mic Target; Auto / selected device |
+| Recording capture | Record Mic / Record PC; On / Off |
+| Recording tap | Mic Stage; Pre / Post |
+| Recorder transport | Record / Stop Rec; Ready / Rec |
 | Tape playback | Play (Ready / Playing with pause bars / Paused), Stop, Rew, FF; plays the recorder's loaded file to the Playback destination; N/A while recording, Stop only while playing |
 | Media transport | Prev / Play / Next / Stop; no fictitious playback state |
 | Soundboard | Filename / Stop; Ready / Playing (cyan), Wait during normalization; failures stay local to the clip |
