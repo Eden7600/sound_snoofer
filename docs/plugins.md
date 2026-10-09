@@ -10,7 +10,7 @@ Build from the repository:
 ./scripts/build.ps1 -Tags no_audio
 ```
 
-Available exclusions: no_audio (also excludes VR and soundboard), no_vr, no_streamdeck, no_soundboard, no_media, no_hue, no_insta360 (also skips snoofer-camera.dll) and no_discord. Core excludes all built-ins and does not build or load the audio companion. The default build includes snoofer-audio-monitor.dll; the Voicemeeter vendor DLL is never distributed.
+Available exclusions: no_audio (also excludes VR and soundboard), no_vr, no_streamdeck, no_soundboard, no_media, no_hue and no_discord. Core excludes all built-ins and does not build or load the audio companion. The default build includes snoofer-audio-monitor.dll; the Voicemeeter vendor DLL is never distributed.
 
 Launch bin/snoofer.exe. Its adjacent configuration is snoofer.json. A new installation creates disabled plugin entries with inert defaults. Existing personal configurations are converted manually; the application does not attempt migration. --config selects another envelope, --dry-run prevents audio writes, and --check validates the envelope, enabled plugin settings and dependencies without starting devices.
 
@@ -67,9 +67,7 @@ The halves work together. While syncing, the Brightness dial adjusts the sync br
 
 ## Meetings
 
-The Meetings screen holds the Camera and Discord cards. Each plugin is off until enabled there or on the Plugins page.
-
-Insta360 (`insta360`): controls an Insta360 Link 2 through its camera driver (snoofer-camera.dll beside snoofer.exe). Nothing else needs installing, and it works while Discord, a browser or Insta360 Link Controller uses the camera, because it only sends camera properties and never opens the video. Privacy turns the camera away; Tracking follows one person (Single) or frames everyone (Group); Framing sets head, half-body or full-body composition (full body is unavailable while tracking a group); Reset position re-centres the gimbal, or the composition while tracking. Changes the camera does not report within 3 seconds show Failed and are not retried. Preview never writes to the camera.
+The Meetings screen holds the Discord card. The plugin is off until enabled there or on the Plugins page.
 
 Discord (`discord`): uses your own Discord application, because Discord only lets an application's owner and testers use voice control without approval.
 1. In the Discord Developer Portal, create an application. Under OAuth2, add the redirect `http://127.0.0.1` and copy the Client ID and Client Secret.
