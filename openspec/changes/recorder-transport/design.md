@@ -37,6 +37,8 @@ The worker clears it the same way on each poll, and copies it across controller 
   - value Ready, Playing, Paused (tape paused, or playback paused), Rec (recording), or Paused (recording paused); N/A when unknown.
 - **Stop** (`tape-stop`): available while Playing, playback paused, tape paused, Recording or recording paused.
 - **Rew, FF:** available unless recording, recording paused or unknown.
+- **Stop, Rew, FF values:** Ready while available, N/A otherwise.
+- **Option labels:** only selection controls carry option labels. Every audio control used to receive `"": "Automatic"` (meant for the mic target, where empty means Auto), so keys with an empty value, such as Stop, Rew, FF and Restart, read Automatic.
 
 ## GUI
 The Recording card's Play button reads Pause when the key's icon is `tape-pause`.

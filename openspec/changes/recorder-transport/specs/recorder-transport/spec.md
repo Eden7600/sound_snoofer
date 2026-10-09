@@ -30,6 +30,10 @@ The Record, Play/Pause, Stop, Rewind and Fast-forward commands SHALL act accordi
 - **WHEN** the tape is playing and Record is pressed
 - **THEN** Snoofer stops playback and verifies Stopped before preparing and starting the recording, and a failed stop aborts the Start without retrying
 
+#### Scenario: Idle transport keys
+- **WHEN** the tape is paused and Stop, Rewind and Fast-forward are available
+- **THEN** each shows Ready, never Automatic
+
 #### Scenario: Write fails
 - **WHEN** a transport write returns an error
 - **THEN** the command reports that its outcome is unknown, and nothing is retried
