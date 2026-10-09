@@ -38,7 +38,7 @@ add("soundboard.status","Soundboard","status","Ready");
 for(const name of ["fah","sadge","instinct","airhorn","ping"])add("soundboard.clip-"+name,name,"command","Ready");
 // sadge has animated artwork: two frames served by Desktop.Animation.
 const dot="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
-for(const [id,label,kind,value,options]of [["profile","Device","selection","Default",["Default"]],["page","Page","selection","home",["home","soundboard"]],["slot","Position","selection","Key 1",Array.from({length:36},(_,i)=>"Key "+(i+1))],["shared","Shared","toggle","Off"],["binding","Binding","selection","audio.mic-stack",["","audio.mic-stack","audio.mic-mute"]],["name","Name","text","Home"],["add","New page","text",""],["region-add","Add region","text",""],["region-source","Region source","text",""],["region-remove","Remove region","text",""],["preview","Preview","status",""],["status","Layout status","status","Connected"]])add("streamdeck."+id,label,kind,value,{Options:options});
+for(const [id,label,kind,value,options]of [["profile","Device","selection","Default",["Default"]],["page","Page","selection","home",["home","soundboard"]],["slot","Position","selection","Key 1",Array.from({length:36},(_,i)=>"Key "+(i+1))],["shared","Shared","toggle","Off"],["binding","Binding","selection","audio.mic-stack",["","audio.mic-stack","audio.mic-mute"]],["name","Name","text","Home"],["add","New page","text",""],["region-add","Add region","text",""],["region-source","Region source","text",""],["region-clip","Region overflow","text",""],["region-remove","Remove region","text",""],["preview","Preview","status",""],["status","Layout status","status","Connected"]])add("streamdeck."+id,label,kind,value,{Options:options});
 for(const id of ["save","cancel","delete","earlier","later","home"])add("streamdeck."+id,id,"command","");
 add("hue.status","Hue","status","Not paired",{ViewData:{bridge:"172.16.102.3"}});
 add("hue.pair","Pair Hue bridge","command","Ready",{ShortLabel:"Pair"});
@@ -57,7 +57,7 @@ add("hue.sync-intensity","Hue Sync intensity","selection","moderate",{Options:["
 for(let n=1;n<=12;n++)add("hue.room-scene-"+n,"","command","",{Available:false,Group:"Hue room scenes"});
 const ago=s=>new Date(Date.now()-s*1000).toISOString();
 const report=(ID,Label,Group,Value,Connection)=>controls.push({ID,Label,Group,Kind:"connection",Value,Available:true,SurfaceOnly:true,Revision:1,Operations:[],Connection});
-report("hue.app-bridge","Hue Bridge","Hue","Connected",{State:"connected",Endpoint:"172.16.102.3",Since:ago(600),LastActivity:ago(1),LastError:"event stream ended: EOF",LastErrorAt:ago(700),Details:[{Label:"Bridge ID",Value:"001788fffe2490e0"},{Label:"Software",Value:"1978293000"}]});
+report("hue.app-bridge","Hue Bridge","Hue","Connected",{State:"connected",Endpoint:"172.16.102.3",Since:ago(600),LastActivity:ago(1),LastError:"event stream ended: EOF",LastErrorAt:ago(665),Details:[{Label:"Bridge ID",Value:"001788fffe2490e0"},{Label:"Software",Value:"1978293000"}]});
 report("hue.app-sync","Hue Sync","Hue","N/A",{State:"disconnected",Endpoint:"ws://127.0.0.1:24851/",Since:ago(90),LastError:"connection refused",LastErrorAt:ago(5),Details:[]});
 report("audio.app-voicemeeter","Voicemeeter","Audio","Disconnected",{State:"disconnected",Endpoint:"C:\\Program Files (x86)\\VB\\Voicemeeter\\VoicemeeterRemote64.dll",Since:ago(30),LastActivity:ago(31),LastError:"voicemeeter disconnected",LastErrorAt:ago(30),Details:[{Label:"Required",Value:"Yes"},{Label:"Edition",Value:"Potato"},{Label:"Interval",Value:"1s"}]});
 report("audio.app-callback","Audio callback monitor","Audio","Off",{State:"off",Endpoint:"snoofer-audio-monitor.dll",Since:"0001-01-01T00:00:00Z",LastActivity:"0001-01-01T00:00:00Z",Details:[]});
@@ -147,7 +147,10 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
     if(r.ID.startsWith("streamdeck.region-")){
      if(r.ID==="streamdeck.region-add"){const [first,last,source]=r.Value.split(","),dials=Number(first)>=36;view.Regions.push({Source:source,Label:view.Collections.find(x=>x.ID===source)?.Label||source,First:Number(first)-(dials?36:0),Last:Number(last)-(dials?36:0),Dials:dials});}
      if(r.ID==="streamdeck.region-source"){const [i,source]=r.Value.split(",");Object.assign(view.Regions[Number(i)],{Source:source,Label:view.Collections.find(x=>x.ID===source)?.Label||source});}
+     if(r.ID==="streamdeck.region-clip"){const [i,clip]=r.Value.split(",");view.Regions[Number(i)].Clip=clip==="on";}
      if(r.ID==="streamdeck.region-remove")view.Regions.splice(Number(r.Value),1);
+     // The fixture's collections overflow unless every region is clipped.
+     view.Sets=view.Regions.some(g=>!g.Clip)?3:1;
      view.Keys.forEach(k=>{k.Region=-1;});view.Dials.forEach(d=>{d.Region=-1;});
      view.Regions.forEach((g,n)=>{if(g.Dials){for(let d=Math.min(g.First,g.Last);d<=Math.max(g.First,g.Last);d++)view.Dials[d].Region=n;return;}const rows=[Math.floor(g.First/9),Math.floor(g.Last/9)].sort((a,b)=>a-b),cols=[g.First%9,g.Last%9].sort((a,b)=>a-b);for(let row=rows[0];row<=rows[1];row++)for(let col=cols[0];col<=cols[1];col++)view.Keys[row*9+col].Region=n;});
      view.Dirty=true;window.fixture.Controls.find(c=>c.ID==="streamdeck.preview").Revision++;
@@ -353,7 +356,20 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.getByLabel("Region 1 source").selectOption("hue.room-scenes");
   assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Value];}),["streamdeck.region-source","0,hue.room-scenes"]);
   await page.waitForTimeout(300);
+  // Overflow: the page shows its sets, and unchecking clips the region.
+  assert.equal(await page.locator("[data-part=page-sets]").textContent(),"3 sets · page dial visits each");
+  assert.equal(await page.getByRole("button",{name:"Make Home",exact:true}).isDisabled(),true,"Make Home offered on Home");
+  const overflow=page.getByLabel("Region 1 overflow");
+  assert.equal(await overflow.isChecked(),true,"new region does not overflow");
   await page.screenshot({path:path.join(root,".local/gui-deck-regions.png"),fullPage:true});
+  await overflow.uncheck();
+  assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Value];}),["streamdeck.region-clip","0,on"]);
+  await page.locator("[data-part=page-sets]").waitFor({state:"hidden"});
+  assert.equal(await page.getByLabel("Region 1 overflow").isChecked(),false);
+  await page.evaluate(()=>{const v=window.fixture.Controls.find(c=>c.ID==="streamdeck.preview");v.ViewData.Regions[0].Stacked="Apps";v.ViewData.Scrolls=true;v.ViewData.Regions[0].Clip=false;v.ViewData.Sets=2;v.Revision++;});
+  await page.locator("[data-part=region]").getByText("+ Apps",{exact:true}).waitFor();
+  assert.equal(await page.locator("[data-part=page-sets]").textContent(),"2 sets · Up/Down");
+  await page.waitForTimeout(300);
   await page.getByRole("button",{name:"Remove region 1",exact:true}).click();
   assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Value];}),["streamdeck.region-remove","0"]);
   await page.locator("[data-part=region]").waitFor({state:"detached"});

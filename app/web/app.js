@@ -961,7 +961,8 @@ function buildDeck(){
  const tools=panel("Page",left,"grid gap-3");
  control("streamdeck.name",tools,"Name");
  const commands=el("div",ui.actions+" justify-end");tools.append(commands);
- command("streamdeck.earlier","Earlier",commands,"","chevron-left");command("streamdeck.later","Later",commands,"","chevron-right");command("streamdeck.home","Make Home",commands,"","house");
+ command("streamdeck.earlier","Earlier",commands,"","chevron-left");command("streamdeck.later","Later",commands,"","chevron-right");const makeHome=command("streamdeck.home","Make Home",commands,"","house");
+ if(makeHome)updaters.push(()=>{if(c("streamdeck.preview")?.ViewData?.Home)makeHome.disabled=true;});
  const more=el("details","mt-4"),summary=el("summary","","Page options");more.append(summary);tools.append(more);
  control("streamdeck.add",more,"New page");
  regionsPanel(left);
@@ -1018,6 +1019,13 @@ function regionsPanel(parent){
   if(value&&!collections.some(item=>item.ID===value)){const option=el("option","",label||value);option.value=value;select.append(option);}
   select.value=value||collections[0]?.ID||"";return select;
  };
+ const sets=el("p","text-xs");sets.dataset.part="page-sets";card.append(sets);
+ updaters.push(()=>{
+  const v=c("streamdeck.preview")?.ViewData,count=v?.Sets||1;
+  sets.hidden=count<=1;
+  sets.textContent=count+" sets · "+(v?.Scrolls?"Up/Down":"page dial visits each");
+  sets.className="text-xs "+(v?.Scrolls?"text-muted":"text-attention");
+ });
  const regions=view.Regions||[];
  if(!regions.length)card.append(el("p",ui.note,"No regions. Select keys or dials (Shift+click or Shift+arrows) and add one."));
  regions.forEach((region,i)=>{
@@ -1026,9 +1034,15 @@ function regionsPanel(parent){
   select.setAttribute("aria-label","Region "+(i+1)+" source");
   select.onfocus=()=>{select.editRevision=c("streamdeck.region-source")?.Revision;};
   select.onchange=()=>{request(c("streamdeck.region-source"),"set",i+","+select.value,0,select.editRevision);select.blur();};
+  const stacked=region.Stacked?el("small","text-muted","+ "+region.Stacked):null;
+  // Overflow adds sets; off saves the region clipped to the keys it covers.
+  const overflow=el("label","flex items-center gap-1.5 text-xs"),box=el("input","size-4 accent-active");box.type="checkbox";box.checked=!region.Clip;
+  box.setAttribute("aria-label","Region "+(i+1)+" overflow");overflow.append(box,document.createTextNode("Overflow"));overflow.dataset.part="region-overflow";
+  overflow.title="Adds sets when the region has more than fits";
+  box.onchange=()=>request(c("streamdeck.region-clip"),"set",i+","+(box.checked?"off":"on"));
   const remove=button("Remove",()=>request(c("streamdeck.region-remove"),"set",String(i)),ui.danger);remove.setAttribute("aria-label","Remove region "+(i+1));
-  row.append(name,select,keysLabel,remove);card.append(row);
-  updaters.push(()=>{select.disabled=remove.disabled=!!pending;});
+  row.append(name,select);if(stacked)row.append(stacked);row.append(keysLabel);if(c("streamdeck.region-clip"))row.append(overflow);row.append(remove);card.append(row);
+  updaters.push(()=>{select.disabled=remove.disabled=box.disabled=!!pending;const saved=(c("streamdeck.preview")?.ViewData?.Regions||[])[i];if(saved&&!pending)box.checked=!saved.Clip;});
  });
  const add=el("div","flex flex-wrap items-center gap-2.5 border-t border-[#25323e] pt-3"),source=sourceSelect("",""),create=button("",()=>{
   if(!deckRange)return;
