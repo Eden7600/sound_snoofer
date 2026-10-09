@@ -6,6 +6,8 @@ import (
 	"image/jpeg"
 	"os"
 	"testing"
+
+	"sound-snoofer/internal/placeholder"
 )
 
 func TestStripPreview(t *testing.T) {
@@ -14,7 +16,7 @@ func TestStripPreview(t *testing.T) {
 	frame.Dials[0] = Tile{Label: "Playback", Value: "-12.0 dB", Icon: "speaker-mute", Meter: true, LevelKnown: true, LevelDB: -14,
 		PeakKnown: true, PeakDB: -9, PositionKnown: true, Position: 0.67, ZeroMark: 0.83}
 	frame.Dials[1] = Tile{Label: "Mic", Value: "0.0 dB", Icon: "mic-mute", Meter: true, Status: "Wait"}
-	frame.Dials[4] = Tile{Label: "Mic", Value: "0.0 dB", Icon: "mic-mute", Meter: true, LevelKnown: true, LevelDB: -20, Inactive: true}
+	frame.Dials[4] = Tile{Artwork: placeholder.Art("Discord", placeholder.App), Label: "Discord", Value: "42%", Icon: "app-audio"}
 	frame.Dials[2] = Tile{Artwork: art, Label: "Lofi beats", Value: "1:42 / 3:30", Icon: "media-play", PositionKnown: true, Position: 0.49}
 	frame.Dials[3] = Tile{Timers: [2]TimerTile{{Artwork: art, Label: "Airhorn", Time: "0:03"}}}
 	frame.Dials[5] = Tile{Label: "Media", Value: "Home", Icon: "Lights"}

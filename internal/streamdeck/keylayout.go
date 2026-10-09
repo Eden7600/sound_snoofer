@@ -109,11 +109,13 @@ func drawKey(lines []string, w, h int, on bool, icon string, fallback, inactive 
 	fill(im, 0, 0, w*scale, h*scale, style.background)
 
 	set := typefaces()
-	if art, ok := decodeArtwork(artwork); ok {
+	art, hasArt := decodeArtwork(artwork)
+	kind := artworkKind(icon)
+	if hasArt && kind != programArt {
 		if value == "" {
-			scrolls = drawArtworkLabel(im, scale, w, art, label, style.label, phase)
+			scrolls = drawArtworkLabel(im, scale, w, art, kind, label, style.label, phase)
 		} else {
-			drawBand(im, scale, w, bandHeight, art)
+			drawBand(im, scale, w, bandHeight, art, kind)
 			if label != "" {
 				if f, ok := set.fitWords(labelFace, label, keyTextWidth, 15, 12, 1); ok {
 					set.draw(im, scale, labelFace, f.px, keyInset, bandHeight+4, f.lines[0], style.label)
@@ -148,6 +150,9 @@ func drawKey(lines []string, w, h int, on bool, icon string, fallback, inactive 
 		switch {
 		case style.alert:
 			drawAlert(im, scale, keyInset, top, size)
+		case v.icon && hasArt:
+			// A program icon is the key's icon, at icon size.
+			drawArtIcon(im, scale, art, keyInset, top, size)
 		case v.icon:
 			drawIconBox(im, scale, icon, style.icon, keyInset, top, size)
 		}
@@ -314,10 +319,10 @@ func routineWord(icon, value string) bool {
 // drawArtworkLabel lays out an artwork key with no value: the label sits at
 // the bottom on up to two lines, and the artwork fills the space above it.
 // It reports whether the label scrolls.
-func drawArtworkLabel(im *image.RGBA, scale, w int, art image.Image, label string, ink color.RGBA, phase time.Duration) bool {
+func drawArtworkLabel(im *image.RGBA, scale, w int, art image.Image, kind artKind, label string, ink color.RGBA, phase time.Duration) bool {
 	set := typefaces()
 	if label == "" {
-		drawBand(im, scale, w, 104, art)
+		drawBand(im, scale, w, 104, art, kind)
 		return false
 	}
 	f, fits := set.fitWords(labelFace, label, keyTextWidth, 15, 12, 2)
@@ -325,7 +330,7 @@ func drawArtworkLabel(im *image.RGBA, scale, w int, art image.Image, label strin
 		f = fitted{px: 15, lines: []string{label}}
 	}
 	top := 104 - len(f.lines)*(f.px+1)
-	drawBand(im, scale, w, top-4, art)
+	drawBand(im, scale, w, top-4, art, kind)
 	if !fits {
 		set.drawScrolling(im, scale, labelFace, 15, keyInset, top, keyTextWidth, label, ink, phase)
 		return true
@@ -337,11 +342,17 @@ func drawArtworkLabel(im *image.RGBA, scale, w int, art image.Image, label strin
 }
 
 // drawBand scales artwork into a band height pixels tall at the top of the
-// key, cropped to the band's shape. Square artwork shows its centred rows;
-// artwork with transparent corners (a pie) shows the rectangle inscribed in
-// its circle, so no round edge shows.
-func drawBand(im *image.RGBA, scale, w, height int, art image.Image) {
+// key, by content type. A cover is cropped to the band's shape; a pie shows
+// the rectangle inscribed in its circle, so no round edge shows; clip art is
+// shown whole, scaled to the band's height and centred over the fill.
+func drawBand(im *image.RGBA, scale, w, height int, art image.Image, kind artKind) {
 	b := art.Bounds()
+	if kind == clipArt {
+		side := min(w, height)
+		x := (w - side) / 2
+		xdraw.CatmullRom.Scale(im, image.Rect(x*scale, (height-side)*scale, (x+side)*scale, height*scale), art, b, draw.Over, nil)
+		return
+	}
 	aspect := float64(w) / float64(height)
 	cx := float64(b.Min.X) + float64(b.Dx())/2
 	cy := float64(b.Min.Y) + float64(b.Dy())/2
@@ -350,11 +361,42 @@ func drawBand(im *image.RGBA, scale, w, height int, art image.Image) {
 	if aspect < 1 {
 		cropW, cropH = side*aspect, side
 	}
-	if _, _, _, a := art.At(b.Min.X, b.Min.Y).RGBA(); a == 0 {
+	if kind == pieArt {
 		r := side/2 - 1
 		cropH = 2 * r / math.Sqrt(1+aspect*aspect)
 		cropW = aspect * cropH
 	}
 	source := image.Rect(int(math.Ceil(cx-cropW/2)), int(math.Ceil(cy-cropH/2)), int(math.Floor(cx+cropW/2)), int(math.Floor(cy+cropH/2)))
 	xdraw.CatmullRom.Scale(im, image.Rect(0, 0, w*scale, height*scale), art, source, draw.Over, nil)
+}
+
+// artKind is what a key's artwork shows, which decides how it is drawn
+// (openspec/changes/deck-artwork-kinds).
+type artKind int
+
+const (
+	coverArt   artKind = iota // Album art: fills a cropped band.
+	pieArt                    // Scene wedges: cropped inside the circle.
+	clipArt                   // A soundboard image: shown whole.
+	programArt                // A program icon or placeholder: the key's icon.
+)
+
+// artworkKind names the artwork's content type from the control's icon.
+func artworkKind(icon string) artKind {
+	icon = strings.TrimSuffix(strings.TrimSuffix(icon, "-muted"), "-off")
+	switch {
+	case icon == "hue-scene":
+		return pieArt
+	case strings.HasPrefix(icon, "soundboard-"):
+		return clipArt
+	case icon == "app-audio":
+		return programArt
+	}
+	return coverArt
+}
+
+// drawArtIcon scales artwork smoothly into a size-pixel square at key pixel
+// (x, y), as the key's icon.
+func drawArtIcon(im *image.RGBA, scale int, art image.Image, x, y, size int) {
+	xdraw.CatmullRom.Scale(im, image.Rect(x*scale, y*scale, (x+size)*scale, (y+size)*scale), art, art.Bounds(), draw.Over, nil)
 }

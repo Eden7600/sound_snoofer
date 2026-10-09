@@ -182,8 +182,14 @@ func drawMeter(im *image.RGBA, x0 int, k knobPresentation) {
 func drawArtworkKnob(im *image.RGBA, x0 int, k knobPresentation, phase time.Duration) bool {
 	set := typefaces()
 	scrolls := false
-	drawThumb(im, x0, 0, 100, k.Artwork, k.Icon)
 	x, width := x0+110, panelWidth-110-8
+	if artworkKind(k.Icon) == programArt {
+		// A program icon stays icon-sized beside the text.
+		drawThumb(im, x0+panelInset, 22, 56, k.Artwork, k.Icon)
+		x, width = x0+80, panelWidth-80-8
+	} else {
+		drawThumb(im, x0, 0, 100, k.Artwork, k.Icon)
+	}
 	line := func(s string, maxPx, minPx, y int, ink color.RGBA) {
 		if f, ok := set.fitWords(labelFace, s, width, maxPx, minPx, 1); ok {
 			set.draw(im, 1, labelFace, f.px, x, y, f.lines[0], ink)

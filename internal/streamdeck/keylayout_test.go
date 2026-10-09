@@ -10,6 +10,8 @@ import (
 	"math"
 	"os"
 	"testing"
+
+	"sound-snoofer/internal/placeholder"
 )
 
 // unrotate decodes a key JPEG and undoes the hardware rotation.
@@ -197,9 +199,56 @@ func TestLongValuesWrapInPlaceOfTheIcon(t *testing.T) {
 	}
 }
 
+// clipArtwork is a wide image fitted into the 64 px square the soundboard
+// sends: transparent bands above and below, the picture between.
+func clipArtwork(t *testing.T) string {
+	t.Helper()
+	im := image.NewNRGBA(image.Rect(0, 0, 64, 64))
+	for y := 16; y < 48; y++ {
+		for x := 0; x < 64; x++ {
+			c := color.NRGBA{224, 98, 58, 255}
+			if (x-20)*(x-20)+(y-32)*(y-32) < 120 {
+				c = color.NRGBA{247, 215, 116, 255}
+			}
+			im.SetNRGBA(x, y, c)
+		}
+	}
+	var b bytes.Buffer
+	if err := png.Encode(&b, im); err != nil {
+		t.Fatal(err)
+	}
+	return base64.StdEncoding.EncodeToString(b.Bytes())
+}
+
+func TestArtworkByKind(t *testing.T) {
+	if artworkKind("hue-scene") != pieArt || artworkKind("soundboard-play") != clipArt || artworkKind("app-audio") != programArt ||
+		artworkKind("app-audio-muted") != programArt || artworkKind("media-play") != coverArt {
+		t.Fatal("artwork kinds")
+	}
+	// Clip art is shown whole: its transparent bands show the key's fill,
+	// and the picture is not zoomed past the band's edges.
+	clip := decodeKey(t, "Airhorn", "Ready", "soundboard-play", false, clipArtwork(t))
+	if !near(clip.RGBAAt(56, 4), keyColor, 30) {
+		t.Fatal("clip art was cropped to fill the band", clip.RGBAAt(56, 4))
+	}
+	if near(clip.RGBAAt(56, 42), keyColor, 30) {
+		t.Fatal("clip art missing")
+	}
+	// A program icon sits in the icon slot, between the name and the value.
+	app := decodeKey(t, "Discord", "42%", "app-audio", false, placeholder.Art("Discord", placeholder.App))
+	if near(app.RGBAAt(26, 58), keyColor, 30) {
+		t.Fatal("program icon missing from the icon slot")
+	}
+	if !near(app.RGBAAt(90, 58), keyColor, 30) {
+		t.Fatal("program icon spread past the icon slot", app.RGBAAt(90, 58))
+	}
+}
+
 func TestRowsPreview(t *testing.T) {
 	art := testArtwork(t)
 	pie := pieArtwork(t)
+	clip := clipArtwork(t)
+	app := placeholder.Art("Google Chrome", placeholder.App)
 	examples := []struct {
 		label, value, icon string
 		on                 bool
@@ -212,9 +261,9 @@ func TestRowsPreview(t *testing.T) {
 		{"Playback", "On", "speaker-mute", true, ""},
 		{"Record", "Recording", "record-stop", true, ""},
 		{"Record PC", "Off", "record-computer", false, ""},
-		{"Airhorn", "Playing", "soundboard-play", false, art},
+		{"Airhorn", "Playing", "soundboard-play", false, clip},
 		{"Lofi beats", "Paused", "media-play", false, art},
-		{"Google Chrome", "42%", "app-audio", false, ""},
+		{"Google Chrome", "42%", "app-audio", false, app},
 		{"Concentrate", "Active", "hue-scene", false, pie},
 		{"Soundboard", "", "deck-page", false, ""},
 		{"Sync", "Wait", "huesync-sync", false, ""},
