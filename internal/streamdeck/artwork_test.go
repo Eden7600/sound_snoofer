@@ -45,8 +45,8 @@ func TestArtworkRenderingAndCacheInvalidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Renderer rotates: inspect the upper-left quadrant of the central artwork.
-	r, g, b, _ := im.At(30, 111-30).RGBA()
+	// Renderer rotates: inspect the opaque upper-left of the artwork band.
+	r, g, b, _ := im.At(10, 111-30).RGBA()
 	if r <= g || g <= b {
 		t.Fatal("thumbnail pixels missing")
 	}

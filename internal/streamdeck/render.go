@@ -39,116 +39,6 @@ func render(lines []string, w, h int, on bool, icon string, fallback bool) []byt
 	return renderArtwork(lines, w, h, on, icon, fallback, "")
 }
 
-func renderArtwork(lines []string, w, h int, on bool, icon string, fallback bool, artwork string) []byte {
-	// Supersample geometry; text remains aligned to the native key pixel grid.
-	const scale = 4
-	im := image.NewRGBA(image.Rect(0, 0, w*scale, h*scale))
-	background := backgroundColor
-	foreground := textColor
-
-	label, value := "", ""
-	if len(lines) > 0 {
-		label = lines[0]
-	}
-	if len(lines) > 1 {
-		value = strings.ToUpper(lines[1])
-	}
-	accent := keyAccent(value, icon, on, fallback)
-	switch value {
-	case "RECORDING":
-		value = "REC"
-	case "STOPPED":
-		value = "READY"
-	case "AUDIBLE":
-		value = "ON"
-	case "PENDING":
-		value = "WAIT"
-	case "UNAVAIL":
-		value = "N/A"
-	}
-	if fallback && accent == attentionColor && value != "WAIT" && value != "" {
-		value += "*"
-	}
-	rect := func(x, y, width, height int, c color.RGBA) {
-		for yy := y * scale; yy < (y+height)*scale; yy++ {
-			for xx := x * scale; xx < (x+width)*scale; xx++ {
-				im.SetRGBA(xx, yy, c)
-			}
-		}
-	}
-	rect(0, 0, w, h, background)
-
-	ink := foreground
-	if accent != neutralColor {
-		ink = accent
-	}
-	iconDrawn := drawArtwork(im, artwork)
-	if !iconDrawn {
-		iconDrawn = drawIcon(im, icon, ink)
-	}
-	centered := func(s string, y, size int, c color.RGBA) {
-		runes := []rune(strings.ToUpper(s))
-		maxChars := (w - 14) / (6 * size)
-		if len(runes) > maxChars {
-			runes = runes[:maxChars]
-		}
-		text(im, (w-len(runes)*6*size+size)*scale/2, y*scale, size*scale, string(runes), c)
-	}
-	if iconDrawn {
-		centered(label, 10, 1, foreground)
-	} else if label != "" {
-		// Custom actions keep readable, wrapped labels instead of clipped text.
-		words := strings.Fields(label)
-		line := ""
-		y := 24
-		for _, word := range words {
-			if len(line)+len(word)+1 > 8 && line != "" {
-				centered(line, y, 2, foreground)
-				y += 18
-				line = ""
-			}
-			if line != "" {
-				line += " "
-			}
-			line += word
-		}
-		if line != "" {
-			centered(line, y, 2, foreground)
-		}
-	}
-	if value != "" {
-		rect(7, 87, w-14, 19, accent)
-		size := 2
-		if len([]rune(value)) > 8 {
-			size = 1
-		}
-		y := 90
-		if size == 1 {
-			y = 93
-		}
-		centered(value, y, size, background)
-	}
-	// Average the geometry and rotate 90 degrees counterclockwise for + XL.
-	rotated := image.NewRGBA(image.Rect(0, 0, h, w))
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
-			var r, g, b uint32
-			for dy := 0; dy < scale; dy++ {
-				for dx := 0; dx < scale; dx++ {
-					p := im.RGBAAt(x*scale+dx, y*scale+dy)
-					r += uint32(p.R)
-					g += uint32(p.G)
-					b += uint32(p.B)
-				}
-			}
-			rotated.SetRGBA(y, w-1-x, color.RGBA{uint8(r / 16), uint8(g / 16), uint8(b / 16), 255})
-		}
-	}
-	var b bytes.Buffer
-	jpeg.Encode(&b, rotated, &jpeg.Options{Quality: 92})
-	return b.Bytes()
-}
-
 type keyPresentation struct {
 	Artwork            string
 	Label, Value, Icon string
@@ -367,22 +257,6 @@ func decodeArtwork(artwork string) (image.Image, bool) {
 		return nil, false
 	}
 	return source, true
-}
-
-func drawArtwork(im *image.RGBA, artwork string) bool {
-	source, ok := decodeArtwork(artwork)
-	if !ok {
-		return false
-	}
-	scale := im.Bounds().Dx() / 112
-	bounds := source.Bounds()
-	for y := 0; y < 64; y++ {
-		for x := 0; x < 64; x++ {
-			pixel := source.At(bounds.Min.X+x*bounds.Dx()/64, bounds.Min.Y+y*bounds.Dy()/64)
-			draw.Draw(im, image.Rect((24+x)*scale, (20+y)*scale, (25+x)*scale, (21+y)*scale), &image.Uniform{pixel}, image.Point{}, draw.Over)
-		}
-	}
-	return true
 }
 
 // drawThumb draws artwork, or the icon when there is none, in a size-pixel

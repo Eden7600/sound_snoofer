@@ -26,11 +26,13 @@ func TestBorderlessDistinctSignalIcons(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		// These middle-edge pixels held the old perimeter, independent of rotation.
+		// No perimeter: middle-edge pixels match the key's own fill, sampled
+		// clear of text and icon (key pixel (100, 60), rotated).
+		fr, fg, fb, _ := im.At(60, 11).RGBA()
 		for _, p := range []image.Point{{3, 56}, {108, 56}, {56, 3}, {56, 108}} {
 			r, g, b, _ := im.At(p.X, p.Y).RGBA()
-			if r>>8 > 40 || g>>8 > 45 || b>>8 > 50 {
-				t.Fatal("key perimeter remains", icon, p)
+			if abs(int(r>>8)-int(fr>>8)) > 12 || abs(int(g>>8)-int(fg>>8)) > 12 || abs(int(b>>8)-int(fb>>8)) > 12 {
+				t.Fatal("key perimeter differs from its fill", icon, p)
 			}
 		}
 	}

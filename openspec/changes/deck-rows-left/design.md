@@ -20,7 +20,7 @@ Reference: the "R3 · Rows left" and "R2 · Colour system" artboards on the Stre
 | Row | Position |
 |---|---|
 | Label | Top 8, left 10, line height = size + 1 |
-| Icon | 30 × 30 at (10, 44). The icon's 80 px drawing area is scaled down |
+| Icon | 34 × 34 at (10, 42). The icon's 80 px drawing area is scaled down; glyphs rarely fill it, so 34 px matches the 30 px prototype icons |
 | Value | Top 76, left 10 |
 
 - **No value:** for go-to keys and blank values, the icon grows to 40 px at (10, 56).
