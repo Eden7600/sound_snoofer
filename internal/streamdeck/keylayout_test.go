@@ -12,6 +12,22 @@ import (
 	"testing"
 )
 
+// unrotate decodes a key JPEG and undoes the hardware rotation.
+func unrotate(t *testing.T, raw []byte) *image.RGBA {
+	t.Helper()
+	im, err := jpeg.Decode(bytes.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := image.NewRGBA(image.Rect(0, 0, 112, 112))
+	for y := 0; y < 112; y++ {
+		for x := 0; x < 112; x++ {
+			out.Set(x, y, im.At(y, 111-x))
+		}
+	}
+	return out
+}
+
 // decodeKey renders a key and undoes the hardware rotation.
 func decodeKey(t *testing.T, label, value, icon string, on bool, artwork string) *image.RGBA {
 	t.Helper()
@@ -204,6 +220,7 @@ func TestRowsPreview(t *testing.T) {
 		{"Sync", "Wait", "huesync-sync", false, ""},
 		{"Up", "1/2", "deck-up", false, ""},
 		{"Room", "Upstairs Living Room", "", false, ""},
+		{"Mute", "Inactive", "mic-mute", false, ""}, // Drawn inactive below.
 	}
 	const columns, gap = 7, 16
 	rows := (len(examples) + columns - 1) / columns
@@ -211,6 +228,10 @@ func TestRowsPreview(t *testing.T) {
 	fill(sheet, 0, 0, sheet.Bounds().Dx(), sheet.Bounds().Dy(), color.RGBA{11, 12, 13, 255})
 	for n, e := range examples {
 		im := decodeKey(t, e.label, e.value, e.icon, e.on, e.artwork)
+		if e.value == "Inactive" {
+			raw, _ := drawKey([]string{e.label, "On"}, 112, 112, true, e.icon, false, true, "", 0)
+			im = unrotate(t, raw)
+		}
 		x0, y0 := (n%columns)*(112+gap), (n/columns)*(112+gap)
 		for y := 0; y < 112; y++ {
 			for x := 0; x < 112; x++ {
@@ -223,4 +244,40 @@ func TestRowsPreview(t *testing.T) {
 		}
 	}
 	writePreview(t, os.Getenv("SNOOFER_ROWS_PREVIEW"), sheet)
+}
+
+func TestInactiveKeysAndDialsAreGrey(t *testing.T) {
+	raw, _ := drawKey([]string{"Mute", "On"}, 112, 112, true, "mic-mute", false, true, "", 0)
+	im, err := jpeg.Decode(bytes.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Dark, not filled cyan, and nothing in the value row's place but the
+	// enlarged grey icon.
+	if r, g, b, _ := im.At(60, 11).RGBA(); !near(rgba(r, g, b), keyColor, 16) {
+		t.Fatal("inactive key is filled")
+	}
+	grey, colour := false, false
+	for y := 0; y < 112; y++ {
+		for x := 0; x < 112; x++ {
+			r, g, b, _ := im.At(x, y).RGBA()
+			c := rgba(r, g, b)
+			grey = grey || near(c, unknownColor, 20)
+			colour = colour || near(c, micArea, 60)
+		}
+	}
+	if !grey || colour {
+		t.Fatal("inactive key is not grey", grey, colour)
+	}
+	var knobs [Encoders]knobPresentation
+	knobs[0] = knobPresentation{Target: "Mic", Value: "0.0 dB", Icon: "mic-mute", Meter: true, LevelKnown: true, LevelDB: -10, PositionKnown: true, Position: 0.8, Inactive: true}
+	strip, _ := renderKnobs(knobs, 0)
+	sim, err := jpeg.Decode(bytes.NewReader(strip))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// No meter along the bottom edge (strip rotated: panel (x, y) is at (y, 1199-x)).
+	if r, g, b, _ := sim.At(95, 1199-10).RGBA(); near(rgba(r, g, b), meterGreenColor, 40) {
+		t.Fatal("inactive dial shows a meter")
+	}
 }

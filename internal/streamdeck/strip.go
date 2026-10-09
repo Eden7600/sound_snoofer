@@ -85,9 +85,13 @@ func drawControlKnob(im *image.RGBA, x0 int, k knobPresentation) {
 		width := set.width(labelFace, f.px, f.lines[0])
 		set.draw(im, 1, labelFace, f.px, x0+panelWidth-panelInset-width, 10, f.lines[0], attentionColor)
 	}
+	target, ink := keyArea(k.Icon), lightValue
+	if k.Inactive {
+		target, ink = unknownColor, unknownColor
+	}
 	if k.Target != "" {
 		f := set.fit(labelFace, k.Target, dialWidth, 13, 10, 1)
-		set.draw(im, 1, labelFace, f.px, x, 10, f.lines[0], keyArea(k.Icon))
+		set.draw(im, 1, labelFace, f.px, x, 10, f.lines[0], target)
 	}
 	number, unit := k.Value, ""
 	if head, tail, ok := strings.Cut(k.Value, " "); ok && (tail == "dB" || tail == "%") {
@@ -98,10 +102,13 @@ func drawControlKnob(im *image.RGBA, x0 int, k knobPresentation) {
 		unitWidth = set.width(labelFace, 16, unit) + 6
 	}
 	value := set.fit(valueFace, strings.ToUpper(number), dialWidth-unitWidth, 44, 20, 1)
-	set.draw(im, 1, valueFace, value.px, x-1, 28, value.lines[0], lightValue)
+	set.draw(im, 1, valueFace, value.px, x-1, 28, value.lines[0], ink)
 	if unit != "" {
 		end := x + set.width(valueFace, value.px, value.lines[0]) + 4
 		set.draw(im, 1, labelFace, 16, end, 28+value.px-20, unit, offValue)
+	}
+	if k.Inactive {
+		return // No position or level while the control has no effect.
 	}
 	if k.PositionKnown {
 		drawPosition(im, x, dialWidth, k)

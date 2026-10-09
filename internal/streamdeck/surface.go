@@ -15,6 +15,7 @@ type Tile struct {
 	Position           float64      // 0…1.
 	ZeroMark           float64      // 0…1 position of a neutral mark; 0 for none.
 	Timers             [2]TimerTile // Dials: countdowns shown instead of a control; the first is used first.
+	Inactive           bool         // Greyed and inert: the control has no effect right now.
 }
 
 // TimerTile is one countdown on a dial panel: artwork (or icon), name and
@@ -52,11 +53,11 @@ func renderFrame(f Frame) ([][]byte, []byte) {
 func renderChangedFrame(f Frame, cache *keyCache, phase time.Duration) ([][]byte, []byte, bool) {
 	view := presentation{}
 	for n, k := range f.Keys {
-		view.Keys[n] = keyPresentation{Artwork: k.Artwork, Label: k.Label, Value: k.Value, Icon: k.Icon}
+		view.Keys[n] = keyPresentation{Artwork: k.Artwork, Label: k.Label, Value: k.Value, Icon: k.Icon, Inactive: k.Inactive}
 	}
 	for n, k := range f.Dials {
 		view.Knobs[n] = knobPresentation{Target: k.Label, Value: k.Value, Meter: k.Meter, LevelKnown: k.LevelKnown, LevelDB: k.LevelDB,
-			PeakKnown: k.PeakKnown, PeakDB: k.PeakDB, PositionKnown: k.PositionKnown, Position: k.Position, ZeroMark: k.ZeroMark, Timers: k.Timers, Artwork: k.Artwork, Status: k.Status}
+			PeakKnown: k.PeakKnown, PeakDB: k.PeakDB, PositionKnown: k.PositionKnown, Position: k.Position, ZeroMark: k.ZeroMark, Timers: k.Timers, Artwork: k.Artwork, Status: k.Status, Inactive: k.Inactive}
 		if n == Encoders-1 {
 			// Only the page dial carries text (the next page name) in Icon; a
 			// control's icon is an identifier, never strip text.

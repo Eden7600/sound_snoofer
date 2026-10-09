@@ -9,7 +9,8 @@ import (
 )
 
 // bindingTile presents a binding's current control. Hidden controls and
-// unavailable controls without label or icon (empty provider slots) render blank.
+// unavailable controls without label or icon (empty provider slots) render
+// blank; inactive controls render greyed.
 func bindingTile(b Binding, c snoofer.Control, ok bool, now time.Time) device.Tile {
 	if b.Control == "" {
 		return device.Tile{}
@@ -19,6 +20,14 @@ func bindingTile(b Binding, c snoofer.Control, ok bool, now time.Time) device.Ti
 	}
 	if c.Hidden {
 		return device.Tile{}
+	}
+	if c.Inactive {
+		// No effect right now: greyed in place, with no value or meter.
+		label := c.ShortLabel
+		if label == "" {
+			label = c.Label
+		}
+		return device.Tile{Label: label, Icon: c.Icon, Inactive: true}
 	}
 	if !c.Available {
 		if c.Label == "" && c.ShortLabel == "" && c.Icon == "" {

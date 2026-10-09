@@ -29,6 +29,7 @@ type Control struct {
 	Connection                                  *Connection `json:",omitempty"` // Optional external integration report (Kind "connection").
 	SurfaceOnly                                 bool
 	Hidden                                      bool // Optional: no useful place on surfaces right now; the deck renders a blank key and GUIs omit it. Publish it unavailable.
+	Inactive                                    bool // Optional: has no effect right now, such as mic-path controls while the mic stack is off; surfaces show it greyed and inert in its place.
 	OptionLabels                                map[string]string
 	EnterOnly                                   bool
 	Epoch                                       uint64

@@ -420,7 +420,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					b = p.Keys[event.Key]
 				}
 				c, ok := shown[b.Control]
-				if !ok || !c.Available || c.Hidden { // Hidden bindings are blank and inert.
+				if !ok || !c.Available || c.Hidden || c.Inactive { // Hidden bindings are blank and inactive ones grey; both are inert.
 					continue
 				}
 				if target, ok := strings.CutPrefix(c.ID, gotoPrefix); ok {

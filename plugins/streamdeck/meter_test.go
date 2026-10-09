@@ -35,3 +35,11 @@ func TestSelectionKeyShowsOptionLabel(t *testing.T) {
 		t.Fatal("unlabelled value", tile)
 	}
 }
+
+func TestInactiveControlTile(t *testing.T) {
+	c := snoofer.Control{ID: "audio.mic-mute", Label: "Mic Mute", ShortLabel: "Mute", Icon: "mic-mute", Value: "On", Available: true, Inactive: true}
+	tile := bindingTile(Binding{Control: c.ID}, c, true, time.Now())
+	if !tile.Inactive || tile.Label != "Mute" || tile.Icon != "mic-mute" || tile.Value != "" || tile.Meter {
+		t.Fatal("inactive tile", tile)
+	}
+}

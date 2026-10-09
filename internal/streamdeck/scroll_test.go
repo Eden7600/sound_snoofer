@@ -34,15 +34,15 @@ const longTitle = "Midnight City (Eric Prydz Private Remix) - Extended"
 
 func TestLongTitleScrollsInsideItsBox(t *testing.T) {
 	art := testArtwork(t)
-	start, scrolls := drawKey([]string{longTitle, "Paused"}, 112, 112, false, "media-play", false, art, 0)
+	start, scrolls := drawKey([]string{longTitle, "Paused"}, 112, 112, false, "media-play", false, false, art, 0)
 	if !scrolls {
 		t.Fatal("long title does not scroll")
 	}
-	later, _ := drawKey([]string{longTitle, "Paused"}, 112, 112, false, "media-play", false, art, scrollHold+2*time.Second)
+	later, _ := drawKey([]string{longTitle, "Paused"}, 112, 112, false, "media-play", false, false, art, scrollHold+2*time.Second)
 	if bytes.Equal(start, later) {
 		t.Fatal("scrolling title did not move")
 	}
-	if _, scrolls := drawKey([]string{"Lofi beats", "Paused"}, 112, 112, false, "media-play", false, art, 0); scrolls {
+	if _, scrolls := drawKey([]string{"Lofi beats", "Paused"}, 112, 112, false, "media-play", false, false, art, 0); scrolls {
 		t.Fatal("a title that fits scrolls")
 	}
 	// Mid-scroll, the label row stays clear of the corner inset.

@@ -62,13 +62,13 @@ func styleFor(accent color.RGBA, value string, area color.RGBA) keyStyle {
 // start. lines are the label and value; artwork, when it decodes, fills a
 // band above the label.
 func renderArtwork(lines []string, w, h int, on bool, icon string, fallback bool, artwork string) []byte {
-	key, _ := drawKey(lines, w, h, on, icon, fallback, artwork, 0)
+	key, _ := drawKey(lines, w, h, on, icon, fallback, false, artwork, 0)
 	return key
 }
 
-// drawKey is renderArtwork at a scroll phase; it reports whether any of the
-// key's text scrolls.
-func drawKey(lines []string, w, h int, on bool, icon string, fallback bool, artwork string, phase time.Duration) ([]byte, bool) {
+// drawKey is renderArtwork at a scroll phase, greyed without a value when
+// inactive; it reports whether any of the key's text scrolls.
+func drawKey(lines []string, w, h int, on bool, icon string, fallback, inactive bool, artwork string, phase time.Duration) ([]byte, bool) {
 	scrolls := false
 	// Supersample geometry and text, then average down.
 	const scale = 4
@@ -101,6 +101,11 @@ func drawKey(lines []string, w, h int, on bool, icon string, fallback bool, artw
 		value = "" // The fill already says Playing or Active.
 	}
 	style := styleFor(accent, value, keyArea(icon))
+	if inactive {
+		// No effect right now: greyed in place, with no state to show.
+		style = keyStyle{background: keyColor, label: unknownColor, icon: unknownColor, value: unknownColor}
+		value, artwork = "", ""
+	}
 	fill(im, 0, 0, w*scale, h*scale, style.background)
 
 	set := typefaces()

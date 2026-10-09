@@ -489,9 +489,10 @@ func controls(s control.State) []snoofer.Control {
 		if out[n].Group == "Bindings" {
 			out[n].Label += " · " + s.Profile
 		}
-		// With the mic stack off, mic-path controls have no use on control
-		// surfaces; the GUI still shows them, so availability is unchanged.
-		out[n].Hidden = !s.Intent.Enabled && micPathControls[key]
+		// With the mic stack off, mic-path controls have no effect: surfaces
+		// show them inactive in place. The GUI still shows them, so
+		// availability is unchanged.
+		out[n].Inactive = !s.Intent.Enabled && micPathControls[key]
 		if out[n].Kind == "numeric" || out[n].Group == "Transport" {
 			out[n].Available = s.Connected && s.Live
 			if strings.HasPrefix(key, "gain-") {

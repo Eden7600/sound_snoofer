@@ -41,7 +41,7 @@ func render(lines []string, w, h int, on bool, icon string, fallback bool) []byt
 type keyPresentation struct {
 	Artwork            string
 	Label, Value, Icon string
-	Fallback           bool
+	Fallback, Inactive bool
 }
 type knobPresentation struct {
 	Target, Value, Name, Status string
@@ -52,6 +52,7 @@ type knobPresentation struct {
 	Timers                      [2]TimerTile
 	Artwork                     string // Shown left of the dial's text when set.
 	Icon                        string // The control's icon; names its area colour.
+	Inactive                    bool   // Greyed, without position track or meter.
 }
 type presentation struct {
 	Keys  [Keys]keyPresentation
@@ -65,7 +66,7 @@ func renderKey(key keyPresentation, phase time.Duration) ([]byte, bool) {
 	if key.Label != "" {
 		lines = []string{key.Label, key.Value}
 	}
-	return drawKey(lines, 112, 112, key.Value == "On" || key.Value == "Recording", key.Icon, key.Fallback, key.Artwork, phase)
+	return drawKey(lines, 112, 112, key.Value == "On" || key.Value == "Recording", key.Icon, key.Fallback, key.Inactive, key.Artwork, phase)
 }
 
 func renderPresentation(view presentation) ([][]byte, []byte) {
