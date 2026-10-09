@@ -127,7 +127,7 @@ func (w *worker) controls(now time.Time) []snoofer.Control {
 	case w.voice.channelName != "":
 		channel = w.voice.channelName
 	default:
-		channel = "Voice channel"
+		channel = "Voice Channel"
 	}
 	toggle := func(id, label, short, icon string, blocked string, known bool) snoofer.Control {
 		value := w.observed(id)
@@ -141,13 +141,13 @@ func (w *worker) controls(now time.Time) []snoofer.Control {
 		connect = "Pending"
 	}
 	return []snoofer.Control{
-		{ID: "discord.channel", Label: "Discord channel", ShortLabel: "Channel", Group: "Discord", Kind: "status", Icon: "call",
+		{ID: "discord.channel", Label: "Discord Channel", ShortLabel: "Channel", Group: "Discord", Kind: "status", Icon: "call",
 			Value: channel, Status: reason, Available: true},
 		w.muteControl(reason),
-		toggle("discord.deafen", "Discord deafen", "Deafen", "discord-deafen", reason, w.voice.settingsKnown),
-		toggle("discord.video", "Discord camera", "Camera", "discord-video", inCall, true),
-		toggle("discord.screenshare", "Discord screen share", "Share", "screen-share", inCall, true),
-		{ID: "discord.leave", Label: "Leave Discord call", ShortLabel: "Leave", Group: "Discord", Kind: "command", Icon: "call-leave",
+		toggle("discord.deafen", "Discord Deafen", "Deafen", "discord-deafen", reason, w.voice.settingsKnown),
+		toggle("discord.video", "Discord Camera", "Camera", "discord-video", inCall, true),
+		toggle("discord.screenshare", "Discord Screen Share", "Share", "screen-share", inCall, true),
+		{ID: "discord.leave", Label: "Leave Discord Call", ShortLabel: "Leave", Group: "Discord", Kind: "command", Icon: "call-leave",
 			Status: w.controlStatus("discord.leave", inCall), Operations: []string{"press"}, Available: inCall == ""},
 		{ID: "discord.connect", Label: "Connect Discord", ShortLabel: "Connect", Group: "Discord", Kind: "command", Icon: "discord-connect",
 			Status: w.controlStatus("discord.connect", connect), Operations: []string{"press"}, Available: w.state == stateUnauthorized},
@@ -178,7 +178,7 @@ func (w *worker) report(now time.Time) snoofer.Control {
 	}
 	details := []snoofer.ConnectionDetail{{Label: "Authorization", Value: authorization}}
 	if w.state == stateReady {
-		details = append(details, snoofer.ConnectionDetail{Label: "Voice channel", Value: onOff(w.voice.channelID != "")})
+		details = append(details, snoofer.ConnectionDetail{Label: "Voice Channel", Value: onOff(w.voice.channelID != "")})
 	}
 	endpoint := w.pipeName
 	if endpoint == "" {
@@ -213,7 +213,7 @@ func onOff(on bool) string {
 // mirrors audio.mic-mute, so automatic deck layouts show only one of them.
 func (w *worker) muteControl(reason string) snoofer.Control {
 	pref := w.mic.MicMute()
-	c := snoofer.Control{ID: "discord.mute", Label: "Discord mute", ShortLabel: "Mute", Group: "Discord", Kind: "toggle", Icon: "mic-mute",
+	c := snoofer.Control{ID: "discord.mute", Label: "Discord Mute", ShortLabel: "Mute", Group: "Discord", Kind: "toggle", Icon: "mic-mute",
 		Mirrors: "audio.mic-mute", Operations: []string{"press"}, Status: reason, Available: reason == "" && pref.Known}
 	if pref.Known {
 		c.Value = onOff(pref.Muted)

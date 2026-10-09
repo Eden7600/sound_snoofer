@@ -14,7 +14,7 @@ func tapeRows(r *model.RecorderSnapshot) []tapeRow {
 	state := r.State()
 	playing := r.TapePlaying()
 	idle := state == "Stopped" || playing
-	play := tapeRow{id: "tape-play", label: "Play recording", value: "Ready", icon: "tape-play", available: idle}
+	play := tapeRow{id: "tape-play", label: "Play Recording", value: "Ready", icon: "tape-play", available: idle}
 	switch {
 	case playing && state == "Playing":
 		play.value, play.icon = "Playing", "tape-pause"
@@ -27,7 +27,7 @@ func tapeRows(r *model.RecorderSnapshot) []tapeRow {
 	}
 	return []tapeRow{
 		play,
-		{id: "tape-stop", label: "Stop playback", icon: "tape-stop", available: playing},
+		{id: "tape-stop", label: "Stop Playback", icon: "tape-stop", available: playing},
 		{id: "tape-rew", label: "Rewind", icon: "tape-rew", available: idle},
 		{id: "tape-ff", label: "Fast-forward", icon: "tape-ff", available: idle},
 	}

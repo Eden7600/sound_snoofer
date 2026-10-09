@@ -220,10 +220,10 @@ func (i *Instance) priorityControls(s control.State) []snoofer.Control {
 	}
 	data := i.viewData
 	return []snoofer.Control{
-		{ID: "audio.priorities", Label: "Device priorities", Group: "Routing", Kind: "status", Value: "", Status: editErr, ViewData: data, Available: true},
-		{ID: "audio.priority-edit", Label: "Device priority edit", Group: "Routing", Kind: "text", Value: fmt.Sprintf("%x", sha256.Sum256(raw))[:12], Status: editErr,
+		{ID: "audio.priorities", Label: "Device Priorities", Group: "Routing", Kind: "status", Value: "", Status: editErr, ViewData: data, Available: true},
+		{ID: "audio.priority-edit", Label: "Device Priority Edit", Group: "Routing", Kind: "text", Value: fmt.Sprintf("%x", sha256.Sum256(raw))[:12], Status: editErr,
 			Operations: []string{"set"}, Available: i.saveSettings != nil},
-		{ID: "audio.output-edit", Label: "Output edit", Group: "Routing", Kind: "text", Value: fmt.Sprintf("%x", sha256.Sum256(raw))[:12], Status: editErr,
+		{ID: "audio.output-edit", Label: "Output Edit", Group: "Routing", Kind: "text", Value: fmt.Sprintf("%x", sha256.Sum256(raw))[:12], Status: editErr,
 			Operations: []string{"set"}, Available: i.saveSettings != nil},
 	}
 }

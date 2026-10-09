@@ -132,8 +132,8 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 			}
 			controls := []snoofer.Control{
 				{ID: "soundboard.status", Label: "Soundboard", Group: "Soundboard", Kind: "status", Value: note, Timers: voices.timers(), Available: true},
-				{ID: "soundboard.stop", Label: "Stop soundboard", ShortLabel: "Stop", Group: "Soundboard", Kind: "command", Icon: "soundboard-stop", Operations: []string{"press"}, Available: s.Live},
-				{ID: "soundboard.overlap", Label: "Overlap clips", ShortLabel: "Overlap", Group: "Soundboard", Kind: "toggle", Icon: "soundboard-overlap", Value: onOff(settings.Overlap), Operations: []string{"press"}, Available: true},
+				{ID: "soundboard.stop", Label: "Stop Soundboard", ShortLabel: "Stop", Group: "Soundboard", Kind: "command", Icon: "soundboard-stop", Operations: []string{"press"}, Available: s.Live},
+				{ID: "soundboard.overlap", Label: "Overlap Clips", ShortLabel: "Overlap", Group: "Soundboard", Kind: "toggle", Icon: "soundboard-overlap", Value: onOff(settings.Overlap), Operations: []string{"press"}, Available: true},
 			}
 			volume, volumeHandler := audioPlugin.SoundboardVolume()
 			controls = append(controls, volume, playbackReport(&link, s.Live, ready, voices.loaded(), settings.Renderer, lastClip, time.Now()))
@@ -150,7 +150,7 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 				if c.ID == failed {
 					status = diagnostic
 				}
-				controls = append(controls, snoofer.Control{Artwork: c.Artwork, Animation: c.Animation, ID: c.ID, Label: c.Label, Group: "Soundboard", Collection: "soundboard.clips", CollectionLabel: "Soundboard clips", Kind: "command", Icon: "soundboard-play", Value: value, Status: status, Operations: []string{"press"}, Available: s.Live && ready == nil && scanErr == nil})
+				controls = append(controls, snoofer.Control{Artwork: c.Artwork, Animation: c.Animation, ID: c.ID, Label: c.Label, Group: "Soundboard", Collection: "soundboard.clips", CollectionLabel: "Soundboard Clips", Kind: "command", Icon: "soundboard-play", Value: value, Status: status, Operations: []string{"press"}, Available: s.Live && ready == nil && scanErr == nil})
 			}
 			if err := s.Controls.Publish("soundboard", controls, func(ctx context.Context, r snoofer.Request) error {
 				if r.ID == volume.ID {

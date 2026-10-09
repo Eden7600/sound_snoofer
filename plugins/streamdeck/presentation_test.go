@@ -9,7 +9,7 @@ import (
 )
 
 func TestCompactPresentationPreservesDiagnostics(t *testing.T) {
-	c := snoofer.Control{Label: "Mic mute", ShortLabel: "Mute", Icon: "mic-mute", Value: "On"}
+	c := snoofer.Control{Label: "Mic Mute", ShortLabel: "Mute", Icon: "mic-mute", Value: "On"}
 	for status, want := range map[string]string{"": "On", "Pending": "Wait", "Unknown": "N/A", "Disconnected": "N/A", "native write failed": "Error", "VR override": "VR"} {
 		c.Status = status
 		tile := controlTile(c, c.Value, time.Now())

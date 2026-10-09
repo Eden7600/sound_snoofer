@@ -132,9 +132,9 @@ func TestEditorViewRegions(t *testing.T) {
 	p := Page{ID: "s", Name: "S", Regions: []Region{{Source: "soundboard.clips", First: 0, Last: 1}}}
 	l := Layout{Home: "s", Pages: []Page{p}}
 	controls := clips(1)
-	controls[0].CollectionLabel = "Soundboard clips"
+	controls[0].CollectionLabel = "Soundboard Clips"
 	view := editorView(l, "s", 0, false, controls)
-	if len(view.Regions) != 1 || view.Regions[0].Label != "Soundboard clips" || view.Regions[0].Legacy {
+	if len(view.Regions) != 1 || view.Regions[0].Label != "Soundboard Clips" || view.Regions[0].Legacy {
 		t.Fatal(view.Regions)
 	}
 	if view.Keys[0].Region != 0 || view.Keys[1].Region != 0 || view.Keys[2].Region != -1 || view.Keys[0].Source != "Auto" {
@@ -149,7 +149,7 @@ func TestEditorViewRegions(t *testing.T) {
 func TestTextControlsHaveNoDeckPosition(t *testing.T) {
 	l := Layout{Home: "a", Pages: []Page{{ID: "a", Name: "A"}}}
 	l.Pages[0].Keys[0] = Binding{Control: "hue.rooms"}
-	rooms := snoofer.Control{ID: "hue.rooms", Label: "Hue rooms", Kind: "text", Operations: []string{"set"}}
+	rooms := snoofer.Control{ID: "hue.rooms", Label: "Hue Rooms", Kind: "text", Operations: []string{"set"}}
 	if err := l.Validate([]snoofer.Control{rooms}); err == nil || !strings.Contains(err.Error(), "text entry") {
 		t.Fatal(err)
 	}

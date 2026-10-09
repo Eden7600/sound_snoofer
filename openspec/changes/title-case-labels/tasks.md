@@ -1,7 +1,7 @@
 # Tasks
 ## Implementation
 - [x] 1. `docs(ui)`: specify title-case built-in labels and the Mic Path rename; update the UI contract.
-- [ ] 2. `feat(plugins)`: Mic Path, and title-case control, option, collection, group and report labels in every plugin; tests.
+- [x] 2. `feat(plugins)`: Mic Path, and title-case control, option, collection, group and report labels in every plugin; tests.
 - [ ] 3. `feat(gui)`: title-case screen titles, headings, buttons and field labels; GUI check.
 - [ ] 4. Validate: gofmt, `go test ./...`, `go vet ./...`, GUI checks, OpenSpec strict validation, canonical build; restart Snoofer.
 

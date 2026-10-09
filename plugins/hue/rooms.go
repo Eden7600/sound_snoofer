@@ -78,6 +78,6 @@ func (w *worker) roomsControl() snoofer.Control {
 		choices = append(choices, roomChoice{ID: g.ID, Name: g.Name, Kind: g.Kind, Chosen: w.settings.chosen(g.ID)})
 	}
 	view, _ := json.Marshal(choices) // Plain string and bool fields always marshal.
-	return snoofer.Control{ID: "hue.rooms", Label: "Hue rooms", Group: "Hue", Kind: "text", Value: strings.Join(w.settings.Rooms, ","),
+	return snoofer.Control{ID: "hue.rooms", Label: "Hue Rooms", Group: "Hue", Kind: "text", Value: strings.Join(w.settings.Rooms, ","),
 		Status: w.roomsErr, ViewData: view, Operations: []string{"set"}, Available: w.services.Live && w.connected}
 }

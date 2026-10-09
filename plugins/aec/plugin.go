@@ -33,7 +33,7 @@ type Settings struct {
 
 var (
 	engines      = []string{"aec3", "localvqe-aec", "localvqe-voice", "localvqe-full"}
-	engineLabels = map[string]string{"aec3": "WebRTC AEC3", "localvqe-aec": "LocalVQE echo-only", "localvqe-voice": "LocalVQE voice cleanup", "localvqe-full": "LocalVQE full-band"}
+	engineLabels = map[string]string{"aec3": "WebRTC AEC3", "localvqe-aec": "LocalVQE Echo-Only", "localvqe-voice": "LocalVQE Voice Cleanup", "localvqe-full": "LocalVQE Full-Band"}
 	modes        = []string{"auto", "on", "off"}
 	strengths    = []string{"strong", "balanced", "gentle"}
 	modeLabels   = map[string]string{"auto": "Auto", "on": "On", "off": "Off"}
@@ -110,7 +110,7 @@ type mixer interface {
 
 // Plugin returns inert metadata; the engine loads only when first needed.
 func Plugin() snoofer.Plugin {
-	return snoofer.Plugin{ID: "aec", Label: "Echo cancellation", Validate: validate, Defaults: snoofer.MarshalSettings(Settings{}), Requires: []string{"audio"},
+	return snoofer.Plugin{ID: "aec", Label: "Echo Cancellation", Validate: validate, Defaults: snoofer.MarshalSettings(Settings{}), Requires: []string{"audio"},
 		Start: func(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps map[string]snoofer.Instance) (snoofer.Instance, error) {
 			return start(ctx, s, raw, deps["audio"].(*audio.Instance), openBesideExecutable, time.Second)
 		}}
@@ -546,17 +546,17 @@ func (w *worker) publish() {
 	value, detail := w.status()
 	canSave := w.services.SaveSettings != nil
 	controls := []snoofer.Control{
-		{ID: "aec.retry", Label: "Retry echo cancellation", ShortLabel: "Retry", Group: "Echo cancellation", Kind: "command", Icon: "echo", Operations: []string{"press"}, Available: w.canRetry()},
-		{ID: "aec.engine", Label: "Echo engine", ShortLabel: "Engine", Group: "Echo cancellation", Kind: "selection", Icon: "echo", Value: w.settings.engine(), Options: engines, OptionLabels: engineLabels, Status: w.saveErr, Operations: []string{"set"}, Available: canSave},
-		{ID: "aec.mode", Label: "Echo cancellation", ShortLabel: "Echo", Group: "Echo cancellation", Kind: "selection", Icon: "echo",
+		{ID: "aec.retry", Label: "Retry Echo Cancellation", ShortLabel: "Retry", Group: "Echo Cancellation", Kind: "command", Icon: "echo", Operations: []string{"press"}, Available: w.canRetry()},
+		{ID: "aec.engine", Label: "Echo Engine", ShortLabel: "Engine", Group: "Echo Cancellation", Kind: "selection", Icon: "echo", Value: w.settings.engine(), Options: engines, OptionLabels: engineLabels, Status: w.saveErr, Operations: []string{"set"}, Available: canSave},
+		{ID: "aec.mode", Label: "Echo Cancellation", ShortLabel: "Echo", Group: "Echo Cancellation", Kind: "selection", Icon: "echo",
 			Value: w.settings.mode(), Options: modes, OptionLabels: modeLabels, Status: w.saveErr, Operations: []string{"set"}, Available: canSave},
-		{ID: "aec.strength", Label: "Echo strength", ShortLabel: "Strength", Group: "Echo cancellation", Kind: "selection", Icon: "echo",
+		{ID: "aec.strength", Label: "Echo Strength", ShortLabel: "Strength", Group: "Echo Cancellation", Kind: "selection", Icon: "echo",
 			Value: w.settings.strength(), Options: strengths, OptionLabels: strengthText, Operations: []string{"set"}, Available: canSave && w.settings.engine() == "aec3"},
-		{ID: "aec.status", Label: "Echo cancellation status", ShortLabel: "Echo", Group: "Echo cancellation", Kind: "status", Icon: "echo",
+		{ID: "aec.status", Label: "Echo Cancellation Status", ShortLabel: "Echo", Group: "Echo Cancellation", Kind: "status", Icon: "echo",
 			Value: value, Status: detail, Available: true},
 	}
 	if w.stats.TimingKnown {
-		controls = append(controls, snoofer.Control{ID: "aec.timing", Label: "Neural timing", Kind: "status", Group: "Echo cancellation", Available: true,
+		controls = append(controls, snoofer.Control{ID: "aec.timing", Label: "Neural Timing", Kind: "status", Group: "Echo Cancellation", Available: true,
 			Value:  fmt.Sprintf("%.1f / %.1f ms", w.stats.WorkerPeakMs, w.stats.QueuePeakMs),
 			Status: fmt.Sprintf("Peak worker / queue · gaps %d · underruns %d", w.stats.Gaps, w.stats.Underruns)})
 	}

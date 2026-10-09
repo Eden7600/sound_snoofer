@@ -27,8 +27,8 @@ func playbackReport(link *snoofer.ConnectionTracker, live bool, ready error, loa
 	}
 	details := []snoofer.ConnectionDetail{{Label: "Companion", Value: "snoofer-soundboard.dll · " + companion}, {Label: "Routing", Value: routing}}
 	if lastClip != "" {
-		details = append(details, snoofer.ConnectionDetail{Label: "Last clip", Value: lastClip})
+		details = append(details, snoofer.ConnectionDetail{Label: "Last Clip", Value: lastClip})
 	}
-	return snoofer.Control{ID: "soundboard.app-playback", Label: "Soundboard playback", Group: "Soundboard", Kind: "connection", Value: value,
+	return snoofer.Control{ID: "soundboard.app-playback", Label: "Soundboard Playback", Group: "Soundboard", Kind: "connection", Value: value,
 		SurfaceOnly: true, Available: true, Connection: link.Report(renderer, details...)}
 }

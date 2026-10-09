@@ -249,27 +249,27 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			slices.Sort(profiles[1:])
 			list := []snoofer.Control{}
 			add := func(id, label, kind, value string, options []string, ops ...string) {
-				list = append(list, snoofer.Control{ID: "streamdeck." + id, Epoch: editorEpoch, Label: label, Kind: kind, Group: "Stream Deck configurator", Value: value, Options: options, Operations: ops, Available: true})
+				list = append(list, snoofer.Control{ID: "streamdeck." + id, Epoch: editorEpoch, Label: label, Kind: kind, Group: "Stream Deck Configurator", Value: value, Options: options, Operations: ops, Available: true})
 			}
-			add("profile", "Device layout", "selection", editSerial, profiles, "set")
+			add("profile", "Device Layout", "selection", editSerial, profiles, "set")
 			add("page", "Page", "selection", editPage, pages, "set")
-			add("name", "Rename page", "text", draft.Pages[selected].Name, nil, "set")
-			add("region-add", "Add region", "text", "", nil, "set")
-			add("region-source", "Region source", "text", "", nil, "set")
-			add("region-clip", "Region overflow", "text", "", nil, "set")
-			add("region-remove", "Remove region", "text", "", nil, "set")
-			add("add", "New page (name)", "text", "", nil, "set")
-			add("delete", "Delete page", "command", "", nil, "press")
-			add("earlier", "Move page earlier", "command", "", nil, "press")
-			add("later", "Move page later", "command", "", nil, "press")
-			add("home", "Make this Home", "command", draft.Home, nil, "press")
+			add("name", "Rename Page", "text", draft.Pages[selected].Name, nil, "set")
+			add("region-add", "Add Region", "text", "", nil, "set")
+			add("region-source", "Region Source", "text", "", nil, "set")
+			add("region-clip", "Region Overflow", "text", "", nil, "set")
+			add("region-remove", "Remove Region", "text", "", nil, "set")
+			add("add", "New Page (Name)", "text", "", nil, "set")
+			add("delete", "Delete Page", "command", "", nil, "press")
+			add("earlier", "Move Page Earlier", "command", "", nil, "press")
+			add("later", "Move Page Later", "command", "", nil, "press")
+			add("home", "Make This Home", "command", draft.Home, nil, "press")
 			add("slot", "Position", "selection", slots[slot], slots, "set")
 			value := "Off"
 			if shared {
 				value = "On"
 			}
-			add("shared", "Shared across pages", "toggle", value, nil, "press")
-			add("binding", "Binding (empty clears)", "selection", b.Control, ids, "set")
+			add("shared", "Shared Across Pages", "toggle", value, nil, "press")
+			add("binding", "Binding (Empty Clears)", "selection", b.Control, ids, "set")
 			preview := draft.expanded(all).effective(editPage)
 			effective := preview.Keys[0]
 			if slot < Keys {
@@ -283,7 +283,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			} else if effective.Control != "" {
 				reason += " — Unavailable"
 			}
-			add("preview", "Effective position", "status", reason, nil)
+			add("preview", "Effective Position", "status", reason, nil)
 			viewData, viewErr := json.Marshal(editorView(draft, editPage, slot, dirty, all))
 			if viewErr != nil {
 				status = viewErr.Error()
@@ -294,9 +294,9 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			if dirty {
 				note = "Unsaved — " + note
 			}
-			add("status", "Layout status", "status", note, nil)
-			add("save", "Save layout", "command", "", nil, "press")
-			add("cancel", "Cancel edits", "command", "", nil, "press")
+			add("status", "Layout Status", "status", note, nil)
+			add("save", "Save Layout", "command", "", nil, "press")
+			add("cancel", "Cancel Edits", "command", "", nil, "press")
 			for n := range list {
 				if list[n].ID == "streamdeck.page" {
 					list[n].OptionLabels = map[string]string{}
@@ -305,7 +305,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					}
 				}
 				if list[n].ID == "streamdeck.binding" {
-					list[n].OptionLabels = map[string]string{"": "Clear binding"}
+					list[n].OptionLabels = map[string]string{"": "Clear Binding"}
 					for _, c := range all {
 						list[n].OptionLabels[c.ID] = c.Label + " (" + c.ID + ")"
 					}

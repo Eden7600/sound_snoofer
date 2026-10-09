@@ -77,13 +77,13 @@ func TestAudioIntegrationReports(t *testing.T) {
 	if c := find(t, list, "audio.app-recorder"); c.Connection.State != snoofer.ConnectionOff {
 		t.Fatalf("recorder without recording intent %+v", c.Connection)
 	}
-	if c := find(t, list, "audio.app-asio"); c.Connection.State != snoofer.ConnectionConnected || c.Connection.Endpoint != "Universal Audio Volt" || detail(c, "Sample rate") != "48000 Hz" {
+	if c := find(t, list, "audio.app-asio"); c.Connection.State != snoofer.ConnectionConnected || c.Connection.Endpoint != "Universal Audio Volt" || detail(c, "Sample Rate") != "48000 Hz" {
 		t.Fatalf("asio %+v", c.Connection)
 	}
 	if c := find(t, list, "audio.app-element"); c.Connection.State != snoofer.ConnectionDisconnected || c.Value != "Not running" {
 		t.Fatalf("element %+v", c.Connection)
 	}
-	if c := find(t, list, "audio.app-windows-defaults"); c.Connection.State != snoofer.ConnectionConnected || detail(c, "Playback target") == "" {
+	if c := find(t, list, "audio.app-windows-defaults"); c.Connection.State != snoofer.ConnectionConnected || detail(c, "Playback Target") == "" {
 		t.Fatalf("defaults %+v", c.Connection)
 	}
 

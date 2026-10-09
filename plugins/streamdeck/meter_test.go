@@ -25,7 +25,7 @@ func TestMeterExpiresWithoutNewPublication(t *testing.T) {
 }
 
 func TestSelectionKeyShowsOptionLabel(t *testing.T) {
-	room := snoofer.Control{ID: "hue.group", Label: "Hue room", ShortLabel: "Room", Value: "bc32966d-3aaa", Options: []string{"bc32966d-3aaa"},
+	room := snoofer.Control{ID: "hue.group", Label: "Hue Room", ShortLabel: "Room", Value: "bc32966d-3aaa", Options: []string{"bc32966d-3aaa"},
 		OptionLabels: map[string]string{"bc32966d-3aaa": "Cody Office"}, Operations: []string{"set"}, Available: true}
 	if tile := bindingTile(Binding{Control: room.ID}, room, true, time.Now()); tile.Value != "Cody Office" {
 		t.Fatal(tile)

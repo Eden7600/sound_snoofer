@@ -266,7 +266,7 @@ var micPathControls = map[string]bool{
 }
 
 func controls(s control.State) []snoofer.Control {
-	out := []snoofer.Control{{ID: "audio.health", Label: "Audio health", Group: "System", Kind: "status", Value: s.Health, Status: strings.TrimSpace(s.Error + " " + s.StateError + " " + s.Notice), Available: true}}
+	out := []snoofer.Control{{ID: "audio.health", Label: "Audio Health", Group: "System", Kind: "status", Value: s.Health, Status: strings.TrimSpace(s.Error + " " + s.StateError + " " + s.Notice), Available: true}}
 	if s.Intent == nil {
 		return out
 	}
@@ -304,7 +304,7 @@ func controls(s control.State) []snoofer.Control {
 			playbackName = s.Snapshot.Assignments[t.PlaybackTarget]
 		}
 		if len(t.ASIOUnavailable) > 0 {
-			add("asio-unavailable", "Unavailable interfaces", "Diagnostics", "status", strings.Join(t.ASIOUnavailable, ", ")+" · ASIO owned by "+t.ASIOName, nil)
+			add("asio-unavailable", "Unavailable Interfaces", "Diagnostics", "status", strings.Join(t.ASIOUnavailable, ", ")+" · ASIO owned by "+t.ASIOName, nil)
 		}
 	}
 	if !s.Connected {
@@ -314,7 +314,7 @@ func controls(s control.State) []snoofer.Control {
 	if s.Connected {
 		out[len(out)-1].Status = interfaceStatus
 	}
-	add("playback-device", "Playback device", "System", "status", playbackName, nil)
+	add("playback-device", "Playback Device", "System", "status", playbackName, nil)
 	add("mic-device", "Microphone", "System", "status", micName, nil)
 	activeTarget := s.Intent.Source
 	activeOptions := s.MicOptions
@@ -322,22 +322,22 @@ func controls(s control.State) []snoofer.Control {
 		activeTarget = s.Intent.VRProfile.Source
 		activeOptions = s.VRSourceOptions
 	}
-	add("source", "Mic stack target", "Bindings", "selection", activeTarget, microphoneTargets(activeOptions, activeTarget), "set")
-	add("mode", "Mic processing", "Bindings", "selection", i.Mode, []string{"direct", "element"}, "set", "press")
+	add("source", "Mic Stack Target", "Bindings", "selection", activeTarget, microphoneTargets(activeOptions, activeTarget), "set")
+	add("mode", "Mic Path", "Bindings", "selection", i.Mode, []string{"direct", "element"}, "set", "press")
 	add("monitor", "Monitor", "Bindings", "selection", i.Monitor, []string{"off", "pre", "post"}, "set", "press")
 	add("output", "Playback", "Bindings", "selection", i.PlaybackDevice, s.OutputOptions, "set")
 	for _, row := range []struct {
 		id, label string
 		value     bool
 	}{
-		{"mic-stack", "Mic stack", s.Intent.Enabled}, {"mic-mute", "Mic mute", i.MicMuted}, {"speaker-mute", "Playback mute", i.PlaybackMuted},
-		{"defaults", "Protect Windows defaults", i.ProtectDefaults}, {"auto-recover", "Automatic recovery", i.AutoRecover},
+		{"mic-stack", "Mic Stack", s.Intent.Enabled}, {"mic-mute", "Mic Mute", i.MicMuted}, {"speaker-mute", "Playback Mute", i.PlaybackMuted},
+		{"defaults", "Protect Windows Defaults", i.ProtectDefaults}, {"auto-recover", "Automatic Recovery", i.AutoRecover},
 	} {
 		value := "Off"
 		if row.value {
 			value = "On"
 		}
-		add(row.id, row.label, "Shared audio", "toggle", value, nil, "press")
+		add(row.id, row.label, "Shared Audio", "toggle", value, nil, "press")
 	}
 	heldDevices, heldSends := 0, 0
 	if s.Plan != nil && s.Plan.Topology != nil {
@@ -348,14 +348,14 @@ func controls(s control.State) []snoofer.Control {
 		value     bool
 		held      int
 	}{
-		{"pause-devices", "Disable device manipulation", i.PauseDevices, heldDevices},
-		{"pause-sends", "Disable send manipulation", i.PauseSends, heldSends},
+		{"pause-devices", "Disable Device Manipulation", i.PauseDevices, heldDevices},
+		{"pause-sends", "Disable Send Manipulation", i.PauseSends, heldSends},
 	} {
 		value := "Off"
 		if row.value {
 			value = "On"
 		}
-		add(row.id, row.label, "Shared audio", "toggle", value, nil, "press")
+		add(row.id, row.label, "Shared Audio", "toggle", value, nil, "press")
 		if row.value && row.held > 0 {
 			out[len(out)-1].Status = fmt.Sprintf("%d held", row.held)
 		}
@@ -365,15 +365,15 @@ func controls(s control.State) []snoofer.Control {
 		if enabled {
 			value = "On"
 		}
-		add("playback:"+source, source+" playback", "Shared audio", "toggle", value, nil, "press")
+		add("playback:"+source, source+" Playback", "Shared Audio", "toggle", value, nil, "press")
 	}
 	if i.Recording != nil {
 		for _, row := range []struct {
 			id, label string
 			value     bool
 		}{
-			{"record-mic", "Record microphone", i.Recording.MicEnabled}, {"record-computer", "Record computer", i.Recording.ComputerEnabled},
-			{"record-loop", "Loop recording", i.Recording.Loop}, {"record-vst", "Recording to VST", i.Recording.ToVST},
+			{"record-mic", "Record Microphone", i.Recording.MicEnabled}, {"record-computer", "Record Computer", i.Recording.ComputerEnabled},
+			{"record-loop", "Loop Recording", i.Recording.Loop}, {"record-vst", "Recording to VST", i.Recording.ToVST},
 		} {
 			value := "Off"
 			if row.value {
@@ -381,7 +381,7 @@ func controls(s control.State) []snoofer.Control {
 			}
 			add(row.id, row.label, "Recording", "toggle", value, nil, "press")
 		}
-		add("record-tap", "Mic stage", "Recording", "selection", i.Recording.MicTap, []string{"pre", "post"}, "press", "set")
+		add("record-tap", "Mic Stage", "Recording", "selection", i.Recording.MicTap, []string{"pre", "post"}, "press", "set")
 		for _, id := range []string{"record-start", "record-stop", "snippet-play", "snippet-stop"} {
 			add(id, strings.ReplaceAll(id, "-", " "), "Transport", "command", s.Recorder.State(), nil, "press")
 		}
@@ -398,7 +398,7 @@ func controls(s control.State) []snoofer.Control {
 		if gain, ok := s.Snapshot.Numbers[parameter]; ok {
 			value = fmt.Sprintf("%.1f dB", gain)
 		}
-		add("gain-"+target, map[string]string{"playback": "Playback", "mic": "Mic"}[target], "Shared audio", "numeric", value, nil, "adjust", "press")
+		add("gain-"+target, map[string]string{"playback": "Playback", "mic": "Mic"}[target], "Shared Audio", "numeric", value, nil, "adjust", "press")
 		level, known := s.Levels[meterSource(s.Plan, target, parameter)]
 		known = known && controller.GainIdentity(s.Plan, s.Snapshot, target) != "" && level >= 0 && !math.IsNaN(float64(level)) && !math.IsInf(float64(level), 0)
 		db := -60.0
@@ -407,22 +407,22 @@ func controls(s control.State) []snoofer.Control {
 		}
 		out[len(out)-1].Meter = snoofer.Meter{Present: true, Known: known && s.Connected && !s.RecoveryPending, DB: db, At: s.LevelsAt}
 	}
-	add("engine-restart", "Restart audio engine", "Bindings", "command", "", nil, "press")
+	add("engine-restart", "Restart Audio Engine", "Bindings", "command", "", nil, "press")
 	if s.RestartConfirmation {
-		add("engine-confirm", "Confirm audio restart (interrupts recording)", "System", "command", "Confirmation required", nil, "press")
+		add("engine-confirm", "Confirm Audio Restart (Interrupts Recording)", "System", "command", "Confirmation required", nil, "press")
 	}
 	normal := s.Intent
 	normalOptions := microphoneTargets(s.MicOptions, normal.Source)
-	add("normal-source", "Mic stack target", "Normal microphone", "selection", normal.Source, normalOptions, "set")
-	add("normal-mode", "Processing", "Normal microphone", "selection", normal.Mode, []string{"direct", "element"}, "set")
-	add("normal-monitor", "Monitoring", "Normal microphone", "selection", normal.Monitor, []string{"off", "pre", "post"}, "set")
-	add("normal-output", "Playback", "Normal playback", "selection", normal.PlaybackDevice, s.OutputOptions, "set")
+	add("normal-source", "Mic Stack Target", "Normal Microphone", "selection", normal.Source, normalOptions, "set")
+	add("normal-mode", "Processing", "Normal Microphone", "selection", normal.Mode, []string{"direct", "element"}, "set")
+	add("normal-monitor", "Monitoring", "Normal Microphone", "selection", normal.Monitor, []string{"off", "pre", "post"}, "set")
+	add("normal-output", "Playback", "Normal Playback", "selection", normal.PlaybackDevice, s.OutputOptions, "set")
 	if s.VRConfigured && normal.VRProfile != nil {
 		p := normal.VRProfile
-		add("vr-profile-source", "Mic stack target", "VR microphone", "selection", p.Source, microphoneTargets(s.VRSourceOptions, p.Source), "set")
-		add("vr-profile-mode", "Processing", "VR microphone", "selection", p.Mode, []string{"direct", "element"}, "set")
-		add("vr-profile-monitor", "Monitoring", "VR microphone", "selection", p.Monitor, []string{"off", "pre", "post"}, "set")
-		add("vr-profile-output", "Playback", "VR playback", "selection", p.Playback, s.VROutputOptions, "set")
+		add("vr-profile-source", "Mic Stack Target", "VR Microphone", "selection", p.Source, microphoneTargets(s.VRSourceOptions, p.Source), "set")
+		add("vr-profile-mode", "Processing", "VR Microphone", "selection", p.Mode, []string{"direct", "element"}, "set")
+		add("vr-profile-monitor", "Monitoring", "VR Microphone", "selection", p.Monitor, []string{"off", "pre", "post"}, "set")
+		add("vr-profile-output", "Playback", "VR Playback", "selection", p.Playback, s.VROutputOptions, "set")
 	}
 	for n := range out {
 		out[n].Epoch = s.Revision
@@ -448,7 +448,7 @@ func controls(s control.State) []snoofer.Control {
 			out[n].Icon = "monitor"
 		}
 		if key == "mic-stack" {
-			out[n].Group = "Mic stack"
+			out[n].Group = "Mic Stack"
 		}
 		if key == "mic-stack" {
 			out[n].Icon = "mic-stack"
@@ -478,8 +478,8 @@ func controls(s control.State) []snoofer.Control {
 		}
 		if key == "record-toggle" && s.Recorder.State() == "Recording" {
 			out[n].Icon = "record-stop"
-			out[n].Label = "Stop recording"
-			out[n].ShortLabel = "Stop rec"
+			out[n].Label = "Stop Recording"
+			out[n].ShortLabel = "Stop Rec"
 		}
 		out[n].EnterOnly = out[n].ID == "audio.engine-confirm"
 		if s.Profile == "VR" && strings.HasPrefix(out[n].Group, "Normal") {

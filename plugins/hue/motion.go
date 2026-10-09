@@ -131,7 +131,7 @@ func (w *worker) motionControl() snoofer.Control {
 	if len(w.motion.want) > 0 {
 		status = "Pending"
 	}
-	return snoofer.Control{ID: "hue.motion", Label: "Hue motion sensors", ShortLabel: "Motion", Group: "Hue", Kind: "toggle", Icon: icon,
+	return snoofer.Control{ID: "hue.motion", Label: "Hue Motion Sensors", ShortLabel: "Motion", Group: "Hue", Kind: "toggle", Icon: icon,
 		Value: value, Status: status, Operations: []string{"press"},
 		Available: w.services.Live && len(sensors) > 0,
 		// Blank on the deck while connected to a room without sensors; N/A while disconnected.

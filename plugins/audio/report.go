@@ -135,7 +135,7 @@ func (r *reporter) callbackReport(s control.State, now time.Time) snoofer.Contro
 	}
 	d.add("Recovery", s.RecoveryOutcome)
 	t.Observe(state, now)
-	return report("callback", "Audio callback monitor", value, t.Report("snoofer-audio-monitor.dll", d...))
+	return report("callback", "Audio Callback Monitor", value, t.Report("snoofer-audio-monitor.dll", d...))
 }
 
 func (r *reporter) recorderReport(s control.State, now time.Time) snoofer.Control {
@@ -158,7 +158,7 @@ func (r *reporter) recorderReport(s control.State, now time.Time) snoofer.Contro
 		d.add("Conflict", s.Recorder.Conflict())
 	}
 	t.Observe(state, now)
-	return report("recorder", "Voicemeeter recorder", value, t.Report("Voicemeeter Recorder", d...))
+	return report("recorder", "Voicemeeter Recorder", value, t.Report("Voicemeeter Recorder", d...))
 }
 
 func (r *reporter) asioReport(s control.State, now time.Time) snoofer.Control {
@@ -182,11 +182,11 @@ func (r *reporter) asioReport(s control.State, now time.Time) snoofer.Control {
 		state, value = snoofer.ConnectionUnknown, "Unknown"
 	}
 	if rate, ok := s.Snapshot.Numbers["Bus[0].device.sr"]; ok && rate > 0 {
-		d.add("Sample rate", fmt.Sprintf("%.0f Hz", rate))
+		d.add("Sample Rate", fmt.Sprintf("%.0f Hz", rate))
 	}
-	d.add("A1 device", s.Snapshot.Assignments["A1"])
+	d.add("A1 Device", s.Snapshot.Assignments["A1"])
 	t.Observe(state, now)
-	return report("asio", "ASIO interface", value, t.Report(endpoint, d...))
+	return report("asio", "ASIO Interface", value, t.Report(endpoint, d...))
 }
 
 func (r *reporter) elementReport(s control.State, now time.Time) snoofer.Control {
@@ -209,7 +209,7 @@ func (r *reporter) elementReport(s control.State, now time.Time) snoofer.Control
 	}
 	var d details
 	if s.Plan != nil && s.Plan.Topology != nil && s.Plan.Topology.Voice != nil {
-		d.add("Effective mode", s.Plan.Topology.Voice.EffectiveMode)
+		d.add("Effective Mode", s.Plan.Topology.Voice.EffectiveMode)
 		d.add("Processing", s.Plan.Topology.Voice.ProcessingReason)
 	}
 	t.Observe(state, now)
@@ -236,13 +236,13 @@ func (r *reporter) defaultsReport(s control.State, now time.Time) snoofer.Contro
 	}
 	var d details
 	d.add("Status", result.Status)
-	d.add("Playback target", result.Playback)
-	d.add("Capture target", result.Capture)
+	d.add("Playback Target", result.Playback)
+	d.add("Capture Target", result.Capture)
 	if result.Suspended {
 		d.add("Suspended", "Yes")
 	}
 	t.Observe(state, now)
-	return report("windows-defaults", "Windows default devices", value, t.Report("Windows Core Audio (MMDevice, IPolicyConfig)", d...))
+	return report("windows-defaults", "Windows Default Devices", value, t.Report("Windows Core Audio (MMDevice, IPolicyConfig)", d...))
 }
 
 func firstNonEmpty(values ...string) string {

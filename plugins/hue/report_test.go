@@ -27,7 +27,7 @@ func TestBridgeReport(t *testing.T) {
 		t.Fatalf("report control %+v", report)
 	}
 	if conn.Endpoint != bridge.address() || detailValue(conn, "Bridge ID") != "b1" || detailValue(conn, "Software") != "1978293000" ||
-		detailValue(conn, "Event stream") != "Open" || detailValue(conn, "Required") != "Yes" || conn.Since.IsZero() || conn.LastActivity.IsZero() {
+		detailValue(conn, "Event Stream") != "Open" || detailValue(conn, "Required") != "Yes" || conn.Since.IsZero() || conn.LastActivity.IsZero() {
 		t.Fatalf("connection %+v", conn)
 	}
 	for _, d := range conn.Details {

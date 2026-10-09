@@ -12,7 +12,7 @@ var (
 	trackingOptions = []string{"off", "single", "group"}
 	trackingLabels  = map[string]string{"off": "Off", "single": "Single", "group": "Group"}
 	framingOptions  = []string{"head", "half", "full"}
-	framingLabels   = map[string]string{"head": "Head", "half": "Half body", "full": "Full body"}
+	framingLabels   = map[string]string{"head": "Head", "half": "Half Body", "full": "Full Body"}
 )
 
 // unavailable is why camera controls cannot be used, or "".
@@ -55,15 +55,15 @@ func (w *worker) controls(now time.Time) []snoofer.Control {
 	tracking := w.observed("insta360.tracking")
 	framing := w.observed("insta360.framing")
 	return []snoofer.Control{
-		{ID: "insta360.privacy", Label: "Camera privacy", ShortLabel: "Privacy", Group: "Camera", Kind: "toggle", Icon: privacyIcon,
+		{ID: "insta360.privacy", Label: "Camera Privacy", ShortLabel: "Privacy", Group: "Camera", Kind: "toggle", Icon: privacyIcon,
 			Value: w.observed("insta360.privacy"), Status: w.controlStatus("insta360.privacy", reason), Operations: []string{"press"}, Available: reason == "" && w.status.PrivacyKnown},
-		{ID: "insta360.tracking", Label: "Camera tracking", ShortLabel: "Tracking", Group: "Camera", Kind: "selection", Icon: "tracking",
+		{ID: "insta360.tracking", Label: "Camera Tracking", ShortLabel: "Tracking", Group: "Camera", Kind: "selection", Icon: "tracking",
 			Value: tracking, Options: trackingOptions, OptionLabels: trackingLabels, Status: w.controlStatus("insta360.tracking", gated), Operations: []string{"set"}, Available: gated == "" && w.status.ModeKnown},
-		{ID: "insta360.framing", Label: "Camera framing", ShortLabel: "Framing", Group: "Camera", Kind: "selection", Icon: "framing",
+		{ID: "insta360.framing", Label: "Camera Framing", ShortLabel: "Framing", Group: "Camera", Kind: "selection", Icon: "framing",
 			Value: framing, Options: framingOptions, OptionLabels: framingLabels, Status: w.controlStatus("insta360.framing", gated), Operations: []string{"set"}, Available: gated == "" && w.framingKnown},
-		{ID: "insta360.reset", Label: "Reset camera position", ShortLabel: "Reset", Group: "Camera", Kind: "command", Icon: "camera-reset",
+		{ID: "insta360.reset", Label: "Reset Camera Position", ShortLabel: "Reset", Group: "Camera", Kind: "command", Icon: "camera-reset",
 			Status: w.controlStatus("insta360.reset", gated), Operations: []string{"press"}, Available: gated == ""},
-		{ID: "insta360.state", Label: "Camera tracking state", ShortLabel: "State", Group: "Camera", Kind: "status", Icon: "tracking",
+		{ID: "insta360.state", Label: "Camera Tracking State", ShortLabel: "State", Group: "Camera", Kind: "status", Icon: "tracking",
 			Value: w.stateValue(), Status: reason, Available: true},
 		w.report(now),
 	}

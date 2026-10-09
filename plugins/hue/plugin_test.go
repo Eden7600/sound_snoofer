@@ -404,7 +404,7 @@ func TestRoomSceneSlots(t *testing.T) {
 			t.Fatalf("%s should be blank: %+v", id, c)
 		}
 	}
-	if first.Collection != "hue.room-scenes" || first.CollectionLabel != "Scenes · selected room" {
+	if first.Collection != "hue.room-scenes" || first.CollectionLabel != "Scenes · Selected Room" {
 		t.Fatalf("slot collection %+v", first)
 	}
 	if scene, _ := h.find("hue.scene-studio-3f2a9c10"); scene.Collection != "hue.scenes.room-1" || scene.CollectionLabel != "Scenes · Studio" {

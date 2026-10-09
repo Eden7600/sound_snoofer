@@ -37,9 +37,9 @@ func (m *mediaKeys) report(live bool, now time.Time) snoofer.Control {
 	m.link.Observe(state, now)
 	var details []snoofer.ConnectionDetail
 	if m.last != "" {
-		details = append(details, snoofer.ConnectionDetail{Label: "Last command", Value: m.last})
+		details = append(details, snoofer.ConnectionDetail{Label: "Last Command", Value: m.last})
 	}
-	details = append(details, snoofer.ConnectionDetail{Label: "Player feedback", Value: "None (keys are fire-and-forget)"})
-	return snoofer.Control{ID: "media.app-keys", Label: "Windows media keys", Group: "Windows media", Kind: "connection", Value: value,
+	details = append(details, snoofer.ConnectionDetail{Label: "Player Feedback", Value: "None (keys are fire-and-forget)"})
+	return snoofer.Control{ID: "media.app-keys", Label: "Windows Media Keys", Group: "Windows Media", Kind: "connection", Value: value,
 		SurfaceOnly: true, Available: true, Connection: m.link.Report("user32 SendInput", details...)}
 }

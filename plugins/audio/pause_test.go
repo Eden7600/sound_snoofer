@@ -20,10 +20,10 @@ func TestPauseToggles(t *testing.T) {
 		got[c.ID] = c
 	}
 	devices, sends := got["audio.pause-devices"], got["audio.pause-sends"]
-	if devices.Label != "Disable device manipulation" || devices.Value != "Off" || devices.Status != "" {
+	if devices.Label != "Disable Device Manipulation" || devices.Value != "Off" || devices.Status != "" {
 		t.Fatal(devices)
 	}
-	if sends.Label != "Disable send manipulation" || sends.Value != "On" || sends.Status != "3 held" || sends.ShortLabel != "Pause sends" {
+	if sends.Label != "Disable Send Manipulation" || sends.Value != "On" || sends.Status != "3 held" || sends.ShortLabel != "Pause Sends" {
 		t.Fatal(sends)
 	}
 	a, err := action(s, snoofer.Request{ID: "audio.pause-devices", Operation: "press"})

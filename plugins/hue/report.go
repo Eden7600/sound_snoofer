@@ -44,13 +44,13 @@ func (w *worker) bridgeReport(now time.Time) snoofer.Control {
 	d.add("Bridge ID", firstNonEmpty(w.bridgeInfo.BridgeID, w.settings.BridgeID))
 	d.add("Name", w.bridgeInfo.Name)
 	d.add("Software", w.bridgeInfo.Software)
-	d.add("API version", w.bridgeInfo.APIVersion)
+	d.add("API Version", w.bridgeInfo.APIVersion)
 	d.add("Paired", yesNo(paired))
 	stream := "Closed"
 	if w.connected {
 		stream = "Open"
 	}
-	d.add("Event stream", stream)
+	d.add("Event Stream", stream)
 	if w.connects > 1 {
 		d.add("Reconnects", strconv.Itoa(w.connects-1))
 	}
@@ -77,7 +77,7 @@ func (w *worker) syncReport(now time.Time) snoofer.Control {
 	w.sync.link.Observe(state, now)
 	var d details
 	if known {
-		d.add("App state", value)
+		d.add("App State", value)
 		d.add("Mode", syncModeLabels[w.sync.state.Mode])
 		d.add("Intensity", syncIntensityLabels[w.sync.state.Intensity])
 		if w.sync.state.Bri != nil {

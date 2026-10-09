@@ -261,7 +261,7 @@ const resetFocusID = "streamdeck.reset-focus"
 // resetFocusControl is the Reset focus key; a press sends reset to every
 // control that offers it.
 func resetFocusControl() snoofer.Control {
-	return snoofer.Control{ID: resetFocusID, Label: "Reset focus", ShortLabel: "Auto", Group: "Stream Deck pages", Kind: "command", Icon: "focus-reset",
+	return snoofer.Control{ID: resetFocusID, Label: "Reset Focus", ShortLabel: "Auto", Group: "Stream Deck Pages", Kind: "command", Icon: "focus-reset",
 		Operations: []string{"press"}, Available: true}
 }
 
@@ -274,8 +274,8 @@ func scrollControls(l Layout, shown string) []snoofer.Control {
 	sets := l.sets(shown)
 	value := fmt.Sprintf("%d/%d", slices.Index(sets, shown)+1, len(sets))
 	out := []snoofer.Control{}
-	for _, key := range []struct{ id, label, short string }{{"up", "Scroll up", "Up"}, {"down", "Scroll down", "Down"}} {
-		out = append(out, snoofer.Control{ID: scrollPrefix + key.id, Label: key.label, ShortLabel: key.short, Group: "Stream Deck pages",
+	for _, key := range []struct{ id, label, short string }{{"up", "Scroll Up", "Up"}, {"down", "Scroll Down", "Down"}} {
+		out = append(out, snoofer.Control{ID: scrollPrefix + key.id, Label: key.label, ShortLabel: key.short, Group: "Stream Deck Pages",
 			Kind: "command", Icon: "deck-" + key.id, Value: value, Hidden: len(sets) < 2, Operations: []string{"press"}, Available: true})
 	}
 	return out
@@ -306,7 +306,7 @@ func gotoControls(l Layout, shown string) []snoofer.Control {
 		if p.ID == base {
 			value = "Here"
 		}
-		out = append(out, snoofer.Control{ID: gotoPrefix + p.ID, Label: "Go to " + p.Name, ShortLabel: p.Name, Group: "Stream Deck pages",
+		out = append(out, snoofer.Control{ID: gotoPrefix + p.ID, Label: "Go to " + p.Name, ShortLabel: p.Name, Group: "Stream Deck Pages",
 			Kind: "command", Icon: "deck-page", Value: value, Operations: []string{"press"}, Available: true})
 	}
 	return out

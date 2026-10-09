@@ -110,7 +110,7 @@ func (i *Instance) SoundboardVolume() (snoofer.Control, func(context.Context, sn
 	if known {
 		display = fmt.Sprintf("%.1f dB", value)
 	}
-	c := snoofer.Control{ID: "soundboard.volume", Label: "Soundboard volume", ShortLabel: "Volume", Group: "Soundboard", Kind: "numeric", Value: display, Operations: []string{"adjust", "press"}, Available: ready && known, Epoch: s.Revision}
+	c := snoofer.Control{ID: "soundboard.volume", Label: "Soundboard Volume", ShortLabel: "Volume", Group: "Soundboard", Kind: "numeric", Value: display, Operations: []string{"adjust", "press"}, Available: ready && known, Epoch: s.Revision}
 	action := control.Action{Kind: control.Gain, Target: "soundboard", Identity: controller.GainIdentity(s.Plan, s.Snapshot, "soundboard"), Revision: s.Revision, Origin: "soundboard"}
 	return c, func(ctx context.Context, r snoofer.Request) error {
 		if !c.Available {

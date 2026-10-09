@@ -342,9 +342,9 @@ func (w *worker) syncControls() []snoofer.Control {
 		{ID: "hue.sync-status", Label: "Hue Sync", Group: "Hue", Kind: "status", Value: status, Status: w.sync.diagnostic, Available: true},
 		{ID: "hue.sync", Label: "Hue Sync", ShortLabel: "Sync", Group: "Hue", Kind: "toggle", Icon: "huesync-sync", Value: syncValue, Status: syncStatus,
 			Operations: []string{"press"}, Available: live && ready, Hidden: !connected},
-		{ID: "hue.sync-mode", Label: "Hue Sync mode", ShortLabel: "Mode", Group: "Hue", Kind: "selection", Icon: "huesync-mode", Value: w.sync.state.Mode,
+		{ID: "hue.sync-mode", Label: "Hue Sync Mode", ShortLabel: "Mode", Group: "Hue", Kind: "selection", Icon: "huesync-mode", Value: w.sync.state.Mode,
 			Options: syncModes, OptionLabels: syncModeLabels, Operations: []string{"set"}, Available: live && ready && syncing, Hidden: !syncing},
-		{ID: "hue.sync-intensity", Label: "Hue Sync intensity", ShortLabel: "Intensity", Group: "Hue", Kind: "selection", Icon: "huesync-intensity", Value: w.sync.state.Intensity,
+		{ID: "hue.sync-intensity", Label: "Hue Sync Intensity", ShortLabel: "Intensity", Group: "Hue", Kind: "selection", Icon: "huesync-intensity", Value: w.sync.state.Intensity,
 			Options: syncIntensities, OptionLabels: syncIntensityLabels, Operations: []string{"set"}, Available: live && ready && syncing, Hidden: !syncing},
 	}
 }

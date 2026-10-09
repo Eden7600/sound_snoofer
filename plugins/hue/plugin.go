@@ -756,8 +756,8 @@ func (w *worker) controls() []snoofer.Control {
 	}
 	controls := []snoofer.Control{
 		{ID: "hue.status", Label: "Hue", Group: "Hue", Kind: "status", Value: w.status, Status: statusNote, ViewData: w.statusView(), Available: true},
-		{ID: "hue.pair", Label: "Pair Hue bridge", ShortLabel: "Pair", Group: "Hue", Kind: "command", Icon: "hue-pair", Value: pairValue, Status: w.pairErr, Operations: []string{"press"}, Available: live},
-		{ID: "hue.group", Label: "Hue room", ShortLabel: "Room", Group: "Hue", Kind: "selection", Value: w.settings.Group, Options: options, OptionLabels: labels, Status: w.groupErr, Operations: []string{"set"}, Available: live && w.connected,
+		{ID: "hue.pair", Label: "Pair Hue Bridge", ShortLabel: "Pair", Group: "Hue", Kind: "command", Icon: "hue-pair", Value: pairValue, Status: w.pairErr, Operations: []string{"press"}, Available: live},
+		{ID: "hue.group", Label: "Hue Room", ShortLabel: "Room", Group: "Hue", Kind: "selection", Value: w.settings.Group, Options: options, OptionLabels: labels, Status: w.groupErr, Operations: []string{"set"}, Available: live && w.connected,
 			Hidden: w.connected && len(options) < 2}, // Nothing to switch between on the deck.
 		w.roomsControl(),
 	}
@@ -771,7 +771,7 @@ func (w *worker) controls() []snoofer.Control {
 	}
 	ready := live && w.connected && view.GroupedLight != ""
 	syncing := w.syncing()
-	brightness := snoofer.Control{ID: "hue.brightness", Label: "Hue brightness", ShortLabel: "Brightness", Group: "Hue", Kind: "numeric", Icon: "hue-brightness",
+	brightness := snoofer.Control{ID: "hue.brightness", Label: "Hue Brightness", ShortLabel: "Brightness", Group: "Hue", Kind: "numeric", Icon: "hue-brightness",
 		Value: w.brightnessValue(view), Status: firstNonEmpty(knobNote, w.brightErr), Subdued: w.group.on != nil || w.group.brightness != nil,
 		Operations: []string{"adjust", "press"}, Available: ready}
 	if syncing {
@@ -815,7 +815,7 @@ func (w *worker) sceneControl(id, label string, scene sceneInfo) snoofer.Control
 	if _, waiting := w.scenePending[scene.SceneID]; waiting || w.sceneWriting == scene.SceneID || w.sync.sceneAfterStop == scene.SceneID {
 		status = "Pending"
 	}
-	return snoofer.Control{ID: id, Label: label, ShortLabel: scene.ShortLabel, Group: "Hue scenes", Kind: "command", Icon: "hue-scene", Artwork: w.sceneArtwork(scene.SceneID),
+	return snoofer.Control{ID: id, Label: label, ShortLabel: scene.ShortLabel, Group: "Hue Scenes", Kind: "command", Icon: "hue-scene", Artwork: w.sceneArtwork(scene.SceneID),
 		Value: value, Status: status, Operations: []string{"press"}, Available: w.services.Live && w.connected}
 }
 
@@ -833,15 +833,15 @@ func (w *worker) slotControls() []snoofer.Control {
 	for n := 1; n <= slots; n++ {
 		id := "hue.room-scene-" + strconv.Itoa(n)
 		if n > len(scenes) {
-			controls = append(controls, snoofer.Control{ID: id, Group: "Hue room scenes", Kind: "command", Operations: []string{"press"}, Hidden: true,
-				Collection: "hue.room-scenes", CollectionLabel: "Scenes · selected room"})
+			controls = append(controls, snoofer.Control{ID: id, Group: "Hue Room Scenes", Kind: "command", Operations: []string{"press"}, Hidden: true,
+				Collection: "hue.room-scenes", CollectionLabel: "Scenes · Selected Room"})
 			continue
 		}
 		scene := scenes[n-1]
 		control := w.sceneControl(id, scene.ShortLabel, scene)
-		control.Group = "Hue room scenes"
+		control.Group = "Hue Room Scenes"
 		control.Collection = "hue.room-scenes"
-		control.CollectionLabel = "Scenes · selected room"
+		control.CollectionLabel = "Scenes · Selected Room"
 		control.ViewData = json.RawMessage(strconv.Quote(scene.SceneID))
 		controls = append(controls, control)
 	}

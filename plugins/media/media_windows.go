@@ -32,7 +32,7 @@ func (i *instance) Stop(ctx context.Context) error {
 
 // Plugin registers media commands without claiming observed player state.
 func Plugin() snoofer.Plugin {
-	return snoofer.Plugin{ID: "media", Validate: func(raw json.RawMessage) error { return snoofer.DecodeSettings(raw, &struct{}{}) }, Label: "Windows media", Start: func(ctx context.Context, s snoofer.Services, raw json.RawMessage, _ map[string]snoofer.Instance) (snoofer.Instance, error) {
+	return snoofer.Plugin{ID: "media", Validate: func(raw json.RawMessage) error { return snoofer.DecodeSettings(raw, &struct{}{}) }, Label: "Windows Media", Start: func(ctx context.Context, s snoofer.Services, raw json.RawMessage, _ map[string]snoofer.Instance) (snoofer.Instance, error) {
 		if err := snoofer.DecodeSettings(raw, &struct{}{}); err != nil {
 			return nil, err
 		}

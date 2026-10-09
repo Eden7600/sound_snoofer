@@ -19,7 +19,7 @@ func TestCompactLabelsAndStateIcons(t *testing.T) {
 				}
 				switch c.ID {
 				case "audio.mic-mute":
-					if c.ShortLabel != "Mute" || c.Label != "Mic mute" {
+					if c.ShortLabel != "Mute" || c.Label != "Mic Mute" {
 						t.Fatal(c)
 					}
 				case "audio.monitor":
@@ -27,7 +27,7 @@ func TestCompactLabelsAndStateIcons(t *testing.T) {
 						t.Fatal(c)
 					}
 				case "audio.mode":
-					if c.ShortLabel != "Mic processing" || c.Icon != "mode-"+mode {
+					if c.ShortLabel != "Mic Path" || c.Icon != "mode-"+mode {
 						t.Fatal(c)
 					}
 				case "audio.record-tap":
@@ -35,7 +35,7 @@ func TestCompactLabelsAndStateIcons(t *testing.T) {
 						t.Fatal(c)
 					}
 				case "audio.mic-stack":
-					if c.ShortLabel != "Mic stack" || c.Status != "" {
+					if c.ShortLabel != "Mic Stack" || c.Status != "" {
 						t.Fatal(c)
 					}
 				}

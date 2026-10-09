@@ -125,7 +125,7 @@ func steamVRReport(link *snoofer.ConnectionTracker, policy audio.VRPolicy, now t
 	link.Observe(state, now)
 	details := []snoofer.ConnectionDetail{{Label: "Interval", Value: "1s"}}
 	if profile != "" {
-		details = append(details, snoofer.ConnectionDetail{Label: "Audio profile", Value: profile})
+		details = append(details, snoofer.ConnectionDetail{Label: "Audio Profile", Value: profile})
 	}
 	return snoofer.Control{ID: "vr.app-steamvr", Label: "SteamVR", Group: "VR", Kind: "connection", Value: value,
 		SurfaceOnly: true, Available: true, Connection: link.Report(policy.ProcessName()+" (this session)", details...)}

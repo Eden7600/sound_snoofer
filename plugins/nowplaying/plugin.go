@@ -60,7 +60,7 @@ type windowsSource interface {
 
 // Plugin returns inert metadata; nothing is loaded until started.
 func Plugin() snoofer.Plugin {
-	return snoofer.Plugin{ID: "nowplaying", Label: "Now playing", Validate: validate, Defaults: snoofer.MarshalSettings(Settings{}),
+	return snoofer.Plugin{ID: "nowplaying", Label: "Now Playing", Validate: validate, Defaults: snoofer.MarshalSettings(Settings{}),
 		Start: func(ctx context.Context, s snoofer.Services, raw json.RawMessage, _ map[string]snoofer.Instance) (snoofer.Instance, error) {
 			exe, err := os.Executable()
 			if err != nil {

@@ -66,7 +66,7 @@ var defaultTiming = timing{poll: 100 * time.Millisecond, list: time.Second, obse
 
 // Plugin returns inert metadata; sessions are opened only when started.
 func Plugin() snoofer.Plugin {
-	return snoofer.Plugin{ID: "appaudio", Label: "App audio", Validate: validate, Defaults: snoofer.MarshalSettings(Settings{}),
+	return snoofer.Plugin{ID: "appaudio", Label: "App Audio", Validate: validate, Defaults: snoofer.MarshalSettings(Settings{}),
 		Start: func(ctx context.Context, s snoofer.Services, raw json.RawMessage, _ map[string]snoofer.Instance) (snoofer.Instance, error) {
 			return start(ctx, s, raw, windowsaudio.OpenSessions, defaultTiming)
 		}}
@@ -413,12 +413,12 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 		meter := w.meter(a, now)
 		// The deck filter hides apps from surfaces only; the GUI lists them all.
 		picked := slices.ContainsFunc(w.settings.Picked, func(p string) bool { return key(p) == key(a.Name) })
-		controls = append(controls, snoofer.Control{ID: controlID(a.Name), Label: a.Name, ShortLabel: a.Name, Group: "App audio",
+		controls = append(controls, snoofer.Control{ID: controlID(a.Name), Label: a.Name, ShortLabel: a.Name, Group: "App Audio",
 			Collection: "appaudio.apps", CollectionLabel: "Apps", Order: n + 1, Kind: "numeric", Icon: "app-audio", Artwork: w.artwork(a),
 			Value: value, Status: status, Meter: meter, Operations: []string{"press", "hold", "adjust", "set"}, Hidden: !w.settings.onDeck(picked), Available: true})
 	}
 	// The focus dial follows the focused app wherever it sits in the list.
-	focus := snoofer.Control{ID: "appaudio.focus", Label: "Focused app", ShortLabel: "Focused app", Group: "App audio", Kind: "numeric", Icon: "app-audio",
+	focus := snoofer.Control{ID: "appaudio.focus", Label: "Focused App", ShortLabel: "Focused App", Group: "App Audio", Kind: "numeric", Icon: "app-audio",
 		Operations: []string{"press", "adjust", "reset"}, Hidden: true}
 	if a := w.focusedApp(shown); a != nil {
 		value, status := w.appValue(a)
@@ -431,7 +431,7 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 	if filter == "" {
 		filter = "all"
 	}
-	controls = append(controls, snoofer.Control{ID: "appaudio.deck-apps", Label: "Apps on the deck", ShortLabel: "Apps", Group: "App audio", Kind: "selection", Icon: "app-audio",
+	controls = append(controls, snoofer.Control{ID: "appaudio.deck-apps", Label: "Apps on the Deck", ShortLabel: "Apps", Group: "App Audio", Kind: "selection", Icon: "app-audio",
 		Value: filter, Options: deckApps, OptionLabels: map[string]string{"all": "All", "pinned": "Pinned", "off": "Off"}, Operations: []string{"set"}, Available: w.services.SaveSettings != nil})
 	view := statusView{Exclude: w.settings.excluded(), RecentMinutes: int(w.settings.window() / time.Minute)}
 	listed := map[string]bool{}
@@ -477,9 +477,9 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 		value = "Preview"
 	}
 	controls = append(controls,
-		snoofer.Control{ID: "appaudio.status", Label: "App audio", Group: "App audio", Kind: "status", Value: value, Status: firstNonEmpty(w.backendErr, w.editErr), ViewData: data, Available: true},
+		snoofer.Control{ID: "appaudio.status", Label: "App Audio", Group: "App Audio", Kind: "status", Value: value, Status: firstNonEmpty(w.backendErr, w.editErr), ViewData: data, Available: true},
 		// The edit control changes with every saved or failed edit, so a GUI waiting on it settles.
-		snoofer.Control{ID: "appaudio.edit", Label: "App audio edit", Group: "App audio", Kind: "text", Value: fmt.Sprintf("%x", sha256.Sum256(w.raw))[:12], Status: w.editErr,
+		snoofer.Control{ID: "appaudio.edit", Label: "App Audio Edit", Group: "App Audio", Kind: "text", Value: fmt.Sprintf("%x", sha256.Sum256(w.raw))[:12], Status: w.editErr,
 			Operations: []string{"set"}, Available: w.services.SaveSettings != nil})
 	_ = w.services.Controls.Publish("appaudio", controls, func(ctx context.Context, r snoofer.Request) error {
 		select {
