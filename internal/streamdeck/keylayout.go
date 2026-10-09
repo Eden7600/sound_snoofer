@@ -8,6 +8,7 @@ import (
 	"image/jpeg"
 	"math"
 	"strings"
+	"time"
 
 	xdraw "golang.org/x/image/draw"
 )
@@ -57,9 +58,18 @@ func styleFor(accent color.RGBA, value string, area color.RGBA) keyStyle {
 	return keyStyle{background: keyColor, label: area, icon: area, value: lightValue}
 }
 
-// renderArtwork draws one key as a rotated JPEG. lines are the label and
-// value; artwork, when it decodes, fills a band above the label.
+// renderArtwork draws one key as a rotated JPEG, with scrolling text at its
+// start. lines are the label and value; artwork, when it decodes, fills a
+// band above the label.
 func renderArtwork(lines []string, w, h int, on bool, icon string, fallback bool, artwork string) []byte {
+	key, _ := drawKey(lines, w, h, on, icon, fallback, artwork, 0)
+	return key
+}
+
+// drawKey is renderArtwork at a scroll phase; it reports whether any of the
+// key's text scrolls.
+func drawKey(lines []string, w, h int, on bool, icon string, fallback bool, artwork string, phase time.Duration) ([]byte, bool) {
+	scrolls := false
 	// Supersample geometry and text, then average down.
 	const scale = 4
 	im := image.NewRGBA(image.Rect(0, 0, w*scale, h*scale))
@@ -101,20 +111,32 @@ func renderArtwork(lines []string, w, h int, on bool, icon string, fallback bool
 			if value == "" {
 				lines = 2 // The value row is free.
 			}
-			f := set.fit(labelFace, label, keyTextWidth, 15, 12, lines)
-			for n, line := range f.lines {
-				set.draw(im, scale, labelFace, f.px, keyInset, bandHeight+4+n*(f.px+1), line, style.label)
+			if f, ok := set.fitWords(labelFace, label, keyTextWidth, 15, 12, lines); ok {
+				for n, line := range f.lines {
+					set.draw(im, scale, labelFace, f.px, keyInset, bandHeight+4+n*(f.px+1), line, style.label)
+				}
+			} else {
+				set.drawScrolling(im, scale, labelFace, 15, keyInset, bandHeight+4, keyTextWidth, label, style.label, phase)
+				scrolls = true
 			}
 		}
 		if value != "" {
-			f := set.fit(valueFace, value, keyTextWidth, 24, 16, 1)
-			set.draw(im, scale, valueFace, f.px, keyInset, bandHeight+24, f.lines[0], style.value)
+			if f, ok := set.fitWords(valueFace, value, keyTextWidth, 24, 16, 1); ok {
+				set.draw(im, scale, valueFace, f.px, keyInset, bandHeight+24, f.lines[0], style.value)
+			} else {
+				set.drawScrolling(im, scale, valueFace, 18, keyInset, bandHeight+26, keyTextWidth, value, style.value, phase)
+				scrolls = true
+			}
 		}
 	} else {
 		if label != "" {
-			f := set.fit(labelFace, label, keyTextWidth, 16, 12, 2)
-			for n, line := range f.lines {
-				set.draw(im, scale, labelFace, f.px, keyInset, labelTop+n*(f.px+1), line, style.label)
+			if f, ok := set.fitWords(labelFace, label, keyTextWidth, 16, 12, 2); ok {
+				for n, line := range f.lines {
+					set.draw(im, scale, labelFace, f.px, keyInset, labelTop+n*(f.px+1), line, style.label)
+				}
+			} else {
+				set.drawScrolling(im, scale, labelFace, 15, keyInset, labelTop, keyTextWidth, label, style.label, phase)
+				scrolls = true
 			}
 		}
 		v := layoutValue(set, value)
@@ -128,6 +150,10 @@ func renderArtwork(lines []string, w, h int, on bool, icon string, fallback bool
 		case v.icon:
 			drawIconBox(im, scale, icon, style.icon, keyInset, top, size)
 		}
+		if v.scroll {
+			set.drawScrolling(im, scale, valueFace, v.px, keyInset, v.top, keyTextWidth, value, style.value, phase)
+			scrolls = true
+		}
 		for n, line := range v.lines {
 			set.draw(im, scale, valueFace, v.px, keyInset, v.top+n*(v.px+1), line, style.value)
 		}
@@ -140,20 +166,20 @@ func renderArtwork(lines []string, w, h int, on bool, icon string, fallback bool
 			fill(im, x*scale, 0, min(x+8, w)*scale, 5*scale, attentionColor)
 		}
 	}
-	return encodeKey(im, scale, w, h)
+	return encodeKey(im, scale, w, h), scrolls
 }
 
 // valueLayout is where a key's value goes, and whether the icon keeps its
 // row.
 type valueLayout struct {
-	lines   []string
-	px, top int
-	icon    bool
+	lines        []string
+	px, top      int
+	icon, scroll bool // scroll: one line that scrolls, drawn in place of lines.
 }
 
 // layoutValue sets a value on one line at 30 to 22 px; a value of several
 // words that does not fit wraps to two lines at 22 to 16 px in place of the
-// icon.
+// icon. Anything longer scrolls on one line at 20 px.
 func layoutValue(set *typeset, value string) valueLayout {
 	if value == "" {
 		return valueLayout{icon: true}
@@ -169,8 +195,7 @@ func layoutValue(set *typeset, value string) valueLayout {
 			return valueLayout{lines: f.lines, px: f.px, top: 48}
 		}
 	}
-	f := set.fit(valueFace, value, keyTextWidth, 22, 18, 1)
-	return valueLayout{lines: f.lines, px: f.px, top: valueTop, icon: true}
+	return valueLayout{px: 20, top: valueTop + 4, icon: true, scroll: true}
 }
 
 // encodeKey averages the supersampled canvas and rotates it 90 degrees

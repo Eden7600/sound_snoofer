@@ -111,13 +111,31 @@ func surfaceSession(parent context.Context, d *device, frames <-chan Frame, even
 		}
 	}()
 	var previous [][]byte
-	var lastFrame, lastShown Frame
+	var lastFrame Frame
+	cache := &keyCache{}
+	started := time.Now() // Scroll phases count from the session's start.
 	haveFrame := false
 	brightness := -1 // Last backlight sent; -1 before any.
-	draw := func(frame Frame) error {
-		if haveFrame && frame == lastFrame {
+	// While any text scrolls, the scroll ticker redraws the shown frame; it
+	// stops when nothing scrolls.
+	scroll := time.NewTicker(scrollInterval)
+	scroll.Stop()
+	defer scroll.Stop()
+	scrolling, ticking := false, false
+	draw := func(frame Frame, tick bool) error {
+		if haveFrame && frame == lastFrame && !tick {
 			return nil
 		}
+		defer func() {
+			if scrolling != ticking {
+				ticking = scrolling
+				if ticking {
+					scroll.Reset(scrollInterval)
+				} else {
+					scroll.Stop()
+				}
+			}
+		}()
 		// A dark frame shows nothing: blank images, then the backlight off.
 		// Otherwise the images come first, then the backlight.
 		shown, want := frame, frame.Brightness
@@ -132,7 +150,8 @@ func surfaceSession(parent context.Context, d *device, frames <-chan Frame, even
 				brightness = want
 			}
 		}()
-		tiles, touch := renderChangedFrame(shown, lastShown, previous)
+		tiles, touch, moving := renderChangedFrame(shown, cache, time.Since(started))
+		scrolling = moving
 		all := append(tiles, touch)
 		for n, tile := range all {
 			if len(previous) == len(all) && bytes.Equal(previous[n], tile) {
@@ -149,11 +168,11 @@ func surfaceSession(parent context.Context, d *device, frames <-chan Frame, even
 			}
 		}
 		previous = all
-		lastFrame, lastShown = frame, shown
+		lastFrame = frame
 		haveFrame = true
 		return nil
 	}
-	if err := draw(*latest); err != nil {
+	if err := draw(*latest, false); err != nil {
 		select {
 		case events <- Event{Error: err.Error()}:
 		case <-ctx.Done():
@@ -199,9 +218,17 @@ func surfaceSession(parent context.Context, d *device, frames <-chan Frame, even
 			case <-ctx.Done():
 				return
 			}
+		case <-scroll.C:
+			if err := draw(*latest, true); err != nil {
+				select {
+				case events <- Event{Error: err.Error()}:
+				case <-ctx.Done():
+				}
+				return
+			}
 		case frame := <-frames:
 			*latest = frame
-			if err := draw(frame); err != nil {
+			if err := draw(frame, false); err != nil {
 				select {
 				case events <- Event{Error: err.Error()}:
 				case <-ctx.Done():

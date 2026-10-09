@@ -8,6 +8,7 @@ import (
 	"image/color"
 	"image/png"
 	"strings"
+	"time"
 )
 
 // Five-column glyphs keep the device display independent of installed fonts.
@@ -57,20 +58,23 @@ type presentation struct {
 	Knobs [Encoders]knobPresentation
 }
 
-func renderKey(key keyPresentation) []byte {
+// renderKey draws a key at a scroll phase and reports whether its text
+// scrolls.
+func renderKey(key keyPresentation, phase time.Duration) ([]byte, bool) {
 	var lines []string
 	if key.Label != "" {
 		lines = []string{key.Label, key.Value}
 	}
-	return renderArtwork(lines, 112, 112, key.Value == "On" || key.Value == "Recording", key.Icon, key.Fallback, key.Artwork)
+	return drawKey(lines, 112, 112, key.Value == "On" || key.Value == "Recording", key.Icon, key.Fallback, key.Artwork, phase)
 }
 
 func renderPresentation(view presentation) ([][]byte, []byte) {
 	tiles := make([][]byte, Keys)
 	for n, key := range view.Keys {
-		tiles[n] = renderKey(key)
+		tiles[n], _ = renderKey(key, 0)
 	}
-	return tiles, renderKnobs(view.Knobs)
+	touch, _ := renderKnobs(view.Knobs, 0)
+	return tiles, touch
 }
 
 func fill(im *image.RGBA, x0, y0, x1, y1 int, c color.RGBA) {

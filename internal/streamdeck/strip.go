@@ -7,6 +7,7 @@ import (
 	"image/draw"
 	"image/jpeg"
 	"strings"
+	"time"
 
 	xdraw "golang.org/x/image/draw"
 )
@@ -27,7 +28,10 @@ var (
 	pageColor  = color.RGBA{108, 114, 119, 255} // Neighbouring page names.
 )
 
-func renderKnobs(knobs [Encoders]knobPresentation) []byte {
+// renderKnobs draws the strip at a scroll phase and reports whether any of
+// its text scrolls.
+func renderKnobs(knobs [Encoders]knobPresentation, phase time.Duration) ([]byte, bool) {
+	scrolls := false
 	touchImage := image.NewRGBA(image.Rect(0, 0, Encoders*panelWidth, 100))
 	draw.Draw(touchImage, touchImage.Bounds(), &image.Uniform{keyColor}, image.Point{}, draw.Src)
 	for n, knob := range knobs {
@@ -38,7 +42,7 @@ func renderKnobs(knobs [Encoders]knobPresentation) []byte {
 		case knob.Timers[0] != (TimerTile{}):
 			drawTimers(touchImage, x0, knob.Timers)
 		case knob.Artwork != "":
-			drawArtworkKnob(touchImage, x0, knob)
+			scrolls = drawArtworkKnob(touchImage, x0, knob, phase) || scrolls
 		default:
 			drawControlKnob(touchImage, x0, knob)
 		}
@@ -51,7 +55,7 @@ func renderKnobs(knobs [Encoders]knobPresentation) []byte {
 	}
 	var buf bytes.Buffer
 	jpeg.Encode(&buf, rotated, &jpeg.Options{Quality: 80})
-	return buf.Bytes()
+	return buf.Bytes(), scrolls
 }
 
 // drawPageDial shows the previous page, the current page large, and the
@@ -166,22 +170,30 @@ func drawMeter(im *image.RGBA, x0 int, k knobPresentation) {
 }
 
 // drawArtworkKnob puts artwork on the left, the target, name or status and
-// value beside it, and the progress bar along the bottom.
-func drawArtworkKnob(im *image.RGBA, x0 int, k knobPresentation) {
+// value beside it, and the progress bar along the bottom. A title or name
+// too long to fit scrolls; it reports whether one does.
+func drawArtworkKnob(im *image.RGBA, x0 int, k knobPresentation, phase time.Duration) bool {
 	set := typefaces()
+	scrolls := false
 	drawThumb(im, x0, 0, 100, k.Artwork, k.Icon)
 	x, width := x0+110, panelWidth-110-8
+	line := func(s string, maxPx, minPx, y int, ink color.RGBA) {
+		if f, ok := set.fitWords(labelFace, s, width, maxPx, minPx, 1); ok {
+			set.draw(im, 1, labelFace, f.px, x, y, f.lines[0], ink)
+			return
+		}
+		set.drawScrolling(im, 1, labelFace, minPx, x, y, width, s, ink, phase)
+		scrolls = true
+	}
 	if k.Target != "" {
-		f := set.fit(labelFace, k.Target, width, 14, 11, 1)
-		set.draw(im, 1, labelFace, f.px, x, 10, f.lines[0], keyArea(k.Icon))
+		line(k.Target, 14, 12, 10, keyArea(k.Icon))
 	}
 	note, ink := k.Name, offValue
 	if k.Status != "" {
 		note, ink = k.Status, attentionColor
 	}
 	if note != "" {
-		f := set.fit(labelFace, note, width, 12, 10, 1)
-		set.draw(im, 1, labelFace, f.px, x, 30, f.lines[0], ink)
+		line(note, 12, 11, 30, ink)
 	}
 	value := k.Value
 	if set.width(valueFace, 20, value) > width {
@@ -193,6 +205,7 @@ func drawArtworkKnob(im *image.RGBA, x0 int, k knobPresentation) {
 		fill(im, x0, 94, x0+panelWidth, 100, trackColor)
 		fill(im, x0, 94, x0+int(k.Position*panelWidth+0.5), 100, keyArea(k.Icon))
 	}
+	return scrolls
 }
 
 // drawThumb draws artwork, or the icon when there is none, smoothly scaled

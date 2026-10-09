@@ -34,10 +34,11 @@ func testArtwork(t *testing.T) string {
 func TestArtworkRenderingAndCacheInvalidation(t *testing.T) {
 	frame := Frame{}
 	frame.Keys[0] = Tile{Label: "Clip", Value: "Playing", Icon: "soundboard-play"}
-	before, _ := renderFrame(frame)
+	cache := &keyCache{}
+	before, _, _ := renderChangedFrame(frame, cache, 0)
 	next := frame
 	next.Keys[0].Artwork = testArtwork(t)
-	after, _ := renderChangedFrame(next, frame, before)
+	after, _, _ := renderChangedFrame(next, cache, 0)
 	if bytes.Equal(before[0], after[0]) {
 		t.Fatal("artwork did not invalidate cache")
 	}
@@ -50,13 +51,13 @@ func TestArtworkRenderingAndCacheInvalidation(t *testing.T) {
 	if r <= g || g <= b {
 		t.Fatal("thumbnail pixels missing")
 	}
-	again, _ := renderChangedFrame(next, next, after)
+	again, _, _ := renderChangedFrame(next, cache, 0)
 	if &again[0][0] != &after[0][0] {
 		t.Fatal("unchanged artwork was rerendered")
 	}
 	bad := next
 	bad.Keys[0].Artwork = "invalid"
-	fallback, _ := renderChangedFrame(bad, next, after)
+	fallback, _, _ := renderChangedFrame(bad, cache, 0)
 	if !bytes.Equal(fallback[0], before[0]) {
 		t.Fatal("invalid artwork did not restore play icon")
 	}
