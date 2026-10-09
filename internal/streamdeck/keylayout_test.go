@@ -134,14 +134,20 @@ func TestPieBandHasNoRoundEdge(t *testing.T) {
 }
 
 func TestSceneAndClipKeysOmitRoutineWords(t *testing.T) {
-	// A playing clip is filled green with nothing in the value row.
+	// A playing clip drops its status word: the artwork grows past the
+	// usual band, and the label sits in the bottom rows on the green fill.
 	playing := decodeKey(t, "Airhorn", "Playing", "soundboard-play", false, testArtwork(t))
-	for y := 80; y < 104; y++ {
-		for x := 10; x < 104; x++ {
-			if !near(playing.RGBAAt(x, y), soundboardArea, 40) {
-				t.Fatalf("playing clip shows a value at (%d, %d)", x, y)
-			}
+	if got := playing.RGBAAt(30, 70); near(got, soundboardArea, 40) {
+		t.Fatal("artwork band did not grow into the freed space", got)
+	}
+	ink := false
+	for y := 88; y < 104 && !ink; y++ {
+		for x := 10; x < 60 && !ink; x++ {
+			ink = near(playing.RGBAAt(x, y), inkColor, 60)
 		}
+	}
+	if !ink || !near(playing.RGBAAt(100, 96), soundboardArea, 40) {
+		t.Fatal("label not at the bottom of the green key")
 	}
 	if !routineWord("hue-scene", "ACTIVE") || routineWord("hue-scene", "WAIT") || routineWord("mic-mute", "READY") {
 		t.Fatal("routine word rules")

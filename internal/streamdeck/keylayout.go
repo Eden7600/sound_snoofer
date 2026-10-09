@@ -105,22 +105,18 @@ func drawKey(lines []string, w, h int, on bool, icon string, fallback bool, artw
 
 	set := typefaces()
 	if art, ok := decodeArtwork(artwork); ok {
-		drawBand(im, scale, w, art)
-		if label != "" {
-			lines := 1
-			if value == "" {
-				lines = 2 // The value row is free.
-			}
-			if f, ok := set.fitWords(labelFace, label, keyTextWidth, 15, 12, lines); ok {
-				for n, line := range f.lines {
-					set.draw(im, scale, labelFace, f.px, keyInset, bandHeight+4+n*(f.px+1), line, style.label)
+		if value == "" {
+			scrolls = drawArtworkLabel(im, scale, w, art, label, style.label, phase)
+		} else {
+			drawBand(im, scale, w, bandHeight, art)
+			if label != "" {
+				if f, ok := set.fitWords(labelFace, label, keyTextWidth, 15, 12, 1); ok {
+					set.draw(im, scale, labelFace, f.px, keyInset, bandHeight+4, f.lines[0], style.label)
+				} else {
+					set.drawScrolling(im, scale, labelFace, 15, keyInset, bandHeight+4, keyTextWidth, label, style.label, phase)
+					scrolls = true
 				}
-			} else {
-				set.drawScrolling(im, scale, labelFace, 15, keyInset, bandHeight+4, keyTextWidth, label, style.label, phase)
-				scrolls = true
 			}
-		}
-		if value != "" {
 			if f, ok := set.fitWords(valueFace, value, keyTextWidth, 24, 16, 1); ok {
 				set.draw(im, scale, valueFace, f.px, keyInset, bandHeight+24, f.lines[0], style.value)
 			} else {
@@ -310,18 +306,50 @@ func routineWord(icon, value string) bool {
 	return false
 }
 
-// drawBand scales artwork into the band at the top of the key. Square
-// artwork shows its middle rows; artwork with transparent corners (a pie)
-// shows the 2:1 rectangle inscribed in its circle, so no round edge shows.
-func drawBand(im *image.RGBA, scale, w int, art image.Image) {
-	b := art.Bounds()
-	source := image.Rect(b.Min.X, b.Min.Y+b.Dy()/4, b.Max.X, b.Min.Y+b.Dy()/4+b.Dy()/2)
-	if _, _, _, a := art.At(b.Min.X, b.Min.Y).RGBA(); a == 0 {
-		r := float64(min(b.Dx(), b.Dy()))/2 - 1
-		height := 2 * r / math.Sqrt(5)
-		cx := float64(b.Min.X) + float64(b.Dx())/2
-		cy := float64(b.Min.Y) + float64(b.Dy())/2
-		source = image.Rect(int(math.Ceil(cx-height)), int(math.Ceil(cy-height/2)), int(math.Floor(cx+height)), int(math.Floor(cy+height/2)))
+// drawArtworkLabel lays out an artwork key with no value: the label sits at
+// the bottom on up to two lines, and the artwork fills the space above it.
+// It reports whether the label scrolls.
+func drawArtworkLabel(im *image.RGBA, scale, w int, art image.Image, label string, ink color.RGBA, phase time.Duration) bool {
+	set := typefaces()
+	if label == "" {
+		drawBand(im, scale, w, 104, art)
+		return false
 	}
-	xdraw.CatmullRom.Scale(im, image.Rect(0, 0, w*scale, bandHeight*scale), art, source, draw.Over, nil)
+	f, fits := set.fitWords(labelFace, label, keyTextWidth, 15, 12, 2)
+	if !fits {
+		f = fitted{px: 15, lines: []string{label}}
+	}
+	top := 104 - len(f.lines)*(f.px+1)
+	drawBand(im, scale, w, top-4, art)
+	if !fits {
+		set.drawScrolling(im, scale, labelFace, 15, keyInset, top, keyTextWidth, label, ink, phase)
+		return true
+	}
+	for n, line := range f.lines {
+		set.draw(im, scale, labelFace, f.px, keyInset, top+n*(f.px+1), line, ink)
+	}
+	return false
+}
+
+// drawBand scales artwork into a band height pixels tall at the top of the
+// key, cropped to the band's shape. Square artwork shows its centred rows;
+// artwork with transparent corners (a pie) shows the rectangle inscribed in
+// its circle, so no round edge shows.
+func drawBand(im *image.RGBA, scale, w, height int, art image.Image) {
+	b := art.Bounds()
+	aspect := float64(w) / float64(height)
+	cx := float64(b.Min.X) + float64(b.Dx())/2
+	cy := float64(b.Min.Y) + float64(b.Dy())/2
+	side := float64(min(b.Dx(), b.Dy()))
+	cropW, cropH := side, side/aspect
+	if aspect < 1 {
+		cropW, cropH = side*aspect, side
+	}
+	if _, _, _, a := art.At(b.Min.X, b.Min.Y).RGBA(); a == 0 {
+		r := side/2 - 1
+		cropH = 2 * r / math.Sqrt(1+aspect*aspect)
+		cropW = aspect * cropH
+	}
+	source := image.Rect(int(math.Ceil(cx-cropW/2)), int(math.Ceil(cy-cropH/2)), int(math.Floor(cx+cropW/2)), int(math.Floor(cy+cropH/2)))
+	xdraw.CatmullRom.Scale(im, image.Rect(0, 0, w*scale, height*scale), art, source, draw.Over, nil)
 }
