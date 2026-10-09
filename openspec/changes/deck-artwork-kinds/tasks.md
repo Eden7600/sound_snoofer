@@ -6,7 +6,7 @@
 
 - [x] 5. `feat(streamdeck)`: program icons above a one-line scrolling title; tests; preview.
 - [x] 6. `feat(artwork)`: 128 px artwork contract; scenes, Windows covers and extension covers at 128 px; tests; extension build.
-- [ ] 7. Validate again; restart Snoofer.
+- [x] 7. Validate again; restart Snoofer. Race detector skipped: CGO is disabled on this toolchain.
 
 ## Acceptance
 - [ ] 4. On the Stream Deck + XL: clip art is shown whole; app keys show crisp program icons above a one-line title; scene wedges and covers are sharp; covers and scenes look as before.
