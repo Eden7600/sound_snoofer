@@ -111,25 +111,17 @@ func drawKey(lines []string, w, h int, on bool, icon string, fallback, inactive 
 	set := typefaces()
 	art, hasArt := decodeArtwork(artwork)
 	kind := artworkKind(icon)
-	if hasArt && kind != programArt {
-		if value == "" {
+	if hasArt {
+		switch {
+		case kind == programArt:
+			// A program icon sits icon-sized above a one-line title.
+			drawArtIcon(im, scale, art, keyInset, 12, 40)
+			scrolls = drawArtworkRows(im, scale, label, value, style, phase)
+		case value == "":
 			scrolls = drawArtworkLabel(im, scale, w, art, kind, label, style.label, phase)
-		} else {
+		default:
 			drawBand(im, scale, w, bandHeight, art, kind)
-			if label != "" {
-				if f, ok := set.fitWords(labelFace, label, keyTextWidth, 15, 12, 1); ok {
-					set.draw(im, scale, labelFace, f.px, keyInset, bandHeight+4, f.lines[0], style.label)
-				} else {
-					set.drawScrolling(im, scale, labelFace, 15, keyInset, bandHeight+4, keyTextWidth, label, style.label, phase)
-					scrolls = true
-				}
-			}
-			if f, ok := set.fitWords(valueFace, value, keyTextWidth, 24, 16, 1); ok {
-				set.draw(im, scale, valueFace, f.px, keyInset, bandHeight+24, f.lines[0], style.value)
-			} else {
-				set.drawScrolling(im, scale, valueFace, 18, keyInset, bandHeight+26, keyTextWidth, value, style.value, phase)
-				scrolls = true
-			}
+			scrolls = drawArtworkRows(im, scale, label, value, style, phase)
 		}
 	} else {
 		if label != "" {
@@ -150,9 +142,6 @@ func drawKey(lines []string, w, h int, on bool, icon string, fallback, inactive 
 		switch {
 		case style.alert:
 			drawAlert(im, scale, keyInset, top, size)
-		case v.icon && hasArt:
-			// A program icon is the key's icon, at icon size.
-			drawArtIcon(im, scale, art, keyInset, top, size)
 		case v.icon:
 			drawIconBox(im, scale, icon, style.icon, keyInset, top, size)
 		}
@@ -314,6 +303,31 @@ func routineWord(icon, value string) bool {
 		return value == "READY" || value == "ACTIVE" || value == "PLAYING"
 	}
 	return false
+}
+
+// drawArtworkRows sets an artwork key's text beneath its artwork: the label
+// on one line at y 60, the value at y 80, each scrolling when it cannot fit.
+// It reports whether either scrolls.
+func drawArtworkRows(im *image.RGBA, scale int, label, value string, style keyStyle, phase time.Duration) bool {
+	set := typefaces()
+	scrolls := false
+	if label != "" {
+		if f, ok := set.fitWords(labelFace, label, keyTextWidth, 15, 12, 1); ok {
+			set.draw(im, scale, labelFace, f.px, keyInset, bandHeight+4, f.lines[0], style.label)
+		} else {
+			set.drawScrolling(im, scale, labelFace, 15, keyInset, bandHeight+4, keyTextWidth, label, style.label, phase)
+			scrolls = true
+		}
+	}
+	if value != "" {
+		if f, ok := set.fitWords(valueFace, value, keyTextWidth, 24, 16, 1); ok {
+			set.draw(im, scale, valueFace, f.px, keyInset, bandHeight+24, f.lines[0], style.value)
+		} else {
+			set.drawScrolling(im, scale, valueFace, 18, keyInset, bandHeight+26, keyTextWidth, value, style.value, phase)
+			scrolls = true
+		}
+	}
+	return scrolls
 }
 
 // drawArtworkLabel lays out an artwork key with no value: the label sits at

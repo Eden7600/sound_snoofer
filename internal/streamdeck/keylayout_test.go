@@ -234,13 +234,26 @@ func TestArtworkByKind(t *testing.T) {
 	if near(clip.RGBAAt(56, 42), keyColor, 30) {
 		t.Fatal("clip art missing")
 	}
-	// A program icon sits in the icon slot, between the name and the value.
-	app := decodeKey(t, "Discord", "42%", "app-audio", false, placeholder.Art("Discord", placeholder.App))
-	if near(app.RGBAAt(26, 58), keyColor, 30) {
-		t.Fatal("program icon missing from the icon slot")
+	// A program icon sits icon-sized above a one-line title, uncropped.
+	tile := placeholder.Art("Discord", placeholder.App)
+	app := decodeKey(t, "Discord", "42%", "app-audio", false, tile)
+	if near(app.RGBAAt(30, 32), keyColor, 30) {
+		t.Fatal("program icon missing above the title")
 	}
-	if !near(app.RGBAAt(90, 58), keyColor, 30) {
-		t.Fatal("program icon spread past the icon slot", app.RGBAAt(90, 58))
+	if !near(app.RGBAAt(90, 32), keyColor, 30) {
+		t.Fatal("program icon spread past icon size", app.RGBAAt(90, 32))
+	}
+	magenta := false
+	for y := bandHeight + 4; y < bandHeight+20 && !magenta; y++ {
+		for x := 10; x < 80 && !magenta; x++ {
+			magenta = near(app.RGBAAt(x, y), mediaArea, 60)
+		}
+	}
+	if !magenta {
+		t.Fatal("program title not on its row beneath the icon")
+	}
+	if _, scrolls := drawKey([]string{"Microsoft Flight Simulator 2024", "42%"}, 112, 112, false, "app-audio", false, false, tile, 0); !scrolls {
+		t.Fatal("long program title does not scroll on one line")
 	}
 }
 
