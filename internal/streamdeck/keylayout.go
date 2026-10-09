@@ -4,8 +4,12 @@ import (
 	"bytes"
 	"image"
 	"image/color"
+	"image/draw"
 	"image/jpeg"
+	"math"
 	"strings"
+
+	xdraw "golang.org/x/image/draw"
 )
 
 // Key rows (openspec/changes/deck-rows-left): label, icon and value each own
@@ -83,6 +87,9 @@ func renderArtwork(lines []string, w, h int, on bool, icon string, fallback bool
 	if fallback && accent == attentionColor && value != "WAIT" && value != "" {
 		value += "*"
 	}
+	if routineWord(icon, value) {
+		value = "" // The fill already says Playing or Active.
+	}
 	style := styleFor(accent, value, keyArea(icon))
 	fill(im, 0, 0, w*scale, h*scale, style.background)
 
@@ -90,8 +97,14 @@ func renderArtwork(lines []string, w, h int, on bool, icon string, fallback bool
 	if art, ok := decodeArtwork(artwork); ok {
 		drawBand(im, scale, w, art)
 		if label != "" {
-			f := set.fit(labelFace, label, keyTextWidth, 15, 12, 1)
-			set.draw(im, scale, labelFace, f.px, keyInset, bandHeight+4, f.lines[0], style.label)
+			lines := 1
+			if value == "" {
+				lines = 2 // The value row is free.
+			}
+			f := set.fit(labelFace, label, keyTextWidth, 15, 12, lines)
+			for n, line := range f.lines {
+				set.draw(im, scale, labelFace, f.px, keyInset, bandHeight+4+n*(f.px+1), line, style.label)
+			}
 		}
 		if value != "" {
 			f := set.fit(valueFace, value, keyTextWidth, 24, 16, 1)
@@ -231,31 +244,28 @@ func insideRounded(x, y, x0, y0, x1, y1, r float64) bool {
 	return dx*dx+dy*dy <= r*r
 }
 
-// drawBand scales square artwork to the key's width and centre-crops it into
-// the band at the top.
-func drawBand(im *image.RGBA, scale, w int, art image.Image) {
-	bounds := art.Bounds()
-	width, height := w*scale, bandHeight*scale
-	offset := (width - height) / 2 // Rows of the scaled square above the band.
-	for y := 0; y < height; y++ {
-		sy := bounds.Min.Y + (y+offset)*bounds.Dy()/width
-		for x := 0; x < width; x++ {
-			sx := bounds.Min.X + x*bounds.Dx()/width
-			r, g, b, a := art.At(sx, sy).RGBA()
-			if a == 0 {
-				continue
-			}
-			pixel := color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), 255}
-			im.SetRGBA(x, y, blend(im.RGBAAt(x, y), unpremultiply(pixel, a), float64(a)/0xffff))
-		}
+// routineWord reports a status word that scene and clip keys leave to
+// their fill: Ready, Active and Playing.
+func routineWord(icon, value string) bool {
+	switch strings.TrimSuffix(icon, "-off") {
+	case "hue-scene", "soundboard-play":
+		return value == "READY" || value == "ACTIVE" || value == "PLAYING"
 	}
+	return false
 }
 
-// unpremultiply restores straight colour from premultiplied components.
-func unpremultiply(c color.RGBA, a uint32) color.RGBA {
-	if a == 0 || a == 0xffff {
-		return c
+// drawBand scales artwork into the band at the top of the key. Square
+// artwork shows its middle rows; artwork with transparent corners (a pie)
+// shows the 2:1 rectangle inscribed in its circle, so no round edge shows.
+func drawBand(im *image.RGBA, scale, w int, art image.Image) {
+	b := art.Bounds()
+	source := image.Rect(b.Min.X, b.Min.Y+b.Dy()/4, b.Max.X, b.Min.Y+b.Dy()/4+b.Dy()/2)
+	if _, _, _, a := art.At(b.Min.X, b.Min.Y).RGBA(); a == 0 {
+		r := float64(min(b.Dx(), b.Dy()))/2 - 1
+		height := 2 * r / math.Sqrt(5)
+		cx := float64(b.Min.X) + float64(b.Dx())/2
+		cy := float64(b.Min.Y) + float64(b.Dy())/2
+		source = image.Rect(int(math.Ceil(cx-height)), int(math.Ceil(cy-height/2)), int(math.Floor(cx+height)), int(math.Floor(cy+height/2)))
 	}
-	scale := func(v uint8) uint8 { return uint8(min(255, uint32(v)*0xffff/a)) }
-	return color.RGBA{scale(c.R), scale(c.G), scale(c.B), 255}
+	xdraw.CatmullRom.Scale(im, image.Rect(0, 0, w*scale, bandHeight*scale), art, source, draw.Over, nil)
 }

@@ -2,9 +2,12 @@ package streamdeck
 
 import (
 	"bytes"
+	"encoding/base64"
 	"image"
 	"image/color"
 	"image/jpeg"
+	"image/png"
+	"math"
 	"os"
 	"testing"
 )
@@ -98,8 +101,67 @@ func TestAreaColoursAndStates(t *testing.T) {
 	}
 }
 
+// pieArtwork is a scene-style disc of three wedges on a transparent square.
+func pieArtwork(t *testing.T) string {
+	t.Helper()
+	im := image.NewNRGBA(image.Rect(0, 0, 64, 64))
+	wedges := []color.NRGBA{{142, 197, 255, 255}, {244, 241, 232, 255}, {92, 141, 219, 255}}
+	for y := 0; y < 64; y++ {
+		for x := 0; x < 64; x++ {
+			dx, dy := float64(x)-31.5, float64(y)-31.5
+			if dx*dx+dy*dy > 31*31 {
+				continue
+			}
+			turn := (math.Atan2(dy, dx) + math.Pi) / (2 * math.Pi)
+			im.SetNRGBA(x, y, wedges[min(2, int(turn*3))])
+		}
+	}
+	var b bytes.Buffer
+	if err := png.Encode(&b, im); err != nil {
+		t.Fatal(err)
+	}
+	return base64.StdEncoding.EncodeToString(b.Bytes())
+}
+
+func TestPieBandHasNoRoundEdge(t *testing.T) {
+	im := decodeKey(t, "Concentrate", "Ready", "hue-scene", false, pieArtwork(t))
+	// The band's corners and edges show wedges, not the dark key.
+	for _, p := range []image.Point{{1, 1}, {110, 1}, {1, 54}, {110, 54}, {56, 1}, {56, 54}} {
+		if near(im.RGBAAt(p.X, p.Y), keyColor, 40) {
+			t.Fatalf("band shows background at %v", p)
+		}
+	}
+}
+
+func TestSceneAndClipKeysOmitRoutineWords(t *testing.T) {
+	// A playing clip is filled green with nothing in the value row.
+	playing := decodeKey(t, "Airhorn", "Playing", "soundboard-play", false, testArtwork(t))
+	for y := 80; y < 104; y++ {
+		for x := 10; x < 104; x++ {
+			if !near(playing.RGBAAt(x, y), soundboardArea, 40) {
+				t.Fatalf("playing clip shows a value at (%d, %d)", x, y)
+			}
+		}
+	}
+	if !routineWord("hue-scene", "ACTIVE") || routineWord("hue-scene", "WAIT") || routineWord("mic-mute", "READY") {
+		t.Fatal("routine word rules")
+	}
+	// Wait still shows on a scene key.
+	waiting := decodeKey(t, "Relax", "Wait", "hue-scene", false, "")
+	amber := false
+	for y := 76; y < 104 && !amber; y++ {
+		for x := 10; x < 104 && !amber; x++ {
+			amber = near(waiting.RGBAAt(x, y), attentionColor, 40)
+		}
+	}
+	if !amber {
+		t.Fatal("pending scene lost Wait")
+	}
+}
+
 func TestRowsPreview(t *testing.T) {
 	art := testArtwork(t)
+	pie := pieArtwork(t)
 	examples := []struct {
 		label, value, icon string
 		on                 bool
@@ -115,7 +177,7 @@ func TestRowsPreview(t *testing.T) {
 		{"Airhorn", "Playing", "soundboard-play", false, art},
 		{"Lofi beats", "Paused", "media-play", false, art},
 		{"Google Chrome", "42%", "app-audio", false, ""},
-		{"Concentrate", "Active", "hue-scene", false, ""},
+		{"Concentrate", "Active", "hue-scene", false, pie},
 		{"Soundboard", "", "deck-page", false, ""},
 		{"Sync", "Wait", "huesync-sync", false, ""},
 		{"Up", "1/2", "deck-up", false, ""},
