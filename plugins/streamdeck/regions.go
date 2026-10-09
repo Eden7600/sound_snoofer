@@ -156,8 +156,8 @@ func (l Layout) validateDialRegions(p Page) error {
 }
 
 // editRegion applies an editor request to a copy of page n's regions:
-// "add" takes "first,last,source", "source" takes "index,source" and
-// "remove" takes "index". Positions are editor slots: keys 0–35, then dials
+// "add" takes "first,last,source", "source" takes "index,source", "clip"
+// takes "index,on" or "index,off" and "remove" takes "index". Positions are editor slots: keys 0–35, then dials
 // from Keys. Indexes count key regions first, then dial regions. Editing a
 // legacy page first converts its prefix into an explicit whole-page region.
 // The caller validates the result.
@@ -205,6 +205,25 @@ func (l Layout) editRegion(n int, op, value string) (Layout, error) {
 			page.Regions[i].Source = source
 		} else {
 			page.DialRegions[i-len(page.Regions)].Source = source
+		}
+	case "clip":
+		i, err := index()
+		if err != nil || len(parts) != 2 {
+			return l, fmt.Errorf("unknown region")
+		}
+		var clip bool
+		switch strings.TrimSpace(parts[1]) {
+		case "on":
+			clip = true
+		case "off":
+			clip = false
+		default:
+			return l, fmt.Errorf("clip must be on or off")
+		}
+		if i < len(page.Regions) {
+			page.Regions[i].Clip = clip
+		} else {
+			page.DialRegions[i-len(page.Regions)].Clip = clip
 		}
 	case "remove":
 		i, err := index()

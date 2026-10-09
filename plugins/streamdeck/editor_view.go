@@ -16,6 +16,8 @@ type EditorView struct {
 	Selected    int
 	Dirty       bool
 	Home        bool
+	Sets        int  // Sets the edited page expands to with the current controls.
+	Scrolls     bool // The page binds an Up/Down key; otherwise the page dial visits each set.
 }
 type EditorSlot struct {
 	Control, Label, Source string
@@ -29,23 +31,28 @@ type EditorCollection struct {
 
 // EditorRegion is a page region with its editor label. Legacy marks the
 // whole-page region implied by an automatic prefix; Dials marks a dial
-// region, whose First and Last are dial indexes.
+// region, whose First and Last are dial indexes. Stacked names the sources
+// after the first that share the region's rows.
 type EditorRegion struct {
-	Source, Label string
-	First, Last   int
-	Legacy, Dials bool
+	Source, Label, Stacked string
+	First, Last            int
+	Legacy, Dials, Clip    bool
 }
 
 func editorView(draft Layout, page string, selected int, dirty bool, controls []snoofer.Control) EditorView {
 	view := EditorView{Selected: selected, Dirty: dirty, Home: draft.Home == page}
 	base := draft.Pages[draft.index(page)]
-	effective := draft.expanded(controls).effective(page)
+	expanded := draft.expanded(controls)
+	effective := expanded.effective(page)
+	view.Sets = len(expanded.sets(page))
+	view.Scrolls = expanded.scrolls(page)
 	region := make([]int, Keys)
 	for n := range region {
 		region[n] = -1
 	}
 	for n, f := range base.fills() {
-		view.Regions = append(view.Regions, EditorRegion{Source: f.Source, Label: collectionLabel(f, controls), First: f.First, Last: f.Last, Legacy: len(base.Regions) == 0})
+		view.Regions = append(view.Regions, EditorRegion{Source: f.Source, Label: collectionLabel(f, controls), Stacked: stackedLabel(f, controls),
+			First: f.First, Last: f.Last, Legacy: len(base.Regions) == 0, Clip: f.Clip})
 		for _, cell := range f.cells() {
 			region[cell] = n
 		}
@@ -82,12 +89,20 @@ func editorView(draft Layout, page string, selected int, dirty bool, controls []
 		for _, dial := range r.dialCells() {
 			dialRegion[dial] = len(view.Regions)
 		}
-		view.Regions = append(view.Regions, EditorRegion{Source: r.Source, Label: collectionLabel(fill{Region: r}, controls), First: r.First, Last: r.Last, Dials: true})
+		view.Regions = append(view.Regions, EditorRegion{Source: r.Source, Label: collectionLabel(fill{Region: r}, controls), First: r.First, Last: r.Last, Dials: true, Clip: r.Clip})
 	}
 	for n, b := range effective.Dials {
 		view.Dials = append(view.Dials, slot(b, base.Dials[n], draft.SharedDials[n], dialRegion[n]))
 	}
 	return view
+}
+
+// stackedLabel names the sources after the first that share a region's rows.
+func stackedLabel(f fill, controls []snoofer.Control) string {
+	if len(f.Sources) == 0 {
+		return ""
+	}
+	return collectionLabel(fill{Region: Region{Source: f.Sources[0], Sources: f.Sources[1:]}}, controls)
 }
 
 // collectionLabel names a region's source: the collection's published label,

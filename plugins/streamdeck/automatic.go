@@ -21,6 +21,7 @@ type stream struct {
 type stack struct {
 	rows    [][]int             // Free cells by row, top to bottom.
 	sources [][]snoofer.Control // Candidates of each source, in order.
+	clip    bool                // Show only the first set.
 }
 
 // sets places a stack's sources set by set. In each set every source with
@@ -154,7 +155,7 @@ func (l Layout) expanded(controls []snoofer.Control) Layout {
 		}
 		for _, f := range fills {
 			if len(f.Sources) > 0 {
-				st := stack{}
+				st := stack{clip: f.Clip}
 				for _, source := range append([]string{f.Source}, f.Sources...) {
 					st.sources = append(st.sources, candidates(fill{Region: Region{Source: source}}, controls, boundKeys, "press"))
 				}
@@ -196,6 +197,9 @@ func (l Layout) expanded(controls []snoofer.Control) Layout {
 		stacked := make([][]map[int]snoofer.Control, len(stacks))
 		for n, st := range stacks {
 			stacked[n] = st.sets()
+			if st.clip && len(stacked[n]) > 1 {
+				stacked[n] = stacked[n][:1]
+			}
 			pages = max(pages, len(stacked[n]))
 		}
 		for number := 1; number <= pages; number++ {

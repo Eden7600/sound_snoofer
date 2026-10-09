@@ -256,6 +256,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			add("name", "Rename page", "text", draft.Pages[selected].Name, nil, "set")
 			add("region-add", "Add region", "text", "", nil, "set")
 			add("region-source", "Region source", "text", "", nil, "set")
+			add("region-clip", "Region overflow", "text", "", nil, "set")
 			add("region-remove", "Remove region", "text", "", nil, "set")
 			add("add", "New page (name)", "text", "", nil, "set")
 			add("delete", "Delete page", "command", "", nil, "press")
@@ -507,7 +508,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					}
 				case "page":
 					editPage = r.Value
-				case "region-add", "region-source", "region-remove":
+				case "region-add", "region-source", "region-clip", "region-remove":
 					next, e := draft.editRegion(n, strings.TrimPrefix(strings.TrimPrefix(r.ID, "streamdeck."), "region-"), r.Value)
 					if e == nil {
 						e = next.Validate(s.Controls.Snapshot())
@@ -551,8 +552,10 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 						dirty = true
 					}
 				case "home":
-					draft.Home = editPage
-					dirty = true
+					if draft.Home != editPage {
+						draft.Home = editPage
+						dirty = true
+					}
 				case "slot":
 					parts := strings.Fields(r.Value)
 					if len(parts) == 2 {
