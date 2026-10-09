@@ -11,8 +11,8 @@ Fast recognition, truthful state, predictable actions. Users know Snoofer. Use s
 ## Content by surface
 | Surface | Content |
 | --- | --- |
-| Deck key | Short label, recognizable icon, current state or local status. One or two words where possible; max 16 ASCII characters for built-ins. No explanatory sentences, action IDs or profile suffix on active-profile controls. |
-| Deck dial | Target, large value, position track (gain over -60..+12 dB with a 0 dB mark, or a percentage), live meter; page dial shows previous/current/next page names on three lines, with the current name larger and cyan; neighboring names are smaller and neutral. Press still returns Home. No repeated gain label when dB is visible. |
+| Deck key | Short label, recognizable icon, current state or local status. One or two words where possible; max 16 ASCII characters for built-ins. No explanatory sentences, action IDs or profile suffix on active-profile controls. Rows, flush left: label (Archivo Bold, up to two lines, wraps then shrinks 16→12 px), 30 px icon, value (Archivo Condensed ExtraBold 30→18 px); nothing shares a line, and text is cut only past the smallest size. Artwork fills a top band with label and value rows beneath. Text and icons stay 8 px inside the edge because keycaps round the corners. |
+| Deck dial | Target in its area colour, large condensed value, position track (gain over -60..+12 dB with a 0 dB mark, or a percentage), full-width meter along the bottom; page dial shows `← PREVIOUS`, the current page large and light, and `NEXT →`. Press still returns Home. No repeated gain label when dB is visible. |
 | GUI | Task-oriented Audio, Routing, Soundboard, Lights, App audio, Meetings, Media, Stream Deck, Plugins, Third-party apps and Diagnostics screens. Plugins only enables, disables and retries; no settings or plugin controls appear there. Native controls, keyboard focus, spatial deck editor and persistent local feedback. |
 | Tray | Open controls, lifecycle actions, concise state. No tutorials. |
 
@@ -50,7 +50,18 @@ Provider Label identifies an action without an icon. Optional ShortLabel is for 
 Status takes priority only on the affected control. Keep uncertainty distinct from Off or zero. Meter expiry must not show silence. Ready is not recording; enabled capture is not recorder transport.
 
 ## Color semantics
-Colors supplement shape and words; they never carry state alone. Key backgrounds stay dark; no perimeter borders. Icon and state badge follow the same local semantic accent.
+Colors supplement shape and words; they never carry state alone. No perimeter borders except the rounded red error frame. On the deck, the icon names an area and the area colour is identity: an off key is dark with its label and icon in the area colour, and an on key is filled with it, with dark ink. Muted and recording fill red; error is a rounded red frame with `!`; pending is amber dashes with an amber value; fallback fills amber; unknown is a grey N/A. The GUI keeps the state palette below.
+
+| Deck area | Colour | Icons |
+| --- | --- | --- |
+| Mic | #38C6E0 | Mic, mic stack, mode, tap, echo, call and camera |
+| Playback | #6E93FF | Speaker, VR playback, monitor, deafen |
+| Recorder | #A98BFF | Record and tape transport |
+| Soundboard | #5FD38A | Soundboard |
+| Media and apps | #E57CF0 | Media transport, app audio |
+| Lights | #EFE7D3 | Hue and Hue Sync |
+| Other | #C5CBD0 | Pages, scroll, focus reset, everything else |
+
 | Meaning | Deck color | Use |
 | --- | --- | --- |
 | Normal text | #E3EDF3 | Labels and neutral symbols |
@@ -60,9 +71,9 @@ Colors supplement shape and words; they never carry state alone. Key backgrounds
 | Critical / audio inhibition | #FF6978 | Error, muted mic/output, recorder currently recording |
 | Unavailable | #8797A3 | N/A; never danger merely because a device is absent |
 | Background | #0E141B | Key and dial background |
-| Meter signal | #2DD28C / #F5BE3C / #FF5A64 | -60..0 dBFS continuous gradient over a dimmed unlit track; amber from the -12 dB region, red near -3 dB; held peak tick (red at -3 dB or above); not application status |
+| Meter signal | #2DD28C / #F5BE3C / #FF5A64 | -60..0 dBFS continuous gradient over a dimmed unlit track; amber from the -12 dB region, red near -3 dB; held peak tick (red at -3 dB or above); not application status. The deck strip draws flat green, amber and red zones instead of the gradient |
 
-Precedence: unavailable > failure > pending/fallback > muted/recording > active > neutral. Ordinary Off is neutral, including disabled mic stack. Recording's circle/square and Ready/Rec distinguish transport state. No arbitrary colors per control/category. Color definitions and precedence live in internal/streamdeck/palette.go.
+Precedence: unavailable > failure > pending/fallback > muted/recording > active > neutral. Ordinary Off is neutral, including disabled mic stack. Recording's circle/square and Ready/Rec distinguish transport state. Deck categories use only the area colours above; no arbitrary colours per control. Color definitions and precedence live in internal/streamdeck/palette.go.
 
 The GUI replaces the terminal renderer. Use the available workspace responsively: a vertical sidebar (Up/Down), content cards, and a spatial deck grid with a contextual inspector. Tab follows standard focus order; arrows on the deck follow its geometry. Never dispatch a binding merely by selecting its position. Keep text edits, search and focus stable during live updates. Surface-only audio transport actions stay off the Audio page; they remain available as deck bindings. The exception is the Recording card's recorder row: Record, Play/Pause, Stop, Rewind and Fast-forward (the last two as icon buttons).
 
