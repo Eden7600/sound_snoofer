@@ -427,14 +427,18 @@ func controls(s control.State) []snoofer.Control {
 	for n := range out {
 		out[n].Epoch = s.Revision
 		out[n].SurfaceOnly = out[n].Group == "Transport" || out[n].Group == "Bindings" || out[n].Group == "Diagnostics" || out[n].ID == "audio.playback-device" || out[n].ID == "audio.mic-device"
-		out[n].OptionLabels = map[string]string{"auto": "Automatic", "": "Automatic"}
-		for id, label := range s.ChoiceLabels {
-			out[n].OptionLabels[id] = label
-		}
-		// Activity metering marks microphones Auto currently skips.
-		for _, id := range s.SilentMics {
-			if label, ok := out[n].OptionLabels[id]; ok {
-				out[n].OptionLabels[id] = label + " · Silent"
+		// Only selections have options to label: an empty value elsewhere,
+		// such as a command's, must not read Automatic.
+		if out[n].Kind == "selection" {
+			out[n].OptionLabels = map[string]string{"auto": "Automatic", "": "Automatic"}
+			for id, label := range s.ChoiceLabels {
+				out[n].OptionLabels[id] = label
+			}
+			// Activity metering marks microphones Auto currently skips.
+			for _, id := range s.SilentMics {
+				if label, ok := out[n].OptionLabels[id]; ok {
+					out[n].OptionLabels[id] = label + " · Silent"
+				}
 			}
 		}
 		key := strings.TrimPrefix(out[n].ID, "audio.")

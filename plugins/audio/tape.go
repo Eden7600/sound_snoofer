@@ -36,10 +36,11 @@ func tapeRows(r *model.RecorderSnapshot, paused bool) []tapeRow {
 	case playback || paused:
 		play.value = "Paused"
 	}
+	// Stop, Rewind and Fast-forward read Ready; surfaces show N/A while unavailable.
 	return []tapeRow{
 		play,
-		{id: "tape-stop", label: "Stop", icon: "tape-stop", available: known && (recording || playback || paused)},
-		{id: "tape-rew", label: "Rewind", icon: "tape-rew", available: known && !recording},
-		{id: "tape-ff", label: "Fast-forward", icon: "tape-ff", available: known && !recording},
+		{id: "tape-stop", label: "Stop", value: "Ready", icon: "tape-stop", available: known && (recording || playback || paused)},
+		{id: "tape-rew", label: "Rewind", value: "Ready", icon: "tape-rew", available: known && !recording},
+		{id: "tape-ff", label: "Fast-forward", value: "Ready", icon: "tape-ff", available: known && !recording},
 	}
 }

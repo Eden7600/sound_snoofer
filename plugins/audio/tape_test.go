@@ -3,6 +3,7 @@ package audio
 import (
 	"testing"
 
+	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/control"
 	"sound-snoofer/internal/model"
 	"sound-snoofer/snoofer"
@@ -84,5 +85,28 @@ func TestRecordKeyByRecorderState(t *testing.T) {
 	}
 	if _, err := action(control.State{Recorder: recorderIn("Unknown")}, snoofer.Request{ID: "audio.record-toggle", Operation: "press"}); err == nil {
 		t.Fatal("unknown recorder state accepted")
+	}
+}
+
+func TestIdleTransportKeysReadReady(t *testing.T) {
+	intent := &config.Intent{Enabled: true, Source: "desk", Mode: "direct", Monitor: "off", Recording: &config.RecordingChoices{}}
+	s := control.State{Connected: true, Live: true, Intent: intent, ActiveIntent: intent.Clone(), Recorder: recorderIn("Stopped"), TapePaused: true}
+	byID := map[string]snoofer.Control{}
+	for _, c := range controls(s) {
+		byID[c.ID] = c
+		// Only selections label their options; an empty value elsewhere must
+		// never read Automatic.
+		if c.Kind != "selection" && c.OptionLabels[c.Value] != "" {
+			t.Errorf("%s (%s) shows option label %q for value %q", c.ID, c.Kind, c.OptionLabels[c.Value], c.Value)
+		}
+	}
+	for _, id := range []string{"audio.tape-stop", "audio.tape-rew", "audio.tape-ff"} {
+		c, ok := byID[id]
+		if !ok || c.Value != "Ready" || !c.Available {
+			t.Errorf("%s: value %q available %v", id, c.Value, c.Available)
+		}
+	}
+	if byID["audio.source"].OptionLabels["auto"] != "Automatic" {
+		t.Fatal("selection lost its Automatic label")
 	}
 }
