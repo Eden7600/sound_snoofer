@@ -117,18 +117,19 @@ func renderArtwork(lines []string, w, h int, on bool, icon string, fallback bool
 				set.draw(im, scale, labelFace, f.px, keyInset, labelTop+n*(f.px+1), line, style.label)
 			}
 		}
+		v := layoutValue(set, value)
 		top, size := iconTop, iconSize
 		if value == "" {
 			top, size = 56, 40 // The value row's space goes to the icon.
 		}
-		if style.alert {
+		switch {
+		case style.alert:
 			drawAlert(im, scale, keyInset, top, size)
-		} else {
+		case v.icon:
 			drawIconBox(im, scale, icon, style.icon, keyInset, top, size)
 		}
-		if value != "" {
-			f := set.fit(valueFace, value, keyTextWidth, 30, 18, 1)
-			set.draw(im, scale, valueFace, f.px, keyInset, valueTop, f.lines[0], style.value)
+		for n, line := range v.lines {
+			set.draw(im, scale, valueFace, v.px, keyInset, v.top+n*(v.px+1), line, style.value)
 		}
 	}
 	if style.frame {
@@ -140,6 +141,36 @@ func renderArtwork(lines []string, w, h int, on bool, icon string, fallback bool
 		}
 	}
 	return encodeKey(im, scale, w, h)
+}
+
+// valueLayout is where a key's value goes, and whether the icon keeps its
+// row.
+type valueLayout struct {
+	lines   []string
+	px, top int
+	icon    bool
+}
+
+// layoutValue sets a value on one line at 30 to 22 px; a value of several
+// words that does not fit wraps to two lines at 22 to 16 px in place of the
+// icon.
+func layoutValue(set *typeset, value string) valueLayout {
+	if value == "" {
+		return valueLayout{icon: true}
+	}
+	if f, ok := set.fitWords(valueFace, value, keyTextWidth, 30, 22, 1); ok {
+		return valueLayout{lines: f.lines, px: f.px, top: valueTop, icon: true}
+	}
+	if strings.Contains(strings.TrimSpace(value), " ") {
+		if f, ok := set.fitWords(valueFace, value, keyTextWidth, 22, 16, 2); ok {
+			if len(f.lines) == 1 {
+				return valueLayout{lines: f.lines, px: f.px, top: valueTop, icon: true}
+			}
+			return valueLayout{lines: f.lines, px: f.px, top: 48}
+		}
+	}
+	f := set.fit(valueFace, value, keyTextWidth, 22, 18, 1)
+	return valueLayout{lines: f.lines, px: f.px, top: valueTop, icon: true}
 }
 
 // encodeKey averages the supersampled canvas and rotates it 90 degrees

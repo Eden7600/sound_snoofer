@@ -159,6 +159,22 @@ func TestSceneAndClipKeysOmitRoutineWords(t *testing.T) {
 	}
 }
 
+func TestLongValuesWrapInPlaceOfTheIcon(t *testing.T) {
+	set := typefaces()
+	room := layoutValue(set, "UPSTAIRS LIVING ROOM")
+	if len(room.lines) != 2 || room.icon || room.top != 48 {
+		t.Fatal("room name should wrap in place of the icon", room)
+	}
+	short := layoutValue(set, "ON")
+	if len(short.lines) != 1 || !short.icon || short.px != 30 {
+		t.Fatal("short value changed", short)
+	}
+	// Two lines of value stay clear of the label rows and the bottom inset.
+	if room.top < labelTop+2*17 || room.top+len(room.lines)*(room.px+1) > 104 {
+		t.Fatal("wrapped value leaves its rows", room)
+	}
+}
+
 func TestRowsPreview(t *testing.T) {
 	art := testArtwork(t)
 	pie := pieArtwork(t)
@@ -181,6 +197,7 @@ func TestRowsPreview(t *testing.T) {
 		{"Soundboard", "", "deck-page", false, ""},
 		{"Sync", "Wait", "huesync-sync", false, ""},
 		{"Up", "1/2", "deck-up", false, ""},
+		{"Room", "Upstairs Living Room", "", false, ""},
 	}
 	const columns, gap = 7, 16
 	rows := (len(examples) + columns - 1) / columns

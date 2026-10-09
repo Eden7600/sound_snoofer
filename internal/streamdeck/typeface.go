@@ -32,10 +32,18 @@ const (
 	valueFace
 )
 
-// typeset holds the parsed faces. Missing fonts fall back to the bitmap
-// glyphs, so a font that fails to parse never blanks the deck.
+// typeset holds the parsed fonts and a face per size. Missing fonts fall
+// back to the bitmap glyphs, so a font that fails to parse never blanks the
+// deck. Faces are not safe for concurrent use: mu guards every use.
 type typeset struct {
 	fonts [2]*opentype.Font
+	mu    sync.Mutex
+	faces map[faceKey]font.Face
+}
+
+type faceKey struct {
+	kind typeface
+	px   int
 }
 
 var typefaces = sync.OnceValue(func() *typeset {
@@ -50,17 +58,25 @@ var typefaces = sync.OnceValue(func() *typeset {
 	return set
 })
 
-// face returns a face at px, or false for the bitmap fallback. Faces are
-// made per use because they are not safe for concurrent use.
+// face returns the cached face at px, or false for the bitmap fallback.
+// The caller holds mu.
 func (t *typeset) face(kind typeface, px int) (font.Face, bool) {
 	parsed := t.fonts[kind]
 	if parsed == nil {
 		return nil, false
 	}
+	key := faceKey{kind, px}
+	if face, ok := t.faces[key]; ok {
+		return face, true
+	}
 	face, err := opentype.NewFace(parsed, &opentype.FaceOptions{Size: float64(px), DPI: 72, Hinting: font.HintingNone})
 	if err != nil {
 		return nil, false
 	}
+	if t.faces == nil {
+		t.faces = map[faceKey]font.Face{}
+	}
+	t.faces[key] = face
 	return face, true
 }
 
@@ -71,24 +87,26 @@ func bitmapScale(px int) int {
 
 // width is s's advance in key pixels at px.
 func (t *typeset) width(kind typeface, px int, s string) int {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	face, ok := t.face(kind, px)
 	if !ok {
 		return len([]rune(s)) * 6 * bitmapScale(px)
 	}
-	defer face.Close()
 	return font.MeasureString(face, s).Ceil()
 }
 
 // draw sets s with the top of its line box at key pixel (x, y) on a canvas
 // supersampled by scale.
 func (t *typeset) draw(im *image.RGBA, scale int, kind typeface, px, x, y int, s string, c color.RGBA) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	face, ok := t.face(kind, px*scale)
 	if !ok {
 		size := bitmapScale(px)
 		text(im, x*scale, (y+max(0, px-7*size)/2)*scale, size*scale, s, c)
 		return
 	}
-	defer face.Close()
 	d := font.Drawer{Dst: im, Src: image.NewUniform(c), Face: face, Dot: fixed.P(x*scale, y*scale+face.Metrics().Ascent.Ceil())}
 	d.DrawString(s)
 }
@@ -101,19 +119,29 @@ type fitted struct {
 	cut   bool
 }
 
-// fit sets s within width on at most maxLines lines. Each size from maxPx
-// down to minPx tries one line, then word wrapping. Past that it breaks
-// inside words at minPx, and cuts with an ellipsis only as a last resort.
-func (t *typeset) fit(kind typeface, s string, width, maxPx, minPx, maxLines int) fitted {
+// fitWords sets s within width on at most maxLines lines without breaking
+// words: each size from maxPx down to minPx tries one line, then word
+// wrapping. It reports false when no size fits.
+func (t *typeset) fitWords(kind typeface, s string, width, maxPx, minPx, maxLines int) (fitted, bool) {
 	s = strings.Join(strings.Fields(s), " ")
 	for px := maxPx; px >= minPx; px-- {
 		if t.width(kind, px, s) <= width {
-			return fitted{px: px, lines: []string{s}}
+			return fitted{px: px, lines: []string{s}}, true
 		}
 		if lines, ok := t.wrap(kind, px, s, width, false); ok && len(lines) <= maxLines {
-			return fitted{px: px, lines: lines}
+			return fitted{px: px, lines: lines}, true
 		}
 	}
+	return fitted{}, false
+}
+
+// fit is fitWords, then breaks inside words at minPx, and cuts with an
+// ellipsis only as a last resort.
+func (t *typeset) fit(kind typeface, s string, width, maxPx, minPx, maxLines int) fitted {
+	if f, ok := t.fitWords(kind, s, width, maxPx, minPx, maxLines); ok {
+		return f
+	}
+	s = strings.Join(strings.Fields(s), " ")
 	lines, _ := t.wrap(kind, minPx, s, width, true)
 	if len(lines) <= maxLines {
 		return fitted{px: minPx, lines: lines}
