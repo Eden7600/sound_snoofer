@@ -51,7 +51,7 @@ func validBrowserSessions(sessions []browserSession) error {
 		return fmt.Errorf("browser reported %d sessions; at most %d", len(sessions), maxBrowserSessions)
 	}
 	for _, s := range sessions {
-		if s.ID == "" || len(s.ID) > 64 || len(s.Art) > 64*1024 {
+		if s.ID == "" || len(s.ID) > 64 || len(s.Art) > 128*1024 {
 			return fmt.Errorf("invalid browser session")
 		}
 	}

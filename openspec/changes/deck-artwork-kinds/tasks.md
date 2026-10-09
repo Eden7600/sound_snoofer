@@ -5,7 +5,7 @@
 - [x] 3. Validate: gofmt, `go test ./...`, `go vet ./...`, OpenSpec strict validation, canonical build; restart Snoofer. Race detector skipped: CGO is disabled on this toolchain.
 
 - [x] 5. `feat(streamdeck)`: program icons above a one-line scrolling title; tests; preview.
-- [ ] 6. `feat(artwork)`: 128 px artwork contract; scenes, Windows covers and extension covers at 128 px; tests; extension build.
+- [x] 6. `feat(artwork)`: 128 px artwork contract; scenes, Windows covers and extension covers at 128 px; tests; extension build.
 - [ ] 7. Validate again; restart Snoofer.
 
 ## Acceptance

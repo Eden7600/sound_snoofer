@@ -1,6 +1,6 @@
 // Background script (Chrome service worker, Firefox event page): keeps one
 // WebSocket to Snoofer on this computer, merges frame reports into sessions,
-// sends artwork as 64 px PNGs once per change, carries out Snoofer's
+// sends artwork as 128 px PNGs once per change, carries out Snoofer's
 // commands and answers the popup.
 if (typeof importScripts === "function" && !globalThis.SnooferLogic) importScripts("logic.js");
 const { PROTOCOL, DEFAULT_PORT, backoff, browserName, route, sessions, validPort } = globalThis.SnooferLogic;
@@ -68,11 +68,11 @@ async function thumbnail(url) {
   const response = await fetch(url);
   if (!response.ok) throw new Error(String(response.status));
   const bitmap = await createImageBitmap(await response.blob());
-  const canvas = new OffscreenCanvas(64, 64);
-  const scale = Math.min(64 / bitmap.width, 64 / bitmap.height);
+  const canvas = new OffscreenCanvas(128, 128);
+  const scale = Math.min(128 / bitmap.width, 128 / bitmap.height);
   const w = Math.max(1, Math.round(bitmap.width * scale));
   const h = Math.max(1, Math.round(bitmap.height * scale));
-  canvas.getContext("2d").drawImage(bitmap, (64 - w) / 2, (64 - h) / 2, w, h);
+  canvas.getContext("2d").drawImage(bitmap, (128 - w) / 2, (128 - h) / 2, w, h);
   const bytes = new Uint8Array(await (await canvas.convertToBlob({ type: "image/png" })).arrayBuffer());
   let binary = "";
   for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));

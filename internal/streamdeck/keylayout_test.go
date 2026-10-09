@@ -119,15 +119,17 @@ func TestAreaColoursAndStates(t *testing.T) {
 	}
 }
 
-// pieArtwork is a scene-style disc of three wedges on a transparent square.
+// pieArtwork is a scene-style disc of three wedges on a transparent square,
+// at the artwork contract's full size, as scenes are produced.
 func pieArtwork(t *testing.T) string {
 	t.Helper()
-	im := image.NewNRGBA(image.Rect(0, 0, 64, 64))
+	const size = maxArtworkSize
+	im := image.NewNRGBA(image.Rect(0, 0, size, size))
 	wedges := []color.NRGBA{{142, 197, 255, 255}, {244, 241, 232, 255}, {92, 141, 219, 255}}
-	for y := 0; y < 64; y++ {
-		for x := 0; x < 64; x++ {
-			dx, dy := float64(x)-31.5, float64(y)-31.5
-			if dx*dx+dy*dy > 31*31 {
+	for y := 0; y < size; y++ {
+		for x := 0; x < size; x++ {
+			dx, dy := float64(x)-(size-1)/2.0, float64(y)-(size-1)/2.0
+			if dx*dx+dy*dy > (size/2-1)*(size/2-1) {
 				continue
 			}
 			turn := (math.Atan2(dy, dx) + math.Pi) / (2 * math.Pi)

@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	artworkSize     = 64 // Thumbnail edge in pixels (the control artwork limit).
+	artworkSize     = 128 // Thumbnail edge in pixels (the control artwork limit), sharp when cropped on a key.
 	artworkScale    = 4  // Supersampling factor for smooth wedge edges.
 	maxWedges       = 5
 	mergeDistance   = 40.0 // RGB distance below which colors share a wedge.

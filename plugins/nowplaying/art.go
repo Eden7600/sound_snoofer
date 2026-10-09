@@ -13,8 +13,8 @@ import (
 	_ "golang.org/x/image/webp"
 )
 
-// thumbnail fits cover art proportionally inside the 64 px PNG artwork
-// contract. Large or unreadable images are rejected.
+// thumbnail fits cover art proportionally inside a coverSize PNG, the full
+// artwork contract, so covers stay sharp on the deck. Large or unreadable images are rejected.
 func thumbnail(data []byte) (string, error) {
 	cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
 	if err != nil {
@@ -28,11 +28,11 @@ func thumbnail(data []byte) (string, error) {
 		return "", err
 	}
 	bounds := source.Bounds()
-	thumb := image.NewNRGBA(image.Rect(0, 0, 64, 64))
+	thumb := image.NewNRGBA(image.Rect(0, 0, coverSize, coverSize))
 	longest := max(bounds.Dx(), bounds.Dy())
-	width, height := max(1, 64*bounds.Dx()/longest), max(1, 64*bounds.Dy()/longest)
-	x, y := (64-width)/2, (64-height)/2
-	draw.ApproxBiLinear.Scale(thumb, image.Rect(x, y, x+width, y+height), source, bounds, draw.Src, nil)
+	width, height := max(1, coverSize*bounds.Dx()/longest), max(1, coverSize*bounds.Dy()/longest)
+	x, y := (coverSize-width)/2, (coverSize-height)/2
+	draw.CatmullRom.Scale(thumb, image.Rect(x, y, x+width, y+height), source, bounds, draw.Src, nil)
 	var encoded bytes.Buffer
 	if err := png.Encode(&encoded, thumb); err != nil {
 		return "", err
@@ -40,7 +40,11 @@ func thumbnail(data []byte) (string, error) {
 	return base64.StdEncoding.EncodeToString(encoded.Bytes()), nil
 }
 
-// validArtwork accepts only the 64 px PNG contract from the extension.
+// coverSize is the cover thumbnail edge: the artwork contract's 128 px.
+const coverSize = 128
+
+// validArtwork accepts only the artwork contract (a square PNG up to
+// coverSize) from the extension.
 func validArtwork(art string) bool {
 	if art == "" {
 		return true
@@ -50,5 +54,5 @@ func validArtwork(art string) bool {
 		return false
 	}
 	cfg, err := png.DecodeConfig(bytes.NewReader(data))
-	return err == nil && cfg.Width == cfg.Height && cfg.Width >= 1 && cfg.Width <= 64
+	return err == nil && cfg.Width == cfg.Height && cfg.Width >= 1 && cfg.Width <= coverSize
 }

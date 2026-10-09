@@ -16,7 +16,7 @@ import (
 // Control is an immutable snapshot. Operations are press, adjust or set.
 type Control struct {
 	ViewData                                    json.RawMessage `json:",omitempty"` // Optional provider-owned structured view; core treats it as opaque.
-	Artwork                                     string          // Optional base64 PNG thumbnail, square and at most 64px; immutable across snapshots.
+	Artwork                                     string          // Optional base64 PNG thumbnail, square, at most 128px and 128 KiB encoded; immutable across snapshots.
 	Animation                                   []ArtworkFrame  `json:"-"` // Optional frames that animate Artwork; immutable, and kept out of polled GUI state.
 	ShortLabel                                  string          // Optional label for icon-bearing compact surfaces.
 	Collection                                  string          // Optional stable ID of a set of similar controls, which deck regions fill.

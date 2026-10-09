@@ -86,9 +86,17 @@ func fill(im *image.RGBA, x0, y0, x1, y1 int, c color.RGBA) {
 	}
 }
 
+// The artwork contract: a square PNG at most maxArtworkSize pixels, base64
+// at most maxArtworkBytes. Scenes and covers use the full size so they stay
+// sharp when cropped and scaled to a key's width.
+const (
+	maxArtworkSize  = 128
+	maxArtworkBytes = 128 * 1024
+)
+
 // decodeArtwork accepts only the bounded thumbnail contract, never source files.
 func decodeArtwork(artwork string) (image.Image, bool) {
-	if artwork == "" || len(artwork) > 32768 {
+	if artwork == "" || len(artwork) > maxArtworkBytes {
 		return nil, false
 	}
 	data, err := base64.StdEncoding.DecodeString(artwork)
@@ -96,7 +104,7 @@ func decodeArtwork(artwork string) (image.Image, bool) {
 		return nil, false
 	}
 	cfg, err := png.DecodeConfig(bytes.NewReader(data))
-	if err != nil || cfg.Width < 1 || cfg.Width != cfg.Height || cfg.Width > 64 {
+	if err != nil || cfg.Width < 1 || cfg.Width != cfg.Height || cfg.Width > maxArtworkSize {
 		return nil, false
 	}
 	source, err := png.Decode(bytes.NewReader(data))

@@ -108,11 +108,16 @@ func TestRenderArtworkGeometry(t *testing.T) {
 	if _, _, _, a := im.At(0, 0).RGBA(); a != 0 {
 		t.Fatal("corner not transparent")
 	}
-	// The largest wedge starts at 12 o'clock and runs clockwise for 3/4 of the disc.
-	if r, _, b, _ := im.At(50, 32).RGBA(); r>>8 < 200 || b>>8 > 50 {
+	// The largest wedge starts at 12 o'clock and runs clockwise for 3/4 of the
+	// disc. Positions are in 64ths of the edge.
+	at := func(x, y int) (uint32, uint32) {
+		r, _, b, _ := im.At(x*artworkSize/64, y*artworkSize/64).RGBA()
+		return r, b
+	}
+	if r, b := at(50, 32); r>>8 < 200 || b>>8 > 50 {
 		t.Fatalf("right side should be red, got r=%d b=%d", r>>8, b>>8)
 	}
-	if r, _, b, _ := im.At(20, 20).RGBA(); b>>8 < 200 || r>>8 > 50 {
+	if r, b := at(20, 20); b>>8 < 200 || r>>8 > 50 {
 		t.Fatalf("upper left should be blue, got r=%d b=%d", r>>8, b>>8)
 	}
 	if empty, _ := renderArtwork(nil); empty != "" {
