@@ -6,7 +6,7 @@ const root=$("#content");
 let state={Controls:[],Plugins:{},Enabled:{}}, controls=new Map(), screen="audio", signature="", pending=null;
 let localError="", dismissedNotice="";
 const widgets=[], updaters=[];
-const titles={audio:["AUDIO","Audio"],routing:["AUDIO","Routing"],soundboard:["LIBRARY","Soundboard"],lights:["LIGHTING","Lights"],appaudio:["MIXER","App audio"],meetings:["CALLS","Meetings"],media:["NOW PLAYING","Media"],deck:["CONTROL SURFACE","Stream Deck"],plugins:["SYSTEM","Plugins"],apps:["SYSTEM","Third-party apps"],diagnostics:["SYSTEM","Diagnostics"]};
+const titles={audio:["AUDIO","Audio"],routing:["AUDIO","Routing"],soundboard:["LIBRARY","Soundboard"],lights:["LIGHTING","Lights"],appaudio:["MIXER","App Audio"],meetings:["CALLS","Meetings"],media:["NOW PLAYING","Media"],deck:["CONTROL SURFACE","Stream Deck"],plugins:["SYSTEM","Plugins"],apps:["SYSTEM","Third-Party Apps"],diagnostics:["SYSTEM","Diagnostics"]};
 
 // Utility groups reused across screens. They are plain Tailwind utility
 // literals (no component classes), kept complete so the CSS build finds them.
@@ -192,9 +192,9 @@ function mixer(id,parent,title) {
 function buildAudio() {
  if(![...controls.keys()].some(id=>id.startsWith("audio."))){empty(root,"Audio is disabled. Enable it in Plugins.");return;}
  const grid=el("div",ui.grid);root.append(grid);
- const live=panel("Live controls",grid,"col-span-full"), top=el("div","mb-5 grid grid-cols-3 gap-5"), strips=el("div","grid grid-cols-2 gap-5 max-[850px]:gap-[9px]");
+ const live=panel("Live Controls",grid,"col-span-full"), top=el("div","mb-5 grid grid-cols-3 gap-5"), strips=el("div","grid grid-cols-2 gap-5 max-[850px]:gap-[9px]");
  control("audio.health",live,"Engine");
- live.append(top);control("audio.mic-stack",top,"Mic stack",{layout:"bare"});control("audio.mic-mute",top,"Mic mute",{layout:"bare"});control("audio.speaker-mute",top,"Playback mute",{layout:"bare"});
+ live.append(top);control("audio.mic-stack",top,"Mic Stack",{layout:"bare"});control("audio.mic-mute",top,"Mic Mute",{layout:"bare"});control("audio.speaker-mute",top,"Playback Mute",{layout:"bare"});
  live.append(strips);
  mixer("audio.gain-mic",strips,"MICROPHONE");mixer("audio.gain-playback",strips,"PLAYBACK");control("audio.interface",live,"Interface");
  const used=new Set(["audio.health","audio.mic-stack","audio.mic-mute","audio.speaker-mute","audio.gain-mic","audio.gain-playback","audio.interface","audio.playback-device"]);
@@ -206,11 +206,11 @@ function buildAudio() {
  }
  const recording=[...controls.values()].filter(v=>v.Group==="Recording"&&!v.SurfaceOnly);
  if(recording.length){const card=panel("Recording",grid);for(const item of recording){control(item.ID,card);used.add(item.ID);}if(c("audio.tape-play"))transport(card);}
- if(c("aec.mode")){const card=panel("Echo cancellation",grid);card.dataset.part="echo";control("aec.status",card,"Status");control("aec.mode",card,"Mode");control("aec.engine",card,"Engine");control("aec.strength",card,"Strength");control("aec.retry",card,"Retry");control("aec.timing",card,"Timing");}
+ if(c("aec.mode")){const card=panel("Echo Cancellation",grid);card.dataset.part="echo";control("aec.status",card,"Status");control("aec.mode",card,"Mode");control("aec.engine",card,"Engine");control("aec.strength",card,"Strength");control("aec.retry",card,"Retry");control("aec.timing",card,"Timing");}
  const other=[...controls.values()].filter(v=>v.ID.startsWith("audio.")&&!v.SurfaceOnly&&!used.has(v.ID)&&v.Group!=="Routing");
  if(other.length||c("audio.engine-restart")){
-  const card=panel("Routing & recovery",grid);for(const item of other)control(item.ID,card);
-  const engine=el("div",ui.actions+" mt-3");card.append(engine);command("audio.engine-restart","Restart audio engine",engine,"","refresh-cw");
+  const card=panel("Routing & Recovery",grid);for(const item of other)control(item.ID,card);
+  const engine=el("div",ui.actions+" mt-3");card.append(engine);command("audio.engine-restart","Restart Audio Engine",engine,"","refresh-cw");
  }
 }
 // priorityEdit sends one change to a device priority list; Snoofer validates,
@@ -252,7 +252,7 @@ function suggestionRows(parent,list,suggestions,driverLabel=true){
   // Add saves the device by identity; patterns are the advanced forms.
   const add=(entry,label,title,primary)=>{const b=withIcon(button(label,()=>priorityEdit(list,"add",0,JSON.stringify(entry)),ui.small+(primary?" "+ui.primary:"")),"plus");b.title=title;b.setAttribute("aria-label",label+" "+s.Name);row.append(b);updaters.push(()=>{b.disabled=!editable();});};
   if(s.ID)add({driver:s.Driver,id:s.ID,name:s.Name},"Add","This device, even if Windows renames it",true);
-  add({driver:s.Driver,pattern:s.Exact},"Exact pattern",s.Exact,!s.ID);if(s.Device)add({driver:s.Driver,pattern:s.Device},"Partial pattern",s.Device,false);
+  add({driver:s.Driver,pattern:s.Exact},"Exact Pattern",s.Exact,!s.ID);if(s.Device)add({driver:s.Driver,pattern:s.Device},"Partial Pattern",s.Device,false);
   box.append(row);
  }
 }
@@ -303,12 +303,12 @@ function micsCard(parent,view){
  if(mics.length<5){
   // A new microphone uses interface channels, or a connected input device.
   const add=el("div","mt-4 flex flex-wrap items-center gap-2 border-t border-[#25323e] pt-3"),name=el("input","w-40"),kind=el("select","min-w-0 flex-1");add.dataset.part="mic-add";
-  name.type="text";name.placeholder="Microphone";name.maxLength=16;name.setAttribute("aria-label","New microphone name");kind.setAttribute("aria-label","New microphone source");
-  kind.append(Object.assign(el("option","","Interface channels"),{value:""}));
+  name.type="text";name.placeholder="Microphone";name.maxLength=16;name.setAttribute("aria-label","New Microphone Name");kind.setAttribute("aria-label","New Microphone Source");
+  kind.append(Object.assign(el("option","","Interface Channels"),{value:""}));
   const devices=view.Suggestions?.["mic-devices:"]||[];
   devices.forEach((s,n)=>{const o=el("option","",s.Name);o.value=String(n);kind.append(o);});
   const added=()=>{const s=devices[Number(kind.value)];return kind.value===""?{name:name.value.trim()}:{name:name.value.trim(),devices:[s.ID?{driver:s.Driver,id:s.ID,name:s.Name}:{driver:s.Driver,pattern:s.Exact}]};};
-  const b=withIcon(button("Add microphone",()=>{if(name.value.trim())priorityEdit("mics","add",0,JSON.stringify(added()));},ui.small),"plus");
+  const b=withIcon(button("Add Microphone",()=>{if(name.value.trim())priorityEdit("mics","add",0,JSON.stringify(added()));},ui.small),"plus");
   name.onkeydown=e=>{if(e.key==="Enter")b.click();};name.addEventListener("input",update);
   updaters.push(()=>{name.disabled=kind.disabled=!editable();b.disabled=!editable()||!name.value.trim();});
   add.append(name,kind,b);card.append(add);
@@ -317,8 +317,8 @@ function micsCard(parent,view){
 // micSource switches a microphone between interface channels and a
 // connected input device; a device microphone keeps its current devices.
 function micSource(m,n,view){
- const select=el("select","min-w-0 max-w-[16rem]"),devices=view.Suggestions?.["mic-devices:"]||[];select.setAttribute("aria-label",m.Name+" source");
- select.append(Object.assign(el("option","","Interface channels"),{value:"interface"}));
+ const select=el("select","min-w-0 max-w-[16rem]"),devices=view.Suggestions?.["mic-devices:"]||[];select.setAttribute("aria-label",m.Name+" Source");
+ select.append(Object.assign(el("option","","Interface Channels"),{value:"interface"}));
  if(m.Device)select.append(Object.assign(el("option","","Device"),{value:"current"}));
  devices.forEach((s,i)=>{const o=el("option","",s.Name);o.value=String(i);select.append(o);});
  select.value=m.Device?"current":"interface";
@@ -329,7 +329,7 @@ function micSource(m,n,view){
 // readyToggle asserts a microphone is usable whenever present: Auto never
 // skips it for silence.
 function readyToggle(m,n){
- const b=button("Always ready",()=>priorityEdit("mics","set",n,String(!m.Ready),"ready"),ui.toggle+" "+ui.small);b.setAttribute("aria-pressed",String(!!m.Ready));b.setAttribute("aria-label",m.Name+" always ready");b.title="Auto never skips it for silence";
+ const b=button("Always Ready",()=>priorityEdit("mics","set",n,String(!m.Ready),"ready"),ui.toggle+" "+ui.small);b.setAttribute("aria-pressed",String(!!m.Ready));b.setAttribute("aria-label",m.Name+" always ready");b.title="Auto never skips it for silence";
  updaters.push(()=>{b.disabled=!editable();});
  return b;
 }
@@ -359,8 +359,8 @@ function activityCard(parent,view){
  for(let k=1;k<=4;k++)check.append(Object.assign(el("option","","Top "+k),{value:String(k)}));
  check.value=String(a?.Check||0);check.onchange=()=>priorityEdit("activity","set",0,check.value,"check");
  const number=(value,label,field,min,max)=>{const i=el("input","w-24 tabular-nums");i.type="number";i.min=String(min);i.max=String(max);i.value=a?String(value):"";i.setAttribute("aria-label",label);i.onchange=()=>priorityEdit("activity","set",0,i.value,field);return i;};
- const threshold=number(a?.SilenceDB,"Silence below (dBFS)","silence_db",-120,-20),delay=number(a?.SilentAfterS,"Silent after (s)","silent_after_s",2,600);
- fields.append(el("span","text-xs text-muted","Meter"),check,el("span","text-xs text-muted","Silence below (dBFS)"),threshold,el("span","text-xs text-muted","Silent after (s)"),delay);
+ const threshold=number(a?.SilenceDB,"Silence Below (dBFS)","silence_db",-120,-20),delay=number(a?.SilentAfterS,"Silent After (s)","silent_after_s",2,600);
+ fields.append(el("span","text-xs text-muted","Meter"),check,el("span","text-xs text-muted","Silence Below (dBFS)"),threshold,el("span","text-xs text-muted","Silent After (s)"),delay);
  card.append(fields);
  updaters.push(()=>{check.disabled=!editable();threshold.disabled=delay.disabled=!editable()||!a;});
 }
@@ -380,25 +380,25 @@ function interfaceCard(parent,view){
  // its hardware is connected.
  if(view.Drivers?.length&&view.Inputs?.length){
   const add=el("div","mt-4 flex flex-wrap items-center gap-2 border-t border-[#25323e] pt-3"),driver=el("select","min-w-0 flex-1"),input=el("select","min-w-0 flex-1");add.dataset.part="interface-add";
-  driver.setAttribute("aria-label","New interface driver");input.setAttribute("aria-label","New interface presence input");
+  driver.setAttribute("aria-label","New Interface Driver");input.setAttribute("aria-label","New Interface Presence Input");
   view.Drivers.forEach((s,n)=>{const o=el("option","",s.Name);o.value=String(n);driver.append(o);});
   view.Inputs.forEach((s,n)=>{const o=el("option","",s.Name);o.value=String(n);input.append(o);});
   // Both are saved by identity when Snoofer knows it, else as exact patterns.
   const added=()=>{const d=view.Drivers[Number(driver.value)],p=view.Inputs[Number(input.value)];return {...(d.ID?{asio_id:d.ID,asio_name:d.Name}:{asio_pattern:d.Exact}),...(p.ID?{presence_id:p.ID,presence_name:p.Name}:{presence_pattern:p.Exact}),inputs:{}};};
   const b=withIcon(button("Add",()=>priorityEdit("interfaces","add",0,JSON.stringify(added())),ui.small),"plus");
   updaters.push(()=>{b.disabled=driver.disabled=input.disabled=!editable();});
-  add.append(el("h3",ui.stripTitle+" mb-0 basis-full","Add interface"),driver,input,b);card.append(add);
+  add.append(el("h3",ui.stripTitle+" mb-0 basis-full","Add Interface"),driver,input,b);card.append(add);
  }
 }
 function micPriorityCard(parent,view){
- const card=panel("Mic priority",parent),entries=view.Lists?.microphones||[];card.dataset.part="list-microphones";
+ const card=panel("Mic Priority",parent),entries=view.Lists?.microphones||[];card.dataset.part="list-microphones";
  entries.forEach((entry,n)=>{
   const row=entryRow(card,n);row.append(el("span","min-w-0 flex-1",micName(view,entry.ID)));
   row.append(entry.InUse?badge("In use","active"):badge(entry.Option?"Ready":"Unavailable"),entryButtons("microphones",n,entries.length,micName(view,entry.ID)));
  });
  const missing=(view.Microphones||[]).filter(id=>!entries.some(e=>e.ID===id));
  if(missing.length){
-  const add=el("div","mt-4 flex gap-2 border-t border-[#25323e] pt-3"),select=el("select","min-w-0 flex-1");select.setAttribute("aria-label","Microphone to add");
+  const add=el("div","mt-4 flex gap-2 border-t border-[#25323e] pt-3"),select=el("select","min-w-0 flex-1");select.setAttribute("aria-label","Microphone to Add");
   for(const id of missing){const o=el("option","",micName(view,id));o.value=id;select.append(o);}
   const b=withIcon(button("Add",()=>priorityEdit("microphones","add",0,select.value),ui.small),"plus");
   updaters.push(()=>{b.disabled=select.disabled=!editable();});add.append(select,b);card.append(add);
@@ -472,12 +472,12 @@ function outputsCard(parent,view){
  // connected devices that are neither Playback nor another slot.
  if(slots.length<3){
   const add=el("div","mt-4 flex flex-wrap items-center gap-2 border-t border-[#25323e] pt-3"),name=el("input","w-40"),device=el("select","min-w-0 flex-1");add.dataset.part="output-add";
-  name.type="text";name.placeholder="Monitor output";name.maxLength=16;name.setAttribute("aria-label","New output name");device.setAttribute("aria-label","New output device");
+  name.type="text";name.placeholder="Monitor output";name.maxLength=16;name.setAttribute("aria-label","New Output Name");device.setAttribute("aria-label","New Output Device");
   device.append(Object.assign(el("option","","No device"),{value:""}));
   const devices=view.OutputDevices||[];
   devices.forEach((d,n)=>{const o=el("option","",d.Name);o.value=String(n);device.append(o);});
   const added=()=>{const d=devices[Number(device.value)];return d?{name:name.value.trim(),device:d.Name,...(d.ID?{device_id:d.ID}:{})}:{name:name.value.trim()};};
-  const b=withIcon(button("Add output",()=>{if(name.value.trim())outputEdit("add","",JSON.stringify(added()));},ui.small),"plus");
+  const b=withIcon(button("Add Output",()=>{if(name.value.trim())outputEdit("add","",JSON.stringify(added()));},ui.small),"plus");
   name.onkeydown=e=>{if(e.key==="Enter")b.click();};
   updaters.push(()=>{name.disabled=device.disabled=!editableOutputs();b.disabled=!editableOutputs()||!name.value.trim();});
   name.addEventListener("input",update);add.append(name,device,b);card.append(add);
@@ -505,7 +505,7 @@ function transport(card){
  }
  const relabel=(b,text,name)=>{if(b&&b.dataset.label!==text){b.dataset.label=text;b.replaceChildren(icon(name,"size-4 shrink-0"),text);}};
  updaters.push(()=>{
-  relabel(record,c("audio.record-toggle")?.Value==="Recording"?"Stop rec":"Record",c("audio.record-toggle")?.Value==="Recording"?"square":"circle-dot");
+  relabel(record,c("audio.record-toggle")?.Value==="Recording"?"Stop Rec":"Record",c("audio.record-toggle")?.Value==="Recording"?"square":"circle-dot");
   relabel(play,c("audio.tape-play")?.Value==="Playing"?"Pause":"Play",c("audio.tape-play")?.Value==="Playing"?"pause":"play");
  });
 }
@@ -532,9 +532,9 @@ async function animate(art,image,id,artwork){
 function clipState(item,active){return item.Value===active?"playing":item.Value==="Wait"||item.Status==="Pending"?"wait":tone(item)==="critical"?"error":"";}
 function buildSoundboard(){
  const clips=[...controls.values()].filter(v=>v.ID.startsWith("soundboard.clip-"));
- const toolbar=el("div",ui.toolbar),search=el("input","min-w-[170px] flex-1");search.type="search";search.placeholder="Search clips";search.setAttribute("aria-label","Search clips");toolbar.append(icon("search","size-5 shrink-0 text-muted"),search);
+ const toolbar=el("div",ui.toolbar),search=el("input","min-w-[170px] flex-1");search.type="search";search.placeholder="Search Clips";search.setAttribute("aria-label","Search Clips");toolbar.append(icon("search","size-5 shrink-0 text-muted"),search);
  command("soundboard.stop","Stop",toolbar,"","square");root.append(toolbar);
- if(c("soundboard.volume")){const card=panel("Playback",root,"mb-[18px]");control("soundboard.status",card,"Library");control("soundboard.overlap",card,"Overlap clips");mixer("soundboard.volume",card,"VOLUME");}
+ if(c("soundboard.volume")){const card=panel("Playback",root,"mb-[18px]");control("soundboard.status",card,"Library");control("soundboard.overlap",card,"Overlap Clips");mixer("soundboard.volume",card,"VOLUME");}
  if(!clips.length){empty(root,"No clips available. Check the soundboard plugin and library folder.");return;}
  const grid=el("div",ui.clipGrid);root.append(grid);
  for(const initial of clips){
@@ -565,7 +565,7 @@ function lightsSetup(parent){
   else if(value==="Error"){heading="Bridge needs pairing";body=status.Status||"";accent="critical";canPair=true;}
   else if(value==="Disconnected"){heading="Connecting to the Hue Bridge";body=status.Status||"";}
   card.hidden=!heading;title.textContent=heading;title.className=ui.h2+" "+tc(accent);text.textContent=body;
-  pair.hidden=!canPair;pair.textContent=value==="Error"?"Pair again":"Pair";pair.disabled=!!pending||!p?.Available;
+  pair.hidden=!canPair;pair.textContent=value==="Error"?"Pair Again":"Pair";pair.disabled=!!pending||!p?.Available;
  });
 }
 function lightDial(id,parent,title,pressLabel,step,min,max){
@@ -642,7 +642,7 @@ function buildLights(){
  const dials=el("div","mt-4 grid grid-cols-1 gap-5");room.append(dials);
  lightDial("hue.brightness",dials,"BRIGHTNESS","On/Off",2,1,100);
  // Motion sensors appear only while the room has some.
- const motion=el("div","mt-4");motion.dataset.part="motion";room.append(motion);control("hue.motion",motion,"Motion sensors");
+ const motion=el("div","mt-4");motion.dataset.part="motion";room.append(motion);control("hue.motion",motion,"Motion Sensors");
  updaters.push(()=>{const item=c("hue.motion");motion.hidden=!item||item.Hidden;});
  updaters.push(()=>{roomNote.textContent=c("hue.sync")?.Value==="On"?"Hue Sync is driving the lights · Brightness adjusts the sync":"";roomNote.hidden=!roomNote.textContent;});
  const groupControl=c("hue.group"),roomName=(groupControl?.OptionLabels?.[groupControl.Value]||"").replace(/ \(zone\)$/,"");
@@ -653,7 +653,7 @@ function buildLights(){
  else sceneGrid.append(el("p","text-muted",roomName?"No scenes in this room.":"Choose a room to see its scenes."));
  const others=scenes.filter(v=>!own.includes(v));
  if(others.length){
-  const details=el("details","mt-4"),summary=el("summary","","Other rooms");details.append(summary);room.append(details);
+  const details=el("details","mt-4"),summary=el("summary","","Other Rooms");details.append(summary);room.append(details);
   for(const name of [...new Set(others.map(sceneRoom))].sort()){
    const heading=el("h3","mt-4 text-xs font-bold text-muted",name||"Other");heading.dataset.part="room-heading";
    details.append(heading);const g=el("div",ui.sceneGrid);details.append(g);
@@ -665,7 +665,7 @@ function buildLights(){
  updaters.push(()=>{
   const status=c("hue.sync-status"),item=c("hue.sync"),on=item?.Value==="On",failed=!!item?.Status&&item.Status!=="Pending";
   syncState.textContent=status?.Value==="N/A"?"Not connected":status?.Value||"";syncState.className="-mt-1.5 mb-3 text-[13px] "+(on?"text-active":tc(tone(status)));
-  toggle.textContent=item?.Status==="Pending"?"Wait":on?"Stop sync":"Start sync";toggle.setAttribute("aria-pressed",String(on));
+  toggle.textContent=item?.Status==="Pending"?"Wait":on?"Stop Sync":"Start Sync";toggle.setAttribute("aria-pressed",String(on));
   toggle.dataset.tone=failed?"critical":"";toggle.disabled=!!pending||!item?.Available;
   help.textContent=status?.Value==="N/A"?"Open Hue Sync and turn on Settings → Third-party control.":status?.Value==="No bridge"?"Hue Sync has no bridge connection.":failed?item.Status:"";
   help.className=failed?"text-critical":"text-muted";help.hidden=!help.textContent;
@@ -698,7 +698,7 @@ function appStrip(id,parent){
  // Separate undoes one.
  const naming=info().Naming||[],separates=[];
  if(naming.length){
-  const list=el("div","mt-3 border-t border-[#25323e] pt-2");list.dataset.part="naming";list.append(el("h4","text-[11px] font-bold text-muted","Named here"));
+  const list=el("div","mt-3 border-t border-[#25323e] pt-2");list.dataset.part="naming";list.append(el("h4","text-[11px] font-bold text-muted","Named Here"));
   for(const rule of naming){
    const row=el("div","flex items-center justify-between gap-2 py-1"),programs=(rule.Programs||[]).join(", ");
    const b=button("Separate",()=>appEdit("separate",initial.Label,rule.Match),ui.small);b.setAttribute("aria-label","Separate "+programs);separates.push(b);
@@ -728,15 +728,15 @@ function appStrip(id,parent){
  });
 }
 function buildAppAudio(){
- if(!(state.Plugins||{}).appaudio){empty(root,"App audio is not part of this build.");return;}
+ if(!(state.Plugins||{}).appaudio){empty(root,"App Audio is not part of this build.");return;}
  if(!state.Enabled?.appaudio){
-  const card=panel("App audio is off",root,"mb-[18px] border-[#345365]");card.dataset.part="setup";card.append(el("p","mt-2 mb-3.5 text-muted","Control the volume and mute of individual apps."));
-  const actions=el("div",ui.actions);actions.append(button("Enable App audio",()=>send({Kind:"selection",Plugin:"appaudio",Enable:true}),ui.primary));card.append(actions);return;
+  const card=panel("App Audio is off",root,"mb-[18px] border-[#345365]");card.dataset.part="setup";card.append(el("p","mt-2 mb-3.5 text-muted","Control the volume and mute of individual apps."));
+  const actions=el("div",ui.actions);actions.append(button("Enable App Audio",()=>send({Kind:"selection",Plugin:"appaudio",Enable:true}),ui.primary));card.append(actions);return;
  }
  // The recent window is edited inline; it saves on Enter or when focus leaves.
  const intro=el("div","mb-2 flex flex-wrap items-center gap-2 text-[13px] text-muted"),minutes=el("input","w-20 tabular-nums");
  intro.dataset.part="appaudio-note";
- minutes.type="number";minutes.min="1";minutes.max="1440";minutes.step="1";minutes.setAttribute("aria-label","Recent window in minutes");minutes.dataset.part="recent";
+ minutes.type="number";minutes.min="1";minutes.max="1440";minutes.step="1";minutes.setAttribute("aria-label","Recent Window in Minutes");minutes.dataset.part="recent";
  minutes.onchange=()=>{
   const value=Number(minutes.value),current=c("appaudio.status")?.ViewData?.RecentMinutes;
   if(Number.isInteger(value)&&value>=1&&value<=1440&&value!==current)appEdit("recent","recent",String(value));
@@ -778,7 +778,7 @@ function excludedCard(view){
   row(a.Name,a.Rule,()=>appEdit("unhide",a.Name),"Unhide","Unhide "+a.Name);
  }
  const add=el("div","mt-3 flex gap-2 border-t border-[#25323e] pt-3"),input=el("input","min-w-0 flex-1");
- input.type="text";input.placeholder="game.exe";input.setAttribute("aria-label","Program to exclude");
+ input.type="text";input.placeholder="game.exe";input.setAttribute("aria-label","Program to Exclude");
  const apply=button("Exclude",()=>{const v=input.value.trim();if(v){appEdit("exclude",v,v);input.value="";}},ui.small);apply.dataset.part="exclude";
  input.onkeydown=e=>{if(e.key==="Enter")apply.click();};
  add.append(input,apply);card.append(add);
@@ -802,7 +802,7 @@ function mediaCard(id,parent){
  seek.onpointerup=seek.onpointercancel=()=>{dragging=false;};
  seek.onchange=()=>{dragging=false;request(c(id),"set",seek.value);};
  const actions=el("div",ui.actions),status=el("small","text-[11px]");
- const prev=iconButton("skip-back","Previous",()=>press("nowplaying.prev")),play=iconButton("play","Play or pause",()=>press(id)),next=iconButton("skip-forward","Next",()=>press("nowplaying.next"));
+ const prev=iconButton("skip-back","Previous",()=>press("nowplaying.prev")),play=iconButton("play","Play or Pause",()=>press(id)),next=iconButton("skip-forward","Next",()=>press("nowplaying.next"));
  const mute=button("Mute",()=>press("nowplaying.mute"),ui.toggle+" "+ui.small);
  play.dataset.part="play";mute.dataset.part="mute";
  actions.append(prev,play,next,mute,status);card.append(head,seek,times,actions);parent.append(card);
@@ -827,7 +827,7 @@ function mediaCard(id,parent){
 // extensionCard explains the Snoofer Media extension, which reports each
 // browser tab, and shows which browsers are connected.
 function extensionCard(parent){
- const card=panel("Browser extension",parent,"mt-[18px]");card.dataset.part="extension";
+ const card=panel("Browser Extension",parent,"mt-[18px]");card.dataset.part="extension";
  const intro=el("p","-mt-2 text-[13px] text-muted","Browsers show Windows only one session for all their tabs. The Snoofer Media extension reports each tab separately, so every video or song can be paused and sought on its own. It connects by itself; there is nothing to pair.");
  const browsers=el("div","mt-3 grid gap-1 text-[13px]"),problem=el("p","mt-2 text-[13px] text-critical");
  const steps=el("ol","mt-3 list-decimal space-y-1 pl-5 text-[13px] text-muted");
@@ -843,10 +843,10 @@ function extensionCard(parent){
  });
 }
 function buildMedia(){
- if(!(state.Plugins||{}).nowplaying){empty(root,"Now playing is not part of this build.");return;}
+ if(!(state.Plugins||{}).nowplaying){empty(root,"Now Playing is not part of this build.");return;}
  if(!state.Enabled?.nowplaying){
-  const card=panel("Now playing is off",root,"mb-[18px] border-[#345365]");card.dataset.part="setup";card.append(el("p","mt-2 mb-3.5 text-muted","Show and control what is playing in each app and browser tab."));
-  const actions=el("div",ui.actions);actions.append(button("Enable Now playing",()=>send({Kind:"selection",Plugin:"nowplaying",Enable:true}),ui.primary));card.append(actions);return;
+  const card=panel("Now Playing is off",root,"mb-[18px] border-[#345365]");card.dataset.part="setup";card.append(el("p","mt-2 mb-3.5 text-muted","Show and control what is playing in each app and browser tab."));
+  const actions=el("div",ui.actions);actions.append(button("Enable Now Playing",()=>send({Kind:"selection",Plugin:"nowplaying",Enable:true}),ui.primary));card.append(actions);return;
  }
  const sessions=[...controls.values()].filter(v=>v.Collection==="nowplaying.sessions").sort((a,b)=>(a.Order||0)-(b.Order||0));
  if(!sessions.length)empty(root,"Nothing is playing. Start music or a video in any app or browser tab.");
@@ -871,7 +871,7 @@ function buildMeetings(){
  if(!pluginOff("insta360","Camera","Insta360 Link 2 privacy, tracking and framing.",grid)){
   const card=panel("Camera",grid);card.dataset.part="camera";
   if(!c("insta360.privacy"))card.append(el("p","text-muted","Camera: "+(state.Plugins.insta360||"Starting")));
-  else{stateLine("insta360.state",card);control("insta360.privacy",card,"Privacy");control("insta360.tracking",card,"Tracking");control("insta360.framing",card,"Framing");control("insta360.reset",card,"Reset position");}
+  else{stateLine("insta360.state",card);control("insta360.privacy",card,"Privacy");control("insta360.tracking",card,"Tracking");control("insta360.framing",card,"Framing");control("insta360.reset",card,"Reset Position");}
  }
  if(!pluginOff("discord","Discord","Discord mute, deafen, camera and screen share.",grid)){
   const card=panel("Discord",grid);card.dataset.part="discord";
@@ -881,7 +881,7 @@ function buildMeetings(){
    const setup=el("p","mb-3 text-attention","Add your Discord application's client_id and client_secret to snoofer.json.");setup.dataset.part="discord-setup";card.append(setup);
    const connect=el("div",ui.actions+" mb-3");connect.dataset.part="discord-connect";command("discord.connect","Connect",connect,ui.primary);card.append(connect);
    updaters.push(()=>{setup.hidden=c("discord.mute")?.Status!=="Setup needed";connect.hidden=!c("discord.connect")?.Available&&c("discord.connect")?.Status!=="Pending";});
-   control("discord.mute",card,"Mute");control("discord.deafen",card,"Deafen");control("discord.video",card,"Camera");control("discord.screenshare",card,"Screen share");control("discord.leave",card,"Leave call");
+   control("discord.mute",card,"Mute");control("discord.deafen",card,"Deafen");control("discord.video",card,"Camera");control("discord.screenshare",card,"Screen Share");control("discord.leave",card,"Leave Call");
   }
  }
 }
@@ -912,7 +912,7 @@ function buildDeck(){
  inspector.dataset.part="inspector";
  workspace.append(left,inspector);root.append(workspace);
  const frame=el("div","mb-5 rounded-[18px] border border-[#2e414f] bg-deck p-[19px]"),keys=el("div","grid grid-cols-9 gap-[7px]"),dials=el("div","mt-[22px] grid grid-cols-6 gap-2");frame.append(keys,dials);left.append(frame);
- keys.setAttribute("aria-label","Deck keys");dials.setAttribute("aria-label","Deck dials");
+ keys.setAttribute("aria-label","Deck Keys");dials.setAttribute("aria-label","Deck Dials");
  const keyClass="relative flex aspect-square min-w-0 flex-col items-center justify-center overflow-hidden rounded-[7px] bg-key px-[3px] py-[5px] text-[9px] data-[empty=true]:border-[#1c2a36] data-[empty=true]:bg-key-empty data-[region=true]:bg-active-bg data-[range=true]:outline-2 data-[range=true]:outline-dashed data-[range=true]:outline-active aria-pressed:border-2 aria-pressed:border-active aria-pressed:shadow-[0_0_0_2px_#183a46] min-[1500px]:text-xs max-[1120px]:text-[11px]";
  const dialClass="relative data-[region=true]:bg-active-bg data-[range=true]:outline-2 data-[range=true]:outline-dashed data-[range=true]:outline-active flex min-h-[62px] min-w-0 flex-col items-center justify-center bg-key px-1 py-[7px] text-[10px] before:mb-[5px] before:size-[18px] before:rounded-full before:border-2 before:border-[#60798a] before:content-[''] aria-pressed:border-2 aria-pressed:border-active aria-pressed:shadow-[0_0_0_2px_#183a46] *:max-w-full *:truncate";
  function slotButton(index,dial){
@@ -963,11 +963,11 @@ function buildDeck(){
  const commands=el("div",ui.actions+" justify-end");tools.append(commands);
  command("streamdeck.earlier","Earlier",commands,"","chevron-left");command("streamdeck.later","Later",commands,"","chevron-right");const makeHome=command("streamdeck.home","Make Home",commands,"","house");
  if(makeHome)updaters.push(()=>{if(c("streamdeck.preview")?.ViewData?.Home)makeHome.disabled=true;});
- const more=el("details","mt-4"),summary=el("summary","","Page options");more.append(summary);tools.append(more);
- control("streamdeck.add",more,"New page");
+ const more=el("details","mt-4"),summary=el("summary","","Page Options");more.append(summary);tools.append(more);
+ control("streamdeck.add",more,"New Page");
  regionsPanel(left);
  const deletion=el("div",ui.actions+" justify-end");more.append(deletion);
- const del=command("streamdeck.delete","Delete page",deletion,ui.danger);
+ const del=command("streamdeck.delete","Delete Page",deletion,ui.danger);
  if(del)del.onclick=()=>{if(window.confirm("Delete this page from the draft? Save applies the deletion."))press("streamdeck.delete");};
  const selected=preview.ViewData.Selected,dial=selected>=36;
  const eyebrow=el("div","text-[10px] font-semibold tracking-[1.7px] text-muted",dial?"DIAL "+(selected-35):"KEY "+(selected+1));eyebrow.dataset.part="eyebrow";
@@ -977,16 +977,16 @@ function buildDeck(){
   const v=c("streamdeck.preview")?.ViewData;if(!v)return;
   const slot=dial?v.Dials[selected-36]:v.Keys[selected];
   ownership.className=slot.Source?ui.note+" mt-1":"mt-1 mb-[15px] text-xs text-muted";
-  ownership.textContent=slot.Source==="Auto"?"Auto-filled · assigning a binding pins this position":slot.Source==="Shared"?"Shared across pages":"Page binding";
+  ownership.textContent=slot.Source==="Auto"?"Auto-filled · assigning a binding pins this position":slot.Source==="Shared"?"Shared Across Pages":"Page binding";
  });
- control("streamdeck.shared",inspector,"Edit shared binding",{layout:"stack"});
- const search=el("input","w-full");search.type="search";search.placeholder="Find an action";search.setAttribute("aria-label","Find a binding");
+ control("streamdeck.shared",inspector,"Edit Shared Binding",{layout:"stack"});
+ const search=el("input","w-full");search.type="search";search.placeholder="Find an action";search.setAttribute("aria-label","Find a Binding");
  const select=el("select","my-2.5 min-h-[220px] w-full text-xs max-[1120px]:min-h-[150px] *:p-[7px] *:whitespace-normal");select.size=9;select.setAttribute("aria-label","Binding");
  inspector.append(search,select);
  function populate(){
   const value=c("streamdeck.binding")?.Value||"";
   select.replaceChildren();
-  const clear=el("option","","Clear binding");clear.value="";select.append(clear);
+  const clear=el("option","","Clear Binding");clear.value="";select.append(clear);
   for(const item of controls.values()){
    // Go-to and scroll keys are the only Stream Deck controls that can be bound.
    if((item.ID.startsWith("streamdeck.")&&!item.ID.startsWith("streamdeck.goto-")&&!item.ID.startsWith("streamdeck.scroll-")&&item.ID!=="streamdeck.reset-focus") || !compatible(item,dial))continue;
@@ -1002,7 +1002,7 @@ function buildDeck(){
  select.onchange=()=>{request(c("streamdeck.binding"),"set",select.value,0,select.editRevision);select.blur();};
  updaters.push(()=>{select.disabled=!!pending||!c("streamdeck.binding")?.Available;if(document.activeElement!==select)select.value=c("streamdeck.binding")?.Value||"";});
  const bar=el("div","sticky bottom-3 mt-[18px] flex items-center justify-between gap-3 rounded-[10px] border border-[#345365] bg-[#192a36] px-[18px] py-3.5"),status=el("p","text-xs"),actions=el("div",ui.actions);bar.append(status,actions);root.append(bar);
- const discard=command("streamdeck.cancel","Discard",actions),save=command("streamdeck.save","Save layout",actions,ui.primary);
+ const discard=command("streamdeck.cancel","Discard",actions),save=command("streamdeck.save","Save Layout",actions,ui.primary);
  updaters.push(()=>{
   const v=c("streamdeck.preview")?.ViewData;status.textContent=c("streamdeck.status")?.Value||"";
   status.className="text-xs "+(v?.Dirty?"text-attention":"text-muted");
@@ -1031,16 +1031,16 @@ function regionsPanel(parent){
  regions.forEach((region,i)=>{
   const row=el("div","flex flex-wrap items-center gap-2.5");row.dataset.part="region";
   const name=el("strong","w-7 text-xs text-active","R"+(i+1)),select=sourceSelect(region.Source,region.Label),keysLabel=el("small","text-muted",region.Legacy?"Whole page · prefix":region.Dials?regionDialsLabel(region.First,region.Last):regionKeysLabel(region.First,region.Last));
-  select.setAttribute("aria-label","Region "+(i+1)+" source");
+  select.setAttribute("aria-label","Region "+(i+1)+" Source");
   select.onfocus=()=>{select.editRevision=c("streamdeck.region-source")?.Revision;};
   select.onchange=()=>{request(c("streamdeck.region-source"),"set",i+","+select.value,0,select.editRevision);select.blur();};
   const stacked=region.Stacked?el("small","text-muted","+ "+region.Stacked):null;
   // Overflow adds sets; off saves the region clipped to the keys it covers.
   const overflow=el("label","flex items-center gap-1.5 text-xs"),box=el("input","size-4 accent-active");box.type="checkbox";box.checked=!region.Clip;
-  box.setAttribute("aria-label","Region "+(i+1)+" overflow");overflow.append(box,document.createTextNode("Overflow"));overflow.dataset.part="region-overflow";
+  box.setAttribute("aria-label","Region "+(i+1)+" Overflow");overflow.append(box,document.createTextNode("Overflow"));overflow.dataset.part="region-overflow";
   overflow.title="Adds sets when the region has more than fits";
   box.onchange=()=>request(c("streamdeck.region-clip"),"set",i+","+(box.checked?"off":"on"));
-  const remove=button("Remove",()=>request(c("streamdeck.region-remove"),"set",String(i)),ui.danger);remove.setAttribute("aria-label","Remove region "+(i+1));
+  const remove=button("Remove",()=>request(c("streamdeck.region-remove"),"set",String(i)),ui.danger);remove.setAttribute("aria-label","Remove Region "+(i+1));
   row.append(name,select);if(stacked)row.append(stacked);row.append(keysLabel);if(c("streamdeck.region-clip"))row.append(overflow);row.append(remove);card.append(row);
   updaters.push(()=>{select.disabled=remove.disabled=box.disabled=!!pending;const saved=(c("streamdeck.preview")?.ViewData?.Regions||[])[i];if(saved&&!pending)box.checked=!saved.Clip;});
  });
@@ -1049,13 +1049,13 @@ function regionsPanel(parent){
   request(c("streamdeck.region-add"),"set",deckRange.anchor+","+deckRange.end+","+source.value);
   deckRange=null;
  },ui.primary);
- source.setAttribute("aria-label","New region source");create.dataset.part="add-region";
+ source.setAttribute("aria-label","New Region Source");create.dataset.part="add-region";
  add.append(source,create);card.append(add);
  updaters.push(()=>{
   if(deckRange&&deckRange.page!==c("streamdeck.page")?.Value)deckRange=null;
   const keysInRange=rangeKeys(deckRange),current=c("streamdeck.preview")?.ViewData;
   const overlaps=keysInRange.some(k=>((k>=36?current?.Dials[k-36]:current?.Keys[k])?.Region??-1)>=0);
-  create.textContent=deckRange?"Add region · "+(deckRange.dials?regionDialsLabel(deckRange.anchor-36,deckRange.end-36):regionKeysLabel(deckRange.anchor,deckRange.end)):"Add region";
+  create.textContent=deckRange?"Add Region · "+(deckRange.dials?regionDialsLabel(deckRange.anchor-36,deckRange.end-36):regionKeysLabel(deckRange.anchor,deckRange.end)):"Add Region";
   create.disabled=!!pending||!deckRange||overlaps||!collections.length;
   create.title=overlaps?"The selection overlaps a region":!deckRange?"Select keys or dials first":"";
   source.disabled=!collections.length;
@@ -1089,7 +1089,7 @@ async function copyText(text,feedback){
  feedback.textContent="Copied";setTimeout(()=>{feedback.textContent="";},1500);
 }
 function reportCard(id,parent){
- const card=el("section","min-w-0 rounded-[9px] border border-l-[3px] border-seam border-l-line bg-sidebar px-4 py-3.5 data-[tone=active]:border-l-active data-[tone=attention]:border-l-attention data-[tone=critical]:border-l-critical"),head=el("div","mb-2 flex items-center justify-between gap-2.5"),name=el("h3","text-sm font-bold",c(id).Label),state=badge(""),copied=el("small","ml-1.5 text-active"),copy=withIcon(button("Copy details",()=>copyText(connectionText(c(id)),copied),ui.small),"copy");
+ const card=el("section","min-w-0 rounded-[9px] border border-l-[3px] border-seam border-l-line bg-sidebar px-4 py-3.5 data-[tone=active]:border-l-active data-[tone=attention]:border-l-attention data-[tone=critical]:border-l-critical"),head=el("div","mb-2 flex items-center justify-between gap-2.5"),name=el("h3","text-sm font-bold",c(id).Label),state=badge(""),copied=el("small","ml-1.5 text-active"),copy=withIcon(button("Copy Details",()=>copyText(connectionText(c(id)),copied),ui.small),"copy");
  card.dataset.part="app-card";
  const endpoint=el("code","mb-1.5 block font-mono text-xs break-words text-muted"),times=el("p","mb-1.5 text-xs text-muted"),error=el("p","mb-2 text-xs break-words"),list=el("dl","my-2 mb-2.5 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-[3px] text-xs");
  endpoint.dataset.part="endpoint";times.dataset.part="app-times";error.dataset.part="app-error";list.dataset.part="app-details";
@@ -1116,7 +1116,7 @@ function buildApps(){
  const reports=[...controls.values()].filter(v=>v.Kind==="connection").sort((a,b)=>(a.Group||"").localeCompare(b.Group||"")||a.Label.localeCompare(b.Label));
  const bar=el("div",ui.toolbar+" justify-between"),counts=el("div","flex flex-1 flex-wrap gap-2"),copied=el("small","ml-1.5 text-active");
  counts.dataset.part="summary";
- bar.append(counts,withIcon(button("Copy all",()=>copyText(reports.map(r=>connectionText(c(r.ID)||r)).join("\n\n"),copied),ui.small),"copy"),copied);root.append(bar);
+ bar.append(counts,withIcon(button("Copy All",()=>copyText(reports.map(r=>connectionText(c(r.ID)||r)).join("\n\n"),copied),ui.small),"copy"),copied);root.append(bar);
  updaters.push(()=>{
   const tally={active:0,attention:0,critical:0,other:0};
   for(const r of reports){const t=connectionTone(c(r.ID)?.Connection);tally[t in tally?t:"other"]++;}
@@ -1134,12 +1134,12 @@ function buildApps(){
  }
 }
 function buildDiagnostics(){
- const toolbar=el("div",ui.toolbar);toolbar.append(withIcon(button("Retry plugins",()=>send({Kind:"retry"})),"refresh-cw"));root.append(toolbar);
- const card=panel("Audio engine",root);control("audio.health",card);control("audio.interface",card);control("audio.asio-unavailable",card);control("audio.auto-recover",card,"Automatic recovery");
- const engine=el("div",ui.actions+" mt-3");card.append(engine);command("audio.engine-restart","Restart audio engine",engine,"","refresh-cw");command("audio.engine-confirm","Confirm restart",engine,ui.danger);
+ const toolbar=el("div",ui.toolbar);toolbar.append(withIcon(button("Retry Plugins",()=>send({Kind:"retry"})),"refresh-cw"));root.append(toolbar);
+ const card=panel("Audio Engine",root);control("audio.health",card);control("audio.interface",card);control("audio.asio-unavailable",card);control("audio.auto-recover",card,"Automatic Recovery");
+ const engine=el("div",ui.actions+" mt-3");card.append(engine);command("audio.engine-restart","Restart Audio Engine",engine,"","refresh-cw");command("audio.engine-confirm","Confirm Restart",engine,ui.danger);
  const details=el("section",ui.panel+" mt-[18px] text-[13px] break-words whitespace-pre-wrap");root.append(details);
  updaters.push(()=>{
-  details.replaceChildren(el("h2",ui.h2,"Current notices"));
+  details.replaceChildren(el("h2",ui.h2,"Current Notices"));
   const notices=[...controls.values()].filter(v=>v.Status);
   if(!notices.length)details.append(el("p","my-2 text-muted","No control notices."));
   for(const item of notices){details.append(el("h3",ui.h3+" mt-3",item.Label),el("p","my-2 "+(tc(tone(item))||"text-muted"),item.Status));}
