@@ -29,8 +29,8 @@ Provider Label identifies an action without an icon. Optional ShortLabel is for 
 | Input selection | Mic Target; Auto / selected device |
 | Recording capture | Record Mic / Record PC; On / Off |
 | Recording tap | Mic Stage; Pre / Post |
-| Recorder transport | Record / Stop Rec; Ready / Rec |
-| Tape playback | Play (Ready / Playing with pause bars / Paused), Stop, Rew, FF; plays the recorder's loaded file to the Playback destination; N/A while recording, Stop only while playing |
+| Recorder transport | Tape-deck style: Record starts (stopping playback first) or stops a recording (Record / Stop Rec; Ready / Rec); Play/Pause plays, pauses the tape with one stop, or pauses and resumes a recording; Stop returns the tape to the start (a second stop) or ends a recording |
+| Tape playback | Play (Ready / Playing with pause bars / Paused; Rec with pause bars while recording, Paused while a recording is paused), Stop, Rew, FF; plays the recorder's loaded file to the Playback destination; Rew and FF are N/A while recording; Stop is available while playing, paused or recording |
 | Media transport | Prev / Play / Next / Stop; no fictitious playback state |
 | Soundboard | Filename / Stop; Ready / Playing (cyan), Wait during normalization; failures stay local to the clip |
 | Gain | Playback / Mic; numeric dB, position track and meter; while Element is the effective processing, the Mic meter shows the processed return (AUX) |
