@@ -386,7 +386,7 @@ func controls(s control.State) []snoofer.Control {
 			add(id, strings.ReplaceAll(id, "-", " "), "Transport", "command", s.Recorder.State(), nil, "press")
 		}
 		add("record-toggle", "Record", "Transport", "command", s.Recorder.State(), nil, "press")
-		for _, row := range tapeRows(s.Recorder) {
+		for _, row := range tapeRows(s.Recorder, s.TapePaused) {
 			add(row.id, row.label, "Transport", "command", row.value, nil, "press")
 			out[len(out)-1].Available = row.available
 			out[len(out)-1].Icon = row.icon
@@ -476,7 +476,7 @@ func controls(s control.State) []snoofer.Control {
 				out[n].Status = "Failed"
 			}
 		}
-		if key == "record-toggle" && s.Recorder.State() == "Recording" {
+		if key == "record-toggle" && recordingActive(s.Recorder) {
 			out[n].Icon = "record-stop"
 			out[n].Label = "Stop Recording"
 			out[n].ShortLabel = "Stop Rec"
@@ -548,13 +548,14 @@ func action(s control.State, r snoofer.Request) (control.Action, error) {
 		a.Target = strings.TrimPrefix(key, "tape-")
 		return a, nil
 	case "record-toggle":
-		switch s.Recorder.State() {
-		case "Stopped":
-			a.Kind = control.RecordStart
-		case "Recording":
+		// Record starts, stopping any playback first, or ends a recording.
+		switch {
+		case s.Recorder.State() == "Unknown":
+			return a, fmt.Errorf("recorder state is not actionable")
+		case recordingActive(s.Recorder):
 			a.Kind = control.RecordStop
 		default:
-			return a, fmt.Errorf("recorder state is not actionable")
+			a.Kind = control.RecordStart
 		}
 		return a, nil
 	case "speaker-mute":

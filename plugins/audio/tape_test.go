@@ -29,22 +29,30 @@ func recorderIn(state string) *model.RecorderSnapshot {
 func TestTapeRows(t *testing.T) {
 	type want struct {
 		value, icon string
-		available   [4]bool
+		available   [4]bool // Play, Stop, Rew, FF.
 	}
-	for state, w := range map[string]want{
-		"Stopped":   {"Ready", "tape-play", [4]bool{true, false, true, true}},
-		"Playing":   {"Playing", "tape-pause", [4]bool{true, true, true, true}},
-		"Paused":    {"Paused", "tape-play", [4]bool{true, true, true, true}},
-		"Recording": {"Rec", "tape-play", [4]bool{false, false, false, false}},
-		"Unknown":   {"N/A", "tape-play", [4]bool{false, false, false, false}},
+	recPaused := recorderIn("Recording")
+	recPaused.Values["Recorder.pause"] = 1
+	for name, c := range map[string]struct {
+		r      *model.RecorderSnapshot
+		paused bool
+		want   want
+	}{
+		"Stopped":          {recorderIn("Stopped"), false, want{"Ready", "tape-play", [4]bool{true, false, true, true}}},
+		"Tape paused":      {recorderIn("Stopped"), true, want{"Paused", "tape-play", [4]bool{true, true, true, true}}},
+		"Playing":          {recorderIn("Playing"), false, want{"Playing", "tape-pause", [4]bool{true, true, true, true}}},
+		"Playback paused":  {recorderIn("Paused"), false, want{"Paused", "tape-play", [4]bool{true, true, true, true}}},
+		"Recording":        {recorderIn("Recording"), false, want{"Rec", "tape-pause", [4]bool{true, true, false, false}}},
+		"Recording paused": {recPaused, false, want{"Paused", "tape-play", [4]bool{true, true, false, false}}},
+		"Unknown":          {recorderIn("Unknown"), false, want{"N/A", "tape-play", [4]bool{false, false, false, false}}},
 	} {
-		rows := tapeRows(recorderIn(state))
-		if rows[0].value != w.value || rows[0].icon != w.icon {
-			t.Error(state, rows[0])
+		rows := tapeRows(c.r, c.paused)
+		if rows[0].value != c.want.value || rows[0].icon != c.want.icon {
+			t.Error(name, rows[0])
 		}
 		for n, row := range rows {
-			if row.available != w.available[n] {
-				t.Error(state, row.id, row.available)
+			if row.available != c.want.available[n] {
+				t.Error(name, row.id, row.available)
 			}
 		}
 	}
@@ -53,5 +61,28 @@ func TestTapeRows(t *testing.T) {
 		if err != nil || a.Kind != control.Tape || a.Target != target {
 			t.Fatal(id, a, err)
 		}
+	}
+}
+
+func TestRecordKeyByRecorderState(t *testing.T) {
+	recPaused := recorderIn("Recording")
+	recPaused.Values["Recorder.pause"] = 1
+	for name, c := range map[string]struct {
+		r    *model.RecorderSnapshot
+		want control.ActionKind
+	}{
+		"Stopped":          {recorderIn("Stopped"), control.RecordStart},
+		"Playing":          {recorderIn("Playing"), control.RecordStart},
+		"Playback paused":  {recorderIn("Paused"), control.RecordStart},
+		"Recording":        {recorderIn("Recording"), control.RecordStop},
+		"Recording paused": {recPaused, control.RecordStop},
+	} {
+		a, err := action(control.State{Recorder: c.r}, snoofer.Request{ID: "audio.record-toggle", Operation: "press"})
+		if err != nil || a.Kind != c.want {
+			t.Error(name, a.Kind, err)
+		}
+	}
+	if _, err := action(control.State{Recorder: recorderIn("Unknown")}, snoofer.Request{ID: "audio.record-toggle", Operation: "press"}); err == nil {
+		t.Fatal("unknown recorder state accepted")
 	}
 }

@@ -7,28 +7,39 @@ type tapeRow struct {
 	available              bool
 }
 
-// tapeRows are the recorder playback controls. None can act on a recording:
-// all are unavailable while recording or while the recorder state is unknown,
-// and Stop only acts on playback.
-func tapeRows(r *model.RecorderSnapshot) []tapeRow {
+// recordingActive reports a recording in progress or paused, as opposed to
+// paused playback.
+func recordingActive(r *model.RecorderSnapshot) bool {
 	state := r.State()
-	playing := r.TapePlaying()
-	idle := state == "Stopped" || playing
-	play := tapeRow{id: "tape-play", label: "Play Recording", value: "Ready", icon: "tape-play", available: idle}
+	return state == "Recording" || (state == "Paused" && !r.TapePlaying())
+}
+
+// tapeRows are the tape-deck transport keys (openspec/changes/recorder-transport).
+// Play/Pause pauses the tape or the recording; Stop returns the tape to the
+// start or ends the recording; Rewind and Fast-forward never act on a
+// recording. paused is Snoofer's knowledge that its stop paused playback.
+func tapeRows(r *model.RecorderSnapshot, paused bool) []tapeRow {
+	state := r.State()
+	known := state != "Unknown"
+	recording := recordingActive(r)
+	playback := r.TapePlaying()
+	play := tapeRow{id: "tape-play", label: "Play Recording", value: "Ready", icon: "tape-play", available: known}
 	switch {
-	case playing && state == "Playing":
-		play.value, play.icon = "Playing", "tape-pause"
-	case playing:
-		play.value = "Paused"
-	case state == "Recording" || state == "Paused":
-		play.value = "Rec"
-	case state == "Unknown":
+	case !known:
 		play.value = "N/A"
+	case state == "Recording":
+		play.value, play.icon = "Rec", "tape-pause"
+	case recording:
+		play.value = "Paused"
+	case state == "Playing":
+		play.value, play.icon = "Playing", "tape-pause"
+	case playback || paused:
+		play.value = "Paused"
 	}
 	return []tapeRow{
 		play,
-		{id: "tape-stop", label: "Stop Playback", icon: "tape-stop", available: playing},
-		{id: "tape-rew", label: "Rewind", icon: "tape-rew", available: idle},
-		{id: "tape-ff", label: "Fast-forward", icon: "tape-ff", available: idle},
+		{id: "tape-stop", label: "Stop", icon: "tape-stop", available: known && (recording || playback || paused)},
+		{id: "tape-rew", label: "Rewind", icon: "tape-rew", available: known && !recording},
+		{id: "tape-ff", label: "Fast-forward", icon: "tape-ff", available: known && !recording},
 	}
 }

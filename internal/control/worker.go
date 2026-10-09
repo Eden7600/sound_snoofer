@@ -77,6 +77,7 @@ type State struct {
 	EditAck       uint64
 	EditError     string
 	Recorder      *model.RecorderSnapshot
+	TapePaused    bool // Snoofer's stop paused playback; see Controller.TapePaused.
 	Intent        *config.Intent
 	Revision      uint64
 	StateError    string
@@ -352,7 +353,8 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		}
 		prepared := ctl != nil && ctl.RecorderPrepared
 		listening := ctl != nil && ctl.TapeListening
-		ctl = &controller.Controller{Mixer: mixer, RecorderPrepared: prepared, TapeListening: listening, Backend: backend, Config: cfg, Clock: controller.RealClock{}, Emit: func(e controller.Event) {
+		paused := ctl != nil && ctl.TapePaused
+		ctl = &controller.Controller{Mixer: mixer, RecorderPrepared: prepared, TapeListening: listening, TapePaused: paused, Backend: backend, Config: cfg, Clock: controller.RealClock{}, Emit: func(e controller.Event) {
 			if e.Kind == "error" {
 				state.Error = e.Message
 			}
@@ -685,6 +687,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				} else {
 					state.SetNotice("Recorder verified", NoticeSuccess, time.Now())
 				}
+				state.TapePaused = ctl.TapePaused
 				revision++
 			case toggleLive:
 				revision++
@@ -914,6 +917,10 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 			revision++
 		}
 		state.Recorder = backend.snapshot.Recorder
+		if ctl != nil && state.Recorder.State() != "Stopped" {
+			ctl.TapePaused = false // Observed elsewhere: no longer paused by Snoofer.
+		}
+		state.TapePaused = ctl != nil && ctl.TapePaused
 		// Routing/write diagnostics do not mean the native observation was lost.
 		state.Connected = backend.readError == nil
 		if describer, ok := backend.Client.(interface{ RemoteInfo() model.RemoteInfo }); ok {

@@ -505,8 +505,11 @@ function transport(card){
  }
  const relabel=(b,text,name)=>{if(b&&b.dataset.label!==text){b.dataset.label=text;b.replaceChildren(icon(name,"size-4 shrink-0"),text);}};
  updaters.push(()=>{
-  relabel(record,c("audio.record-toggle")?.Value==="Recording"?"Stop Rec":"Record",c("audio.record-toggle")?.Value==="Recording"?"square":"circle-dot");
-  relabel(play,c("audio.tape-play")?.Value==="Playing"?"Pause":"Play",c("audio.tape-play")?.Value==="Playing"?"pause":"play");
+  // Labels follow the keys' icons: Stop Rec while recording or paused, and
+  // Pause while the tape plays or a recording runs.
+  const recording=c("audio.record-toggle")?.Icon==="record-stop",pausing=c("audio.tape-play")?.Icon==="tape-pause";
+  relabel(record,recording?"Stop Rec":"Record",recording?"square":"circle-dot");
+  relabel(play,pausing?"Pause":"Play",pausing?"pause":"play");
  });
 }
 function setArt(art,artwork,fallback,size,animated){
