@@ -386,9 +386,11 @@ func controls(s control.State) []snoofer.Control {
 			add(id, strings.ReplaceAll(id, "-", " "), "Transport", "command", s.Recorder.State(), nil, "press")
 		}
 		add("record-toggle", "Record", "Transport", "command", s.Recorder.State(), nil, "press")
+		out[len(out)-1].Available = s.Recorder.State() != "Unknown"
 		for _, row := range tapeRows(s.Recorder, s.TapePaused) {
 			add(row.id, row.label, "Transport", "command", row.value, nil, "press")
 			out[len(out)-1].Available = row.available
+			out[len(out)-1].Inactive = row.inactive
 			out[len(out)-1].Icon = row.icon
 		}
 	}
@@ -496,9 +498,13 @@ func controls(s control.State) []snoofer.Control {
 		// With the mic stack off, mic-path controls have no effect: surfaces
 		// show them inactive in place. The GUI still shows them, so
 		// availability is unchanged.
-		out[n].Inactive = !s.Intent.Enabled && micPathControls[key]
+		if !s.Intent.Enabled && micPathControls[key] {
+			out[n].Inactive = true // Set, never clear: transport keys carry their own.
+		}
 		if out[n].Kind == "numeric" || out[n].Group == "Transport" {
-			out[n].Available = s.Connected && s.Live
+			// Narrow, never replace: transport keys already carry their
+			// per-state availability.
+			out[n].Available = out[n].Available && s.Connected && s.Live
 			if strings.HasPrefix(key, "gain-") {
 				out[n].Available = out[n].Available && controller.GainIdentity(s.Plan, s.Snapshot, strings.TrimPrefix(key, "gain-")) != ""
 			}

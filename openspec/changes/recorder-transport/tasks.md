@@ -7,7 +7,7 @@
 
 - [x] 6. `fix(audio)`: Stop, Rew and FF show Ready; option labels only on selections, so empty values never read Automatic; tests.
 
-- [ ] 7. `fix(audio)`: transport keys keep their per-state availability; keys with nothing to do are inactive (greyed, inert), and N/A only when the state is unknown; the GUI disables them; tests; GUI check.
+- [x] 7. `fix(audio)`: transport keys keep their per-state availability; keys with nothing to do are inactive (greyed, inert), and N/A only when the state is unknown; the GUI disables them; tests; GUI check.
 
 ## Acceptance
 - [ ] 5. With Voicemeeter:

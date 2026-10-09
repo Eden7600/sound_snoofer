@@ -2,9 +2,11 @@ package audio
 
 import "sound-snoofer/internal/model"
 
+// tapeRow is one transport key: unavailable (N/A) only while the recorder
+// state is unknown, and inactive (greyed, inert) while it has nothing to do.
 type tapeRow struct {
 	id, label, value, icon string
-	available              bool
+	available, inactive    bool
 }
 
 // recordingActive reports a recording in progress or paused, as opposed to
@@ -36,11 +38,12 @@ func tapeRows(r *model.RecorderSnapshot, paused bool) []tapeRow {
 	case playback || paused:
 		play.value = "Paused"
 	}
-	// Stop, Rewind and Fast-forward read Ready; surfaces show N/A while unavailable.
+	// Stop, Rewind and Fast-forward read Ready, and are greyed out while
+	// they have nothing to do: Stop when idle, winding while recording.
 	return []tapeRow{
 		play,
-		{id: "tape-stop", label: "Stop", value: "Ready", icon: "tape-stop", available: known && (recording || playback || paused)},
-		{id: "tape-rew", label: "Rewind", value: "Ready", icon: "tape-rew", available: known && !recording},
-		{id: "tape-ff", label: "Fast-forward", value: "Ready", icon: "tape-ff", available: known && !recording},
+		{id: "tape-stop", label: "Stop", value: "Ready", icon: "tape-stop", available: known, inactive: known && !(recording || playback || paused)},
+		{id: "tape-rew", label: "Rewind", value: "Ready", icon: "tape-rew", available: known, inactive: known && recording},
+		{id: "tape-ff", label: "Fast-forward", value: "Ready", icon: "tape-ff", available: known, inactive: known && recording},
 	}
 }

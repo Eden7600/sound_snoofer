@@ -497,11 +497,14 @@ function buildRouting(){
 function transport(card){
  const row=el("div",ui.actions+" mt-3");row.dataset.part="tape";card.append(row);
  const record=command("audio.record-toggle","Record",row,"","circle-dot"),play=command("audio.tape-play","Play",row,"","play");
- command("audio.tape-stop","Stop",row,"","square");
+ // Transport keys with nothing to do in the recorder's state are inactive:
+ // disabled here as on the deck.
+ const stop=command("audio.tape-stop","Stop",row,"","square");
+ if(stop)updaters.push(()=>{stop.disabled=!!pending||!c("audio.tape-stop")?.Available||!!c("audio.tape-stop")?.Inactive;});
  for(const [id,name,label] of [["audio.tape-rew","rewind","Rewind"],["audio.tape-ff","fast-forward","Fast-forward"]]){
   if(!c(id))continue;
   const b=iconButton(name,label,()=>press(id));row.append(b);
-  updaters.push(()=>{b.disabled=!!pending||!c(id)?.Available;});
+  updaters.push(()=>{b.disabled=!!pending||!c(id)?.Available||!!c(id)?.Inactive;});
  }
  const relabel=(b,text,name)=>{if(b&&b.dataset.label!==text){b.dataset.label=text;b.replaceChildren(icon(name,"size-4 shrink-0"),text);}};
  updaters.push(()=>{

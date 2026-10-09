@@ -30,7 +30,7 @@ func recorderIn(state string) *model.RecorderSnapshot {
 func TestTapeRows(t *testing.T) {
 	type want struct {
 		value, icon string
-		available   [4]bool // Play, Stop, Rew, FF.
+		inactive    [4]bool // Play, Stop, Rew, FF: greyed with nothing to do.
 	}
 	recPaused := recorderIn("Recording")
 	recPaused.Values["Recorder.pause"] = 1
@@ -39,21 +39,23 @@ func TestTapeRows(t *testing.T) {
 		paused bool
 		want   want
 	}{
-		"Stopped":          {recorderIn("Stopped"), false, want{"Ready", "tape-play", [4]bool{true, false, true, true}}},
-		"Tape paused":      {recorderIn("Stopped"), true, want{"Paused", "tape-play", [4]bool{true, true, true, true}}},
-		"Playing":          {recorderIn("Playing"), false, want{"Playing", "tape-pause", [4]bool{true, true, true, true}}},
-		"Playback paused":  {recorderIn("Paused"), false, want{"Paused", "tape-play", [4]bool{true, true, true, true}}},
-		"Recording":        {recorderIn("Recording"), false, want{"Rec", "tape-pause", [4]bool{true, true, false, false}}},
-		"Recording paused": {recPaused, false, want{"Paused", "tape-play", [4]bool{true, true, false, false}}},
+		"Stopped":          {recorderIn("Stopped"), false, want{"Ready", "tape-play", [4]bool{false, true, false, false}}},
+		"Tape paused":      {recorderIn("Stopped"), true, want{"Paused", "tape-play", [4]bool{false, false, false, false}}},
+		"Playing":          {recorderIn("Playing"), false, want{"Playing", "tape-pause", [4]bool{false, false, false, false}}},
+		"Playback paused":  {recorderIn("Paused"), false, want{"Paused", "tape-play", [4]bool{false, false, false, false}}},
+		"Recording":        {recorderIn("Recording"), false, want{"Rec", "tape-pause", [4]bool{false, false, true, true}}},
+		"Recording paused": {recPaused, false, want{"Paused", "tape-play", [4]bool{false, false, true, true}}},
 		"Unknown":          {recorderIn("Unknown"), false, want{"N/A", "tape-play", [4]bool{false, false, false, false}}},
 	} {
 		rows := tapeRows(c.r, c.paused)
 		if rows[0].value != c.want.value || rows[0].icon != c.want.icon {
 			t.Error(name, rows[0])
 		}
+		known := c.r.State() != "Unknown"
 		for n, row := range rows {
-			if row.available != c.want.available[n] {
-				t.Error(name, row.id, row.available)
+			// Unavailable (N/A) only while the state is unknown.
+			if row.available != known || row.inactive != c.want.inactive[n] {
+				t.Error(name, row.id, "available", row.available, "inactive", row.inactive)
 			}
 		}
 	}
@@ -108,5 +110,35 @@ func TestIdleTransportKeysReadReady(t *testing.T) {
 	}
 	if byID["audio.source"].OptionLabels["auto"] != "Automatic" {
 		t.Fatal("selection lost its Automatic label")
+	}
+}
+
+func TestTransportAvailabilitySurvivesControls(t *testing.T) {
+	intent := &config.Intent{Enabled: true, Source: "desk", Mode: "direct", Monitor: "off", Recording: &config.RecordingChoices{}}
+	s := control.State{Connected: true, Live: true, Intent: intent, ActiveIntent: intent.Clone(), Recorder: recorderIn("Stopped")}
+	find := func(s control.State, id string) snoofer.Control {
+		for _, c := range controls(s) {
+			if c.ID == id {
+				return c
+			}
+		}
+		t.Fatalf("%s not published", id)
+		return snoofer.Control{}
+	}
+	// Idle: Stop has nothing to do, so it is greyed out, not pressable.
+	if stop := find(s, "audio.tape-stop"); !stop.Inactive || !stop.Available {
+		t.Fatal("idle Stop", stop.Available, stop.Inactive)
+	}
+	// Unknown state: every transport key, Record included, is N/A.
+	s.Recorder = recorderIn("Unknown")
+	for _, id := range []string{"audio.record-toggle", "audio.tape-play", "audio.tape-stop", "audio.tape-rew", "audio.tape-ff"} {
+		if find(s, id).Available {
+			t.Errorf("%s available with the recorder state unknown", id)
+		}
+	}
+	// Not live: nothing is pressable whatever the state.
+	s.Recorder, s.Live = recorderIn("Playing"), false
+	if find(s, "audio.tape-stop").Available {
+		t.Fatal("Stop available while not live")
 	}
 }
