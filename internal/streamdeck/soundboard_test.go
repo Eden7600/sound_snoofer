@@ -26,7 +26,7 @@ func TestSoundboardPresentation(t *testing.T) {
 	sheet := image.NewRGBA(image.Rect(0, 0, 112*len(examples), 112))
 	for n, e := range examples {
 		canvas := image.NewRGBA(image.Rect(0, 0, 448, 448))
-		if !drawIcon(canvas, e.icon, textColor) {
+		if !drawIcon(canvas, e.icon, lightValue) {
 			t.Fatal("missing icon", e.icon)
 		}
 		raw := renderArtwork([]string{e.label, e.value}, 112, 112, false, e.icon, false, e.artwork)

@@ -91,8 +91,12 @@ func TestArtworkDialRendering(t *testing.T) {
 	if r, _, _, _ := strip.At(30, 50).RGBA(); r>>8 < 200 {
 		t.Fatal("artwork missing on the dial")
 	}
-	if r, g, b, _ := strip.At(74, 56).RGBA(); r>>8 > 100 || g>>8 < 150 || b>>8 < 150 {
-		t.Fatal("progress track not beside the artwork")
+	// Progress runs along the panel's bottom edge: filled to 23%, then track.
+	if r, g, b, _ := strip.At(20, 97).RGBA(); r>>8 < 150 || g>>8 < 150 || b>>8 < 150 {
+		t.Fatal("progress fill missing")
+	}
+	if r, _, _, _ := strip.At(150, 97).RGBA(); r>>8 > 80 {
+		t.Fatal("progress track missing")
 	}
 	writePreview(t, os.Getenv("SNOOFER_MEDIA_DIAL_PREVIEW"), strip)
 }

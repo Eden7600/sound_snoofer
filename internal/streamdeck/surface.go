@@ -48,6 +48,8 @@ func renderChangedFrame(f, previous Frame, cached [][]byte) ([][]byte, []byte) {
 			// Only the page dial carries text (the next page name) in Icon; a
 			// control's icon is an identifier, never strip text.
 			view.Knobs[n].Name = k.Icon
+		} else {
+			view.Knobs[n].Icon = k.Icon
 		}
 	}
 	tiles := make([][]byte, Keys)

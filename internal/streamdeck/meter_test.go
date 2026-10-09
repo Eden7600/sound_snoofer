@@ -8,24 +8,23 @@ import (
 
 func TestMeterRenderingAndStaticKeyCache(t *testing.T) {
 	im := image.NewRGBA(image.Rect(0, 0, 200, 100))
-	drawMeter(im, 8, knobPresentation{Meter: true, LevelKnown: true, LevelDB: 0})
-	green := im.RGBAAt(8, 70)
-	amber := im.RGBAAt(8+20*7, 70)
-	red := im.RGBAAt(8+23*7, 70)
-	if green.G <= green.R || amber.R <= amber.B || red.R <= red.G {
-		t.Fatal(green, amber, red)
+	row := meterTop + meterRows/2
+	drawMeter(im, 0, knobPresentation{Meter: true, LevelKnown: true, LevelDB: 0})
+	// Flat zones: green below -12 dB, amber to -3 dB, red above.
+	if im.RGBAAt(10, row) != meterGreenColor || im.RGBAAt(172, row) != meterAmberColor || im.RGBAAt(195, row) != meterRedColor {
+		t.Fatal(im.RGBAAt(10, row), im.RGBAAt(172, row), im.RGBAAt(195, row))
 	}
-	drawMeter(im, 8, knobPresentation{Meter: true, LevelKnown: true, LevelDB: -60})
-	if im.RGBAAt(8, 70) == green {
+	drawMeter(im, 0, knobPresentation{Meter: true, LevelKnown: true, LevelDB: -60})
+	if im.RGBAAt(10, row) == meterGreenColor {
 		t.Fatal("silence retained signal")
 	}
-	peaked := knobPresentation{Meter: true, LevelKnown: true, LevelDB: -60, PeakKnown: true, PeakDB: -30, PositionKnown: true, Position: 0.5, ZeroMark: 0.75}
-	drawMeter(im, 8, peaked)
-	if tick := im.RGBAAt(8+(dialWidth-1)/2, meterTop+meterRows/2); tick != textColor {
+	peaked := knobPresentation{Meter: true, LevelKnown: true, LevelDB: -60, PeakKnown: true, PeakDB: -30, PositionKnown: true, Position: 0.5, ZeroMark: 0.75, Icon: "speaker-mute"}
+	drawMeter(im, 0, peaked)
+	if tick := im.RGBAAt((panelWidth-1)/2, meterTop-2); tick != lightValue {
 		t.Fatal("peak tick missing", tick)
 	}
-	drawPosition(im, 8, dialWidth, peaked)
-	if im.RGBAAt(8+dialWidth/4, 55) != activeColor || im.RGBAAt(8+dialWidth*7/8, 55) != meterQuietColor {
+	drawPosition(im, panelInset, dialWidth, peaked)
+	if im.RGBAAt(panelInset+dialWidth/4, trackTop+1) != playbackArea || im.RGBAAt(panelInset+dialWidth*7/8, trackTop+1) != trackColor {
 		t.Fatal("position track wrong")
 	}
 	f := Frame{}

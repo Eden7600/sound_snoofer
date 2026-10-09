@@ -23,25 +23,25 @@ func TestPageDialThreeLines(t *testing.T) {
 			panel.Set(x, y, rotated.At(y, 199-x))
 		}
 	}
-	for _, row := range []struct {
-		start, end int
-		active     bool
-	}{{12, 19, false}, {42, 56, true}, {76, 83, false}} {
+	// Previous, current and next rows; the current page is the largest.
+	counts := []int{}
+	for _, row := range []struct{ start, end int }{{8, 24}, {30, 72}, {76, 92}} {
 		bright := 0
 		for y := row.start; y < row.end; y++ {
 			for x := 8; x < 192; x++ {
 				r, g, b, _ := panel.At(x, y).RGBA()
-				if g > 18000 && b > 18000 {
+				if r > 18000 && g > 18000 && b > 18000 {
 					bright++
-					if row.active && b <= r {
-						t.Fatal("current page lost active color")
-					}
 				}
 			}
 		}
 		if bright == 0 {
 			t.Fatalf("missing row at %d", row.start)
 		}
+		counts = append(counts, bright)
+	}
+	if counts[1] <= counts[0] || counts[1] <= counts[2] {
+		t.Fatal("current page is not the headline", counts)
 	}
 	if path := os.Getenv("SNOOFER_PAGE_DIAL_PREVIEW"); path != "" {
 		f, err := os.Create(path)
