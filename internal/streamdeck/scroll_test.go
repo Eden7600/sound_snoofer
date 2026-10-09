@@ -8,25 +8,42 @@ import (
 	"time"
 )
 
-func TestScrollOffsetHoldsMovesAndReturns(t *testing.T) {
-	const distance = 60 // Two seconds of travel at 30 px/s.
+func TestScrollOffsetLoopsContinuously(t *testing.T) {
+	const period = 90 // Three seconds per loop at 30 px/s.
 	for _, c := range []struct {
 		phase time.Duration
 		want  int
 	}{
 		{0, 0},
-		{scrollHold - time.Millisecond, 0},
-		{scrollHold + time.Second, 30},
-		{scrollHold + 2*time.Second, distance},
-		{2*scrollHold + 2*time.Second - time.Millisecond, distance},
-		{2*scrollHold + 2*time.Second, 0}, // Back to the start.
+		{time.Second, 30}, // Moving from the first frame: no hold.
+		{2 * time.Second, 60},
+		{3 * time.Second, 0}, // One loop: back where it started.
+		{4 * time.Second, 30},
 	} {
-		if got := scrollOffset(c.phase, distance); got != c.want {
+		if got := scrollOffset(c.phase, period); got != c.want {
 			t.Errorf("phase %v: offset %d, want %d", c.phase, got, c.want)
 		}
 	}
 	if scrollOffset(5*time.Second, 0) != 0 {
-		t.Fatal("text that fits moved")
+		t.Fatal("empty loop moved")
+	}
+}
+
+func TestScrollLoopIsSeamless(t *testing.T) {
+	// After exactly one loop the following copy sits where the first began,
+	// so the frame matches the start: no jump.
+	set := typefaces()
+	period := set.width(labelFace, 15, longTitle) + scrollGap
+	loop := time.Duration(period)*time.Second/scrollSpeed + time.Millisecond // Past truncation, onto the wrap.
+	art := testArtwork(t)
+	start, _ := drawKey([]string{longTitle, "Paused"}, 112, 112, false, "media-play", false, false, art, 0)
+	again, _ := drawKey([]string{longTitle, "Paused"}, 112, 112, false, "media-play", false, false, art, loop)
+	if !bytes.Equal(start, again) {
+		t.Fatal("loop does not return seamlessly to its first frame")
+	}
+	half, _ := drawKey([]string{longTitle, "Paused"}, 112, 112, false, "media-play", false, false, art, loop/2)
+	if bytes.Equal(start, half) {
+		t.Fatal("scrolling title did not move")
 	}
 }
 
@@ -38,7 +55,7 @@ func TestLongTitleScrollsInsideItsBox(t *testing.T) {
 	if !scrolls {
 		t.Fatal("long title does not scroll")
 	}
-	later, _ := drawKey([]string{longTitle, "Paused"}, 112, 112, false, "media-play", false, false, art, scrollHold+2*time.Second)
+	later, _ := drawKey([]string{longTitle, "Paused"}, 112, 112, false, "media-play", false, false, art, 2*time.Second)
 	if bytes.Equal(start, later) {
 		t.Fatal("scrolling title did not move")
 	}
@@ -70,7 +87,7 @@ func TestOnlyScrollingKeysRedraw(t *testing.T) {
 	if !scrolling {
 		t.Fatal("frame with a long title reports no scrolling")
 	}
-	second, _, _ := renderChangedFrame(frame, cache, scrollHold+time.Second)
+	second, _, _ := renderChangedFrame(frame, cache, time.Second)
 	if &first[1][0] != &second[1][0] {
 		t.Fatal("static key redrew while another scrolled")
 	}

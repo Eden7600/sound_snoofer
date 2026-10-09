@@ -6,7 +6,7 @@
 - [x] 4. `feat(streamdeck)`: cached faces and scrolling text on keys and the media dial; the surface redraws scrolling keys on a timer; tests.
 - [x] 5. Validate: gofmt, `go test ./...`, `go vet ./...`, OpenSpec strict validation, canonical build; restart Snoofer. Race detector skipped: CGO is disabled on this toolchain.
 
-- [ ] 7. `feat(streamdeck)`: scrolling text loops continuously with a gap; tests.
+- [x] 7. `feat(streamdeck)`: scrolling text loops continuously with a gap; tests.
 
 ## Acceptance
 - [ ] 6. On the Stream Deck + XL: a long song title scrolls smoothly, and other keys do not flicker; the Room key wraps a long room name; scene bands show only wedges; scene and clip keys read clearly without status words.
