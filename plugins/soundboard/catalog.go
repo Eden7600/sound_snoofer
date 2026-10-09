@@ -52,7 +52,7 @@ func catalogue(folder string, cache artworkCache) ([]clip, error) {
 		label := strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name()))
 		art := clipArtwork(folder, label, images, cache)
 		used[art.path] = true
-		clips = append(clips, clip{Artwork: art.Image, ArtworkError: art.Err, Animation: art.Animation, ID: id, Label: strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name())), Path: filepath.Join(folder, entry.Name()), Size: info.Size(), Modified: info.ModTime()})
+		clips = append(clips, clip{Artwork: art.Image, ArtworkError: art.Err, Animation: art.Animation, ID: id, Label: clipLabel(label), Path: filepath.Join(folder, entry.Name()), Size: info.Size(), Modified: info.ModTime()})
 	}
 	for path := range cache {
 		if !used[path] {

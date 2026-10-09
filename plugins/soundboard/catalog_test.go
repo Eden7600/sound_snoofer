@@ -17,7 +17,7 @@ func TestCatalogueAndChangedClip(t *testing.T) {
 		t.Fatal(err)
 	}
 	clips, err := catalogue(dir, nil)
-	if err != nil || len(clips) != 2 || clips[0].Label != "a" {
+	if err != nil || len(clips) != 2 || clips[0].Label != "A" {
 		t.Fatalf("%v %v", clips, err)
 	}
 	id := clips[0].ID
