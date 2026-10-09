@@ -22,9 +22,12 @@ const (
 
 var tapeBuses = []string{"A1", "A2", "A3", "A4", "A5"}
 
-// Tape plays, pauses, stops or winds the recorder's loaded file. Like Record,
-// it is explicit, never retried, and needs live writer ownership. It never
-// stops or disturbs a recording.
+// Tape runs the tape-deck transport by recorder state
+// (openspec/changes/recorder-transport). Play/Pause plays, pauses the tape
+// with one stop, or pauses and resumes a recording; Stop returns the tape to
+// the start with a second stop, or ends a recording; Rewind and Fast-forward
+// never act on a recording. Like Record, every write is explicit, never
+// retried, and needs live writer ownership.
 func (c *Controller) Tape(ctx context.Context, command TapeCommand, live bool) error {
 	if !live {
 		return fmt.Errorf("tape commands require live mode")
@@ -42,9 +45,7 @@ func (c *Controller) Tape(ctx context.Context, command TapeCommand, live bool) e
 	if state == "Unknown" {
 		return fmt.Errorf("recorder state unknown: %s", r.Error)
 	}
-	if state == "Recording" || (state == "Paused" && !r.TapePlaying()) {
-		return fmt.Errorf("recording in progress")
-	}
+	recording := state == "Recording" || (state == "Paused" && !r.TapePlaying())
 	// send writes one command and waits for want (nil: no readback exists).
 	send := func(param string, want func(model.RecorderSnapshot) bool) error {
 		if e := ctx.Err(); e != nil {
@@ -58,19 +59,57 @@ func (c *Controller) Tape(ctx context.Context, command TapeCommand, live bool) e
 		}
 		return c.awaitRecorder(ctx, param, want)
 	}
+	stopped := func(r model.RecorderSnapshot) bool { return r.State() == "Stopped" }
 	switch command {
 	case TapeStop:
-		if !r.TapePlaying() {
-			return fmt.Errorf("not playing")
+		switch {
+		case recording:
+			return c.Record(ctx, false, live)
+		case r.TapePlaying():
+			// The first stop pauses playback; the second returns to the start.
+			if e := send("Recorder.stop", stopped); e != nil {
+				return e
+			}
+			c.TapePaused = true
+			if e := send("Recorder.stop", nil); e != nil {
+				return e
+			}
+			c.TapePaused = false
+			return nil
+		case c.TapePaused:
+			if e := send("Recorder.stop", nil); e != nil {
+				return e
+			}
+			c.TapePaused = false
+			return nil
 		}
-		return send("Recorder.stop", func(r model.RecorderSnapshot) bool { return r.State() == "Stopped" })
-	case TapeRewind:
-		return send("Recorder.rew", nil)
-	case TapeForward:
+		return fmt.Errorf("already at start")
+	case TapeRewind, TapeForward:
+		if recording {
+			return fmt.Errorf("recording in progress")
+		}
+		if command == TapeRewind {
+			return send("Recorder.rew", nil)
+		}
 		return send("Recorder.ff", nil)
 	}
-	if state == "Playing" {
-		return send("Recorder.pause", func(r model.RecorderSnapshot) bool { return r.State() == "Paused" })
+	switch {
+	case state == "Recording":
+		return send("Recorder.pause", func(r model.RecorderSnapshot) bool {
+			return r.State() == "Paused" && r.Values["Recorder.record"] != 0
+		})
+	case recording:
+		return send("Recorder.record", func(r model.RecorderSnapshot) bool { return r.State() == "Recording" })
+	case state == "Playing":
+		// Recorder.pause does not work in playback; one stop pauses it.
+		if e := send("Recorder.stop", stopped); e != nil {
+			return e
+		}
+		c.TapePaused = true
+		return nil
+	case state == "Paused":
+		// Playback paused elsewhere resumes where it stopped.
+		return send("Recorder.play", func(r model.RecorderSnapshot) bool { return r.State() == "Playing" })
 	}
 	if i.Recording.ToVST {
 		return fmt.Errorf("Recording to VST is on; use the rehearsal snippet")
@@ -82,6 +121,7 @@ func (c *Controller) Tape(ctx context.Context, command TapeCommand, live bool) e
 		return e
 	}
 	c.TapeListening = true
+	c.TapePaused = false
 	return nil
 }
 

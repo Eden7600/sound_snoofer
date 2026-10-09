@@ -72,49 +72,121 @@ func testTapeListenBack(t *testing.T, profiles *config.Profiles) {
 	if p, _ := c.Plan(); p.HasChanges() {
 		t.Fatal("planner fights listening playback")
 	}
-	if err := c.Tape(ctx, TapePlayPause, true); err != nil || b.r.State() != "Paused" {
-		t.Fatal("pause", err, b.r.State())
+	// Pause is one stop: Recorder.pause does not work in playback.
+	writes := len(b.writesRecorder)
+	if err := c.Tape(ctx, TapePlayPause, true); err != nil || b.r.State() != "Stopped" || !c.TapePaused {
+		t.Fatal("pause", err, b.r.State(), c.TapePaused)
 	}
-	if p, _ := c.Plan(); p.HasChanges() {
-		t.Fatal("planner fights paused playback")
+	if got := b.writesRecorder[writes:]; len(got) != 1 || got[0] != "Recorder.stop" {
+		t.Fatal("pause writes", got)
 	}
-	if err := c.Tape(ctx, TapePlayPause, true); err != nil || b.r.State() != "Playing" {
-		t.Fatal("resume", err, b.r.State())
+	if err := c.Tape(ctx, TapePlayPause, true); err != nil || b.r.State() != "Playing" || c.TapePaused {
+		t.Fatal("resume", err, b.r.State(), c.TapePaused)
 	}
 	for _, command := range []TapeCommand{TapeRewind, TapeForward} {
 		if err := c.Tape(ctx, command, true); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := c.Tape(ctx, TapeStop, true); err != nil || b.r.State() != "Stopped" {
-		t.Fatal("stop", err, b.r.State())
+	// Stop while playing: the first stop pauses, the second returns to 0.
+	writes = len(b.writesRecorder)
+	if err := c.Tape(ctx, TapeStop, true); err != nil || b.r.State() != "Stopped" || c.TapePaused {
+		t.Fatal("stop", err, b.r.State(), c.TapePaused)
+	}
+	if got := b.writesRecorder[writes:]; len(got) != 2 || got[0] != "Recorder.stop" || got[1] != "Recorder.stop" {
+		t.Fatal("stop writes", got)
 	}
 	converge(t, c)
 	if b.r.Values["Recorder.A2"] != 0 || c.TapeListening {
 		t.Fatal("tape routing not cleared after stop")
 	}
-	if c.Tape(ctx, TapeStop, true) == nil {
-		t.Fatal("stop while not playing")
+	if err := c.Tape(ctx, TapeStop, true); err == nil || !strings.Contains(err.Error(), "already at start") {
+		t.Fatal("stop at the start", err)
 	}
 }
 
-func TestTapeNeverTouchesRecording(t *testing.T) {
+func TestTapeTransportDuringRecording(t *testing.T) {
 	ctx := context.Background()
 	c, b := recorderController(t)
 	if err := c.Record(ctx, true, true); err != nil {
 		t.Fatal(err)
 	}
+	// Rewind and Fast-forward never touch a recording.
 	writes := len(b.writesRecorder)
-	for _, command := range []TapeCommand{TapePlayPause, TapeStop, TapeRewind, TapeForward} {
+	for _, command := range []TapeCommand{TapeRewind, TapeForward} {
 		if err := c.Tape(ctx, command, true); err == nil || !strings.Contains(err.Error(), "recording") {
 			t.Fatal(command, err)
 		}
 	}
 	if len(b.writesRecorder) != writes || b.r.State() != "Recording" {
-		t.Fatal("tape command disturbed the recording", b.writesRecorder[writes:])
+		t.Fatal("winding disturbed the recording", b.writesRecorder[writes:])
+	}
+	// Play/Pause pauses and resumes the recording.
+	if err := c.Tape(ctx, TapePlayPause, true); err != nil || b.r.State() != "Paused" || b.r.Values["Recorder.record"] != 1 {
+		t.Fatal("pause recording", err, b.r.State())
+	}
+	if err := c.Tape(ctx, TapeRewind, true); err == nil {
+		t.Fatal("rewind during a paused recording")
+	}
+	if err := c.Tape(ctx, TapePlayPause, true); err != nil || b.r.State() != "Recording" {
+		t.Fatal("resume recording", err, b.r.State())
+	}
+	// Stop ends the recording through the verified stop.
+	if err := c.Tape(ctx, TapeStop, true); err != nil || b.r.State() != "Stopped" {
+		t.Fatal("end recording", err, b.r.State())
 	}
 	if c.Tape(ctx, TapePlayPause, false) == nil {
 		t.Fatal("preview tape command")
+	}
+}
+
+func TestStopAfterPauseReturnsToStart(t *testing.T) {
+	ctx := context.Background()
+	c, b := recorderController(t)
+	c.Config.Intent.Recording.TapeRoutingManaged = true
+	converge(t, c)
+	if err := c.Tape(ctx, TapePlayPause, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Tape(ctx, TapePlayPause, true); err != nil || !c.TapePaused {
+		t.Fatal("pause", err)
+	}
+	writes := len(b.writesRecorder)
+	if err := c.Tape(ctx, TapeStop, true); err != nil || c.TapePaused {
+		t.Fatal("stop after pause", err, c.TapePaused)
+	}
+	if got := b.writesRecorder[writes:]; len(got) != 1 || got[0] != "Recorder.stop" {
+		t.Fatal("one stop returns to the start", got)
+	}
+	// A state observed elsewhere clears Snoofer's paused knowledge.
+	if err := c.Tape(ctx, TapePlayPause, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Tape(ctx, TapePlayPause, true); err != nil || !c.TapePaused {
+		t.Fatal("pause again", err)
+	}
+	b.r.Values["Recorder.play"], b.r.Values["Recorder.stop"] = 1, 0 // Played from Voicemeeter.
+	if _, err := c.Plan(); err != nil || c.TapePaused {
+		t.Fatal("observed playback kept the tape paused", err)
+	}
+}
+
+func TestRecordDuringPlaybackStopsTapeFirst(t *testing.T) {
+	ctx := context.Background()
+	c, b := recorderController(t)
+	b.r.Values["Recorder.play"], b.r.Values["Recorder.stop"] = 1, 0
+	if err := c.Record(ctx, true, true); err != nil || b.r.State() != "Recording" {
+		t.Fatal("record during playback", err, b.r.State())
+	}
+	if b.writesRecorder[0] != "Recorder.stop" || b.writesRecorder[len(b.writesRecorder)-1] != "Recorder.record" {
+		t.Fatal("playback not stopped before recording", b.writesRecorder)
+	}
+	// A failed stop aborts the Start, and nothing is retried.
+	c, b = recorderController(t)
+	b.r.Values["Recorder.play"], b.r.Values["Recorder.stop"] = 1, 0
+	b.fail = true
+	if err := c.Record(ctx, true, true); err == nil || !strings.Contains(err.Error(), "not retried") || len(b.writesRecorder) != 1 {
+		t.Fatal("failed stop", err, b.writesRecorder)
 	}
 }
 

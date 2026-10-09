@@ -1,7 +1,7 @@
 # Tasks
 ## Implementation
 - [x] 1. `docs(recording)`: specify tape-deck transport from the user's recorder command map; update the UI contract.
-- [ ] 2. `feat(controller)`: tape-paused state; Play/Pause, Stop, Rew/FF and Record by recorder state; tests with the fake recorder.
+- [x] 2. `feat(controller)`: tape-paused state; Play/Pause, Stop, Rew/FF and Record by recorder state; tests with the fake recorder.
 - [ ] 3. `feat(audio)`: publish tape paused; key actions and states by recorder state; GUI Play/Pause follows the icon; tests; GUI check.
 - [ ] 4. Validate: gofmt, `go test ./...`, `go vet ./...`, GUI check, OpenSpec strict validation, canonical build; restart Snoofer.
 

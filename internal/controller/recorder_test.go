@@ -37,6 +37,7 @@ func (b *recorderFake) SetRecorder(p string, v int) error {
 	}
 	if p == "Recorder.record" {
 		b.r.Values["Recorder.stop"] = 0
+		b.r.Values["Recorder.pause"] = 0 // Record resumes a paused recording.
 	}
 	if p == "Recorder.play" {
 		b.r.Values["Recorder.stop"] = 0
@@ -189,7 +190,9 @@ func TestPausedSendsLeaveRecorderRouting(t *testing.T) {
 	}
 }
 func TestRecorderGuardsAndNoRetry(t *testing.T) {
-	for _, kind := range []string{"dry", "empty", "pending", "paused", "playing", "unknown", "fail", "timeout"} {
+	// Playback no longer blocks Start: Record stops the tape first (see
+	// TestRecordDuringPlaybackStopsTapeFirst).
+	for _, kind := range []string{"dry", "empty", "pending", "unknown", "fail", "timeout"} {
 		t.Run(kind, func(t *testing.T) {
 			c, b := recorderController(t)
 			live := true
@@ -202,10 +205,6 @@ func TestRecorderGuardsAndNoRetry(t *testing.T) {
 				c.Apply(context.Background(), p)
 			case "pending":
 				b.s.Numbers["Strip[0].B1"] = 0
-			case "paused":
-				b.r.Values["Recorder.pause"] = 1
-			case "playing":
-				b.r.Values["Recorder.play"] = 1
 			case "unknown":
 				b.r.Error = "read failed"
 			case "fail", "timeout":

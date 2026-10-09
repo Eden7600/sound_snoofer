@@ -96,6 +96,21 @@ func (c *Controller) Record(ctx context.Context, start, live bool) error {
 		c.RecorderPrepared = true
 		return nil
 	}
+	if r.TapePlaying() {
+		// Recording during playback stops the tape first, as part of the same
+		// Start; a failed or unconfirmed stop aborts it.
+		if e := ctx.Err(); e != nil {
+			return e
+		}
+		if e := b.SetRecorder("Recorder.stop", 1); e != nil {
+			return fmt.Errorf("Recorder.stop outcome unknown; not retried: %w", e)
+		}
+		if e := c.awaitRecorder(ctx, "Recorder.stop", func(r model.RecorderSnapshot) bool { return r.State() == "Stopped" }); e != nil {
+			return e
+		}
+		r = c.readRecorder()
+	}
+	c.TapePaused = false
 	if r.State() != "Stopped" {
 		return fmt.Errorf("Start requires stopped recorder; current state %s", r.State())
 	}

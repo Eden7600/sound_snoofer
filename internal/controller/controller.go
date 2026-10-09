@@ -59,6 +59,11 @@ type Controller struct {
 	// TapeListening is set by a successful tape Play and cleared once the
 	// tape stops; the planner routes the tape to the Playback bus meanwhile.
 	TapeListening bool
+	// TapePaused records that Snoofer's stop paused playback mid-file. The
+	// recorder reports the same values as a full stop, so this is Snoofer's
+	// knowledge: a second stop, Play, Record or any observed state other
+	// than Stopped clears it.
+	TapePaused bool
 	// SilentMics are microphone options the owner latched silent; planning
 	// skips them for Auto when activity metering is configured.
 	SilentMics []string
@@ -85,6 +90,9 @@ func (c *Controller) Plan() (routing.Plan, error) {
 	}
 	if !s.Recorder.TapePlaying() {
 		c.TapeListening = false
+	}
+	if s.Recorder.State() != "Stopped" {
+		c.TapePaused = false
 	}
 	return routing.Build(c.planConfig(), s)
 }
