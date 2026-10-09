@@ -12,7 +12,7 @@
 4. **Strip:** the media dial's target and name scroll when they do not fit at their minimum size. Other strip text keeps its ellipsis.
 
 ## Scrolling
-- **Motion:** a scrolling line holds for 1.2 s, moves left at 30 px/s until its end shows, holds for 1.2 s, then returns to the start.
+- **Motion:** a continuous loop. The line moves left at 30 px/s without pausing, followed by a 24 px gap and the line again, so it wraps seamlessly.
 - **Clip box:** the line is clipped to its box (x 10–104 on keys), so it never enters the corner inset.
 - **Phase:** `renderChangedFrame` takes a phase (the time since the device session started) and reports whether anything scrolls.
 - **Caching:** only scrolling keys carry the phase in their presentation, so other keys keep their cached images.

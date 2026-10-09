@@ -4,7 +4,7 @@ Deck text that cannot fit after wrapping and shrinking SHALL scroll within its b
 
 #### Scenario: Long song title
 - **WHEN** a media session key's title does not fit on one line at 12 px
-- **THEN** the title holds, scrolls left until its end shows, holds, and returns to the start
+- **THEN** the title scrolls left continuously, followed by a gap and the title again, looping without a pause or jump
 
 #### Scenario: Nothing scrolls
 - **WHEN** every shown key's text fits
