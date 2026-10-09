@@ -108,16 +108,11 @@ add("nowplaying.status","Now Playing","status","2 sessions",{ViewData:{Windows:"
  Browsers:[{Name:"Brave",Version:"1.0.0",Sessions:1}],
  Sessions:[{ID:"nowplaying.s-tab",Source:"Brave",App:"Brave · youtube.com",Title:"Video A",Artist:"Channel",Status:"Playing",PositionMs:65000,AtMs:Date.now(),Rate:1,DurationMs:285000,Focused:true,CanToggle:true,CanNext:true,CanSeek:true,CanMute:true},
   {ID:"nowplaying.s-spotify",Source:"windows",App:"Spotify",Title:"Song",Artist:"Band",Album:"Album",Status:"Paused",PositionMs:0,DurationMs:200000,CanToggle:true,CanNext:true,CanPrev:true,CanSeek:true}]}});
-add("insta360.privacy","Camera Privacy","toggle","Off",{Group:"Camera",Icon:"camera-privacy"});
-add("insta360.tracking","Camera Tracking","selection","group",{Group:"Camera",Options:["off","single","group"],OptionLabels:{off:"Off",single:"Single",group:"Group"}});
-add("insta360.framing","Camera Framing","selection","half",{Group:"Camera",Options:["head","half","full"],OptionLabels:{head:"Head",half:"Half Body",full:"Full Body"}});
-add("insta360.reset","Reset Camera Position","command","",{Group:"Camera"});
-add("insta360.state","Camera Tracking State","status","Working",{Group:"Camera"});
 add("discord.channel","Discord Channel","status","General",{Group:"Discord"});
 for(const [id,label,value] of [["mute","Discord Mute","On"],["deafen","Discord Deafen","Off"],["video","Discord Camera","Off"],["screenshare","Discord Screen Share","Off"]])add("discord."+id,label,"toggle",value,{Group:"Discord"});
 add("discord.leave","Leave Discord Call","command","",{Group:"Discord"});
 add("discord.connect","Connect Discord","command","",{Group:"Discord",Available:false});
-const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",streamdeck:"Running",vr:"Running",media:"Disabled",hue:"Running",appaudio:"Running",nowplaying:"Running",insta360:"Running",discord:"Running"},Enabled:{insta360:true,discord:true,audio:true,soundboard:true,streamdeck:true,vr:true,media:false,hue:true,appaudio:true,nowplaying:true}};
+const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",streamdeck:"Running",vr:"Running",media:"Disabled",hue:"Running",appaudio:"Running",nowplaying:"Running",discord:"Running"},Enabled:{discord:true,audio:true,soundboard:true,streamdeck:true,vr:true,media:false,hue:true,appaudio:true,nowplaying:true}};
 (async()=>{
  const server=http.createServer((req,res)=>{
   if(req.url==="/logo.ico"){res.setHeader("Content-Type","image/x-icon");res.end(fs.readFileSync(path.join(root,"app/tray.ico")));return;}
@@ -537,16 +532,13 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   assert.equal(await extension.getByRole("button").count(),0,"extension card offers export or token actions");
   await page.screenshot({path:path.join(root,".local/gui-media.png"),fullPage:true});
   await page.getByRole("button",{name:"Meetings",exact:true}).click();
-  const camera=page.locator("[data-part=camera]"),discord=page.locator("[data-part=discord]");
-  await camera.waitFor();
-  assert.equal(await camera.locator("[data-part=state]").textContent(),"Working");
+  const discord=page.locator("[data-part=discord]");
+  await discord.waitFor();
+  assert.equal(await page.locator("[data-part=camera]").count(),0,"Camera card still shown");
   assert.equal(await discord.locator("[data-part=state]").textContent(),"General");
   assert.equal(await page.locator("[data-part=discord-setup]").isVisible(),false,"setup hint while configured");
   assert.equal(await page.locator("[data-part=discord-connect]").isVisible(),false,"Connect while connected");
-  assert.equal(await camera.locator("select").first().inputValue(),"group");
   await page.screenshot({path:path.join(root,".local/gui-meetings.png"),fullPage:true});
-  await camera.getByRole("button",{name:"Privacy",exact:true}).click();
-  assert.equal(await page.evaluate(()=>window.sent.at(-1).Request.ID),"insta360.privacy");
   await discord.getByRole("button",{name:"Mute",exact:true}).click();
   assert.equal(await page.evaluate(()=>window.sent.at(-1).Request.ID),"discord.mute");
   await discord.getByRole("button",{name:"Leave Call",exact:true}).click();

@@ -10,8 +10,7 @@ import (
 )
 
 func TestMeetingsPresentation(t *testing.T) {
-	icons := []string{"camera-privacy", "camera-privacy-muted", "tracking", "framing", "camera-reset", "discord-deafen", "discord-deafen-muted",
-		"discord-video", "discord-video-off", "screen-share", "call-leave", "discord-connect"}
+	icons := []string{"discord-deafen", "discord-deafen-muted", "discord-video", "discord-video-off", "screen-share", "call-leave", "discord-connect"}
 	drawn := map[string][]byte{}
 	for _, icon := range icons {
 		canvas := image.NewRGBA(image.Rect(0, 0, 448, 448))
@@ -21,7 +20,7 @@ func TestMeetingsPresentation(t *testing.T) {
 		drawn[icon] = canvas.Pix
 	}
 	// Each meeting symbol is distinct; the connect icon reuses the link rings.
-	unique := []string{"camera-privacy", "tracking", "framing", "camera-reset", "screen-share", "call-leave"}
+	unique := []string{"discord-video", "discord-deafen", "screen-share", "call-leave"}
 	for i, a := range unique {
 		for _, b := range unique[i+1:] {
 			if bytes.Equal(drawn[a], drawn[b]) {
@@ -29,22 +28,17 @@ func TestMeetingsPresentation(t *testing.T) {
 			}
 		}
 	}
-	// State is carried by shape, not only color: hidden, deafened and off are slashed.
-	for plain, slashed := range map[string]string{"camera-privacy": "camera-privacy-muted", "discord-deafen": "discord-deafen-muted", "discord-video": "discord-video-off"} {
+	// State is carried by shape, not only color: deafened and off are slashed.
+	for plain, slashed := range map[string]string{"discord-deafen": "discord-deafen-muted", "discord-video": "discord-video-off"} {
 		if bytes.Equal(drawn[plain], drawn[slashed]) {
 			t.Fatal("state not visible in shape", slashed)
 		}
 	}
-	if keyAccent("ON", "camera-privacy-muted", false, false) != criticalColor || keyAccent("OFF", "discord-video-off", false, false) != neutralColor {
-		t.Fatal("privacy reads like a mute; camera off stays neutral")
+	if keyAccent("OFF", "discord-video-off", false, false) != neutralColor {
+		t.Fatal("camera off stays neutral")
 	}
 
 	examples := []struct{ label, value, icon string }{
-		{"Privacy", "Off", "camera-privacy"},
-		{"Privacy", "On", "camera-privacy-muted"},
-		{"Tracking", "Group", "tracking"},
-		{"Framing", "Half body", "framing"},
-		{"Reset", "", "camera-reset"},
 		{"Mute", "On", "mic-mute-muted"},
 		{"Deafen", "On", "discord-deafen-muted"},
 		{"Camera", "Off", "discord-video-off"},

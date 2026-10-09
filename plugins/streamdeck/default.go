@@ -58,10 +58,9 @@ func DefaultLayout() Layout {
 		media.Dials[n] = Binding{Control: id, Label: id}
 	}
 	// Meetings: the call on row 1, with Leave apart at c9 so it is not pressed
-	// by accident beside Mute; the camera on row 2.
+	// by accident beside Mute.
 	meetings := Page{ID: "meetings", Name: "Meetings"}
-	for n, id := range map[int]string{0: "discord.mute", 1: "discord.deafen", 2: "discord.video", 3: "discord.screenshare", 8: "discord.leave",
-		9: "insta360.privacy", 10: "insta360.tracking", 11: "insta360.framing", 12: "insta360.reset"} {
+	for n, id := range map[int]string{0: "discord.mute", 1: "discord.deafen", 2: "discord.video", 3: "discord.screenshare", 8: "discord.leave"} {
 		meetings.Keys[n] = Binding{Control: id, Label: id}
 	}
 	for n, id := range map[int]string{0: "audio.gain-playback", 1: "audio.gain-mic"} {

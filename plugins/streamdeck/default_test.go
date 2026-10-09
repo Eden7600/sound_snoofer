@@ -153,8 +153,7 @@ func TestLayoutJSONRoundTrip(t *testing.T) {
 
 func TestDefaultMeetingsPage(t *testing.T) {
 	meetings := DefaultLayout().Pages[4]
-	want := map[int]string{0: "discord.mute", 1: "discord.deafen", 2: "discord.video", 3: "discord.screenshare", 8: "discord.leave",
-		9: "insta360.privacy", 10: "insta360.tracking", 11: "insta360.framing", 12: "insta360.reset"}
+	want := map[int]string{0: "discord.mute", 1: "discord.deafen", 2: "discord.video", 3: "discord.screenshare", 8: "discord.leave"}
 	for n, key := range meetings.Keys {
 		if key.Control != want[n] {
 			t.Fatalf("Meetings key %d = %q, want %q", n, key.Control, want[n])
