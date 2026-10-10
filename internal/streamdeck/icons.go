@@ -194,6 +194,20 @@ func drawIcon(im *image.RGBA, icon string, ink color.RGBA) bool {
 			c, s := math.Cos(r), math.Sin(r)
 			line(56+int(17*c), 39+int(17*s), 56+int(25*c), 39+int(25*s))
 		}
+	case "hue-saturation":
+		// Drop: a round base rising to a point, its lower half filled with colour.
+		for a := -30; a <= 210; a++ {
+			r := float64(a) * math.Pi / 180
+			dot(56+int(18*math.Cos(r)), 46+int(18*math.Sin(r)), 2)
+		}
+		line(40, 37, 56, 12)
+		line(72, 37, 56, 12)
+		for y := 46; y <= 62; y++ {
+			half := int(math.Sqrt(float64(18*18 - (y-46)*(y-46))))
+			if half > 3 {
+				line(56-half+3, y, 56+half-3, y)
+			}
+		}
 	case "hue-pair", "discord-connect":
 		// Link: two interlocking rings.
 		for a := 0; a < 360; a++ {

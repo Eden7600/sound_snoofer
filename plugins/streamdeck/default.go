@@ -34,13 +34,13 @@ func DefaultLayout() Layout {
 	}
 	sounds.Dials[0] = Binding{Control: "soundboard.volume", Label: "soundboard.volume"}
 
-	// Room controls on r1; the room's scenes fill r2–r4. Brightness stays on
-	// dial 5 beside pagination.
+	// Room controls on r1; the room's scenes fill r2–r4. Dials: Playback,
+	// Saturation, Decor, Mixed, and Brightness on dial 5 beside pagination.
 	lights := Page{ID: "lights", Name: "Lights", Regions: []Region{{Source: "hue.room-scenes", First: 9, Last: 35}}}
 	for n, id := range map[int]string{0: "hue.group", 1: "hue.brightness", 2: "hue.motion", 3: "hue.sync", 4: "hue.sync-mode", 5: "hue.sync-intensity"} {
 		lights.Keys[n] = Binding{Control: id, Label: id}
 	}
-	for n, id := range map[int]string{0: "audio.gain-playback", 1: "audio.gain-mic", 4: "hue.brightness"} {
+	for n, id := range map[int]string{0: "audio.gain-playback", 1: "hue.saturation", 2: "hue.decor", 3: "hue.mixed", 4: "hue.brightness"} {
 		lights.Dials[n] = Binding{Control: id, Label: id}
 	}
 	// Media and apps share a page: sessions and apps share rows 1–3 by need,
