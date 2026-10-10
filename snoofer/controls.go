@@ -28,8 +28,9 @@ type Control struct {
 	Timers                                      []Timer     `json:",omitempty"` // Optional running countdowns, such as playing clips.
 	Connection                                  *Connection `json:",omitempty"` // Optional external integration report (Kind "connection").
 	SurfaceOnly                                 bool
-	Hidden                                      bool // Optional: no useful place on surfaces right now; the deck renders a blank key and GUIs omit it. Publish it unavailable.
-	Inactive                                    bool // Optional: has no effect right now, such as mic-path controls while the mic stack is off; surfaces show it greyed and inert in its place.
+	Hidden                                      bool     // Optional: no useful place on surfaces right now; the deck renders a blank key and GUIs omit it. Publish it unavailable.
+	Inactive                                    bool     // Optional: has no effect right now, such as mic-path controls while the mic stack is off; surfaces show it greyed and inert in its place.
+	Brightness                                  *float64 `json:",omitempty"` // Optional overall brightness, 0–1, a surface may indicate, such as a scene's.
 	OptionLabels                                map[string]string
 	EnterOnly                                   bool
 	Epoch                                       uint64

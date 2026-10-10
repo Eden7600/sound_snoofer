@@ -8,6 +8,7 @@ import (
 	"image"
 	"image/draw"
 	"image/png"
+	"math"
 	"os"
 	"sort"
 	"testing"
@@ -41,28 +42,6 @@ func TestColorConversion(t *testing.T) {
 	warm, cool := mirekSwatch(500, 1, 1), mirekSwatch(153, 1, 1)
 	if warm.R != 255 || warm.B > 120 || cool.B < 240 || cool.R < 200 {
 		t.Fatalf("warm %+v cool %+v", warm, cool)
-	}
-	dim := xySwatch(xyPoint{X: 0.6915, Y: 0.3083}, artworkLevel(&dimming{Brightness: 0}), 1)
-	if dim.R < 0.15*red.R || dim.R > 0.25*red.R {
-		t.Fatalf("dim scene not scaled to the visible floor: %+v", dim)
-	}
-	// Moody scenes read clearly darker than bright ones, and mid brightness
-	// sits between them.
-	moody, mid, bright := artworkLevel(&dimming{Brightness: 10}), artworkLevel(&dimming{Brightness: 50}), artworkLevel(&dimming{Brightness: 100})
-	if bright != 1 || moody > 0.35 || mid < 0.55 || mid > 0.75 {
-		t.Fatalf("levels 10%%=%.2f 50%%=%.2f 100%%=%.2f", moody, mid, bright)
-	}
-	if artworkLevel(nil) != 1 {
-		t.Fatal("colour without a brightness not at full level")
-	}
-	// Dimming keeps distinct hues apart; one hue at very different levels
-	// stays two wedges.
-	low := artworkLevel(&dimming{Brightness: 5})
-	if got := mergeSwatches([]swatch{xySwatch(xyPoint{X: 0.6, Y: 0.33}, low, 1), mirekSwatch(400, low, 1)}); len(got) != 2 {
-		t.Fatalf("dim red and warm white merged: %+v", got)
-	}
-	if got := mergeSwatches([]swatch{xySwatch(xyPoint{X: 0.6, Y: 0.33}, 1, 1), xySwatch(xyPoint{X: 0.6, Y: 0.33}, low, 1)}); len(got) != 2 {
-		t.Fatalf("bright and dim red merged: %+v", got)
 	}
 }
 
@@ -244,5 +223,30 @@ func TestLiveArtworkPreview(t *testing.T) {
 	defer file.Close()
 	if err := png.Encode(file, sheet); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestSceneBrightness(t *testing.T) {
+	for name, c := range map[string]struct {
+		actions, palette string
+		want             float64
+		known            bool
+	}{
+		"full":           {`[{"target":{"rid":"a"},"action":{"on":{"on":true},"dimming":{"brightness":100}}}]`, `null`, 1, true},
+		"moody":          {`[{"target":{"rid":"a"},"action":{"on":{"on":true},"dimming":{"brightness":10}}}]`, `null`, 0.1, true},
+		"half off":       {`[{"target":{"rid":"a"},"action":{"on":{"on":false}}},{"target":{"rid":"b"},"action":{"on":{"on":true},"dimming":{"brightness":100}}}]`, `null`, 0.5, true},
+		"no dimming":     {`[{"target":{"rid":"a"},"action":{"on":{"on":true}}}]`, `null`, 1, true},
+		"palette":        {`[]`, `{"color":[{"color":{"xy":{"x":0.5,"y":0.4}},"dimming":{"brightness":40}}],"color_temperature":[]}`, 0.4, true},
+		"nothing to say": {`[]`, `null`, 0, false},
+	} {
+		got, known := sceneBrightness(scene(c.actions, c.palette))
+		if known != c.known || math.Abs(got-c.want) > 1e-9 {
+			t.Errorf("%s: %v %v, want %v %v", name, got, known, c.want, c.known)
+		}
+	}
+	// Dim scenes keep their colours at full level in the artwork.
+	dim := sceneSwatches(scene(`[{"target":{"rid":"a"},"action":{"on":{"on":true},"dimming":{"brightness":5},"color":{"xy":{"x":0.6915,"y":0.3083}}}}]`, `null`))
+	if len(dim) != 1 || dim[0].R < 240 {
+		t.Fatalf("dim scene darkened: %+v", dim)
 	}
 }

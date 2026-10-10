@@ -13,32 +13,21 @@ import (
 )
 
 const (
-	artworkSize     = 128 // Thumbnail edge in pixels (the control artwork limit), sharp when cropped on a key.
-	artworkScale    = 4   // Supersampling factor for smooth wedge edges.
-	maxWedges       = 5
-	mergeDistance   = 40.0 // RGB distance, at full level, below which colors share a wedge.
-	mergeLevel      = 0.15 // Level difference beyond which similar colors stay separate wedges.
-	minArtworkLevel = 0.18 // Dimmest wedge level: dark scenes read dark but stay visible.
+	artworkSize   = 128 // Thumbnail edge in pixels (the control artwork limit), sharp when cropped on a key.
+	artworkScale  = 4   // Supersampling factor for smooth wedge edges.
+	maxWedges     = 5
+	mergeDistance = 40.0 // RGB distance below which colors share a wedge.
 )
 
 // swatch is one scene color with the share of lights that use it.
 type swatch struct {
-	R, G, B float64 // sRGB, 0-255, already darkened by Level.
+	R, G, B float64 // sRGB, 0-255.
 	Weight  float64
-	Level   float64 // The brightness level applied, 0–1; 0 means unset (full).
 }
 
-// fullLevel is a swatch's colour before its level darkened it, so merging
-// compares hues rather than brightness.
-func (s swatch) fullLevel() (r, g, b, level float64) {
-	level = s.Level
-	if level == 0 {
-		level = 1
-	}
-	return s.R / level, s.G / level, s.B / level, level
-}
-
-// sceneSwatches extracts the colors a scene sets on the lights it turns on.
+// sceneSwatches extracts the colors a scene sets on the lights it turns on,
+// at full level: a scene's brightness is shown by the deck's badge instead
+// (openspec/changes/scene-art-brightness).
 // Colorless actions are ignored; without any action colors the palette is used.
 func sceneSwatches(scene resource) []swatch {
 	var out []swatch
@@ -48,50 +37,72 @@ func sceneSwatches(scene resource) []swatch {
 		if a.Action.On != nil && !a.Action.On.On {
 			continue
 		}
-		level := artworkLevel(a.Action.Dimming)
 		switch {
 		case a.Action.Gradient != nil && len(a.Action.Gradient.Points) > 0:
 			share := 1 / float64(len(a.Action.Gradient.Points))
 			for _, point := range a.Action.Gradient.Points {
-				out = append(out, xySwatch(point.Color.XY, level, share))
+				out = append(out, xySwatch(point.Color.XY, 1, share))
 			}
 		case a.Action.Color != nil:
-			out = append(out, xySwatch(a.Action.Color.XY, level, 1))
+			out = append(out, xySwatch(a.Action.Color.XY, 1, 1))
 		case a.Action.ColorTemperature != nil && a.Action.ColorTemperature.Mirek != nil:
-			out = append(out, mirekSwatch(*a.Action.ColorTemperature.Mirek, level, 1))
+			out = append(out, mirekSwatch(*a.Action.ColorTemperature.Mirek, 1, 1))
 		}
 	}
 	if len(out) > 0 || scene.Palette == nil {
 		return out
 	}
 	for _, entry := range scene.Palette.Color {
-		out = append(out, xySwatch(entry.Color.XY, artworkLevel(entry.Dimming), 1))
+		out = append(out, xySwatch(entry.Color.XY, 1, 1))
 	}
 	for _, entry := range scene.Palette.ColorTemperature {
 		if entry.ColorTemperature.Mirek != nil {
-			out = append(out, mirekSwatch(*entry.ColorTemperature.Mirek, artworkLevel(entry.Dimming), 1))
+			out = append(out, mirekSwatch(*entry.ColorTemperature.Mirek, 1, 1))
 		}
 	}
 	return out
 }
 
-// artworkLevel maps the brightness a scene sets to a wedge level, so moody
-// scenes read dark and bright ones bright (openspec/changes/scene-art-brightness).
-// The curve keeps mid-brightness scenes distinct; colours without a
-// brightness are drawn at full level.
-func artworkLevel(d *dimming) float64 {
-	if d == nil {
-		return 1
+// sceneBrightness is a scene's overall brightness, 0–1: the average over the
+// lights it sets, where a light turned off counts as 0 and one turned on
+// without a brightness as full. Palette-only scenes average their entries.
+// It is unknown for a scene with neither actions nor palette.
+func sceneBrightness(scene resource) (float64, bool) {
+	level := func(d *dimming) float64 {
+		if d == nil {
+			return 1
+		}
+		return math.Min(100, math.Max(0, d.Brightness)) / 100
 	}
-	b := math.Min(100, math.Max(0, d.Brightness)) / 100
-	return minArtworkLevel + (1-minArtworkLevel)*math.Pow(b, 0.8)
+	total, counted := 0.0, 0
+	for _, a := range scene.Actions {
+		counted++
+		if a.Action.On != nil && !a.Action.On.On {
+			continue
+		}
+		total += level(a.Action.Dimming)
+	}
+	if counted == 0 && scene.Palette != nil {
+		for _, entry := range scene.Palette.Color {
+			total += level(entry.Dimming)
+			counted++
+		}
+		for _, entry := range scene.Palette.ColorTemperature {
+			total += level(entry.Dimming)
+			counted++
+		}
+	}
+	if counted == 0 {
+		return 0, false
+	}
+	return total / float64(counted), true
 }
 
 // xySwatch converts CIE xy to sRGB with the Hue wide-gamut matrix, normalized
 // to full brightness before applying level.
 func xySwatch(point xyPoint, level, weight float64) swatch {
 	if point.Y <= 0 {
-		return swatch{R: 255 * level, G: 255 * level, B: 255 * level, Weight: weight, Level: level}
+		return swatch{R: 255 * level, G: 255 * level, B: 255 * level, Weight: weight}
 	}
 	z := 1 - point.X - point.Y
 	x, y := point.X/point.Y, 1.0
@@ -102,9 +113,9 @@ func xySwatch(point xyPoint, level, weight float64) swatch {
 	r, g, b = math.Max(0, r), math.Max(0, g), math.Max(0, b)
 	peak := math.Max(r, math.Max(g, b))
 	if peak <= 0 {
-		return swatch{Weight: weight, Level: level}
+		return swatch{Weight: weight}
 	}
-	return swatch{R: 255 * level * gamma(r/peak), G: 255 * level * gamma(g/peak), B: 255 * level * gamma(b/peak), Weight: weight, Level: level}
+	return swatch{R: 255 * level * gamma(r/peak), G: 255 * level * gamma(g/peak), B: 255 * level * gamma(b/peak), Weight: weight}
 }
 
 func gamma(v float64) float64 {
@@ -117,7 +128,7 @@ func gamma(v float64) float64 {
 // mirekSwatch approximates a white temperature's color (Tanner Helland's fit).
 func mirekSwatch(mirek int, level, weight float64) swatch {
 	if mirek <= 0 {
-		return swatch{R: 255 * level, G: 255 * level, B: 255 * level, Weight: weight, Level: level}
+		return swatch{R: 255 * level, G: 255 * level, B: 255 * level, Weight: weight}
 	}
 	t := 1e6 / float64(mirek) / 100
 	clamp := func(v float64) float64 { return math.Min(255, math.Max(0, v)) }
@@ -137,26 +148,21 @@ func mirekSwatch(mirek int, level, weight float64) swatch {
 	default:
 		b = 138.5177312231*math.Log(t-10) - 305.0447927307
 	}
-	return swatch{R: clamp(r) * level, G: clamp(g) * level, B: clamp(b) * level, Weight: weight, Level: level}
+	return swatch{R: clamp(r) * level, G: clamp(g) * level, B: clamp(b) * level, Weight: weight}
 }
 
-// mergeSwatches groups colors that share a hue and a similar level, and
-// keeps the largest groups. Hues are compared at full level, so dim scenes
-// keep their distinct colors.
+// mergeSwatches groups near-identical colors and keeps the largest groups.
 func mergeSwatches(in []swatch) []swatch {
 	var groups []swatch
 	for _, s := range in {
 		merged := false
-		sr, sg, sb, sl := s.fullLevel()
 		for n := range groups {
 			g := &groups[n]
-			gr, gg, gb, gl := g.fullLevel()
-			if math.Hypot(math.Hypot(gr-sr, gg-sg), gb-sb) < mergeDistance && math.Abs(gl-sl) < mergeLevel {
+			if math.Hypot(math.Hypot(g.R-s.R, g.G-s.G), g.B-s.B) < mergeDistance {
 				total := g.Weight + s.Weight
 				g.R = (g.R*g.Weight + s.R*s.Weight) / total
 				g.G = (g.G*g.Weight + s.G*s.Weight) / total
 				g.B = (g.B*g.Weight + s.B*s.Weight) / total
-				g.Level = (gl*g.Weight + sl*s.Weight) / total
 				g.Weight = total
 				merged = true
 				break

@@ -831,8 +831,12 @@ func (w *worker) sceneControl(id, label string, scene sceneInfo) snoofer.Control
 	if _, waiting := w.scenePending[scene.SceneID]; waiting || w.sceneWriting == scene.SceneID || w.sync.sceneAfterStop == scene.SceneID {
 		status = "Pending"
 	}
-	return snoofer.Control{ID: id, Label: label, ShortLabel: scene.ShortLabel, Group: "Hue Scenes", Kind: "command", Icon: "hue-scene", Artwork: w.sceneArtwork(scene.SceneID),
+	c := snoofer.Control{ID: id, Label: label, ShortLabel: scene.ShortLabel, Group: "Hue Scenes", Kind: "command", Icon: "hue-scene", Artwork: w.sceneArtwork(scene.SceneID),
 		Value: value, Status: status, Operations: []string{"press"}, Available: w.services.Live && w.connected}
+	if b, ok := sceneBrightness(w.model.resources[scene.SceneID]); ok {
+		c.Brightness = &b
+	}
+	return c
 }
 
 // slotControls maps hue.room-scene-N to the selected room's scenes. The
