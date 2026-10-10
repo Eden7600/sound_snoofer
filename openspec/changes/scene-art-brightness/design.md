@@ -11,4 +11,4 @@
 | 10% | about 0.31 |
 | 1% | about 0.21 |
 
-Wedge colours are multiplied by the level before merging, as today. Similar colours at very different brightness therefore stay separate wedges, because the merge distance is measured in RGB.
+Wedge colours are drawn multiplied by their level. Merging compares hues at full level, so dimming does not shrink colour differences and merge a dim scene's distinct colours. Similar colours merge only when their levels are within 0.15, so one hue at very different brightness stays as separate wedges.

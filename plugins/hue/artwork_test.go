@@ -43,8 +43,26 @@ func TestColorConversion(t *testing.T) {
 		t.Fatalf("warm %+v cool %+v", warm, cool)
 	}
 	dim := xySwatch(xyPoint{X: 0.6915, Y: 0.3083}, artworkLevel(&dimming{Brightness: 0}), 1)
-	if dim.R < 0.5*red.R || dim.R >= red.R {
+	if dim.R < 0.15*red.R || dim.R > 0.25*red.R {
 		t.Fatalf("dim scene not scaled to the visible floor: %+v", dim)
+	}
+	// Moody scenes read clearly darker than bright ones, and mid brightness
+	// sits between them.
+	moody, mid, bright := artworkLevel(&dimming{Brightness: 10}), artworkLevel(&dimming{Brightness: 50}), artworkLevel(&dimming{Brightness: 100})
+	if bright != 1 || moody > 0.35 || mid < 0.55 || mid > 0.75 {
+		t.Fatalf("levels 10%%=%.2f 50%%=%.2f 100%%=%.2f", moody, mid, bright)
+	}
+	if artworkLevel(nil) != 1 {
+		t.Fatal("colour without a brightness not at full level")
+	}
+	// Dimming keeps distinct hues apart; one hue at very different levels
+	// stays two wedges.
+	low := artworkLevel(&dimming{Brightness: 5})
+	if got := mergeSwatches([]swatch{xySwatch(xyPoint{X: 0.6, Y: 0.33}, low, 1), mirekSwatch(400, low, 1)}); len(got) != 2 {
+		t.Fatalf("dim red and warm white merged: %+v", got)
+	}
+	if got := mergeSwatches([]swatch{xySwatch(xyPoint{X: 0.6, Y: 0.33}, 1, 1), xySwatch(xyPoint{X: 0.6, Y: 0.33}, low, 1)}); len(got) != 2 {
+		t.Fatalf("bright and dim red merged: %+v", got)
 	}
 }
 
