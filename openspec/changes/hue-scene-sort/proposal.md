@@ -3,7 +3,7 @@
 Scenes are always listed by name. The user wants to sort them by colour or by brightness, so similar or similarly bright scenes sit together on the deck and in the GUI.
 
 ## What Changes
-- **Sort control:** a new Sort selection (`hue.scene-sort`) with Name, Hue and Brightness. It is a persisted Hue setting (`scene_sort`; Name by default). On the deck a press cycles the options.
+- **Sort control:** a new Sort selection (`hue.sort`) with Name, Hue and Brightness. It is a persisted Hue setting (`scene_sort`; Name by default). On the deck a press cycles the options.
 - **Orders:**
   - **Name:** alphabetical, as today.
   - **Hue:** by each scene's main colour around the colour wheel, red through violet. Mostly-white scenes come after the colours, and scenes without colour data last. Ties sort by name.

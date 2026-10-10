@@ -85,7 +85,7 @@ func TestSceneSortSetting(t *testing.T) {
 	}
 	bridge := newFakeBridge(t, "b1", append(studio(), sortScenes()...)...)
 	h := startHarness(t, bridge, paired(bridge, "room-1"), true)
-	sort := h.value("hue.scene-sort", "name")
+	sort := h.value("hue.sort", "name")
 	if !slices.Equal(sort.Options, []string{"name", "hue", "brightness"}) || !sort.Available || sort.Icon != "hue-sort" {
 		t.Fatalf("sort control %+v", sort)
 	}
@@ -93,7 +93,7 @@ func TestSceneSortSetting(t *testing.T) {
 	if c, _ := h.find("hue.room-scene-1"); c.Label != "Blue" || c.Order != 1 {
 		t.Fatalf("first slot by name %+v", c)
 	}
-	h.mustDispatch("hue.scene-sort", "set", 0, "brightness")
+	h.mustDispatch("hue.sort", "set", 0, "brightness")
 	h.waitControl("hue.room-scene-1", func(c snoofer.Control) bool { return c.Label == "red" })
 	controls := map[string]snoofer.Control{}
 	for _, c := range h.controls.Snapshot() {

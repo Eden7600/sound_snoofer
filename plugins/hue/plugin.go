@@ -459,7 +459,7 @@ func (w *worker) handle(ctx context.Context, r snoofer.Request) {
 		w.adjustBrightness(r)
 	case r.ID == "hue.motion":
 		w.toggleMotion(ctx)
-	case r.ID == "hue.scene-sort":
+	case r.ID == "hue.sort":
 		w.setSceneSort(r.Value) // The registry accepts only published options.
 	case r.ID == "hue.decor" || r.ID == "hue.mixed" || r.ID == "hue.saturation":
 		if d, ok := findGroupDial(r.ID); ok {
@@ -822,7 +822,7 @@ func (w *worker) controls() []snoofer.Control {
 		brightness.Subdued = w.sync.stepsDue != 0
 		brightness.Available = live
 	}
-	sceneSort := snoofer.Control{ID: "hue.scene-sort", Label: "Hue Scene Sort", ShortLabel: "Sort", Group: "Hue", Kind: "selection", Icon: "hue-sort",
+	sceneSort := snoofer.Control{ID: "hue.sort", Label: "Hue Scene Sort", ShortLabel: "Sort", Group: "Hue", Kind: "selection", Icon: "hue-sort",
 		Value: w.sceneSort(), Options: sceneSorts, OptionLabels: sceneSortLabels, Status: w.sortErr, Operations: []string{"set"}, Available: live}
 	controls = append(controls, brightness, w.motionControl(), sceneSort)
 	controls = append(controls, w.groupDialControls()...)
