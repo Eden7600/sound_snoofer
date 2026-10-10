@@ -7,6 +7,8 @@
 - [x] 5. Validate: gofmt, `go test ./...`, `go vet ./...`, GUI check, OpenSpec strict validation, canonical build. Race detector skipped: CGO is disabled on this toolchain.
 - [x] 6. Personal layout: Lights dials become Playback, Saturation, Decor, Mixed, Brightness (with a backup); restart Snoofer.
 
+- [ ] 8. `feat(hue)`: dials show Wait while a press is applied and confirmed; tests.
+
 ## Acceptance
 - [ ] 7. On the deck:
   - Decor and Mixed stage, apply on press, and toggle without a stage.

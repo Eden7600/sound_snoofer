@@ -38,6 +38,7 @@
   - Each written light is confirmed when the bridge reports the requested on state, brightness within 2%, or xy within 0.01.
   - Lights unconfirmed 3 s after their write are reported in the dial's status as "Not applied: 2 lights".
   - A failed write reports its error; nothing is retried automatically.
+- **While applying:** while the dial has writes queued or lights awaiting confirmation, it reports Pending (the deck shows Wait, like a pending key) and is subdued.
 - **Disconnect:** the queue and stages are dropped.
 
 ## Availability

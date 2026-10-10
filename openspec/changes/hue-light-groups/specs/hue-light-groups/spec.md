@@ -18,6 +18,10 @@ The Hue plugin SHALL offer Decor, Mixed and Saturation dials for the selected ro
 - **WHEN** an apply covers many lights, or the bridge throttles a write
 - **THEN** writes go out one at a time at least 100 ms apart, and a throttled write is retried after a longer gap
 
+#### Scenario: Applying
+- **WHEN** a press is being written and confirmed
+- **THEN** the dial shows Wait until every light is confirmed or reported
+
 #### Scenario: Not confirmed
 - **WHEN** some written lights do not report the requested state within 3 s
 - **THEN** the dial reports how many were not applied, and nothing is retried
