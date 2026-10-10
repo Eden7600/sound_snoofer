@@ -3,6 +3,7 @@ package streamdeck
 import (
 	"bytes"
 	"image"
+	"image/color"
 	"image/jpeg"
 	"os"
 	"testing"
@@ -45,4 +46,35 @@ func TestStripPreview(t *testing.T) {
 		t.Fatal("unknown level not shown")
 	}
 	writePreview(t, os.Getenv("SNOOFER_STRIP_PREVIEW"), strip)
+}
+
+func TestPendingDialLooksLikePendingKey(t *testing.T) {
+	var knobs [Encoders]knobPresentation
+	knobs[0] = knobPresentation{Target: "Decor", Value: "Wait", Icon: "hue-brightness"}
+	knobs[1] = knobPresentation{Target: "Mixed", Value: "80%", Icon: "hue-brightness"}
+	raw, _ := renderKnobs(knobs, 0)
+	rotated, err := jpeg.Decode(bytes.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := func(x, y int) color.RGBA {
+		// The strip is rotated: panel (x, y) is stored at (y, 1199-x).
+		r, g, b, _ := rotated.At(y, 1199-x).RGBA()
+		return color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), 255}
+	}
+	if !near(at(3, 2), attentionColor, 40) {
+		t.Fatal("pending dial lacks its dashes", at(3, 2))
+	}
+	if near(at(203, 2), attentionColor, 60) {
+		t.Fatal("dashes on a dial that is not pending")
+	}
+	amber := false
+	for y := 30; y < 70 && !amber; y++ {
+		for x := 12; x < 120 && !amber; x++ {
+			amber = near(at(x, y), attentionColor, 50)
+		}
+	}
+	if !amber {
+		t.Fatal("pending value is not amber")
+	}
 }

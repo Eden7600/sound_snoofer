@@ -6,7 +6,7 @@
 - [x] 4. `feat(streamdeck)`: touch strip panels in the row style; tests; preview.
 - [x] 5. Validate: gofmt, `go test ./...`, `go vet ./...`, OpenSpec strict validation, canonical build; restart Snoofer. Race detector skipped: CGO is disabled on this toolchain.
 
-- [ ] 7. `feat(streamdeck)`: pending dials show Wait in amber with the dashed bar, like keys; tests; preview.
+- [x] 7. `feat(streamdeck)`: pending dials show Wait in amber with the dashed bar, like keys; tests; preview.
 
 ## Acceptance
 - [ ] 6. On the Stream Deck + XL: no text or icon is hidden by the rounded keycaps (and the 10 px radius assumption holds); long labels read without truncation; area colours are distinct, including magenta from red; the touch strip reads at a glance.

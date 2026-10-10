@@ -89,6 +89,13 @@ func drawControlKnob(im *image.RGBA, x0 int, k knobPresentation) {
 	if k.Inactive {
 		target, ink = unknownColor, unknownColor
 	}
+	if strings.EqualFold(k.Value, "Wait") {
+		// Pending, as on a key: amber value and dashes along the top edge.
+		ink = attentionColor
+		for dx := 0; dx < panelWidth; dx += 14 {
+			fill(im, x0+dx, 0, x0+min(dx+8, panelWidth), 5, attentionColor)
+		}
+	}
 	if k.Target != "" {
 		f := set.fit(labelFace, k.Target, dialWidth, 13, 10, 1)
 		set.draw(im, 1, labelFace, f.px, x, 10, f.lines[0], target)
