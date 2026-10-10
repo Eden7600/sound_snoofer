@@ -55,6 +55,10 @@ Dial panels SHALL use the same typefaces and area colours, with a large value, a
 - **WHEN** Home is shown between Media and Lights
 - **THEN** the page dial shows `← MEDIA`, a large `HOME` and `LIGHTS →`
 
+#### Scenario: Pending dial
+- **WHEN** a dial's control is pending and shows Wait
+- **THEN** the value is amber and dashes run along the top of its panel, as on a pending key
+
 #### Scenario: Unknown level
 - **WHEN** a meter reading is unknown or expired
 - **THEN** the meter row shows N/A instead of silence

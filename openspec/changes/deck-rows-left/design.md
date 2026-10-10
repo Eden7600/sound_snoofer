@@ -63,3 +63,4 @@ Value words keep today's mapping (Recording → REC, Pending → WAIT, Unavail �
 | Artwork | 100 × 100 artwork on the left. Target 14 px and name 12 px grey at x 110; value condensed 20 px; a full-width 6 px progress bar at the bottom. |
 | Page dial | `← PREVIOUS` at (12, 10), 12 px grey. Current page at (11, 30), condensed 40 px, light. `NEXT →` right-aligned at y 78. |
 | Timers | Today's layout, set in the new faces. |
+| Pending control (value Wait) | As a pending key: the value is drawn amber, with 5 px amber dashes (8 on, 6 off) along the panel's top edge |
