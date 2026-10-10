@@ -170,15 +170,35 @@ func Run(ctx context.Context, args []string, plugins ...snoofer.Plugin) error {
 				ShowError(e)
 			}
 		}
-		_ = registry.Publish("core", []snoofer.Control{{ID: "core.open-controls", SurfaceOnly: true, Label: "Controls", Group: "System", Kind: "command", Available: true, Icon: "open-controls", Operations: []string{"press"}}}, func(ctx context.Context, r snoofer.Request) error {
-			select {
-			case actions <- UIAction{Kind: "open"}:
-				return nil
-			default:
-				return fmt.Errorf("controls busy")
+		startup := ""
+		if exe, e := os.Executable(); e == nil {
+			startup = startupCommand(exe, absolute)
+		}
+		// publishCore re-reads login startup so the toggle shows what Windows
+		// holds. Its handler only enqueues the opposite of the published value.
+		publishCore := func() {
+			observed, readErr := loginStartup.read()
+			if startup == "" {
+				readErr = errors.New("executable path unavailable")
 			}
-		})
+			startupToggle := startupControl(observed, readErr, startup, !*dry)
+			enable := startupToggle.Value != "On"
+			openControls := snoofer.Control{ID: "core.open-controls", SurfaceOnly: true, Label: "Controls", Group: "System", Kind: "command", Available: true, Icon: "open-controls", Operations: []string{"press"}}
+			_ = registry.Publish("core", []snoofer.Control{openControls, startupToggle}, func(ctx context.Context, r snoofer.Request) error {
+				action := UIAction{Kind: "open"}
+				if r.ID == startupToggle.ID {
+					action = UIAction{Kind: "startup", Enable: enable}
+				}
+				select {
+				case actions <- action:
+					return nil
+				default:
+					return fmt.Errorf("controls busy")
+				}
+			})
+		}
 		publish := func() {
+			publishCore()
 			current, _, e := snoofer.Load(absolute)
 			if e != nil {
 				notice = e.Error()
@@ -245,6 +265,13 @@ func Run(ctx context.Context, args []string, plugins ...snoofer.Plugin) error {
 					openUI()
 				case "retry":
 					host.Retry()
+				case "startup":
+					if *dry {
+						break
+					}
+					if e := loginStartup.apply(a.Enable, startup); e != nil {
+						notice = e.Error()
+					}
 				case "selection":
 					current, rev, e := snoofer.Load(absolute)
 					if e != nil {

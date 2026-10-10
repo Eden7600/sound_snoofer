@@ -1,7 +1,7 @@
 # Tasks
 ## Implementation
 - [x] 1. `docs(startup)`: specify login startup; update the UI contract, README and application guide.
-- [ ] 2. `feat(startup)`: Run entry read/write with StartupApproved handling, `core.startup` control, tray action with read-back and preview gating; unit tests and scratch-key registry tests.
+- [x] 2. `feat(startup)`: Run entry read/write with StartupApproved handling, `core.startup` control, tray action with read-back and preview gating; unit tests and scratch-key registry tests.
 - [ ] 3. `feat(gui)`: Startup card on Diagnostics; GUI check for the toggle row and its press request.
 - [ ] 4. Validate: gofmt, `go test ./...`, `go vet ./...`, GUI check, OpenSpec strict validation, canonical build.
 
