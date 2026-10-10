@@ -8,7 +8,7 @@ A Windows tray application with optional compiled Audio, VR, Stream Deck, Soundb
 
 ## Run
 
-Launch `bin/snoofer.exe`; choose **Open controls** from its tray icon. Closing controls leaves Snoofer running. **Quit Snoofer** releases resources without resetting mixer routing or stopping recording.
+Launch `bin/snoofer.exe`; choose **Open controls** from its tray icon. Closing controls leaves Snoofer running. **Quit Snoofer** releases resources without resetting mixer routing or stopping recording. **Start at Login** on the Diagnostics screen registers this executable and configuration to start in the tray when you sign in to Windows.
 
 Configuration defaults to `snoofer.json` beside the executable. Plugin dependency changes are confirmed together and restart the application. A new configuration starts with every plugin disabled. Personal settings were manually converted in `bin/snoofer.json`, with operational journals at their original paths.
 

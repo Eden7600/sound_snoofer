@@ -4,6 +4,8 @@ Snoofer runs in the Windows tray and hosts optional compiled plugins. Open contr
 
 The default build includes Audio, VR, Stream Deck and Windows media. Enable or disable them in the Plugins tab. Changes show dependent plugins together and restart the application after saving. Ordinary control and layout edits apply live. Missing hardware is shown as disconnected; failed plugin branches can be retried in Diagnostics.
 
+Start at Login, at the top of Diagnostics, adds a per-user Windows Run entry that starts this executable with its configuration in the tray at sign-in, and removes it when turned off. It shows what Windows holds: Off with a note when Task Manager's Startup apps disabled it or another copy is registered (turning it on replaces that), and unavailable under `--dry-run`.
+
 ## Controls
 
 Choose Audio, Soundboard, Stream Deck, Plugins or Diagnostics in the sidebar. Up/Down moves along the sidebar; Tab moves focus between controls. Text fields support native editing and paste; Apply/Add or Enter applies, and Escape cancels. Dropdowns and toggles apply their selected values. Closing the window leaves plugins running.
