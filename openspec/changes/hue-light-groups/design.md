@@ -24,11 +24,12 @@
 - **Per dial:** each dial keeps one staged target.
   - The Decor and Mixed dials stage a brightness, starting from the group's observed average and moving 5% per tick (1–100%).
   - The Saturation dial stages a fraction, starting from the observed average.
-- **Expiry:** a stage expires 10 s after the dial's last input.
+- **Expiry:** all stages expire together, 10 s after the last turn of any light-group dial.
+- **Global apply:** a press on any light-group dial applies every staged target (Decor, Mixed and Saturation) at once. Only when nothing is staged does a press toggle Decor or Mixed (Saturation does nothing).
 - **Presentation:** while staged, the dial shows the target with an arrow (`→ 60%`) and is subdued. A status note would render as Error on the deck, so none is used. Without a stage it shows the group's state: the average brightness of its lit lights, Off when none is lit, and N/A when unknown.
 
 ## Applying
-- **Building the batch:** a press builds one write per light:
+- **Building the batch:** a press builds one write per light, for every staged dial:
   - Decor or Mixed with a stage: `{on: true, dimming: brightness}` for each light of that function.
   - Decor or Mixed without a stage: `{on: false}` when any light is lit, otherwise `{on: true}`.
   - Saturation: the colour write for each colour-mode light.

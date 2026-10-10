@@ -1,18 +1,22 @@
 ## ADDED Requirements
 ### Requirement: Staged light-group dials
-The Hue plugin SHALL offer Decor, Mixed and Saturation dials for the selected room. Turning SHALL only stage a target; a press SHALL apply it with paced per-light writes. With nothing staged, a press SHALL toggle the Decor or Mixed lights and do nothing on Saturation.
+The Hue plugin SHALL offer Decor, Mixed and Saturation dials for the selected room. Turning SHALL only stage a target; a press on any of these dials SHALL apply every staged target with paced per-light writes. With nothing staged, a press SHALL toggle the Decor or Mixed lights and do nothing on Saturation.
 
 #### Scenario: Stage and apply decorative brightness
 - **WHEN** the Decor dial is turned to 40% and pressed
 - **THEN** nothing is sent while turning, and on the press each decorative light in the room is set on at 40%
+
+#### Scenario: One press applies every stage
+- **WHEN** Decor and Saturation are both staged and the Mixed dial is pressed
+- **THEN** both staged targets are applied, and the mixed lights are not toggled
 
 #### Scenario: Toggle without a stage
 - **WHEN** the Mixed dial is pressed with nothing staged and a mixed light is lit
 - **THEN** every mixed light in the room is turned off
 
 #### Scenario: Stage expires
-- **WHEN** a staged target is not applied within 10 s of the last turn
-- **THEN** it is dropped, and the dial shows the observed state again
+- **WHEN** staged targets are not applied within 10 s of the last turn of any light-group dial
+- **THEN** they are dropped, and the dials show the observed state again
 
 #### Scenario: Rate limit
 - **WHEN** an apply covers many lights, or the bridge throttles a write

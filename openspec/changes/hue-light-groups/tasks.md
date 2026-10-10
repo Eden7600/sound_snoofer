@@ -9,6 +9,8 @@
 
 - [x] 8. `feat(hue)`: dials show Wait while a press is applied and confirmed; tests.
 
+- [ ] 9. `feat(hue)`: a press applies every staged target; stages expire together; tests.
+
 ## Acceptance
 - [ ] 7. On the deck:
   - Decor and Mixed stage, apply on press, and toggle without a stage.
