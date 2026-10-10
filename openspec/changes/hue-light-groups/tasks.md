@@ -1,7 +1,7 @@
 # Tasks
 ## Implementation
 - [x] 1. `docs(hue)`: specify staged Decor, Mixed and Saturation dials; update the UI contract and plugin docs.
-- [ ] 2. `feat(hue)`: model reads light function, colour, colour mode and gradients; room light groups and saturation math; tests.
+- [x] 2. `feat(hue)`: model reads light function, colour, colour mode and gradients; room light groups and saturation math; tests.
 - [ ] 3. `feat(hue)`: staged dials with press-to-apply, paced per-light writes, confirmation and expiry; tests.
 - [ ] 4. `feat(streamdeck)`: saturation icon and default Lights dials; tests; preview.
 - [ ] 5. Validate: gofmt, `go test ./...`, `go vet ./...`, GUI check, OpenSpec strict validation, canonical build.

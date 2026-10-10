@@ -13,7 +13,8 @@ type reference struct {
 }
 
 type metadata struct {
-	Name string `json:"name"`
+	Name     string `json:"name"`
+	Function string `json:"function,omitempty"` // Lights: functional, decorative, mixed or unknown.
 }
 
 type onState struct {
@@ -126,6 +127,30 @@ type resource struct {
 	Status   *sceneStatus  `json:"status,omitempty"`
 	Actions  []sceneAction `json:"actions,omitempty"` // Scenes only; used for artwork.
 	Palette  *scenePalette `json:"palette,omitempty"` // Scenes only; used for artwork.
+
+	// Lights only: colour, white-temperature mode and gradient, for the
+	// light-group dials (openspec/changes/hue-light-groups).
+	Color            *lightColor       `json:"color,omitempty"`
+	ColorTemperature *lightTemperature `json:"color_temperature,omitempty"`
+	Gradient         *lightGradient    `json:"gradient,omitempty"`
+}
+
+// lightColor is a light's colour; updates carry only xy, so the gamut is kept.
+type lightColor struct {
+	XY    *xyPoint `json:"xy,omitempty"`
+	Gamut *gamut   `json:"gamut,omitempty"`
+}
+
+// lightTemperature reports whether a light shows a white temperature.
+type lightTemperature struct {
+	MirekValid *bool `json:"mirek_valid,omitempty"`
+}
+
+// lightGradient is a gradient light's points.
+type lightGradient struct {
+	Points []struct {
+		Color xyColor `json:"color"`
+	} `json:"points"`
 }
 
 // merge applies the fields present in an update.
@@ -162,6 +187,23 @@ func (r *resource) merge(update resource) {
 	}
 	if update.Palette != nil {
 		r.Palette = update.Palette
+	}
+	if update.Color != nil {
+		if r.Color == nil {
+			r.Color = &lightColor{}
+		}
+		if update.Color.XY != nil {
+			r.Color.XY = update.Color.XY
+		}
+		if update.Color.Gamut != nil {
+			r.Color.Gamut = update.Color.Gamut
+		}
+	}
+	if update.ColorTemperature != nil {
+		r.ColorTemperature = update.ColorTemperature
+	}
+	if update.Gradient != nil {
+		r.Gradient = update.Gradient
 	}
 }
 
