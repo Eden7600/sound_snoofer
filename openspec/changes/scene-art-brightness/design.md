@@ -1,14 +1,29 @@
 # Design
-`artworkLevel(d)` maps a scene action's brightness b (0–100) to a wedge level:
+## Brightness
+`sceneBrightness(scene)` in `plugins/hue` returns the scene's overall brightness, 0–1, and whether it is known.
 
-    level = minArtworkLevel + (1 − minArtworkLevel) × (b / 100)^0.8,  minArtworkLevel = 0.18
-
-| Brightness | Level |
+| Source | Contribution |
 |---|---|
-| None given | 1 (full) |
-| 100% | 1.00 |
-| 50% | about 0.65 |
-| 10% | about 0.31 |
-| 1% | about 0.21 |
+| Action turning a light off | 0 |
+| Action turning a light on, with dimming | brightness / 100 |
+| Action turning a light on, without dimming | 1 |
+| Palette entries (when there are no actions) | their dimming, or 1 |
 
-Wedge colours are drawn multiplied by their level. Merging compares hues at full level, so dimming does not shrink colour differences and merge a dim scene's distinct colours. Similar colours merge only when their levels are within 0.15, so one hue at very different brightness stays as separate wedges.
+- **Average:** the result is the average of the contributions.
+- **Unknown:** with neither actions nor palette, the brightness is unknown.
+
+Scene controls (`hue.scene-…` and the room-scene slots) set `Brightness` when it is known.
+
+## Artwork
+`sceneSwatches` draws every wedge at full level again, and `artworkLevel` is removed. Merging compares colours as it did before the darkening, without the level term.
+
+## Control and tile
+- **Control:** `snoofer.Control.Brightness *float64`, an optional overall brightness that surfaces may indicate.
+- **Tile:** `device.Tile` and `keyPresentation` carry it as `Brightness float64` with `BrightnessKnown bool`.
+- **Caching:** it is part of the key presentation, so cached key images update when it changes.
+
+## Badge
+- **When:** drawn on artwork keys only, after the band.
+- **Backing:** a 13 px disc in the key colour, centred at (92, 20) and inside the corner inset, for contrast on any artwork.
+- **Sun:** in the light text colour, a 4 px core disc.
+- **Rays:** from radius 7 to 11. The pairs appear in order: vertical, horizontal, then the two diagonals. A step of n shows 2n rays.

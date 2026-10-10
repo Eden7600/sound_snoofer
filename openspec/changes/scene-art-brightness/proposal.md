@@ -1,14 +1,24 @@
-# Scene artwork brightness
+# Scene brightness badge
 ## Why
-Scene artwork already darkens each wedge by its light's brightness, but only within 55–100%, so a scene at 10% looks nearly as bright as one at 100%. The user wants the disc to tell bright scenes from moody, dark ones at a glance.
+The user wants to tell bright scenes from moody, dark ones at a glance. A first attempt darkened each wedge by its brightness, but darker colours were hard to read and didn't help. A separate marker reads better.
 
 ## What Changes
-- **Range:** each wedge's level follows the brightness the scene sets on its lights, over a wider range: from 18% at the dimmest to full at 100% brightness.
-- **Curve:** a gentle curve keeps mid-brightness scenes distinct.
-- **Visibility:** the floor keeps the darkest wedges visible against the dark deck.
-- **Defaults:** colours without a brightness stay at full level. Palettes (dynamic and brightness-only scenes) use their entries' brightness the same way.
+- **Badge:** scene keys with artwork show a small sun in the top-right of the artwork. Its rays show the scene's overall brightness in five steps:
+
+  | Average brightness | Rays |
+  |---|---|
+  | Under 15% | None (the disc alone) |
+  | 15–35% | 2 |
+  | 35–60% | 4 |
+  | 60–85% | 6 |
+  | 85% and up | 8 |
+
+- **Overall brightness:** the average over the lights the scene sets. Lights it turns off count as 0, and lights it turns on without a brightness count as 100%. Palette-only scenes average their palette entries. A scene with no brightness data shows no badge.
+- **Full colour:** wedges are drawn in full colour again; the per-wedge darkening is removed.
+- **New field:** controls gain an optional `Brightness` (0–1) that the Hue plugin sets on scene controls, and the deck draws.
 
 ## Impact
-- **Code:** `plugins/hue/artwork.go` and its tests.
-- **UI contract:** wording.
-- **Scope:** affects scene keys and the GUI's Lights scene cards, which share the artwork.
+- **Code:** `snoofer/controls.go`, `plugins/hue` (scene brightness, full-colour artwork), `plugins/streamdeck` (tile), `internal/streamdeck` (badge), `docs/ui-contract.md`.
+- **Unchanged:**
+  - The GUI's scene cards.
+  - Keys without artwork, where the badge would collide with the label at the top.
