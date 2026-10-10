@@ -70,6 +70,7 @@ type pendingLight struct {
 type lightQueue struct {
 	queue    []lightWrite
 	inFlight bool
+	sending  string // Dial of the write in flight.
 	lastSend time.Time
 	gap      time.Duration
 	waiting  map[string]pendingLight // By light ID.
@@ -268,6 +269,7 @@ func (w *worker) tickLights(ctx context.Context, now time.Time) bool {
 func (w *worker) sendLight(ctx context.Context, item lightWrite) {
 	client, generation := w.client, w.generation
 	w.lights.inFlight = true
+	w.lights.sending = item.dial
 	w.spawn(ctx, func(ctx context.Context) func(context.Context) {
 		err := client.Put(ctx, "light", item.light, item.body)
 		return func(context.Context) { w.lightWritten(generation, item, err) }
@@ -280,6 +282,7 @@ func (w *worker) lightWritten(generation int, item lightWrite, err error) {
 	}
 	q := &w.lights
 	q.inFlight = false
+	q.sending = ""
 	q.lastSend = time.Now()
 	switch {
 	case errors.Is(err, ErrThrottled):
@@ -311,6 +314,25 @@ func (w *worker) observeLights() {
 	}
 }
 
+// applying reports whether a dial has writes queued, in flight or awaiting
+// confirmation.
+func (q *lightQueue) applying(dial string) bool {
+	if q.inFlight && q.sending == dial {
+		return true
+	}
+	for _, item := range q.queue {
+		if item.dial == dial {
+			return true
+		}
+	}
+	for _, p := range q.waiting {
+		if p.dial == dial {
+			return true
+		}
+	}
+	return false
+}
+
 // resetGroupDials drops stages and queued writes, as on disconnect.
 func (w *worker) resetGroupDials() {
 	w.stages = nil
@@ -336,6 +358,10 @@ func (w *worker) groupDialControls() []snoofer.Control {
 			c.Value, c.Subdued = "→ "+percentLabel(target), true
 		} else {
 			c.Value = groupValue(d, lights)
+			if w.lights.applying(d.id) {
+				// Wait, like a pending key, until every light is confirmed or reported.
+				c.Status, c.Subdued = "Pending", true
+			}
 		}
 		out = append(out, c)
 	}

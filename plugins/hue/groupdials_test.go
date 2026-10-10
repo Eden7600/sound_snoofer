@@ -147,7 +147,9 @@ func TestGroupWritesPacedAndConfirmed(t *testing.T) {
 	bridge.set(func(b *fakeBridge) { b.ignorePuts = true })
 	h.mustDispatch("hue.decor", "adjust", 1, "")
 	h.mustDispatch("hue.decor", "press", 0, "")
-	c := h.waitControl("hue.decor", func(c snoofer.Control) bool { return c.Status != "" })
+	// Wait while the write awaits confirmation, then the report.
+	h.waitControl("hue.decor", func(c snoofer.Control) bool { return c.Status == "Pending" && c.Subdued })
+	c := h.waitControl("hue.decor", func(c snoofer.Control) bool { return c.Status != "" && c.Status != "Pending" })
 	if c.Status != "Not applied: 1 light" {
 		t.Fatalf("unconfirmed status %q", c.Status)
 	}
