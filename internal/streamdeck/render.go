@@ -42,6 +42,8 @@ type keyPresentation struct {
 	Artwork            string
 	Label, Value, Icon string
 	Fallback, Inactive bool
+	Brightness         float64 // Overall brightness for the badge on artwork keys, when known.
+	BrightnessKnown    bool
 }
 type knobPresentation struct {
 	Target, Value, Name, Status string
@@ -66,7 +68,12 @@ func renderKey(key keyPresentation, phase time.Duration) ([]byte, bool) {
 	if key.Label != "" {
 		lines = []string{key.Label, key.Value}
 	}
-	return drawKey(lines, 112, 112, key.Value == "On" || key.Value == "Recording", key.Icon, key.Fallback, key.Inactive, key.Artwork, phase)
+	spec := keySpec{lines: lines, w: 112, h: 112, on: key.Value == "On" || key.Value == "Recording", icon: key.Icon,
+		fallback: key.Fallback, inactive: key.Inactive, artwork: key.Artwork}
+	if key.BrightnessKnown {
+		spec.brightness = &key.Brightness
+	}
+	return drawKeySpec(spec, phase)
 }
 
 func renderPresentation(view presentation) ([][]byte, []byte) {

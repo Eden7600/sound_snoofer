@@ -24,6 +24,6 @@ Scene controls (`hue.scene-…` and the room-scene slots) set `Brightness` when 
 
 ## Badge
 - **When:** drawn on artwork keys only, after the band.
-- **Backing:** a 13 px disc in the key colour, centred at (92, 20) and inside the corner inset, for contrast on any artwork.
-- **Sun:** in the light text colour, a 4 px core disc.
-- **Rays:** from radius 7 to 11. The pairs appear in order: vertical, horizontal, then the two diagonals. A step of n shows 2n rays.
+- **Backing:** a 15 px disc in the key colour, centred at (89, 23) so its edge meets the corner inset, for contrast on any artwork.
+- **Sun:** in the light text colour, a 5 px core disc.
+- **Rays:** from radius 8 to 12.5, about 3 px thick. The pairs appear in order: vertical, horizontal, then the two diagonals. A step of n shows 2n rays.

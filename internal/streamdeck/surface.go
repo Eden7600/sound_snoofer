@@ -16,6 +16,8 @@ type Tile struct {
 	ZeroMark           float64      // 0…1 position of a neutral mark; 0 for none.
 	Timers             [2]TimerTile // Dials: countdowns shown instead of a control; the first is used first.
 	Inactive           bool         // Greyed and inert: the control has no effect right now.
+	Brightness         float64      // Keys: overall brightness, 0–1, for the badge on artwork keys.
+	BrightnessKnown    bool
 }
 
 // TimerTile is one countdown on a dial panel: artwork (or icon), name and
@@ -53,7 +55,8 @@ func renderFrame(f Frame) ([][]byte, []byte) {
 func renderChangedFrame(f Frame, cache *keyCache, phase time.Duration) ([][]byte, []byte, bool) {
 	view := presentation{}
 	for n, k := range f.Keys {
-		view.Keys[n] = keyPresentation{Artwork: k.Artwork, Label: k.Label, Value: k.Value, Icon: k.Icon, Inactive: k.Inactive}
+		view.Keys[n] = keyPresentation{Artwork: k.Artwork, Label: k.Label, Value: k.Value, Icon: k.Icon, Inactive: k.Inactive,
+			Brightness: k.Brightness, BrightnessKnown: k.BrightnessKnown}
 	}
 	for n, k := range f.Dials {
 		view.Knobs[n] = knobPresentation{Target: k.Label, Value: k.Value, Meter: k.Meter, LevelKnown: k.LevelKnown, LevelDB: k.LevelDB,

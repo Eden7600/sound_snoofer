@@ -69,6 +69,23 @@ func renderArtwork(lines []string, w, h int, on bool, icon string, fallback bool
 // drawKey is renderArtwork at a scroll phase, greyed without a value when
 // inactive; it reports whether any of the key's text scrolls.
 func drawKey(lines []string, w, h int, on bool, icon string, fallback, inactive bool, artwork string, phase time.Duration) ([]byte, bool) {
+	return drawKeySpec(keySpec{lines: lines, w: w, h: h, on: on, icon: icon, fallback: fallback, inactive: inactive, artwork: artwork}, phase)
+}
+
+// keySpec is everything a key image depends on.
+type keySpec struct {
+	lines              []string
+	w, h               int
+	on                 bool
+	icon               string
+	fallback, inactive bool
+	artwork            string
+	brightness         *float64 // Overall brightness for the badge on artwork keys; nil for none.
+}
+
+// drawKeySpec draws a key from its spec at a scroll phase.
+func drawKeySpec(k keySpec, phase time.Duration) ([]byte, bool) {
+	lines, w, h, on, icon, fallback, inactive, artwork := k.lines, k.w, k.h, k.on, k.icon, k.fallback, k.inactive, k.artwork
 	scrolls := false
 	// Supersample geometry and text, then average down.
 	const scale = 4
@@ -122,6 +139,9 @@ func drawKey(lines []string, w, h int, on bool, icon string, fallback, inactive 
 		default:
 			drawBand(im, scale, w, bandHeight, art, kind)
 			scrolls = drawArtworkRows(im, scale, label, value, style, phase)
+		}
+		if k.brightness != nil && kind != programArt {
+			drawBrightnessBadge(im, scale, *k.brightness)
 		}
 	} else {
 		if label != "" {
@@ -303,6 +323,41 @@ func routineWord(icon, value string) bool {
 		return value == "READY" || value == "ACTIVE" || value == "PLAYING"
 	}
 	return false
+}
+
+// drawBrightnessBadge draws a sun at the artwork's top right whose rays show
+// an overall brightness in five steps: none under 15%, then 2, 4, 6 and 8
+// rays (openspec/changes/scene-art-brightness).
+func drawBrightnessBadge(im *image.RGBA, scale int, brightness float64) {
+	const cx, cy = 89, 23 // The backing's edge meets the corner inset.
+	disc := func(x, y, r float64, c color.RGBA) {
+		x, y, r = x*float64(scale), y*float64(scale), r*float64(scale)
+		for py := int(y - r); py <= int(y+r); py++ {
+			for px := int(x - r); px <= int(x+r); px++ {
+				dx, dy := float64(px)+0.5-x, float64(py)+0.5-y
+				if dx*dx+dy*dy <= r*r {
+					im.SetRGBA(px, py, c)
+				}
+			}
+		}
+	}
+	disc(cx, cy, 15, keyColor) // Backing, for contrast on any artwork.
+	disc(cx, cy, 5, lightValue)
+	steps := 0
+	for _, limit := range []float64{0.15, 0.35, 0.60, 0.85} {
+		if brightness >= limit {
+			steps++
+		}
+	}
+	// Pairs appear in order: vertical, horizontal, then the two diagonals.
+	pairs := [][2]float64{{0, 1}, {1, 0}, {0.7071, 0.7071}, {0.7071, -0.7071}}
+	for _, d := range pairs[:steps] {
+		for _, sign := range []float64{1, -1} {
+			for t := 8.0; t <= 12.5; t += 0.25 {
+				disc(cx+sign*d[0]*t, cy+sign*d[1]*t, 1.4, lightValue)
+			}
+		}
+	}
 }
 
 // drawArtworkRows sets an artwork key's text beneath its artwork: the label

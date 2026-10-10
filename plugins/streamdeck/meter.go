@@ -77,8 +77,12 @@ func controlTile(c snoofer.Control, value string, now time.Time) device.Tile {
 	if !known {
 		m.DB = 0
 	}
-	return device.Tile{Artwork: artworkAt(c, now), Label: label, Value: value, Icon: c.Icon, Meter: m.Present,
+	tile := device.Tile{Artwork: artworkAt(c, now), Label: label, Value: value, Icon: c.Icon, Meter: m.Present,
 		LevelKnown: known, LevelDB: m.DB}
+	if c.Brightness != nil {
+		tile.Brightness, tile.BrightnessKnown = *c.Brightness, true
+	}
+	return tile
 }
 
 // artworkAt is the animation frame shown at now. Every key runs on the same

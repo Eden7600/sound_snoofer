@@ -4,7 +4,7 @@
 - [x] 2. `feat(hue)`: wider, curved brightness levels for scene wedges; tests; preview. (Superseded by tasks 3–5: the darkening did not help.)
 - [x] 3. `docs(hue)`: specify the scene brightness badge in place of darkened wedges; update the UI contract.
 - [x] 4. `feat(hue)`: full-colour wedges again; scene brightness on scene controls; tests.
-- [ ] 5. `feat(streamdeck)`: the sun badge on artwork keys; tests; preview.
+- [x] 5. `feat(streamdeck)`: the sun badge on artwork keys; tests; preview.
 - [ ] 6. Validate: gofmt, `go test ./...`, `go vet ./...`, OpenSpec strict validation, canonical build; restart Snoofer.
 
 ## Acceptance

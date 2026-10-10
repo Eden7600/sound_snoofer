@@ -43,3 +43,15 @@ func TestInactiveControlTile(t *testing.T) {
 		t.Fatal("inactive tile", tile)
 	}
 }
+
+func TestSceneBrightnessReachesTheTile(t *testing.T) {
+	half := 0.5
+	c := snoofer.Control{ID: "hue.scene-x", Label: "Relax", Icon: "hue-scene", Value: "Ready", Available: true, Operations: []string{"press"}, Brightness: &half}
+	if tile := bindingTile(Binding{Control: c.ID}, c, true, time.Now()); !tile.BrightnessKnown || tile.Brightness != 0.5 {
+		t.Fatal("brightness lost on the way to the tile", tile)
+	}
+	c.Brightness = nil
+	if tile := bindingTile(Binding{Control: c.ID}, c, true, time.Now()); tile.BrightnessKnown {
+		t.Fatal("brightness invented", tile)
+	}
+}

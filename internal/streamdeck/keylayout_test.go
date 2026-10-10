@@ -345,3 +345,55 @@ func TestInactiveKeysAndDialsAreGrey(t *testing.T) {
 		t.Fatal("inactive dial shows a meter")
 	}
 }
+
+func TestBrightnessBadgeOnSceneKeys(t *testing.T) {
+	pie := pieArtwork(t)
+	render := func(brightness *float64) *image.RGBA {
+		raw, _ := drawKeySpec(keySpec{lines: []string{"Relax", "Ready"}, w: 112, h: 112, icon: "hue-scene", artwork: pie, brightness: brightness}, 0)
+		return unrotate(t, raw)
+	}
+	level := func(v float64) *float64 { return &v }
+	// Without a brightness there is no badge: the backing disc is absent.
+	if near(render(nil).RGBAAt(89, 10), keyColor, 20) {
+		t.Fatal("badge drawn without a brightness")
+	}
+	// The badge's backing sits at the top right; brighter scenes light more rays.
+	lit := func(im *image.RGBA) int {
+		n := 0
+		for y := 8; y < 39; y++ {
+			for x := 74; x < 105; x++ {
+				// Inside the badge's backing only; the pie around it may be pale.
+				if (x-89)*(x-89)+(y-23)*(y-23) > 14*14 {
+					continue
+				}
+				if near(im.RGBAAt(x, y), lightValue, 40) {
+					n++
+				}
+			}
+		}
+		return n
+	}
+	dark, bright := render(level(0.05)), render(level(1))
+	if !near(dark.RGBAAt(89, 10), keyColor, 30) {
+		t.Fatal("badge backing missing")
+	}
+	if lit(bright) <= lit(dark)*2 {
+		t.Fatalf("a bright scene's badge is not clearly brighter: %d vs %d lit pixels", lit(bright), lit(dark))
+	}
+}
+
+func TestBrightnessBadgePreview(t *testing.T) {
+	pie := pieArtwork(t)
+	sheet := image.NewRGBA(image.Rect(0, 0, 5*128, 112))
+	fill(sheet, 0, 0, sheet.Bounds().Dx(), 112, color.RGBA{11, 12, 13, 255})
+	for n, b := range []float64{0.05, 0.25, 0.5, 0.75, 1} {
+		raw, _ := drawKeySpec(keySpec{lines: []string{"Relax", "Ready"}, w: 112, h: 112, icon: "hue-scene", artwork: pie, brightness: &b}, 0)
+		im := unrotate(t, raw)
+		for y := 0; y < 112; y++ {
+			for x := 0; x < 112; x++ {
+				sheet.Set(n*128+x, y, im.At(x, y))
+			}
+		}
+	}
+	writePreview(t, os.Getenv("SNOOFER_BADGE_PREVIEW"), sheet)
+}
