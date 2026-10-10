@@ -405,20 +405,15 @@ func (m model) scenes() []sceneInfo {
 	return out
 }
 
-// roomScenes lists the scenes of one group sorted by name, as mapped to room slots.
-func (m model) roomScenes(groupID string) []sceneInfo {
+// roomScenes lists the scenes of one group in the chosen sort, as mapped to room slots.
+func (m model) roomScenes(groupID, mode string) []sceneInfo {
 	var out []sceneInfo
 	for _, scene := range m.scenes() {
 		if group := m.resources[scene.SceneID].Group; group != nil && group.RID == groupID {
 			out = append(out, scene)
 		}
 	}
-	sort.SliceStable(out, func(i, j int) bool {
-		if out[i].ShortLabel != out[j].ShortLabel {
-			return out[i].ShortLabel < out[j].ShortLabel
-		}
-		return out[i].SceneID < out[j].SceneID
-	})
+	m.sortScenes(out, mode)
 	return out
 }
 

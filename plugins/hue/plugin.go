@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,8 +25,9 @@ type Settings struct {
 	AppKey            string   `json:"app_key"`
 	CertificateSHA256 string   `json:"certificate_sha256"`
 	Group             string   `json:"group"`
-	Rooms             []string `json:"rooms,omitempty"`     // Rooms and zones Snoofer controls; empty means all.
-	SyncPort          *int     `json:"sync_port,omitempty"` // Hue Sync third-party control port; nil means 24851.
+	Rooms             []string `json:"rooms,omitempty"`      // Rooms and zones Snoofer controls; empty means all.
+	SyncPort          *int     `json:"sync_port,omitempty"`  // Hue Sync third-party control port; nil means 24851.
+	SceneSort         string   `json:"scene_sort,omitempty"` // name, hue or brightness; empty means name.
 }
 
 // Plugin returns inert metadata; no network activity occurs until Start.
@@ -49,6 +51,9 @@ func decode(raw json.RawMessage) (Settings, error) {
 	}
 	if s.SyncPort != nil && (*s.SyncPort < 1 || *s.SyncPort > 65535) {
 		return s, fmt.Errorf("hue sync_port must be 1-65535")
+	}
+	if s.SceneSort != "" && !slices.Contains(sceneSorts, s.SceneSort) {
+		return s, fmt.Errorf("hue scene_sort must be name, hue or brightness")
 	}
 	if strings.ContainsAny(s.Address, " /\\\x00") {
 		return s, fmt.Errorf("hue address must be a host name or IP address")
@@ -134,6 +139,7 @@ type worker struct {
 	group     groupRequest
 	brightErr string
 	groupErr  string
+	sortErr   string
 	roomsErr  string
 
 	sceneWriting string               // Scene ID with a recall request in flight.
@@ -453,6 +459,8 @@ func (w *worker) handle(ctx context.Context, r snoofer.Request) {
 		w.adjustBrightness(r)
 	case r.ID == "hue.motion":
 		w.toggleMotion(ctx)
+	case r.ID == "hue.scene-sort":
+		w.setSceneSort(r.Value) // The registry accepts only published options.
 	case r.ID == "hue.decor" || r.ID == "hue.mixed" || r.ID == "hue.saturation":
 		if d, ok := findGroupDial(r.ID); ok {
 			w.adjustGroupDial(d, r)
@@ -490,6 +498,24 @@ func (w *worker) selectGroup(id string) {
 	w.group = groupRequest{}
 	w.resetGroupDials()
 	w.brightErr = ""
+}
+
+func (w *worker) setSceneSort(mode string) {
+	next := w.settings
+	next.SceneSort = mode
+	if err := w.save(next); err != nil {
+		w.sortErr = err.Error()
+		return
+	}
+	w.sortErr = ""
+}
+
+// sceneSort is the chosen scene sort, defaulting to name.
+func (w *worker) sceneSort() string {
+	if w.settings.SceneSort == "" {
+		return sortName
+	}
+	return w.settings.SceneSort
 }
 
 // retarget starts a fresh request when the configured group's light service changes.
@@ -796,12 +822,15 @@ func (w *worker) controls() []snoofer.Control {
 		brightness.Subdued = w.sync.stepsDue != 0
 		brightness.Available = live
 	}
-	controls = append(controls, brightness, w.motionControl())
+	sceneSort := snoofer.Control{ID: "hue.scene-sort", Label: "Hue Scene Sort", ShortLabel: "Sort", Group: "Hue", Kind: "selection", Icon: "hue-sort",
+		Value: w.sceneSort(), Options: sceneSorts, OptionLabels: sceneSortLabels, Status: w.sortErr, Operations: []string{"set"}, Available: live}
+	controls = append(controls, brightness, w.motionControl(), sceneSort)
 	controls = append(controls, w.groupDialControls()...)
 	controls = append(controls, w.syncControls()...)
 	now := time.Now()
 	controls = append(controls, w.bridgeReport(now), w.syncReport(now))
 	seen := map[string]bool{}
+	order := w.sceneOrder()
 	for _, scene := range w.model.scenes() {
 		if seen[scene.ControlID] {
 			continue // A colliding ID prefix would invalidate the whole snapshot.
@@ -813,9 +842,26 @@ func (w *worker) controls() []snoofer.Control {
 		control := w.sceneControl(scene.ControlID, scene.Label, scene)
 		control.Collection = "hue.scenes." + scene.GroupID
 		control.CollectionLabel = "Scenes · " + scene.GroupName
+		control.Order = order[scene.SceneID]
 		controls = append(controls, control)
 	}
 	return append(controls, w.slotControls()...)
+}
+
+// sceneOrder is each scene's position within its room in the chosen sort.
+func (w *worker) sceneOrder() map[string]int {
+	rooms := map[string][]sceneInfo{}
+	for _, scene := range w.model.scenes() {
+		rooms[scene.GroupID] = append(rooms[scene.GroupID], scene)
+	}
+	order := map[string]int{}
+	for _, scenes := range rooms {
+		w.model.sortScenes(scenes, w.sceneSort())
+		for n, scene := range scenes {
+			order[scene.SceneID] = n + 1
+		}
+	}
+	return order
 }
 
 // roomSlots is the minimum number of stable slots mirroring the selected
@@ -846,7 +892,7 @@ func (w *worker) sceneControl(id, label string, scene sceneInfo) snoofer.Control
 func (w *worker) slotControls() []snoofer.Control {
 	var scenes []sceneInfo
 	if w.connected && w.settings.Group != "" {
-		scenes = w.model.roomScenes(w.settings.Group)
+		scenes = w.model.roomScenes(w.settings.Group, w.sceneSort())
 	}
 	slots := max(roomSlots, len(scenes))
 	controls := make([]snoofer.Control, 0, slots)
@@ -854,7 +900,7 @@ func (w *worker) slotControls() []snoofer.Control {
 		id := "hue.room-scene-" + strconv.Itoa(n)
 		if n > len(scenes) {
 			controls = append(controls, snoofer.Control{ID: id, Group: "Hue Room Scenes", Kind: "command", Operations: []string{"press"}, Hidden: true,
-				Collection: "hue.room-scenes", CollectionLabel: "Scenes · Selected Room"})
+				Collection: "hue.room-scenes", CollectionLabel: "Scenes · Selected Room", Order: n})
 			continue
 		}
 		scene := scenes[n-1]
@@ -862,6 +908,7 @@ func (w *worker) slotControls() []snoofer.Control {
 		control.Group = "Hue Room Scenes"
 		control.Collection = "hue.room-scenes"
 		control.CollectionLabel = "Scenes · Selected Room"
+		control.Order = n
 		control.ViewData = json.RawMessage(strconv.Quote(scene.SceneID))
 		controls = append(controls, control)
 	}
@@ -874,7 +921,7 @@ func (w *worker) sceneForSlot(controlID string) string {
 	if err != nil || !w.connected || w.settings.Group == "" {
 		return ""
 	}
-	scenes := w.model.roomScenes(w.settings.Group)
+	scenes := w.model.roomScenes(w.settings.Group, w.sceneSort())
 	if n < 1 || n > len(scenes) {
 		return ""
 	}
