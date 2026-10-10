@@ -46,10 +46,10 @@ func findGroupDial(id string) (groupDial, bool) {
 }
 
 // stage is a dial's staged target: a brightness percent, or a saturation
-// fraction. Nothing is sent until a press.
+// fraction. Nothing is sent until a press, and every stage expires together
+// stageHold after the last turn of any light-group dial.
 type stage struct {
-	target  float64
-	touched time.Time
+	target float64
 }
 
 // lightWrite is one queued per-light write and how to confirm it.
@@ -106,17 +106,30 @@ func (w *worker) adjustGroupDial(d groupDial, r snoofer.Request) {
 			return
 		}
 		next := w.stepTarget(d, base, r.Delta)
-		w.stages[d.id] = stage{target: next, touched: time.Now()}
+		w.stages[d.id] = stage{target: next}
+		w.stagedAt = time.Now()
 	case "press":
-		if s, ok := w.stages[d.id]; ok {
-			delete(w.stages, d.id)
-			w.enqueueLights(d.id, w.applyWrites(d, lights, s.target))
+		if len(w.stages) > 0 {
+			w.applyStages()
 			return
 		}
 		if !d.saturation {
 			w.enqueueLights(d.id, toggleWrites(d.id, lights))
 		}
 	}
+}
+
+// applyStages applies every staged target at once and clears the stages.
+func (w *worker) applyStages() {
+	all := w.roomLightsNow()
+	for _, d := range groupDials {
+		s, ok := w.stages[d.id]
+		if !ok {
+			continue
+		}
+		w.enqueueLights(d.id, w.applyWrites(d, d.lights(all), s.target))
+	}
+	w.stages = map[string]stage{}
 }
 
 // stageBase is where a turn starts: the staged target, or the observed
@@ -233,11 +246,9 @@ func (w *worker) enqueueLights(dial string, writes []lightWrite) {
 // drops expired stages. It reports whether anything changed.
 func (w *worker) tickLights(ctx context.Context, now time.Time) bool {
 	changed := false
-	for id, s := range w.stages {
-		if now.Sub(s.touched) > w.timing.stageHold {
-			delete(w.stages, id)
-			changed = true
-		}
+	if len(w.stages) > 0 && now.Sub(w.stagedAt) > w.timing.stageHold {
+		w.stages = map[string]stage{}
+		changed = true
 	}
 	q := &w.lights
 	if w.connected && len(q.queue) > 0 && !q.inFlight && now.Sub(q.lastSend) >= q.gap {

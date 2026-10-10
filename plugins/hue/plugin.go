@@ -142,8 +142,9 @@ type worker struct {
 
 	motion motionLink // Requested motion sensor states in the selected room.
 
-	stages map[string]stage // Staged light-group dial targets, by control ID.
-	lights lightQueue       // Paced per-light writes for the light-group dials.
+	stages   map[string]stage // Staged light-group dial targets, by control ID.
+	stagedAt time.Time        // Last turn of any light-group dial; stages expire together.
+	lights   lightQueue       // Paced per-light writes for the light-group dials.
 
 	sync syncLink // Hue Sync PC app half.
 

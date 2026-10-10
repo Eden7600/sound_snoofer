@@ -166,3 +166,43 @@ func (h *harness) lightsAfter() []roomLight {
 	defer h.bridge.mu.Unlock()
 	return model{resources: h.bridge.resources}.roomLights("room-1")
 }
+
+func TestOnePressAppliesEveryStage(t *testing.T) {
+	bridge := newFakeBridge(t, "b1", lounge()...)
+	h := startHarness(t, bridge, paired(bridge, "room-1"), true)
+	h.value("hue.decor", "60%")
+	h.mustDispatch("hue.decor", "adjust", -4, "")
+	h.value("hue.decor", "→ 40%")
+	h.mustDispatch("hue.mixed", "adjust", 2, "")
+	h.value("hue.mixed", "→ 90%")
+	// Pressing Saturation, which has no stage of its own, applies both.
+	h.mustDispatch("hue.saturation", "press", 0, "")
+	h.value("hue.decor", "40%")
+	h.value("hue.mixed", "90%")
+	puts := strings.Join(bridge.putLog(), " ")
+	if len(bridge.putLog()) != 2 || !strings.Contains(puts, "light/strip:") || !strings.Contains(puts, "light/lamp:") {
+		t.Fatalf("one press wrote %v", bridge.putLog())
+	}
+	// Nothing was toggled off while the stages were applied.
+	if strings.Contains(puts, `"on":{"on":false}`) {
+		t.Fatal("press toggled a group while applying stages")
+	}
+}
+
+func TestStagesExpireTogether(t *testing.T) {
+	bridge := newFakeBridge(t, "b1", lounge()...)
+	h := startHarness(t, bridge, paired(bridge, "room-1"), true)
+	h.value("hue.decor", "60%")
+	h.mustDispatch("hue.decor", "adjust", -2, "")
+	h.value("hue.decor", "→ 50%")
+	// Turning another dial keeps every stage alive.
+	for range 3 {
+		time.Sleep(testTiming.stageHold / 2)
+		h.mustDispatch("hue.mixed", "adjust", 1, "")
+	}
+	if c, _ := h.find("hue.decor"); c.Value != "→ 50%" {
+		t.Fatalf("Decor's stage expired while Mixed was still being turned: %q", c.Value)
+	}
+	h.value("hue.decor", "60%")
+	h.value("hue.mixed", "80%")
+}
