@@ -50,34 +50,39 @@ func (m model) roomLights(groupID string) []roomLight {
 	}
 	var out []roomLight
 	for _, r := range m.lights(g) {
-		light := roomLight{ID: r.ID, Gamut: gamutC}
-		if r.Metadata != nil {
-			light.Function = r.Metadata.Function
-		}
-		if r.On != nil {
-			light.OnKnown, light.On = true, r.On.On
-		}
-		if r.Dimming != nil {
-			light.BrightKnown, light.Brightness = true, r.Dimming.Brightness
-		}
-		if r.Color != nil {
-			light.Colour = true
-			light.XY = r.Color.XY
-			if r.Color.Gamut != nil {
-				light.Gamut = *r.Color.Gamut
-			}
-			white := r.ColorTemperature != nil && r.ColorTemperature.MirekValid != nil && *r.ColorTemperature.MirekValid
-			light.ColourMode = !white
-		}
-		if r.Gradient != nil {
-			for _, p := range r.Gradient.Points {
-				light.Points = append(light.Points, p.Color.XY)
-			}
-		}
-		out = append(out, light)
+		out = append(out, lightView(r))
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out
+}
+
+// lightView reads one light resource as the light-group dials see it.
+func lightView(r resource) roomLight {
+	light := roomLight{ID: r.ID, Gamut: gamutC}
+	if r.Metadata != nil {
+		light.Function = r.Metadata.Function
+	}
+	if r.On != nil {
+		light.OnKnown, light.On = true, r.On.On
+	}
+	if r.Dimming != nil {
+		light.BrightKnown, light.Brightness = true, r.Dimming.Brightness
+	}
+	if r.Color != nil {
+		light.Colour = true
+		light.XY = r.Color.XY
+		if r.Color.Gamut != nil {
+			light.Gamut = *r.Color.Gamut
+		}
+		white := r.ColorTemperature != nil && r.ColorTemperature.MirekValid != nil && *r.ColorTemperature.MirekValid
+		light.ColourMode = !white
+	}
+	if r.Gradient != nil {
+		for _, p := range r.Gradient.Points {
+			light.Points = append(light.Points, p.Color.XY)
+		}
+	}
+	return light
 }
 
 // withFunction returns the lights with the given function.

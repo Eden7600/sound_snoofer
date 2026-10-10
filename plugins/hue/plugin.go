@@ -142,6 +142,9 @@ type worker struct {
 
 	motion motionLink // Requested motion sensor states in the selected room.
 
+	stages map[string]stage // Staged light-group dial targets, by control ID.
+	lights lightQueue       // Paced per-light writes for the light-group dials.
+
 	sync syncLink // Hue Sync PC app half.
 
 	artwork map[string]cachedArtwork // Scene thumbnails by scene ID.
@@ -327,6 +330,7 @@ func (w *worker) disconnect(err error) {
 	w.connecting = false
 	w.closeClient()
 	w.group = groupRequest{}
+	w.resetGroupDials()
 	w.sceneWriting = ""
 	clear(w.scenePending)
 	w.resetMotion()
@@ -369,6 +373,7 @@ func (w *worker) reconnect(ctx context.Context) {
 	w.connecting = false
 	w.closeClient()
 	w.group = groupRequest{}
+	w.resetGroupDials()
 	w.status = "Disconnected"
 	w.diagnostic = ""
 	w.connect(ctx)
@@ -400,6 +405,9 @@ func (w *worker) tick(ctx context.Context, now time.Time) bool {
 	if w.expireMotion(now) {
 		changed = true
 	}
+	if w.tickLights(ctx, now) {
+		changed = true
+	}
 	if w.syncTick(ctx, now) {
 		changed = true
 	}
@@ -425,6 +433,7 @@ func (w *worker) observe() {
 		}
 	}
 	w.observeMotion()
+	w.observeLights()
 	w.enforceRoom()
 }
 
@@ -443,6 +452,10 @@ func (w *worker) handle(ctx context.Context, r snoofer.Request) {
 		w.adjustBrightness(r)
 	case r.ID == "hue.motion":
 		w.toggleMotion(ctx)
+	case r.ID == "hue.decor" || r.ID == "hue.mixed" || r.ID == "hue.saturation":
+		if d, ok := findGroupDial(r.ID); ok {
+			w.adjustGroupDial(d, r)
+		}
 	case strings.HasPrefix(r.ID, "hue.sync"):
 		w.handleSync(r)
 	case strings.HasPrefix(r.ID, "hue.scene-"):
@@ -474,6 +487,7 @@ func (w *worker) selectGroup(id string) {
 	}
 	w.groupErr = ""
 	w.group = groupRequest{}
+	w.resetGroupDials()
 	w.brightErr = ""
 }
 
@@ -782,6 +796,7 @@ func (w *worker) controls() []snoofer.Control {
 		brightness.Available = live
 	}
 	controls = append(controls, brightness, w.motionControl())
+	controls = append(controls, w.groupDialControls()...)
 	controls = append(controls, w.syncControls()...)
 	now := time.Now()
 	controls = append(controls, w.bridgeReport(now), w.syncReport(now))

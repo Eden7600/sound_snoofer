@@ -119,6 +119,8 @@ func (b *fakeBridge) put(w http.ResponseWriter, r *http.Request) {
 		var enabled bool
 		_ = json.Unmarshal(body["enabled"], &enabled)
 		b.update(resource{ID: parts[1], Type: "motion", Enabled: &enabled})
+	case "light":
+		b.applyLight(parts[1], body)
 	}
 }
 
@@ -158,6 +160,28 @@ func (b *fakeBridge) applyGroup(id string, body map[string]json.RawMessage) {
 		updates = append(updates, resource{ID: light.ID, Type: "light", On: on, Dimming: dim})
 	}
 	b.update(updates...)
+}
+
+// applyLight applies a light write: on, dimming, colour or gradient.
+func (b *fakeBridge) applyLight(id string, body map[string]json.RawMessage) {
+	update := resource{ID: id, Type: "light"}
+	if raw, ok := body["on"]; ok {
+		update.On = &onState{}
+		_ = json.Unmarshal(raw, update.On)
+	}
+	if raw, ok := body["dimming"]; ok {
+		update.Dimming = &dimming{}
+		_ = json.Unmarshal(raw, update.Dimming)
+	}
+	if raw, ok := body["color"]; ok {
+		update.Color = &lightColor{}
+		_ = json.Unmarshal(raw, update.Color)
+	}
+	if raw, ok := body["gradient"]; ok {
+		update.Gradient = &lightGradient{}
+		_ = json.Unmarshal(raw, update.Gradient)
+	}
+	b.update(update)
 }
 
 // update merges resources and publishes them as one update event.

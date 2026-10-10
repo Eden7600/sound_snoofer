@@ -25,6 +25,9 @@ type timing struct {
 	syncDial          time.Duration
 	syncWrite         time.Duration
 	syncBrightnessGap time.Duration // Minimum interval between coalesced inc_bri commands.
+
+	lightGap  time.Duration // Minimum interval between per-light writes (the bridge's light command limit).
+	stageHold time.Duration // How long a light-group dial's staged target waits for a press.
 }
 
 var defaultTiming = timing{
@@ -39,6 +42,9 @@ var defaultTiming = timing{
 	syncDial:          3 * time.Second,
 	syncWrite:         time.Second,
 	syncBrightnessGap: 100 * time.Millisecond,
+
+	lightGap:  100 * time.Millisecond,
+	stageHold: 10 * time.Second,
 }
 
 func nextBrightness(base float64, ticks int) float64 {

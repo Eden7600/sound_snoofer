@@ -13,7 +13,7 @@ New dials for the selected room:
 | **Mixed** (`hue.mixed`) | Mixed | Stages a brightness | Same as Decor |
 | **Saturation** (`hue.saturation`) | Every colour light showing a colour (not white-only lamps, not lights in white-temperature mode) | Stages a saturation | Applies it; does nothing with nothing staged |
 
-- **Staging:** a staged target shows as the dial's value with an amber Apply note. Nothing is sent until a press, and the stage is dropped after 10 s without input.
+- **Staging:** a staged target shows as the dial's value with an arrow (`→ 60%`). Nothing is sent until a press, and the stage is dropped after 10 s without input.
 - **Hidden dials:** a dial with no matching lights in the room is blank, like Motion.
 - **During Hue Sync:** the dials are inert while Hue Sync streams, because the stream owns the lights.
 - **Saturation keeps hue:** each light's colour moves along its own line toward or away from white, so it keeps its hue; gradient strips change every point.

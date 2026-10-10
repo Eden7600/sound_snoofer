@@ -25,6 +25,9 @@ var testTiming = timing{
 	syncDial:          time.Second,
 	syncWrite:         time.Second,
 	syncBrightnessGap: 60 * time.Millisecond,
+
+	lightGap:  10 * time.Millisecond,
+	stageHold: 400 * time.Millisecond,
 }
 
 type harness struct {
