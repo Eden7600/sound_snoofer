@@ -26,6 +26,7 @@ add("audio.auto-recover","Automatic Recovery","toggle","On",{Group:"Shared Audio
 add("audio.pause-devices","Disable Device Manipulation","toggle","Off",{Group:"Shared Audio"});
 add("audio.pause-sends","Disable Send Manipulation","toggle","On",{Group:"Shared Audio",Status:"3 held"});
 add("audio.engine-restart","Restart Audio Engine","command","",{Group:"Bindings",SurfaceOnly:true});
+add("core.startup","Start at Login","toggle","Off",{Group:"System",Status:"Disabled in Windows startup apps"});
 add("aec.mode","Echo Cancellation","selection","auto",{Options:["auto","on","off"],OptionLabels:{auto:"Auto",on:"On",off:"Off"},Icon:"echo"});
 add("aec.engine","Echo Engine","selection","aec3",{Options:["aec3","localvqe-aec","localvqe-voice","localvqe-full"],OptionLabels:{aec3:"WebRTC AEC3","localvqe-aec":"LocalVQE Echo-Only","localvqe-voice":"LocalVQE Voice Cleanup","localvqe-full":"LocalVQE Full-Band"},Icon:"echo"});
 add("aec.strength","Echo Strength","selection","strong",{Options:["strong","balanced","gentle"],OptionLabels:{strong:"Strong",balanced:"Balanced",gentle:"Gentle"},Icon:"echo"});
@@ -594,6 +595,14 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   await page.getByRole("button",{name:"Diagnostics",exact:false}).click();
   await page.getByRole("button",{name:"Restart Audio Engine",exact:true}).click();
   assert.equal(await page.evaluate(()=>window.sent.at(-1).Request.ID),"audio.engine-restart");
+  await page.waitForTimeout(300);
+  const startup=page.getByRole("button",{name:"Start at Login",exact:true});
+  assert.equal(await startup.textContent(),"Off");
+  assert.equal(await startup.getAttribute("aria-pressed"),"false");
+  assert.equal(await page.locator("[data-part=row]",{has:startup}).getByText("Disabled in Windows startup apps").count(),1,"startup note");
+  await startup.click();
+  assert.deepEqual(await page.evaluate(()=>[window.sent.at(-1).Request.ID,window.sent.at(-1).Request.Operation]),["core.startup","press"]);
+  await page.screenshot({path:path.join(root,".local/gui-diagnostics.png"),fullPage:true});
   await page.waitForTimeout(300);
   await page.getByRole("button",{name:"Plugins",exact:true}).click();
   assert.equal(await page.locator("[data-part=row]").count(),0,"Plugins page shows configuration");
