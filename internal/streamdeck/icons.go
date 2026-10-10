@@ -208,6 +208,11 @@ func drawIcon(im *image.RGBA, icon string, ink color.RGBA) bool {
 				line(56-half+3, y, 56+half-3, y)
 			}
 		}
+	case "hue-sort":
+		// Sort: three bars shortening downwards, like an ordered list.
+		rect(28, 20, 56, 8)
+		rect(28, 35, 40, 8)
+		rect(28, 50, 24, 8)
 	case "hue-pair", "discord-connect":
 		// Link: two interlocking rings.
 		for a := 0; a < 360; a++ {

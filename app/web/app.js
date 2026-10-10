@@ -650,10 +650,13 @@ function buildLights(){
  // Motion sensors appear only while the room has some.
  const motion=el("div","mt-4");motion.dataset.part="motion";room.append(motion);control("hue.motion",motion,"Motion Sensors");
  updaters.push(()=>{const item=c("hue.motion");motion.hidden=!item||item.Hidden;});
+ const sortRow=el("div","mt-4");sortRow.dataset.part="sort";room.append(sortRow);segmented("hue.sort","Sort",sortRow);
  updaters.push(()=>{roomNote.textContent=c("hue.sync")?.Value==="On"?"Hue Sync is driving the lights · Brightness adjusts the sync":"";roomNote.hidden=!roomNote.textContent;});
  const groupControl=c("hue.group"),roomName=(groupControl?.OptionLabels?.[groupControl.Value]||"").replace(/ \(zone\)$/,"");
  const scenes=[...controls.values()].filter(v=>v.ID.startsWith("hue.scene-"));
- const own=scenes.filter(v=>roomName&&sceneRoom(v)===roomName).sort((a,b)=>a.ShortLabel.localeCompare(b.ShortLabel));
+ // Scenes follow the host's chosen sort (Order within each room), then name.
+ const byOrder=(a,b)=>(a.Order||0)-(b.Order||0)||a.ShortLabel.localeCompare(b.ShortLabel);
+ const own=scenes.filter(v=>roomName&&sceneRoom(v)===roomName).sort(byOrder);
  const sceneGrid=el("div",ui.sceneGrid);sceneGrid.dataset.part="room-scenes";room.append(sceneGrid);
  if(own.length)for(const scene of own)sceneCard(scene.ID,sceneGrid);
  else sceneGrid.append(el("p","text-muted",roomName?"No scenes in this room.":"Choose a room to see its scenes."));
@@ -663,7 +666,7 @@ function buildLights(){
   for(const name of [...new Set(others.map(sceneRoom))].sort()){
    const heading=el("h3","mt-4 text-xs font-bold text-muted",name||"Other");heading.dataset.part="room-heading";
    details.append(heading);const g=el("div",ui.sceneGrid);details.append(g);
-   for(const scene of others.filter(v=>sceneRoom(v)===name).sort((a,b)=>a.ShortLabel.localeCompare(b.ShortLabel)))sceneCard(scene.ID,g);
+   for(const scene of others.filter(v=>sceneRoom(v)===name).sort(byOrder))sceneCard(scene.ID,g);
   }
  }
  const sync=panel("Hue Sync",grid),syncState=el("p","-mt-1.5 mb-3 text-[13px]"),toggle=button("",()=>press("hue.sync"),ui.toggle+" mb-[18px] w-full p-3.5 text-base"),help=el("p","text-muted");
@@ -1063,7 +1066,7 @@ function regionsPanel(parent){
  });
 }
 // Deck key previews map a control's deck icon to the closest Lucide icon.
-const deckIcons={"mic-mute":"mic","call":"phone","call-leave":"phone-off","discord-deafen":"headphones","discord-deafen-muted":"headphone-off","discord-video":"video","discord-video-off":"video-off","screen-share":"screen-share","discord-connect":"link","record-mic":"mic","vr-mic":"mic","speaker-mute":"volume-2","vr-playback":"volume-2","record-computer":"monitor","monitor":"headphones","mic-stack":"power","mode-direct":"audio-lines","mode-element":"audio-lines","tap-pre":"audio-lines","tap-post":"audio-lines","record-toggle":"circle-dot","record-start":"circle-dot","record-stop":"square","soundboard-play":"play","soundboard-stop":"square","soundboard-overlap":"layers","media-prev":"skip-back","media-next":"skip-forward","media-play":"play","open-controls":"sliders-horizontal","defaults":"sliders-horizontal","engine-restart":"refresh-cw","hue-scene":"lightbulb","hue-brightness":"sun","hue-pair":"link","huesync-sync":"monitor","huesync-mode":"layers","huesync-intensity":"waves","hue-motion":"radar","hue-motion-off":"radar","deck-page":"folder","app-audio":"app-window","focus-reset":"crosshair","echo":"audio-lines","tape-play":"play","tape-pause":"pause","tape-stop":"square","tape-rew":"rewind","tape-ff":"fast-forward","deck-up":"chevron-up","deck-down":"chevron-down"};
+const deckIcons={"mic-mute":"mic","call":"phone","call-leave":"phone-off","discord-deafen":"headphones","discord-deafen-muted":"headphone-off","discord-video":"video","discord-video-off":"video-off","screen-share":"screen-share","discord-connect":"link","record-mic":"mic","vr-mic":"mic","speaker-mute":"volume-2","vr-playback":"volume-2","record-computer":"monitor","monitor":"headphones","mic-stack":"power","mode-direct":"audio-lines","mode-element":"audio-lines","tap-pre":"audio-lines","tap-post":"audio-lines","record-toggle":"circle-dot","record-start":"circle-dot","record-stop":"square","soundboard-play":"play","soundboard-stop":"square","soundboard-overlap":"layers","media-prev":"skip-back","media-next":"skip-forward","media-play":"play","open-controls":"sliders-horizontal","defaults":"sliders-horizontal","engine-restart":"refresh-cw","hue-scene":"lightbulb","hue-brightness":"sun","hue-pair":"link","huesync-sync":"monitor","huesync-mode":"layers","huesync-intensity":"waves","hue-motion":"radar","hue-motion-off":"radar","hue-sort":"sort","deck-page":"folder","app-audio":"app-window","focus-reset":"crosshair","echo":"audio-lines","tape-play":"play","tape-pause":"pause","tape-stop":"square","tape-rew":"rewind","tape-ff":"fast-forward","deck-up":"chevron-up","deck-down":"chevron-down"};
 function symbolIcon(id){
  const mapped=deckIcons[c(id)?.Icon];
  const name=mapped||(/mute/.test(id)?"volume-2":/mic|source|mode/.test(id)?"mic":/play|clip/.test(id)?"play":/stop/.test(id)?"square":/record/.test(id)?"circle-dot":/prev/.test(id)?"skip-back":/next/.test(id)?"skip-forward":/scene/.test(id)?"lightbulb":"circle");
@@ -1149,7 +1152,7 @@ function buildDiagnostics(){
 function layoutKey(){
  // Values and telemetry are updated in place. Only structure/context rebuilds a screen.
  const list=[...controls.values()].map(v=>[v.ID,v.Label,v.Kind,v.Group,v.Options,v.OptionLabels]);
- return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="lights"?[state.Enabled?.hue,c("hue.group")?.Value,c("hue.rooms")?.ViewData]:null,screen==="meetings"?[state.Enabled?.discord]:null,screen==="media"?[state.Enabled?.nowplaying,(c("nowplaying.status")?.ViewData?.Sessions||[]).map(s=>[s.ID,s.CanSeek,s.CanMute]),(c("nowplaying.status")?.ViewData?.Browsers||[]).map(b=>b.Name)]:null,screen==="appaudio"?[state.Enabled?.appaudio,(c("appaudio.status")?.ViewData?.Apps||[]).map(a=>[a.ID,a.Name,a.Hidden,a.Picked,a.Open,a.Rule,a.Naming]),c("appaudio.status")?.ViewData?.Exclude]:null,screen==="routing"?[c("audio.priorities")?.ViewData,[1,2,3].map(n=>[c("audio.slot-"+n)?.Hidden,c("audio.slot-"+n)?.Status,c("audio.slot-"+n)?.ViewData])]:null,screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value,c("streamdeck.preview")?.ViewData?.Regions,c("streamdeck.preview")?.ViewData?.Collections]:null]);
+ return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="lights"?[state.Enabled?.hue,c("hue.group")?.Value,c("hue.rooms")?.ViewData,[...controls.values()].filter(v=>v.ID.startsWith("hue.scene-")).map(v=>v.Order)]:null,screen==="meetings"?[state.Enabled?.discord]:null,screen==="media"?[state.Enabled?.nowplaying,(c("nowplaying.status")?.ViewData?.Sessions||[]).map(s=>[s.ID,s.CanSeek,s.CanMute]),(c("nowplaying.status")?.ViewData?.Browsers||[]).map(b=>b.Name)]:null,screen==="appaudio"?[state.Enabled?.appaudio,(c("appaudio.status")?.ViewData?.Apps||[]).map(a=>[a.ID,a.Name,a.Hidden,a.Picked,a.Open,a.Rule,a.Naming]),c("appaudio.status")?.ViewData?.Exclude]:null,screen==="routing"?[c("audio.priorities")?.ViewData,[1,2,3].map(n=>[c("audio.slot-"+n)?.Hidden,c("audio.slot-"+n)?.Status,c("audio.slot-"+n)?.ViewData])]:null,screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value,c("streamdeck.preview")?.ViewData?.Regions,c("streamdeck.preview")?.ViewData?.Collections]:null]);
 }
 function build(){
  widgets.length=0;updaters.length=0;root.replaceChildren();

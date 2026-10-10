@@ -59,7 +59,7 @@ func TestDefaultLayoutPages(t *testing.T) {
 		}
 	}
 	lights := expanded.Pages[3]
-	if lights.Keys[9].Control != "hue.room-scene-1" || lights.Keys[0].Control != "hue.group" || lights.Dials[4].Control != "hue.brightness" ||
+	if lights.Keys[9].Control != "hue.room-scene-1" || lights.Keys[0].Control != "hue.group" || lights.Keys[3].Control != "hue.sort" || lights.Keys[6].Control != "hue.sync-intensity" || lights.Dials[4].Control != "hue.brightness" ||
 		lights.Dials[1].Control != "hue.saturation" || lights.Dials[2].Control != "hue.decor" || lights.Dials[3].Control != "hue.mixed" {
 		t.Fatal("lights page", lights.Keys[:12])
 	}

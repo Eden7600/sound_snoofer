@@ -45,6 +45,7 @@ add("hue.pair","Pair Hue Bridge","command","Ready",{ShortLabel:"Pair"});
 add("hue.group","Hue Room","selection","room-1",{Options:["zone-1","room-1"],OptionLabels:{"zone-1":"Desk (zone)","room-1":"Studio"}});
 add("hue.brightness","Hue Brightness","numeric","62%",{ShortLabel:"Brightness"});
 add("hue.motion","Hue Motion Sensors","toggle","On",{ShortLabel:"Motion",Icon:"hue-motion"});
+add("hue.sort","Hue Scene Sort","selection","name",{ShortLabel:"Sort",Icon:"hue-sort",Options:["name","hue","brightness"],OptionLabels:{name:"Name",hue:"Hue",brightness:"Brightness"}});
 add("hue.rooms","Hue Rooms","text","",{ViewData:[{ID:"room-1",Name:"Studio",Kind:"room",Chosen:true},{ID:"zone-1",Name:"Desk",Kind:"zone",Chosen:true}]});
 const sceneArt=fs.readFileSync(path.join(root,"docs/design/hue-scene-art.png")).toString("base64");
 controls.find(c=>c.ID==="soundboard.clip-sadge").Artwork=sceneArt;
@@ -435,6 +436,13 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Operation];}),["hue.motion","press"]);
   await page.evaluate(()=>{const m=window.fixture.Controls.find(c=>c.ID==="hue.motion");m.Hidden=true;m.Available=false;m.Revision++;});
   await page.locator("[data-part=motion]").waitFor({state:"hidden"});
+  await page.waitForTimeout(300);
+  await page.locator("[data-part=sort]").getByRole("button",{name:"Brightness",exact:true}).click();
+  assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Operation,r.Value];}),["hue.sort","set","brightness"]);
+  // The host's Order, not the label, places the cards.
+  await page.evaluate(()=>{for(const [id,order] of [["hue.scene-studio-relax",1],["hue.scene-studio-bright",2],["hue.scene-studio-concentrate",3]]){const m=window.fixture.Controls.find(c=>c.ID===id);m.Order=order;m.Revision++;}const s=window.fixture.Controls.find(c=>c.ID==="hue.sort");s.Value="brightness";s.Revision++;});
+  await page.waitForFunction(()=>[...document.querySelectorAll("[data-part=room-scenes] [data-part=scene] strong")].map(e=>e.textContent).join()==="Relax,Bright,Concentrate");
+  assert.equal(await page.locator("[data-part=sort] [aria-pressed=true]").textContent(),"Brightness");
   await page.waitForTimeout(300);
   await page.getByRole("checkbox",{name:"Desk (zone)",exact:true}).click(); // The host's state, not the click, sets the box.
   assert.deepEqual(await page.evaluate(()=>{const r=window.sent.at(-1).Request;return [r.ID,r.Value];}),["hue.rooms","room-1"]);
