@@ -32,6 +32,7 @@ type instance struct {
 }
 type command struct {
 	clip          *clip
+	loop          bool // A held clip repeats until stopped.
 	toggleOverlap bool
 }
 
@@ -141,7 +142,9 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 			for _, c := range clips {
 				byID[c.ID] = c
 				value, status := "Ready", ""
-				if voices.playing(c.ID) {
+				if voices.looping(c.ID) {
+					value = "Loop"
+				} else if voices.playing(c.ID) {
 					value = "Playing"
 				}
 				if pending.requested != nil && c.ID == pending.requested.ID {
@@ -150,7 +153,7 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 				if c.ID == failed {
 					status = diagnostic
 				}
-				controls = append(controls, snoofer.Control{Artwork: c.Artwork, Animation: c.Animation, ID: c.ID, Label: c.Label, Group: "Soundboard", Collection: "soundboard.clips", CollectionLabel: "Soundboard Clips", Kind: "command", Icon: "soundboard-play", Value: value, Status: status, Operations: []string{"press"}, Available: s.Live && ready == nil && scanErr == nil})
+				controls = append(controls, snoofer.Control{Artwork: c.Artwork, Animation: c.Animation, ID: c.ID, Label: c.Label, Group: "Soundboard", Collection: "soundboard.clips", CollectionLabel: "Soundboard Clips", Kind: "command", Icon: "soundboard-play", Value: value, Status: status, Operations: []string{"press", "hold"}, Available: s.Live && ready == nil && scanErr == nil})
 			}
 			if err := s.Controls.Publish("soundboard", controls, func(ctx context.Context, r snoofer.Request) error {
 				if r.ID == volume.ID {
@@ -163,6 +166,7 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 						return fmt.Errorf("clip unavailable")
 					}
 					cmd.clip = &c
+					cmd.loop = r.Operation == "hold"
 				}
 				select {
 				case commands <- cmd:
@@ -190,20 +194,23 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 				}
 			case <-ticker.C:
 				if voices.active() {
-					err := voices.poll()
-					if err != nil {
-						link.Fail(err.Error(), time.Now())
-					} else if voices.active() {
-						link.Activity(time.Now())
-					}
+					// Readiness comes first so an unready mixer stops loops
+					// instead of restarting them.
+					err := audioPlugin.SoundboardReady()
 					if err == nil {
-						err = audioPlugin.SoundboardReady()
+						err = voices.poll()
+						if err != nil {
+							link.Fail(err.Error(), time.Now())
+						} else if voices.active() {
+							link.Activity(time.Now())
+						}
 					}
 					if err != nil {
 						diagnostic = errors.Join(err, voices.stopAll()).Error()
 					}
 				}
 			case result := <-pending.done:
+				loop := pending.loop
 				if pending.finish(result) {
 					err := result.err
 					if err == nil {
@@ -217,11 +224,8 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 					}
 					if err == nil {
 						// Opening or starting a native graph failed: a playback fault.
-						var ends time.Time
-						if length, ok := wavLength(result.path); ok {
-							ends = time.Now().Add(length)
-						}
-						if err = voices.play(result.clip.ID, result.path, ends, settings.Overlap); err != nil {
+						length, _ := wavLength(result.path) // Zero when unknown: no timer.
+						if err = voices.play(result.clip.ID, result.path, length, settings.Overlap, loop); err != nil {
 							link.Fail(err.Error(), time.Now())
 						} else {
 							link.Activity(time.Now())
@@ -276,6 +280,7 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 					}
 					if err == nil {
 						pending.replace(cmd.clip)
+						pending.loop = cmd.loop
 						failed = ""
 					}
 				}

@@ -148,6 +148,7 @@ type normalizedClip struct {
 // preparation retains only the latest request and never runs two decoders.
 type preparation struct {
 	requested *clip
+	loop      bool // The requested clip was held: play it as a loop.
 	done      chan normalizedClip
 	cancel    context.CancelFunc
 }

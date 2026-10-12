@@ -24,13 +24,16 @@ type voice struct {
 	player clipPlayer
 	clip   string
 	path   string
-	ends   time.Time // Estimated; zero when the length is unknown.
+	length time.Duration // Zero when unknown.
+	ends   time.Time     // Estimated; zero when the length is unknown.
+	loop   bool          // Restart on completion until stopped.
 }
 
 // voicePool manages concurrent clips. Without overlap it behaves as a single
 // voice: every new clip stops whatever is playing first.
 type voicePool struct {
 	open   func() (clipPlayer, error)
+	now    func() time.Time
 	max    int
 	voices []voice // Playing, oldest first.
 	idle   []clipPlayer
@@ -38,13 +41,21 @@ type voicePool struct {
 }
 
 func newVoicePool(open func() (clipPlayer, error)) *voicePool {
-	return &voicePool{open: open, max: maxVoices}
+	return &voicePool{open: open, now: time.Now, max: maxVoices}
 }
 
-// play starts a clip as a new voice, expected to end at ends (zero when
-// unknown). On failure the player returns to the
-// idle set and no voice is added.
-func (p *voicePool) play(clip, path string, ends time.Time, overlap bool) error {
+// endsAfter estimates when a voice starting now ends; zero when unknown.
+func (p *voicePool) endsAfter(length time.Duration) time.Time {
+	if length <= 0 {
+		return time.Time{}
+	}
+	return p.now().Add(length)
+}
+
+// play starts a clip as a new voice of the given length (zero when unknown);
+// a looping voice restarts each time it completes. On failure the player
+// returns to the idle set and no voice is added.
+func (p *voicePool) play(clip, path string, length time.Duration, overlap, loop bool) error {
 	if !overlap {
 		if err := p.stopAll(); err != nil {
 			return err
@@ -72,12 +83,13 @@ func (p *voicePool) play(clip, path string, ends time.Time, overlap bool) error 
 		p.idle = append(p.idle, player)
 		return err
 	}
-	p.voices = append(p.voices, voice{player: player, clip: clip, path: path, ends: ends})
+	p.voices = append(p.voices, voice{player: player, clip: clip, path: path, length: length, ends: p.endsAfter(length), loop: loop})
 	return nil
 }
 
-// poll drops finished voices. A native polling error stops that voice and is
-// returned after every voice has been checked.
+// poll drops finished voices and restarts finished looping ones. A native
+// polling or restart error ends that voice and is returned after every voice
+// has been checked; a failed restart is not retried.
 func (p *voicePool) poll() error {
 	var failures []error
 	playing := p.voices[:0]
@@ -89,6 +101,15 @@ func (p *voicePool) poll() error {
 		if err == nil && active {
 			playing = append(playing, v)
 			continue
+		}
+		if err == nil && v.loop {
+			if err := v.player.Play(v.path, false); err != nil {
+				failures = append(failures, err)
+			} else {
+				v.ends = p.endsAfter(v.length)
+				playing = append(playing, v)
+				continue
+			}
 		}
 		p.idle = append(p.idle, v.player)
 	}
@@ -119,6 +140,15 @@ func (p *voicePool) close() error {
 func (p *voicePool) playing(clip string) bool {
 	for _, v := range p.voices {
 		if v.clip == clip {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *voicePool) looping(clip string) bool {
+	for _, v := range p.voices {
+		if v.clip == clip && v.loop {
 			return true
 		}
 	}
