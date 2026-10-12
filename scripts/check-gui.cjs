@@ -36,7 +36,7 @@ add("aec.status","Echo Cancellation Status","status","Active",{Status:"−32 dB 
 add("soundboard.volume","Volume","numeric","0.0 dB");
 add("soundboard.stop","Stop","command","");
 add("soundboard.status","Soundboard","status","Ready");
-for(const name of ["fah","sadge","instinct","airhorn","ping"])add("soundboard.clip-"+name,name,"command","Ready");
+for(const name of ["fah","sadge","instinct","airhorn","ping"])add("soundboard.clip-"+name,name,"command","Ready",{Operations:["press","hold"]});
 // sadge has animated artwork: two frames served by Desktop.Animation.
 const dot="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 for(const [id,label,kind,value,options]of [["profile","Device","selection","Default",["Default"]],["page","Page","selection","home",["home","soundboard"]],["slot","Position","selection","Key 1",Array.from({length:36},(_,i)=>"Key "+(i+1))],["shared","Shared","toggle","Off"],["binding","Binding","selection","audio.mic-stack",["","audio.mic-stack","audio.mic-mute"]],["name","Name","text","Home"],["add","New Page","text",""],["region-add","Add Region","text",""],["region-source","Region Source","text",""],["region-clip","Region Overflow","text",""],["region-remove","Remove Region","text",""],["preview","Preview","status",""],["status","Layout Status","status","Connected"]])add("streamdeck."+id,label,kind,value,{Options:options});
@@ -413,6 +413,19 @@ const fixture={Controls:controls,Plugins:{audio:"Running",soundboard:"Running",s
   // Animated artwork cycles its frames.
   await page.waitForFunction(dot=>document.querySelector("[data-part=clip]:not([hidden]) img")?.src.endsWith(dot),dot);
   await page.screenshot({path:path.join(root,".local/gui-soundboard.png"),fullPage:true});
+  // A click plays once; a 500 ms hold loops and swallows the click that follows.
+  const sadge=page.locator("[data-part=clip]:visible"),clipReady=()=>page.waitForFunction(()=>!document.querySelector("[data-part=clip]:not([hidden])").disabled);
+  const sentSince=n=>page.evaluate(n=>window.sent.slice(n).map(a=>a.Request.ID+":"+a.Request.Operation),n);
+  let clipSent=await page.evaluate(()=>window.sent.length);
+  await sadge.click();
+  assert.deepEqual(await sentSince(clipSent),["soundboard.clip-sadge:press"]);
+  await clipReady();
+  clipSent=await page.evaluate(()=>window.sent.length);
+  await sadge.hover();await page.mouse.down();await page.waitForTimeout(700);await clipReady();await page.mouse.up();await page.waitForTimeout(300);
+  assert.deepEqual(await sentSince(clipSent),["soundboard.clip-sadge:hold"],"hold did not loop once without a press");
+  await page.evaluate(()=>{const s=window.fixture.Controls.find(c=>c.ID==="soundboard.clip-sadge");s.Value="Loop";s.Revision++;});
+  await page.waitForFunction(()=>document.querySelector("[data-part=clip]:not([hidden])").dataset.state==="playing");
+  assert.equal(await sadge.getByText("Loop",{exact:true}).count(),1);
   await page.getByRole("button",{name:"Lights",exact:false}).click();
   await page.getByRole("heading",{name:"Bridge found at 172.16.102.3"}).waitFor();
   await page.getByRole("button",{name:"Pair",exact:true}).click();

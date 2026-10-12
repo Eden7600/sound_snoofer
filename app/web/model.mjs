@@ -13,7 +13,7 @@ export function tone(control) {
  if (/failed|error/i.test(status)) return "critical";
  if (/pending|wait|fallback|override/i.test(status) || control.Value==="Wait") return "attention";
  if (control.Value==="On" && /mute/.test(control.ID)) return "critical";
- if (control.Value==="On" || control.Value==="Playing" || control.Value==="Active") return "active";
+ if (control.Value==="On" || control.Value==="Playing" || control.Value==="Loop" || control.Value==="Active") return "active";
  return "";
 }
 export function meterValue(meter, now=Date.now()) {

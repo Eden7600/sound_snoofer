@@ -5,7 +5,7 @@ Each numbered block is one reviewable commit.
 - [x] 1. `docs(soundboard)`: specify hold to loop; update the UI contract and plugin docs.
 - [x] 2. `feat(soundboard)`: loop held clips until Stop. Covers clip `hold`, the loop flag through the queue and preparation, voice length and looping restart, readiness before polling, and the Loop value. Tests cover restart on completion, Stop, replacement, eviction, restart failure and timers.
 - [x] 3. `feat(deck)`: show Loop on clip keys in the active colour. Tests cover the accent and that Loop is shown.
-- [ ] 4. `feat(gui)`: hold a clip button to loop it. Covers pointer hold, click suppression and the Loop tone. GUI check covers hold, a short click and the Loop state.
+- [x] 4. `feat(gui)`: hold a clip button to loop it. Covers pointer hold, click suppression and the Loop tone. GUI check covers hold, a short click and the Loop state.
 - [ ] 5. Validate: Go tests and vet, GUI and desktop checks, OpenSpec, the canonical build; relaunch.
 
 ## Hardware acceptance

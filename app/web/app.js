@@ -535,7 +535,7 @@ async function animate(art,image,id,artwork){
  };
  setTimeout(step,frames[0].Delay/1e6);
 }
-function clipState(item,active){return item.Value===active?"playing":item.Value==="Wait"||item.Status==="Pending"?"wait":tone(item)==="critical"?"error":"";}
+function clipState(item,active){return item.Value===active||item.Value==="Loop"?"playing":item.Value==="Wait"||item.Status==="Pending"?"wait":tone(item)==="critical"?"error":"";}
 function buildSoundboard(){
  const clips=[...controls.values()].filter(v=>v.ID.startsWith("soundboard.clip-"));
  const toolbar=el("div",ui.toolbar),search=el("input","min-w-[170px] flex-1");search.type="search";search.placeholder="Search Clips";search.setAttribute("aria-label","Search Clips");toolbar.append(icon("search","size-5 shrink-0 text-muted"),search);
@@ -544,8 +544,18 @@ function buildSoundboard(){
  if(!clips.length){empty(root,"No clips available. Check the soundboard plugin and library folder.");return;}
  const grid=el("div",ui.clipGrid);root.append(grid);
  for(const initial of clips){
-  const b=button("",()=>press(initial.ID),ui.clip),art=el("div",ui.clipArt),name=el("strong","text-[13px] break-words",initial.Label),status=el("small","mt-[5px] text-[11px] text-muted");
+  // A mouse or touch hold of 500 ms loops the clip and swallows the pointer
+  // click that follows; a shorter click or Enter (detail 0) plays it once.
+  let holdTimer=0,held=false;
+  const b=button("",e=>{const swallow=held&&e.detail>0;held=false;if(!swallow)press(initial.ID);},ui.clip),art=el("div",ui.clipArt),name=el("strong","text-[13px] break-words",initial.Label),status=el("small","mt-[5px] text-[11px] text-muted");
   b.dataset.part="clip";b.append(art,name,status);b.title=initial.Label;grid.append(b);
+  b.onpointerdown=e=>{
+   if(e.button!==0)return;
+   clearTimeout(holdTimer);held=false;
+   holdTimer=setTimeout(()=>{held=true;request(c(initial.ID),"hold");},500);
+  };
+  b.onpointerup=b.onpointerleave=b.onpointercancel=()=>clearTimeout(holdTimer);
+  b.oncontextmenu=e=>e.preventDefault();
   updaters.push(()=>{
    const item=c(initial.ID);if(!item)return;
    b.disabled=!!pending||!item.Available;b.dataset.state=clipState(item,"Playing");
