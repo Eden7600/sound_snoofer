@@ -169,7 +169,7 @@ func TestSceneAndClipKeysOmitRoutineWords(t *testing.T) {
 	if !ink || !near(playing.RGBAAt(100, 96), soundboardArea, 40) {
 		t.Fatal("label not at the bottom of the green key")
 	}
-	if !routineWord("hue-scene", "ACTIVE") || routineWord("hue-scene", "WAIT") || routineWord("mic-mute", "READY") {
+	if !routineWord("hue-scene", "ACTIVE") || routineWord("hue-scene", "WAIT") || routineWord("soundboard-play", "LOOP") || routineWord("mic-mute", "READY") {
 		t.Fatal("routine word rules")
 	}
 	// Wait still shows on a scene key.

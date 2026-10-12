@@ -24,6 +24,7 @@ func TestSemanticAccentPrecedence(t *testing.T) {
 		{"Pre", "tap-pre", false, false, neutralColor},
 		{"Pre", "monitor", false, false, activeColor},
 		{"On", "record-mic", true, true, attentionColor},
+		{"Loop", "soundboard-play", false, false, activeColor},
 	}
 	for _, tt := range tests {
 		if got := keyAccent(strings.ToUpper(tt.value), tt.icon, tt.on, tt.fallback); got != tt.want {
