@@ -12,8 +12,8 @@ import (
 	xdraw "golang.org/x/image/draw"
 )
 
-// Touch strip panels (openspec/changes/deck-rows-left): six 200 × 100
-// panels in the key typefaces; the last is the page dial.
+// Touch strip panels (openspec/changes/deck-rows-left): one 200 × 100 panel
+// per dial in the key typefaces; the last is the page dial.
 const (
 	panelWidth = 200
 	panelInset = 12
@@ -28,16 +28,16 @@ var (
 	pageColor  = color.RGBA{108, 114, 119, 255} // Neighbouring page names.
 )
 
-// renderKnobs draws the strip at a scroll phase and reports whether any of
-// its text scrolls.
-func renderKnobs(knobs [Encoders]knobPresentation, phase time.Duration) ([]byte, bool) {
+// renderKnobs draws a model's strip at a scroll phase and reports whether
+// any of its text scrolls.
+func renderKnobs(m Model, knobs [Encoders]knobPresentation, phase time.Duration) ([]byte, bool) {
 	scrolls := false
-	touchImage := image.NewRGBA(image.Rect(0, 0, Encoders*panelWidth, 100))
+	touchImage := image.NewRGBA(image.Rect(0, 0, m.Dials*panelWidth, 100))
 	draw.Draw(touchImage, touchImage.Bounds(), &image.Uniform{keyColor}, image.Point{}, draw.Src)
-	for n, knob := range knobs {
+	for n, knob := range knobs[:m.Dials] {
 		x0 := n * panelWidth
 		switch {
-		case n == Encoders-1:
+		case n == m.Dials-1:
 			drawPageDial(touchImage, x0, knob)
 		case knob.Timers[0] != (TimerTile{}):
 			drawTimers(touchImage, x0, knob.Timers)
@@ -47,15 +47,35 @@ func renderKnobs(knobs [Encoders]knobPresentation, phase time.Duration) ([]byte,
 			drawControlKnob(touchImage, x0, knob)
 		}
 	}
-	rotated := image.NewRGBA(image.Rect(0, 0, 100, Encoders*panelWidth))
-	for y := 0; y < 100; y++ {
-		for x := 0; x < Encoders*panelWidth; x++ {
-			rotated.SetRGBA(y, Encoders*panelWidth-1-x, touchImage.RGBAAt(x, y))
-		}
+	strip := touchImage
+	if m.display == plusXLStrip {
+		strip = turnImage(touchImage, turnCounterclockwise)
 	}
 	var buf bytes.Buffer
-	jpeg.Encode(&buf, rotated, &jpeg.Options{Quality: 80})
+	jpeg.Encode(&buf, strip, &jpeg.Options{Quality: 80})
 	return buf.Bytes(), scrolls
+}
+
+// renderScreen draws the Neo info screen: the current page large, as on the
+// page dial, between the previous and next page names.
+func renderScreen(k knobPresentation) []byte {
+	im := image.NewRGBA(image.Rect(0, 0, screenWidth, screenHeight))
+	draw.Draw(im, im.Bounds(), &image.Uniform{keyColor}, image.Point{}, draw.Src)
+	set := typefaces()
+	width := screenWidth - 2*panelInset
+	if k.Target != "" {
+		f := set.fit(labelFace, "← "+strings.ToUpper(k.Target), width/2, 11, 9, 1)
+		set.draw(im, 1, labelFace, f.px, panelInset, 4, f.lines[0], pageColor)
+	}
+	if k.Name != "" {
+		f := set.fit(labelFace, strings.ToUpper(k.Name)+" →", width/2, 11, 9, 1)
+		set.draw(im, 1, labelFace, f.px, screenWidth-panelInset-set.width(labelFace, f.px, f.lines[0]), 4, f.lines[0], pageColor)
+	}
+	current := set.fit(valueFace, strings.ToUpper(k.Value), width, 30, 16, 1)
+	set.draw(im, 1, valueFace, current.px, panelInset-1, 20, current.lines[0], lightValue)
+	var buf bytes.Buffer
+	jpeg.Encode(&buf, turnImage(im, turnHalf), &jpeg.Options{Quality: 80})
+	return buf.Bytes()
 }
 
 // drawPageDial shows the previous page, the current page large, and the

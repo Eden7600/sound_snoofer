@@ -81,6 +81,14 @@ type keySpec struct {
 	fallback, inactive bool
 	artwork            string
 	brightness         *float64 // Overall brightness for the badge on artwork keys; nil for none.
+	out                keyOutput
+}
+
+// keyOutput is the image a model takes: its key size (0 keeps the design
+// size) and turn. The zero value is the + XL's.
+type keyOutput struct {
+	size int
+	turn turn
 }
 
 // drawKeySpec draws a key from its spec at a scroll phase.
@@ -181,7 +189,7 @@ func drawKeySpec(k keySpec, phase time.Duration) ([]byte, bool) {
 			fill(im, x*scale, 0, min(x+8, w)*scale, 5*scale, attentionColor)
 		}
 	}
-	return encodeKey(im, scale, w, h), scrolls
+	return encodeKey(im, scale, w, h, k.out), scrolls
 }
 
 // valueLayout is where a key's value goes, and whether the icon keeps its
@@ -213,10 +221,10 @@ func layoutValue(set *typeset, value string) valueLayout {
 	return valueLayout{px: 20, top: valueTop + 4, icon: true, scroll: true}
 }
 
-// encodeKey averages the supersampled canvas and rotates it 90 degrees
-// counterclockwise for the + XL.
-func encodeKey(im *image.RGBA, scale, w, h int) []byte {
-	rotated := image.NewRGBA(image.Rect(0, 0, h, w))
+// encodeKey averages the supersampled canvas, resamples it to the model's
+// key size and turns it for the model.
+func encodeKey(im *image.RGBA, scale, w, h int, out keyOutput) []byte {
+	averaged := image.NewRGBA(image.Rect(0, 0, w, h))
 	samples := uint32(scale * scale)
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
@@ -229,12 +237,41 @@ func encodeKey(im *image.RGBA, scale, w, h int) []byte {
 					b += uint32(p.B)
 				}
 			}
-			rotated.SetRGBA(y, w-1-x, color.RGBA{uint8(r / samples), uint8(g / samples), uint8(b / samples), 255})
+			averaged.SetRGBA(x, y, color.RGBA{uint8(r / samples), uint8(g / samples), uint8(b / samples), 255})
 		}
 	}
-	var out bytes.Buffer
-	jpeg.Encode(&out, rotated, &jpeg.Options{Quality: 92})
-	return out.Bytes()
+	sized := averaged
+	if out.size != 0 && (out.size != w || out.size != h) {
+		sized = image.NewRGBA(image.Rect(0, 0, out.size, out.size))
+		xdraw.CatmullRom.Scale(sized, sized.Bounds(), averaged, averaged.Bounds(), xdraw.Src, nil)
+	}
+	var encoded bytes.Buffer
+	jpeg.Encode(&encoded, turnImage(sized, out.turn), &jpeg.Options{Quality: 92})
+	return encoded.Bytes()
+}
+
+// turnImage turns an upright image for a deck.
+func turnImage(im *image.RGBA, t turn) *image.RGBA {
+	w, h := im.Bounds().Dx(), im.Bounds().Dy()
+	switch t {
+	case upright:
+		return im
+	case turnHalf:
+		turned := image.NewRGBA(image.Rect(0, 0, w, h))
+		for y := 0; y < h; y++ {
+			for x := 0; x < w; x++ {
+				turned.SetRGBA(w-1-x, h-1-y, im.RGBAAt(x, y))
+			}
+		}
+		return turned
+	}
+	turned := image.NewRGBA(image.Rect(0, 0, h, w))
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			turned.SetRGBA(y, w-1-x, im.RGBAAt(x, y))
+		}
+	}
+	return turned
 }
 
 // drawIconBox draws a code-drawn icon into a size-pixel square at key

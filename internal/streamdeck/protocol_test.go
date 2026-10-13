@@ -8,7 +8,7 @@ import (
 
 func report(cmd byte, p []byte) []byte { b := []byte{1, cmd, byte(len(p)), 0}; return append(b, p...) }
 func TestKeyEdgesReconnectAndMalformedReports(t *testing.T) {
-	d := Decoder{}
+	d := Decoder{Model: plusXL}
 	keys := make([]byte, Keys)
 	keys[2] = 1
 	if e, err := d.Decode(report(0, keys)); err != nil || len(e) != 0 {
@@ -30,7 +30,7 @@ func TestKeyEdgesReconnectAndMalformedReports(t *testing.T) {
 	}
 }
 func TestSignedEncoderAndImageFrames(t *testing.T) {
-	d := Decoder{}
+	d := Decoder{Model: plusXL}
 	e, err := d.Decode(report(3, []byte{1, 255, 2, 0, 0, 0, 0}))
 	if err != nil || len(e) != 2 || e[0].Delta != -1 {
 		t.Fatal(e, err)
@@ -42,7 +42,7 @@ func TestSignedEncoderAndImageFrames(t *testing.T) {
 }
 
 func TestKeyReleases(t *testing.T) {
-	d := Decoder{}
+	d := Decoder{Model: plusXL}
 	keys := make([]byte, Keys)
 	d.Decode(report(0, keys))
 	keys[5] = 1

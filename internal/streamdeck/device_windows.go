@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"golang.org/x/sys/windows"
-	"strings"
 	"time"
 	"unsafe"
 )
@@ -20,6 +19,7 @@ type device struct {
 	input, output int
 	feature       int // Feature report length; 0 when the device has none.
 	serial        string
+	model         Model
 }
 
 func discover() ([]string, error) {
@@ -49,8 +49,7 @@ func discover() ([]string, error) {
 				break
 			}
 			path := windows.UTF16ToString(data[start:n])
-			lower := strings.ToLower(path)
-			if strings.Contains(lower, "vid_0fd9&pid_00c6") {
+			if _, ok := modelForPath(path); ok {
 				paths = append(paths, path)
 			}
 			start = n + 1
@@ -59,6 +58,10 @@ func discover() ([]string, error) {
 	return paths, nil
 }
 func openDevice(path string) (*device, error) {
+	model, ok := modelForPath(path)
+	if !ok {
+		return nil, fmt.Errorf("unsupported Stream Deck")
+	}
 	p, e := windows.UTF16PtrFromString(path)
 	if e != nil {
 		return nil, e
@@ -67,7 +70,7 @@ func openDevice(path string) (*device, error) {
 	if e != nil {
 		return nil, e
 	}
-	d := &device{handle: h}
+	d := &device{handle: h, model: model}
 	var preparsed uintptr
 	r, _, _ := hid.NewProc("HidD_GetPreparsedData").Call(uintptr(h), uintptr(unsafe.Pointer(&preparsed)))
 	if r == 0 {

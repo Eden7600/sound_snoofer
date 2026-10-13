@@ -82,7 +82,7 @@ func TestHuePresentation(t *testing.T) {
 	frame := Frame{}
 	frame.Dials[0] = Tile{Label: "Brightness", Value: "62%", Icon: "hue-brightness"}
 	frame.Dials[1] = Tile{Label: "Brightness", Value: "Sync 50%", Icon: "hue-brightness"}
-	_, raw := renderFrame(frame)
+	_, raw := renderFrame(plusXL, frame)
 	rotated, err := jpeg.Decode(bytes.NewReader(raw))
 	if err != nil {
 		t.Fatal(err)

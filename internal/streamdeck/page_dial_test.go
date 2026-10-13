@@ -12,7 +12,7 @@ import (
 func TestPageDialThreeLines(t *testing.T) {
 	frame := Frame{}
 	frame.Dials[5] = Tile{Label: "Home", Value: "Soundboard", Icon: "Soundboard 2"}
-	_, raw := renderFrame(frame)
+	_, raw := renderFrame(plusXL, frame)
 	rotated, err := jpeg.Decode(bytes.NewReader(raw))
 	if err != nil {
 		t.Fatal(err)

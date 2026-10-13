@@ -75,7 +75,7 @@ func surfaceSession(parent context.Context, d *device, frames <-chan Frame, even
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		decoder := Decoder{}
+		decoder := Decoder{Model: d.model}
 		for ctx.Err() == nil {
 			b := make([]byte, d.input)
 			n, err := d.io(ctx, b, false)
@@ -110,6 +110,13 @@ func surfaceSession(parent context.Context, d *device, frames <-chan Frame, even
 			}
 		}
 	}()
+	// reports splits image n of a frame: the keys, then the strip or screen.
+	reports := func(n int, image []byte) ([][]byte, error) {
+		if n < d.model.Keys() {
+			return ImageReports(n, false, image, d.output)
+		}
+		return displayReports(d.model, image, d.output)
+	}
 	var previous [][]byte
 	var lastFrame Frame
 	cache := &keyCache{}
@@ -150,18 +157,18 @@ func surfaceSession(parent context.Context, d *device, frames <-chan Frame, even
 				brightness = want
 			}
 		}()
-		tiles, touch, moving := renderChangedFrame(shown, cache, time.Since(started))
+		tiles, display, moving := renderChangedFrame(d.model, shown, cache, time.Since(started))
 		scrolling = moving
-		all := append(tiles, touch)
+		all := append(tiles, display)
 		for n, tile := range all {
-			if len(previous) == len(all) && bytes.Equal(previous[n], tile) {
+			if tile == nil || len(previous) == len(all) && bytes.Equal(previous[n], tile) {
 				continue
 			}
-			reports, err := ImageReports(n%Keys, n == Keys, tile, d.output)
+			list, err := reports(n, tile)
 			if err != nil {
 				return err
 			}
-			for _, report := range reports {
+			for _, report := range list {
 				if _, err = d.io(ctx, report, true); err != nil {
 					return err
 				}
@@ -180,7 +187,7 @@ func surfaceSession(parent context.Context, d *device, frames <-chan Frame, even
 		return
 	}
 	select {
-	case events <- Event{Serial: d.serial, Connected: true}:
+	case events <- Event{Serial: d.serial, Model: d.model.ID, Connected: true}:
 	case <-ctx.Done():
 		return
 	}
@@ -189,13 +196,16 @@ func surfaceSession(parent context.Context, d *device, frames <-chan Frame, even
 		case <-ctx.Done():
 			// The parent has cancelled; use a separate short deadline to clear displays.
 			clearCtx, stop := context.WithTimeout(context.Background(), time.Second)
-			tiles, touch := renderFrame(Frame{})
-			for n, tile := range append(tiles, touch) {
-				reports, err := ImageReports(n%Keys, n == Keys, tile, d.output)
+			tiles, display := renderFrame(d.model, Frame{})
+			for n, tile := range append(tiles, display) {
+				if tile == nil {
+					continue
+				}
+				list, err := reports(n, tile)
 				if err != nil {
 					break
 				}
-				for _, report := range reports {
+				for _, report := range list {
 					if _, err = d.io(clearCtx, report, true); err != nil {
 						break
 					}

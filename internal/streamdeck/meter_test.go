@@ -30,10 +30,10 @@ func TestMeterRenderingAndStaticKeyCache(t *testing.T) {
 	f := Frame{}
 	f.Dials[0] = Tile{Label: "A1 gain", Value: "0.0 dB", Meter: true, LevelKnown: true, LevelDB: -30}
 	cache := &keyCache{}
-	keys, touch, _ := renderChangedFrame(f, cache, 0)
+	keys, touch, _ := renderChangedFrame(plusXL, f, cache, 0)
 	next := f
 	next.Dials[0].LevelDB = -1
-	cached, changed, _ := renderChangedFrame(next, cache, 0)
+	cached, changed, _ := renderChangedFrame(plusXL, next, cache, 0)
 	if bytes.Equal(touch, changed) {
 		t.Fatal("meter did not move")
 	}
@@ -43,7 +43,7 @@ func TestMeterRenderingAndStaticKeyCache(t *testing.T) {
 		}
 	}
 	next.Dials[0].LevelKnown = false
-	_, unknown, _ := renderChangedFrame(next, cache, 0)
+	_, unknown, _ := renderChangedFrame(plusXL, next, cache, 0)
 	if bytes.Equal(unknown, touch) || bytes.Equal(unknown, changed) {
 		t.Fatal("unavailable indistinguishable")
 	}

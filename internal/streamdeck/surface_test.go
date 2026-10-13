@@ -11,7 +11,7 @@ func TestGenericTilesAndNavigationDisplay(t *testing.T) {
 	frame.Keys[0] = Tile{Label: "Mic", Value: "On", Icon: "mic-mute"}
 	frame.Keys[1] = Tile{Label: "Missing", Value: "Unavailable"}
 	frame.Dials[5] = Tile{Label: "Page", Value: "Home"}
-	tiles, touch := renderFrame(frame)
+	tiles, touch := renderFrame(plusXL, frame)
 	if len(tiles) != Keys {
 		t.Fatal(len(tiles))
 	}
@@ -27,7 +27,7 @@ func TestGenericTilesAndNavigationDisplay(t *testing.T) {
 	}
 	next := frame
 	next.Keys[1].Value = "On"
-	updated, _ := renderFrame(next)
+	updated, _ := renderFrame(plusXL, next)
 	if !bytes.Equal(tiles[0], updated[0]) || bytes.Equal(tiles[1], updated[1]) {
 		t.Fatal("unrelated tile changed or availability invisible")
 	}
@@ -35,5 +35,5 @@ func TestGenericTilesAndNavigationDisplay(t *testing.T) {
 func FuzzHIDDecode(f *testing.F) {
 	f.Add([]byte{})
 	f.Add([]byte{1, 3, 7, 0, 1, 1, 0, 0, 0, 0, 0})
-	f.Fuzz(func(t *testing.T, b []byte) { d := Decoder{}; _, _ = d.Decode(b) })
+	f.Fuzz(func(t *testing.T, b []byte) { d := Decoder{Model: plusXL}; _, _ = d.Decode(b) })
 }

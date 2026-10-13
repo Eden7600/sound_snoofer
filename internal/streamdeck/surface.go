@@ -26,7 +26,9 @@ type TimerTile struct {
 	Artwork, Icon, Label, Time string
 }
 
-// Frame contains one complete layout generation. Dial 6 is navigation.
+// Frame contains one complete layout generation. A model uses its first
+// keys and dials; its last dial is navigation, whose Label, Value and Icon
+// are the previous, current and next page names, as are Screen's on the Neo.
 // A Dark frame shows nothing and turns the backlight off; Brightness (1-100)
 // is the backlight otherwise.
 type Frame struct {
@@ -35,6 +37,7 @@ type Frame struct {
 	Brightness int
 	Keys       [Keys]Tile
 	Dials      [Encoders]Tile
+	Screen     Tile
 }
 
 // keyCache holds the keys as last rendered, so a key that neither changed
@@ -45,14 +48,16 @@ type keyCache struct {
 	scrolls [Keys]bool
 }
 
-func renderFrame(f Frame) ([][]byte, []byte) {
-	tiles, touch, _ := renderChangedFrame(f, &keyCache{}, 0)
-	return tiles, touch
+func renderFrame(m Model, f Frame) ([][]byte, []byte) {
+	tiles, display, _ := renderChangedFrame(m, f, &keyCache{}, 0)
+	return tiles, display
 }
 
-// renderChangedFrame renders f at a scroll phase (the time since the device
-// session began), updating cache, and reports whether any text scrolls.
-func renderChangedFrame(f Frame, cache *keyCache, phase time.Duration) ([][]byte, []byte, bool) {
+// renderChangedFrame renders f for model m at a scroll phase (the time since
+// the device session began), updating cache, and reports whether any text
+// scrolls. It returns m's key images and its strip or screen image, nil
+// when it has neither. A cache serves one model.
+func renderChangedFrame(m Model, f Frame, cache *keyCache, phase time.Duration) ([][]byte, []byte, bool) {
 	view := presentation{}
 	for n, k := range f.Keys {
 		view.Keys[n] = keyPresentation{Artwork: k.Artwork, Label: k.Label, Value: k.Value, Icon: k.Icon, Inactive: k.Inactive,
@@ -61,7 +66,7 @@ func renderChangedFrame(f Frame, cache *keyCache, phase time.Duration) ([][]byte
 	for n, k := range f.Dials {
 		view.Knobs[n] = knobPresentation{Target: k.Label, Value: k.Value, Meter: k.Meter, LevelKnown: k.LevelKnown, LevelDB: k.LevelDB,
 			PeakKnown: k.PeakKnown, PeakDB: k.PeakDB, PositionKnown: k.PositionKnown, Position: k.Position, ZeroMark: k.ZeroMark, Timers: k.Timers, Artwork: k.Artwork, Status: k.Status, Inactive: k.Inactive}
-		if n == Encoders-1 {
+		if n == m.Dials-1 {
 			// Only the page dial carries text (the next page name) in Icon; a
 			// control's icon is an identifier, never strip text.
 			view.Knobs[n].Name = k.Icon
@@ -69,19 +74,27 @@ func renderChangedFrame(f Frame, cache *keyCache, phase time.Duration) ([][]byte
 			view.Knobs[n].Icon = k.Icon
 		}
 	}
-	tiles := make([][]byte, Keys)
+	tiles := make([][]byte, m.Keys())
 	scrolling := false
-	for n, k := range view.Keys {
+	out := keyOutput{size: m.KeySize, turn: m.keyTurn}
+	for n, k := range view.Keys[:m.Keys()] {
 		// Meter updates affect only the dial strip; reuse expensive static key JPEGs.
-		if len(cache.tiles) == Keys && k == cache.keys[n] && !cache.scrolls[n] {
+		if len(cache.tiles) == m.Keys() && k == cache.keys[n] && !cache.scrolls[n] {
 			tiles[n] = cache.tiles[n]
 			continue
 		}
-		tiles[n], cache.scrolls[n] = renderKey(k, phase)
+		tiles[n], cache.scrolls[n] = renderKey(k, out, phase)
 		cache.keys[n] = k
 		scrolling = scrolling || cache.scrolls[n]
 	}
 	cache.tiles = tiles
-	touch, stripScrolls := renderKnobs(view.Knobs, phase)
-	return tiles, touch, scrolling || stripScrolls
+	switch m.display {
+	case plusXLStrip, plusStrip:
+		strip, stripScrolls := renderKnobs(m, view.Knobs, phase)
+		return tiles, strip, scrolling || stripScrolls
+	case neoScreen:
+		s := f.Screen
+		return tiles, renderScreen(knobPresentation{Target: s.Label, Value: s.Value, Name: s.Icon}), scrolling
+	}
+	return tiles, nil, scrolling
 }

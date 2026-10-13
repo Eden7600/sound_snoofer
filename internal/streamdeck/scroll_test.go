@@ -83,11 +83,11 @@ func TestOnlyScrollingKeysRedraw(t *testing.T) {
 	frame.Keys[0] = Tile{Label: longTitle, Value: "Paused", Icon: "media-play"}
 	frame.Keys[1] = Tile{Label: "Mic", Value: "Live", Icon: "mic-mute"}
 	cache := &keyCache{}
-	first, _, scrolling := renderChangedFrame(frame, cache, 0)
+	first, _, scrolling := renderChangedFrame(plusXL, frame, cache, 0)
 	if !scrolling {
 		t.Fatal("frame with a long title reports no scrolling")
 	}
-	second, _, _ := renderChangedFrame(frame, cache, time.Second)
+	second, _, _ := renderChangedFrame(plusXL, frame, cache, time.Second)
 	if &first[1][0] != &second[1][0] {
 		t.Fatal("static key redrew while another scrolled")
 	}
@@ -95,7 +95,7 @@ func TestOnlyScrollingKeysRedraw(t *testing.T) {
 		t.Fatal("scrolling key did not redraw")
 	}
 	frame.Keys[0].Label = "Lofi beats"
-	if _, _, scrolling := renderChangedFrame(frame, cache, 0); scrolling {
+	if _, _, scrolling := renderChangedFrame(plusXL, frame, cache, 0); scrolling {
 		t.Fatal("scrolling reported when everything fits")
 	}
 }
@@ -103,11 +103,11 @@ func TestOnlyScrollingKeysRedraw(t *testing.T) {
 func TestMediaDialTitleScrolls(t *testing.T) {
 	var knobs [Encoders]knobPresentation
 	knobs[0] = knobPresentation{Artwork: testArtwork(t), Target: longTitle, Value: "1:42 / 3:30", Icon: "media-play"}
-	if _, scrolls := renderKnobs(knobs, 0); !scrolls {
+	if _, scrolls := renderKnobs(plusXL, knobs, 0); !scrolls {
 		t.Fatal("long dial title does not scroll")
 	}
 	knobs[0].Target = "Lofi beats"
-	if _, scrolls := renderKnobs(knobs, 0); scrolls {
+	if _, scrolls := renderKnobs(plusXL, knobs, 0); scrolls {
 		t.Fatal("short dial title scrolls")
 	}
 }

@@ -28,7 +28,7 @@ func TestTimerPanelRendering(t *testing.T) {
 	frame.Dials[1].Timers[0] = TimerTile{Artwork: artwork, Label: "emotional-damage", Time: "0:07"}
 	frame.Dials[2].Timers = [2]TimerTile{{Icon: "soundboard-play", Label: "bruh", Time: "0:02"}, {Artwork: artwork, Label: "scotland-forever", Time: "12:34"}}
 	frame.Dials[3].Timers[0] = TimerTile{Icon: "soundboard-play", Label: "vine-boom", Time: "10:05"}
-	_, raw := renderFrame(frame)
+	_, raw := renderFrame(plusXL, frame)
 	rotated, err := jpeg.Decode(bytes.NewReader(raw))
 	if err != nil {
 		t.Fatal(err)
@@ -76,7 +76,7 @@ func TestArtworkDialRendering(t *testing.T) {
 	frame.Dials[2] = Tile{Artwork: base64.StdEncoding.EncodeToString(encoded.Bytes()), Label: "Song", Value: "0:12 / 3:20", PositionKnown: true, Position: 0.06}
 	frame.Dials[1] = Tile{Artwork: base64.StdEncoding.EncodeToString(encoded.Bytes()), Label: "A very long video title", Value: "12:05 / 1:04:45", PositionKnown: true, Position: 0.2}
 	frame.Dials[1].Label = "A very long video title"
-	_, raw := renderFrame(frame)
+	_, raw := renderFrame(plusXL, frame)
 	rotated, err := jpeg.Decode(bytes.NewReader(raw))
 	if err != nil {
 		t.Fatal(err)

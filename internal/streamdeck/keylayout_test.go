@@ -335,7 +335,7 @@ func TestInactiveKeysAndDialsAreGrey(t *testing.T) {
 	}
 	var knobs [Encoders]knobPresentation
 	knobs[0] = knobPresentation{Target: "Mic", Value: "0.0 dB", Icon: "mic-mute", Meter: true, LevelKnown: true, LevelDB: -10, PositionKnown: true, Position: 0.8, Inactive: true}
-	strip, _ := renderKnobs(knobs, 0)
+	strip, _ := renderKnobs(plusXL, knobs, 0)
 	sim, err := jpeg.Decode(bytes.NewReader(strip))
 	if err != nil {
 		t.Fatal(err)

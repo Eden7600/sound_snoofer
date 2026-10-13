@@ -63,13 +63,13 @@ type presentation struct {
 
 // renderKey draws a key at a scroll phase and reports whether its text
 // scrolls.
-func renderKey(key keyPresentation, phase time.Duration) ([]byte, bool) {
+func renderKey(key keyPresentation, out keyOutput, phase time.Duration) ([]byte, bool) {
 	var lines []string
 	if key.Label != "" {
 		lines = []string{key.Label, key.Value}
 	}
 	spec := keySpec{lines: lines, w: 112, h: 112, on: key.Value == "On" || key.Value == "Recording", icon: key.Icon,
-		fallback: key.Fallback, inactive: key.Inactive, artwork: key.Artwork}
+		fallback: key.Fallback, inactive: key.Inactive, artwork: key.Artwork, out: out}
 	if key.BrightnessKnown {
 		spec.brightness = &key.Brightness
 	}
@@ -79,9 +79,9 @@ func renderKey(key keyPresentation, phase time.Duration) ([]byte, bool) {
 func renderPresentation(view presentation) ([][]byte, []byte) {
 	tiles := make([][]byte, Keys)
 	for n, key := range view.Keys {
-		tiles[n], _ = renderKey(key, 0)
+		tiles[n], _ = renderKey(key, keyOutput{}, 0)
 	}
-	touch, _ := renderKnobs(view.Knobs, 0)
+	touch, _ := renderKnobs(plusXL, view.Knobs, 0)
 	return tiles, touch
 }
 

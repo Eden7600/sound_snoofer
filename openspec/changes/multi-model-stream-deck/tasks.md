@@ -3,7 +3,7 @@ Each numbered block is one reviewable commit.
 
 ## Implementation
 - [x] 1. `docs(deck)`: specify multi-model and multi-deck support; update the UI contract and application guide.
-- [ ] 2. `feat(streamdeck)`: a model table, per-model input decoding, image reports (key, + strip, Neo screen) and key rendering at native size and orientation. Tests cover each model's decoding, report headers, key sizes and orientation, and byte-identical + XL output.
+- [x] 2. `feat(streamdeck)`: a model table, per-model input decoding, image reports (key, + strip, Neo screen) and key rendering at native size and orientation. Tests cover each model's decoding, report headers, key sizes and orientation, and byte-identical + XL output.
 - [ ] 3. `feat(streamdeck)`: run a session per connected deck. Covers discovery of all supported PIDs, per-deck frames and events, per-deck failure and reconnection, and bounded shutdown of every session. Tests cover two decks, one failing, and shutdown.
 - [ ] 4. `feat(deck)`: size layouts to each model and ship per-model defaults. Covers slice-backed pages, column-aware regions, the reserved Pages key, padding and validation, the `models` settings and defaults for the +, Neo, MK.2 and XL. Tests cover legacy + XL decode, validation by geometry and that every default validates.
 - [ ] 5. `feat(deck)`: per-deck pages, Pages key, Neo touch paging, Paging setting, remembered decks and per-deck connection reports. Tests cover independent and mirrored paging, Pages key press and hold, routing input to the right deck, first-connection recording, Own Layout, Forget and rename.

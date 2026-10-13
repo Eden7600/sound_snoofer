@@ -6,13 +6,16 @@ import (
 )
 
 const Vendor = 0x0fd9
-const Product = 0x00c6
+
+// Keys and Encoders are the most keys and dials of any supported model; a
+// Frame holds this many and each model uses the first of them.
 const Keys = 36
 const Encoders = 6
 
 type Event struct {
 	Generation uint64
 	Serial     string
+	Model      string // Model ID, on Connected.
 	Connected  bool
 	Binding    string
 	Key        int
@@ -22,7 +25,11 @@ type Event struct {
 	Release    bool // A key came up; only keys report releases.
 	Error      string
 }
+
+// Decoder turns a model's input reports into edge events. Neo touch
+// buttons are keys after the display keys.
 type Decoder struct {
+	Model                    Model
 	keys                     [Keys]bool
 	encoders                 [Encoders]bool
 	keysReady, encodersReady bool
@@ -40,10 +47,12 @@ func (d *Decoder) Decode(b []byte) ([]Event, error) {
 	events := []Event{}
 	switch b[1] {
 	case 0:
-		if length != Keys {
+		count := d.Model.Keys() + d.Model.TouchKeys
+		if count == 0 || length < count {
 			return nil, fmt.Errorf("invalid key count")
 		}
-		for n, v := range b[4:] {
+		states := b[4 : 4+count] // Extra payload bytes are ignored.
+		for n, v := range states {
 			if v > 1 {
 				return nil, fmt.Errorf("invalid key state")
 			}
@@ -54,17 +63,19 @@ func (d *Decoder) Decode(b []byte) ([]Event, error) {
 				events = append(events, Event{Key: n, Encoder: -1, Release: true})
 			}
 		}
-		for n, v := range b[4:] {
+		for n, v := range states {
 			d.keys[n] = v == 1
 		}
 		d.keysReady = true
 	case 3:
-		if length != Encoders+1 {
+		count := d.Model.Dials
+		if count == 0 || length < count+1 {
 			return nil, fmt.Errorf("invalid encoder count")
 		}
+		states := b[5 : 5+count]
 		switch b[4] {
 		case 0:
-			for n, v := range b[5:] {
+			for n, v := range states {
 				if v > 1 {
 					return nil, fmt.Errorf("invalid encoder state")
 				}
@@ -72,12 +83,12 @@ func (d *Decoder) Decode(b []byte) ([]Event, error) {
 					events = append(events, Event{Key: -1, Encoder: n, Press: true})
 				}
 			}
-			for n, v := range b[5:] {
+			for n, v := range states {
 				d.encoders[n] = v == 1
 			}
 			d.encodersReady = true
 		case 1:
-			for n, v := range b[5:] {
+			for n, v := range states {
 				if v != 0 {
 					events = append(events, Event{Key: -1, Encoder: n, Delta: int(int8(v))})
 				}
@@ -91,6 +102,9 @@ func (d *Decoder) Decode(b []byte) ([]Event, error) {
 	}
 	return events, nil
 }
+
+// ImageReports splits a JPEG into output reports: a key image (0x07) or,
+// with touch, the + XL strip or Neo screen (0x0B).
 func ImageReports(index int, touch bool, jpeg []byte, size int) ([][]byte, error) {
 	if size < 32 || size > 8192 || len(jpeg) > 2*1024*1024 || index < 0 || index >= Keys {
 		return nil, fmt.Errorf("invalid image transfer")
@@ -113,6 +127,47 @@ func ImageReports(index int, touch bool, jpeg []byte, size int) ([][]byte, error
 		binary.LittleEndian.PutUint16(b[4:6], uint16(n))
 		binary.LittleEndian.PutUint16(b[6:8], uint16(chunk))
 		copy(b[8:], jpeg[:n])
+		jpeg = jpeg[n:]
+		chunk++
+		out = append(out, b)
+	}
+	return out, nil
+}
+
+// displayReports splits a strip or screen image for model m.
+func displayReports(m Model, image []byte, size int) ([][]byte, error) {
+	if m.display == plusStrip {
+		return lcdReports(0, 0, m.Dials*panelWidth, 100, image, size)
+	}
+	return ImageReports(0, true, image, size)
+}
+
+// lcdHeader is the size of a Stream Deck + strip report header.
+const lcdHeader = 16
+
+// lcdReports splits a JPEG for a region of the Stream Deck + strip (0x0C):
+// x, y, width, height, last, chunk, then the payload length.
+func lcdReports(x, y, w, h int, jpeg []byte, size int) ([][]byte, error) {
+	if size < 32 || size > 8192 || len(jpeg) > 2*1024*1024 || x < 0 || y < 0 || w <= 0 || h <= 0 {
+		return nil, fmt.Errorf("invalid strip transfer")
+	}
+	out := [][]byte{}
+	chunk := 0
+	for len(jpeg) > 0 {
+		n := min(size-lcdHeader, len(jpeg))
+		b := make([]byte, size)
+		b[0] = 2
+		b[1] = 0x0c
+		binary.LittleEndian.PutUint16(b[2:4], uint16(x))
+		binary.LittleEndian.PutUint16(b[4:6], uint16(y))
+		binary.LittleEndian.PutUint16(b[6:8], uint16(w))
+		binary.LittleEndian.PutUint16(b[8:10], uint16(h))
+		if n == len(jpeg) {
+			b[10] = 1
+		}
+		binary.LittleEndian.PutUint16(b[11:13], uint16(chunk))
+		binary.LittleEndian.PutUint16(b[13:15], uint16(n))
+		copy(b[lcdHeader:], jpeg[:n])
 		jpeg = jpeg[n:]
 		chunk++
 		out = append(out, b)

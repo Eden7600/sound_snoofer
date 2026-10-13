@@ -21,7 +21,7 @@ func TestStripPreview(t *testing.T) {
 	frame.Dials[2] = Tile{Artwork: art, Label: "Lofi beats", Value: "1:42 / 3:30", Icon: "media-play", PositionKnown: true, Position: 0.49}
 	frame.Dials[3] = Tile{Timers: [2]TimerTile{{Artwork: art, Label: "Airhorn", Time: "0:03"}}}
 	frame.Dials[5] = Tile{Label: "Media", Value: "Home", Icon: "Lights"}
-	_, raw := renderFrame(frame)
+	_, raw := renderFrame(plusXL, frame)
 	rotated, err := jpeg.Decode(bytes.NewReader(raw))
 	if err != nil {
 		t.Fatal(err)
@@ -52,7 +52,7 @@ func TestPendingDialLooksLikePendingKey(t *testing.T) {
 	var knobs [Encoders]knobPresentation
 	knobs[0] = knobPresentation{Target: "Decor", Value: "Wait", Icon: "hue-brightness"}
 	knobs[1] = knobPresentation{Target: "Mixed", Value: "80%", Icon: "hue-brightness"}
-	raw, _ := renderKnobs(knobs, 0)
+	raw, _ := renderKnobs(plusXL, knobs, 0)
 	rotated, err := jpeg.Decode(bytes.NewReader(raw))
 	if err != nil {
 		t.Fatal(err)
