@@ -15,14 +15,14 @@ func TestNativeHIDDiscovery(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	t.Logf("Stream Deck + XL interfaces: %d", len(paths))
+	t.Logf("Stream Deck interfaces: %d", len(paths))
 	for _, path := range paths {
 		d, e := openDevice(path)
 		if e != nil {
 			t.Log(e)
 			continue
 		}
-		t.Logf("report sizes input=%d output=%d serial=%s", d.input, d.output, d.serial)
+		t.Logf("%s (%04X): report sizes input=%d output=%d feature=%d serial=%s", d.model.Name, d.product, d.input, d.output, d.feature, d.serial)
 		d.close()
 	}
 }
