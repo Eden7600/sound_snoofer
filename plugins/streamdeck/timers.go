@@ -13,8 +13,8 @@ import (
 
 // timerPanels places the timers of the providers shown on a page in the
 // panels of its unbound dials, oldest first: one per panel while they fit,
-// then two, and the newest two per panel beyond that.
-func timerPanels(p Page, shown map[string]snoofer.Control, now time.Time) map[int][2]device.TimerTile {
+// then two, and the newest two per panel beyond that. dials is the deck's user dial count.
+func timerPanels(p Page, dials int, shown map[string]snoofer.Control, now time.Time) map[int][2]device.TimerTile {
 	providers := map[string]bool{}
 	for _, b := range append(p.Keys[:], p.Dials[:]...) {
 		if provider, _, ok := strings.Cut(b.Control, "."); ok && provider != "streamdeck" {
@@ -34,7 +34,7 @@ func timerPanels(p Page, shown map[string]snoofer.Control, now time.Time) map[in
 		timers = append(timers, c.Timers...)
 	}
 	var free []int
-	for n, b := range p.Dials {
+	for n, b := range p.Dials[:dials] {
 		if b.Control == "" {
 			free = append(free, n)
 		}

@@ -55,8 +55,8 @@ func TestGotoPageKeys(t *testing.T) {
 	if home.Keys[0].Label != "Lights" || home.Keys[0].Icon != "deck-page" || home.Keys[1].Value != "N/A" {
 		t.Fatalf("go-to keys %+v %+v", home.Keys[0], home.Keys[1])
 	}
-	events <- device.Event{Encoder: -1, Key: 1, Press: true, Generation: home.Generation} // Deleted page: inert.
-	events <- device.Event{Encoder: -1, Key: 0, Press: true, Generation: home.Generation}
+	events <- device.Event{Device: testDeck, Encoder: -1, Key: 1, Press: true, Generation: home.Generation} // Deleted page: inert.
+	events <- device.Event{Device: testDeck, Encoder: -1, Key: 0, Press: true, Generation: home.Generation}
 	lights := frame("Lights", nil)
 	// The registry is published just after the frame is sent.
 	marked := func() bool {
@@ -76,7 +76,7 @@ func TestGotoPageKeys(t *testing.T) {
 		}
 	}
 	// The page dial's press returns Home.
-	events <- device.Event{Encoder: 5, Press: true, Generation: lights.Generation}
+	events <- device.Event{Device: testDeck, Encoder: 5, Press: true, Generation: lights.Generation}
 	frame("Home", nil)
 }
 
@@ -131,18 +131,18 @@ func TestScrollKeys(t *testing.T) {
 	if first.Keys[8].Label != "Down" || first.Keys[8].Value != "1/2" || first.Keys[1].Label != "Clip 00" {
 		t.Fatalf("first set %+v %+v", first.Keys[8], first.Keys[1])
 	}
-	events <- device.Event{Encoder: -1, Key: 8, Press: true, Generation: first.Generation}
+	events <- device.Event{Device: testDeck, Encoder: -1, Key: 8, Press: true, Generation: first.Generation}
 	second := frame("Soundboard 2")
 	if second.Keys[0].Value != "2/2" || second.Keys[1].Label != "Clip 07" {
 		t.Fatalf("second set %+v %+v", second.Keys[0], second.Keys[1])
 	}
 	// The page dial skips the second set; Down wraps to the first.
-	events <- device.Event{Encoder: 5, Delta: 1, Generation: second.Generation}
+	events <- device.Event{Device: testDeck, Encoder: 5, Delta: 1, Generation: second.Generation}
 	lights := frame("Lights")
-	events <- device.Event{Encoder: 5, Delta: 1, Generation: lights.Generation}
+	events <- device.Event{Device: testDeck, Encoder: 5, Delta: 1, Generation: lights.Generation}
 	back := frame("Soundboard")
-	events <- device.Event{Encoder: -1, Key: 0, Press: true, Generation: back.Generation}
+	events <- device.Event{Device: testDeck, Encoder: -1, Key: 0, Press: true, Generation: back.Generation}
 	wrapped := frame("Soundboard 2")
-	events <- device.Event{Encoder: -1, Key: 8, Press: true, Generation: wrapped.Generation}
+	events <- device.Event{Device: testDeck, Encoder: -1, Key: 8, Press: true, Generation: wrapped.Generation}
 	frame("Soundboard")
 }

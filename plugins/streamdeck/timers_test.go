@@ -29,24 +29,24 @@ func TestTimerPanels(t *testing.T) {
 	}
 
 	use(2) // One per panel, oldest first, from dial 2; Hue timers stay off this page.
-	panels := timerPanels(page, shown, now)
+	panels := timerPanels(page, Dials, shown, now)
 	if len(panels) != 2 || panels[1][0].Label != "a" || panels[1][0].Time != "0:02" || panels[2][0].Time != "1:02" || panels[1][1].Label != "" || panels[1][0].Artwork != "art-a" {
 		t.Fatalf("two timers %+v", panels)
 	}
 	use(6) // Two per panel.
-	panels = timerPanels(page, shown, now)
+	panels = timerPanels(page, Dials, shown, now)
 	if len(panels) != 3 || panels[1][1].Label != "b" || panels[3][1].Label != "f" {
 		t.Fatalf("six timers %+v", panels)
 	}
 	use(9) // Beyond capacity, the newest eight.
-	panels = timerPanels(page, shown, now)
+	panels = timerPanels(page, Dials, shown, now)
 	if panels[1][0].Label != "b" || panels[4][1].Label != "i" {
 		t.Fatalf("nine timers %+v", panels)
 	}
 	// Pages without the provider's controls show nothing.
 	home := Page{ID: "home"}
 	home.Keys[0] = Binding{Control: "audio.mic-mute"}
-	if panels := timerPanels(home, shown, now); panels != nil {
+	if panels := timerPanels(home, Dials, shown, now); panels != nil {
 		t.Fatal("timers on Home", panels)
 	}
 	if remaining(-time.Second) != "0:00" || remaining(61*time.Second) != "1:01" || remaining(100*time.Millisecond) != "0:01" {

@@ -18,6 +18,20 @@ type EditorView struct {
 	Home        bool
 	Sets        int  // Sets the edited page expands to with the current controls.
 	Scrolls     bool // The page binds an Up/Down key; otherwise the page dial visits each set.
+	// The edited layout's deck: model ID, grid width, the reserved Pages key
+	// (or -1) and whether its last dial pages. Keys and Dials hold its
+	// positions; dial slots follow the keys.
+	Model    string
+	Columns  int
+	Reserved int
+	NavDial  bool
+	Decks    []EditorDeck // Remembered decks.
+}
+
+// EditorDeck is a remembered deck: Own when it has its own layout.
+type EditorDeck struct {
+	Serial, Name, Model string
+	Connected, Own      bool
 }
 type EditorSlot struct {
 	Control, Label, Source string
@@ -39,14 +53,19 @@ type EditorRegion struct {
 	Legacy, Dials, Clip    bool
 }
 
-func editorView(draft Layout, page string, selected int, dirty bool, controls []snoofer.Control) EditorView {
-	view := EditorView{Selected: selected, Dirty: dirty, Home: draft.Home == page}
+func editorView(draft Layout, page string, selected int, dirty bool, controls []snoofer.Control, decks []EditorDeck) EditorView {
+	sh := draft.shape()
+	model := draft.model
+	if model == "" {
+		model = plusXLModel
+	}
+	view := EditorView{Selected: selected, Dirty: dirty, Home: draft.Home == page, Model: model, Columns: sh.columns, Reserved: sh.pagesKey,
+		NavDial: sh.dials > 0, Decks: decks}
 	base := draft.Pages[draft.index(page)]
 	expanded := draft.expanded(controls)
 	effective := expanded.effective(page)
 	view.Sets = len(expanded.sets(page))
 	view.Scrolls = expanded.scrolls(page)
-	sh := draft.shape()
 	region := make([]int, Keys)
 	for n := range region {
 		region[n] = -1

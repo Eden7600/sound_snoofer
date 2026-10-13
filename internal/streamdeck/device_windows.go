@@ -20,6 +20,7 @@ type device struct {
 	feature       int // Feature report length; 0 when the device has none.
 	serial        string
 	model         Model
+	product       uint16
 }
 
 func discover() ([]string, error) {
@@ -70,7 +71,8 @@ func openDevice(path string) (*device, error) {
 	if e != nil {
 		return nil, e
 	}
-	d := &device{handle: h, model: model}
+	product, _ := productForPath(path)
+	d := &device{handle: h, model: model, product: product}
 	var preparsed uintptr
 	r, _, _ := hid.NewProc("HidD_GetPreparsedData").Call(uintptr(h), uintptr(unsafe.Pointer(&preparsed)))
 	if r == 0 {
@@ -96,7 +98,7 @@ func openDevice(path string) (*device, error) {
 	return d, nil
 }
 func (d *device) describe() deckInfo {
-	return deckInfo{input: d.input, output: d.output, serial: d.serial, model: d.model}
+	return deckInfo{input: d.input, output: d.output, serial: d.serial, model: d.model, product: d.product}
 }
 func (d *device) close() { windows.CancelIoEx(d.handle, nil); windows.CloseHandle(d.handle) }
 func (d *device) io(ctx context.Context, b []byte, write bool) (int, error) {

@@ -55,7 +55,7 @@ func TestCatalogueChangeCannotRetargetDisplayedKey(t *testing.T) {
 	}
 	controls = append(controls, snoofer.Control{ID: "test.c", Label: "0", Available: true, Operations: []string{"press"}})
 	publish()
-	events <- device.Event{Encoder: -1, Key: 1, Press: true, Generation: initial.Generation}
+	events <- device.Event{Device: testDeck, Encoder: -1, Key: 1, Press: true, Generation: initial.Generation}
 	select {
 	case id := <-pressed:
 		if id != "test.b" {

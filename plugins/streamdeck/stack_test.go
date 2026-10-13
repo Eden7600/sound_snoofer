@@ -104,7 +104,7 @@ func TestStackedRegionValidationAndLabel(t *testing.T) {
 	}
 	l = stackedPage()
 	controls := []snoofer.Control{{ID: "a.s-1", Collection: "a.s", CollectionLabel: "Media Sessions"}, {ID: "b.s-1", Collection: "b.s", CollectionLabel: "Apps"}}
-	if view := editorView(l, "p", 0, false, controls); view.Regions[0].Label != "Media Sessions + Apps" {
+	if view := editorView(l, "p", 0, false, controls, nil); view.Regions[0].Label != "Media Sessions + Apps" {
 		t.Fatal("label", view.Regions[0].Label)
 	}
 	// Draft edits do not share Sources with the saved layout.

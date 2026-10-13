@@ -66,7 +66,7 @@ func TestTapHoldAndImmediateKeys(t *testing.T) {
 		return nil
 	}
 	key := func(n int, down bool, gen uint64) {
-		events <- device.Event{Key: n, Encoder: -1, Press: down, Release: !down, Generation: gen}
+		events <- device.Event{Device: testDeck, Key: n, Encoder: -1, Press: down, Release: !down, Generation: gen}
 	}
 
 	// A plain key acts on key-down.
@@ -146,7 +146,7 @@ func TestResetFocusKey(t *testing.T) {
 	if frame.Keys[26].Label != "Auto" || frame.Keys[26].Icon != "focus-reset" {
 		t.Fatalf("reset key %+v", frame.Keys[26])
 	}
-	events <- device.Event{Key: 26, Encoder: -1, Press: true, Generation: frame.Generation}
+	events <- device.Event{Device: testDeck, Key: 26, Encoder: -1, Press: true, Generation: frame.Generation}
 	for deadline := time.Now().Add(2 * time.Second); ; time.Sleep(5 * time.Millisecond) {
 		mu.Lock()
 		n := len(got)

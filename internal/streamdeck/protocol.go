@@ -20,6 +20,7 @@ type Event struct {
 	Device     string
 	Serial     string
 	Model      string // Model ID.
+	Product    uint16 // USB product ID.
 	Connected  bool
 	Binding    string
 	Key        int

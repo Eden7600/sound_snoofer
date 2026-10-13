@@ -73,10 +73,10 @@ func TestDarkDeckIsInert(t *testing.T) {
 	}
 	generation := uint64(0)
 	press := func() {
-		events <- device.Event{Key: 0, Encoder: -1, Press: true, Generation: generation}
-		events <- device.Event{Key: 0, Encoder: -1, Release: true, Generation: generation}
+		events <- device.Event{Device: testDeck, Key: 0, Encoder: -1, Press: true, Generation: generation}
+		events <- device.Event{Device: testDeck, Key: 0, Encoder: -1, Release: true, Generation: generation}
 	}
-	events <- device.Event{Connected: true, Serial: "A1"}
+	events <- device.Event{Connected: true, Device: testDeck, Serial: testDeck, Model: "plus-xl"}
 	lit := frame(func(f device.Frame) bool { return !f.Dark && f.Keys[0].Label != "" })
 	if lit.Brightness != 70 {
 		t.Fatal("brightness", lit.Brightness)

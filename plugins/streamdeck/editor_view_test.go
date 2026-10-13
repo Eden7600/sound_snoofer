@@ -13,7 +13,7 @@ func TestEditorPreviewOwnership(t *testing.T) {
 	l.Pages[0].AutoControls = "clips."
 	l.SharedKeys[3] = Binding{Control: "shared.x", Label: "Shared"}
 	l.Pages[0].Keys[7] = Binding{Control: "manual.x", Label: "Manual"}
-	view := editorView(l, p, 7, true, []snoofer.Control{{ID: "clips.a", Label: "Clip", Operations: []string{"press"}}})
+	view := editorView(l, p, 7, true, []snoofer.Control{{ID: "clips.a", Label: "Clip", Operations: []string{"press"}}}, nil)
 	if len(view.Keys) != 36 || len(view.Dials) != 5 || view.Selected != 7 || !view.Dirty {
 		t.Fatal(view)
 	}

@@ -34,6 +34,7 @@ type deckInfo struct {
 	input, output int // Report lengths.
 	serial        string
 	model         Model
+	product       uint16
 }
 
 // StartSurface discovers decks every two seconds and owns their sessions
@@ -186,7 +187,7 @@ func surfaceSession(parent context.Context, d hidDeck, id string, latest Frame, 
 			}
 			for _, event := range list {
 				event.Generation = generation.Load()
-				event.Device, event.Serial, event.Model = id, info.serial, info.model.ID
+				event.Device, event.Serial, event.Model, event.Product = id, info.serial, info.model.ID, info.product
 				select {
 				case inputs <- event:
 				case <-ctx.Done():
@@ -271,7 +272,7 @@ func surfaceSession(parent context.Context, d hidDeck, id string, latest Frame, 
 		return nil
 	}
 	failed := func(err error) Event {
-		return Event{Device: id, Serial: info.serial, Model: info.model.ID, Error: err.Error()}
+		return Event{Device: id, Serial: info.serial, Model: info.model.ID, Product: info.product, Error: err.Error()}
 	}
 	if err := draw(latest, false); err != nil {
 		select {
@@ -281,7 +282,7 @@ func surfaceSession(parent context.Context, d hidDeck, id string, latest Frame, 
 		return
 	}
 	select {
-	case events <- Event{Device: id, Serial: info.serial, Model: info.model.ID, Connected: true}:
+	case events <- Event{Device: id, Serial: info.serial, Model: info.model.ID, Product: info.product, Connected: true}:
 	case <-ctx.Done():
 		return
 	}

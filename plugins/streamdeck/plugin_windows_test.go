@@ -116,13 +116,13 @@ func TestEditorSaveAndInputGenerations(t *testing.T) {
 		t.Fatal("lost draft")
 	}
 	current := frame("Renamed", "")
-	events <- device.Event{Encoder: -1, Key: 0, Press: true, Generation: initial.Generation}
-	events <- device.Event{Encoder: -1, Key: 0, Press: true, Generation: current.Generation}
+	events <- device.Event{Device: testDeck, Encoder: -1, Key: 0, Press: true, Generation: initial.Generation}
+	events <- device.Event{Device: testDeck, Encoder: -1, Key: 0, Press: true, Generation: current.Generation}
 	wait(func() bool { return presses.Load() == 1 })
-	events <- device.Event{Encoder: 5, Delta: 1, Generation: current.Generation}
+	events <- device.Event{Device: testDeck, Encoder: 5, Delta: 1, Generation: current.Generation}
 	pageB := frame("B", "")
-	events <- device.Event{Encoder: -1, Key: 0, Press: true, Generation: current.Generation}
-	events <- device.Event{Encoder: 5, Press: true, Generation: pageB.Generation}
+	events <- device.Event{Device: testDeck, Encoder: -1, Key: 0, Press: true, Generation: current.Generation}
+	events <- device.Event{Device: testDeck, Encoder: 5, Press: true, Generation: pageB.Generation}
 	current = frame("Renamed", "")
 	if presses.Load() != 1 {
 		t.Fatal("old page input replayed")
@@ -131,8 +131,8 @@ func TestEditorSaveAndInputGenerations(t *testing.T) {
 	frame("Renamed", "N/A")
 	provider()
 	restored := frame("Renamed", "")
-	events <- device.Event{Encoder: -1, Key: 0, Press: true, Generation: current.Generation}
-	events <- device.Event{Encoder: -1, Key: 0, Press: true, Generation: restored.Generation}
+	events <- device.Event{Device: testDeck, Encoder: -1, Key: 0, Press: true, Generation: current.Generation}
+	events <- device.Event{Device: testDeck, Encoder: -1, Key: 0, Press: true, Generation: restored.Generation}
 	wait(func() bool { return presses.Load() == 2 })
 	command("page", "set", "b")
 	command("earlier", "press", "")

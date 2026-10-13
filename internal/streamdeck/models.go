@@ -91,17 +91,26 @@ func modelForProduct(product uint16) (Model, bool) {
 	return Model{}, false
 }
 
-// modelForPath finds the model of an Elgato HID interface path, which names
-// its IDs as "vid_0fd9&pid_xxxx".
-func modelForPath(path string) (Model, bool) {
+// productForPath reads the product ID of an Elgato HID interface path,
+// which names its IDs as "vid_0fd9&pid_xxxx".
+func productForPath(path string) (uint16, bool) {
 	lower := strings.ToLower(path)
 	_, rest, ok := strings.Cut(lower, "vid_0fd9&pid_")
 	if !ok || len(rest) < 4 {
-		return Model{}, false
+		return 0, false
 	}
 	product, err := strconv.ParseUint(rest[:4], 16, 16)
 	if err != nil {
+		return 0, false
+	}
+	return uint16(product), true
+}
+
+// modelForPath finds the model of an Elgato HID interface path.
+func modelForPath(path string) (Model, bool) {
+	product, ok := productForPath(path)
+	if !ok {
 		return Model{}, false
 	}
-	return modelForProduct(uint16(product))
+	return modelForProduct(product)
 }

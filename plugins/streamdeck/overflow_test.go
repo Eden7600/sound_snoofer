@@ -62,7 +62,7 @@ func TestEditorViewSetsAndRegions(t *testing.T) {
 	l.Pages[0].DialRegions = []Region{{Source: "b.s", First: 0, Last: 1, Clip: true}}
 	controls := append(members("a.s", 30), members("b.s", 3)...)
 	controls = append(controls, snoofer.Control{ID: "b.s-label", Collection: "b.s", CollectionLabel: "Apps", Hidden: true})
-	view := editorView(l, "p", 0, false, controls)
+	view := editorView(l, "p", 0, false, controls, nil)
 	if view.Sets != 2 || view.Scrolls {
 		t.Fatal("sets", view.Sets, view.Scrolls)
 	}
@@ -70,11 +70,11 @@ func TestEditorViewSetsAndRegions(t *testing.T) {
 		t.Fatal("regions", view.Regions)
 	}
 	l.Pages[0].Keys[35] = Binding{Control: scrollPrefix + "down"}
-	if view := editorView(l, "p", 0, false, controls); !view.Scrolls {
+	if view := editorView(l, "p", 0, false, controls, nil); !view.Scrolls {
 		t.Fatal("scroll key not reported")
 	}
 	// Without the source's members the count follows the remaining controls.
-	if view := editorView(l, "p", 0, false, members("b.s", 3)); view.Sets != 1 {
+	if view := editorView(l, "p", 0, false, members("b.s", 3), nil); view.Sets != 1 {
 		t.Fatal("sets without a source", view.Sets)
 	}
 }

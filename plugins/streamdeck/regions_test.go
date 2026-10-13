@@ -133,14 +133,14 @@ func TestEditorViewRegions(t *testing.T) {
 	l := Layout{Home: "s", Pages: []Page{p}}
 	controls := clips(1)
 	controls[0].CollectionLabel = "Soundboard Clips"
-	view := editorView(l, "s", 0, false, controls)
+	view := editorView(l, "s", 0, false, controls, nil)
 	if len(view.Regions) != 1 || view.Regions[0].Label != "Soundboard Clips" || view.Regions[0].Legacy {
 		t.Fatal(view.Regions)
 	}
 	if view.Keys[0].Region != 0 || view.Keys[1].Region != 0 || view.Keys[2].Region != -1 || view.Keys[0].Source != "Auto" {
 		t.Fatal(view.Keys[:3])
 	}
-	legacy := editorView(Layout{Home: "s", Pages: []Page{{ID: "s", Name: "S", AutoControls: "soundboard.clip-"}}}, "s", 0, false, controls)
+	legacy := editorView(Layout{Home: "s", Pages: []Page{{ID: "s", Name: "S", AutoControls: "soundboard.clip-"}}}, "s", 0, false, controls, nil)
 	if len(legacy.Regions) != 1 || !legacy.Regions[0].Legacy || legacy.Keys[35].Region != 0 {
 		t.Fatal(legacy.Regions)
 	}

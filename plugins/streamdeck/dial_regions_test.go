@@ -75,7 +75,7 @@ func TestDialRegionValidationAndEdits(t *testing.T) {
 	if _, err := l.editRegion(0, "add", fmt.Sprintf("30,%d,appaudio.apps", Keys)); err == nil {
 		t.Fatal("mixed region accepted")
 	}
-	view := editorView(l, "a", 0, false, appControls(2))
+	view := editorView(l, "a", 0, false, appControls(2), nil)
 	if len(view.Regions) != 2 || !view.Regions[1].Dials || view.Dials[3].Region != 1 || view.Keys[2].Region != 0 {
 		t.Fatalf("editor view %+v %+v", view.Regions, view.Dials)
 	}

@@ -3,6 +3,7 @@ package streamdeck
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 
 	device "sound-snoofer/internal/streamdeck"
 	"sound-snoofer/snoofer"
@@ -91,4 +92,21 @@ func (s Settings) layoutFor(model, serial string) Layout {
 		return l
 	}
 	return s.modelLayout(model)
+}
+
+// clone copies the settings' maps so a change can be saved before it applies.
+func (s Settings) clone() Settings {
+	s.Models = maps.Clone(s.Models)
+	s.Serials = maps.Clone(s.Serials)
+	s.Devices = maps.Clone(s.Devices)
+	if s.Models == nil {
+		s.Models = map[string]Layout{}
+	}
+	if s.Serials == nil {
+		s.Serials = map[string]Layout{}
+	}
+	if s.Devices == nil {
+		s.Devices = map[string]Deck{}
+	}
+	return s
 }
