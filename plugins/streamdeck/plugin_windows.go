@@ -39,10 +39,18 @@ func Plugin() snoofer.Plugin {
 // watchPresence observes the session lock and monitors; tests replace it.
 var watchPresence = presence.Watch
 
-func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, _ map[string]snoofer.Instance) (snoofer.Instance, error) {
-	return startWithSurface(ctx, s, raw, device.StartSurface)
+// surface is the deck hardware: it shows frames per deck and reports input,
+// connections and failures until its context ends.
+type surface interface {
+	Show(deck string, f device.Frame)
+	Events() <-chan device.Event
+	Done() <-chan struct{}
 }
-func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessage, surface func(context.Context) (chan device.Frame, <-chan device.Event, <-chan struct{})) (snoofer.Instance, error) {
+
+func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, _ map[string]snoofer.Instance) (snoofer.Instance, error) {
+	return startWithSurface(ctx, s, raw, func(ctx context.Context) surface { return device.StartSurface(ctx) })
+}
+func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessage, startSurface func(context.Context) surface) (snoofer.Instance, error) {
 	var settings Settings
 	if err := snoofer.DecodeSettings(raw, &settings); err != nil {
 		return nil, err
@@ -63,7 +71,8 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 	}
 	runCtx, cancel := context.WithCancel(ctx)
 	i := &instance{cancel: cancel, done: make(chan struct{})}
-	frames, events, deviceDone := surface(runCtx)
+	hardwareSurface := startSurface(runCtx)
+	events, deviceDone := hardwareSurface.Events(), hardwareSurface.Done()
 	go func() {
 		defer close(i.done)
 		defer s.Controls.Remove("streamdeck")
@@ -74,6 +83,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 		slot := 0
 		shared := false
 		serial := ""
+		deckID := "" // The deck frames are shown on.
 		editSerial := "Default"
 		status := "" // Layout editor feedback only; device state lives in hardware.
 		var hardware deviceLink
@@ -190,14 +200,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			if away {
 				frame = device.Frame{Generation: generation, Dark: true}
 			}
-			select {
-			case <-frames:
-			default:
-			}
-			select {
-			case frames <- frame:
-			default:
-			}
+			hardwareSurface.Show(deckID, frame)
 			selected := draft.index(editPage)
 			if selected < 0 {
 				selected = 0
@@ -360,6 +363,9 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					return
 				}
 				if event.Error != "" {
+					if event.Device != "" && event.Device != deckID {
+						continue
+					}
 					hardware.failed(event.Error, time.Now())
 					generation++
 					publish()
@@ -368,9 +374,14 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 				if event.Connected {
 					hardware.connectedTo(event.Serial, time.Now())
 					serial = event.Serial
+					deckID = event.Device
 					page = active().Home
 					generation++
 					publish()
+					continue
+				}
+				// Only the deck frames are shown on acts.
+				if event.Device != deckID {
 					continue
 				}
 				// A dark deck is inert: nothing is dispatched, navigated or held.

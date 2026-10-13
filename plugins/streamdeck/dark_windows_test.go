@@ -35,10 +35,7 @@ func TestDarkDeckIsInert(t *testing.T) {
 	frames := make(chan device.Frame, 1)
 	events := make(chan device.Event, 16)
 	surfaceDone := make(chan struct{})
-	surface := func(ctx context.Context) (chan device.Frame, <-chan device.Event, <-chan struct{}) {
-		go func() { <-ctx.Done(); close(surfaceDone) }()
-		return frames, events, surfaceDone
-	}
+	surface := fakeSurface(frames, events, surfaceDone)
 	page := Page{ID: "a", Name: "A"}
 	page.Keys[0] = Binding{Control: "test.button", Label: "test.button"}
 	brightness := 70

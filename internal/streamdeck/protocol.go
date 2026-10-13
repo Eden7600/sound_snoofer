@@ -12,10 +12,14 @@ const Vendor = 0x0fd9
 const Keys = 36
 const Encoders = 6
 
+// Event is input, a connection or a failure from a deck. Device identifies
+// the deck: its serial, or "path:" and its HID path when it has none. An
+// Error without a Device is a discovery failure or no deck at all.
 type Event struct {
 	Generation uint64
+	Device     string
 	Serial     string
-	Model      string // Model ID, on Connected.
+	Model      string // Model ID.
 	Connected  bool
 	Binding    string
 	Key        int

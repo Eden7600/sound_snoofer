@@ -18,10 +18,7 @@ func TestDeviceReportSeparateFromLayoutStatus(t *testing.T) {
 	frames := make(chan device.Frame, 8)
 	events := make(chan device.Event, 16)
 	done := make(chan struct{})
-	surface := func(ctx context.Context) (chan device.Frame, <-chan device.Event, <-chan struct{}) {
-		go func() { <-ctx.Done(); close(done) }()
-		return frames, events, done
-	}
+	surface := fakeSurface(frames, events, done)
 	layout := Layout{Home: "a", Pages: []Page{{ID: "a", Name: "A"}}}
 	instance, err := startWithSurface(ctx, snoofer.Services{Controls: registry}, snoofer.MarshalSettings(Settings{Layout: layout}), surface)
 	if err != nil {
@@ -98,10 +95,7 @@ func TestHiddenBindingIgnoresInput(t *testing.T) {
 	frames := make(chan device.Frame, 8)
 	events := make(chan device.Event, 16)
 	done := make(chan struct{})
-	surface := func(ctx context.Context) (chan device.Frame, <-chan device.Event, <-chan struct{}) {
-		go func() { <-ctx.Done(); close(done) }()
-		return frames, events, done
-	}
+	surface := fakeSurface(frames, events, done)
 	layout := Layout{Home: "a", Pages: []Page{{ID: "a", Name: "A"}}}
 	layout.Pages[0].Keys[0] = Binding{Control: "test.mic", Label: "Mic"}
 	instance, err := startWithSurface(ctx, snoofer.Services{Controls: registry}, snoofer.MarshalSettings(Settings{Layout: layout}), surface)

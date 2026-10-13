@@ -36,10 +36,7 @@ func TestTapHoldAndImmediateKeys(t *testing.T) {
 	frames := make(chan device.Frame, 1)
 	events := make(chan device.Event, 16)
 	done := make(chan struct{})
-	surface := func(ctx context.Context) (chan device.Frame, <-chan device.Event, <-chan struct{}) {
-		go func() { <-ctx.Done(); close(done) }()
-		return frames, events, done
-	}
+	surface := fakeSurface(frames, events, done)
 	instance, err := startWithSurface(ctx, snoofer.Services{Controls: registry}, snoofer.MarshalSettings(Settings{Layout: layout}), surface)
 	if err != nil {
 		t.Fatal(err)
@@ -132,10 +129,7 @@ func TestResetFocusKey(t *testing.T) {
 	frames := make(chan device.Frame, 1)
 	events := make(chan device.Event, 16)
 	done := make(chan struct{})
-	surface := func(ctx context.Context) (chan device.Frame, <-chan device.Event, <-chan struct{}) {
-		go func() { <-ctx.Done(); close(done) }()
-		return frames, events, done
-	}
+	surface := fakeSurface(frames, events, done)
 	instance, err := startWithSurface(ctx, snoofer.Services{Controls: registry}, snoofer.MarshalSettings(Settings{Layout: layout}), surface)
 	if err != nil {
 		t.Fatal(err)

@@ -30,10 +30,7 @@ func TestCatalogueChangeCannotRetargetDisplayedKey(t *testing.T) {
 	frames := make(chan device.Frame, 1)
 	events := make(chan device.Event, 4)
 	done := make(chan struct{})
-	surface := func(ctx context.Context) (chan device.Frame, <-chan device.Event, <-chan struct{}) {
-		go func() { <-ctx.Done(); close(done) }()
-		return frames, events, done
-	}
+	surface := fakeSurface(frames, events, done)
 	layout := Layout{Home: "sounds", Pages: []Page{{ID: "sounds", Name: "Sounds", AutoControls: "test."}}}
 	instance, err := startWithSurface(ctx, snoofer.Services{Controls: registry}, snoofer.MarshalSettings(Settings{Layout: layout}), surface)
 	if err != nil {

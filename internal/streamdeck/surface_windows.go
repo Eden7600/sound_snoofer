@@ -11,59 +11,150 @@ import (
 	"time"
 )
 
-// StartSurface owns HID workers until done closes. Frames and events are bounded.
-func StartSurface(ctx context.Context) (chan Frame, <-chan Event, <-chan struct{}) {
-	return startSurface(ctx, discover)
-}
-func startSurface(ctx context.Context, discoverPaths func() ([]string, error)) (chan Frame, <-chan Event, <-chan struct{}) {
-	frames := make(chan Frame, 1)
-	events := make(chan Event, 64)
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		defer close(events)
-		var latest Frame
-		for ctx.Err() == nil {
-			paths, err := discoverPaths()
-			var d *device
-			if err == nil {
-				for _, path := range paths {
-					d, err = openDevice(path)
-					if err == nil {
-						break
-					}
-				}
-			}
-			if d != nil {
-				surfaceSession(ctx, d, frames, events, &latest)
-				d.close()
-			} else {
-				if err == nil {
-					err = fmt.Errorf("Stream Deck disconnected")
-				}
-				select {
-				case events <- Event{Error: err.Error()}:
-				default:
-				}
-			}
-			timer := time.NewTimer(2 * time.Second)
-		wait:
-			for {
-				select {
-				case <-ctx.Done():
-					timer.Stop()
-					return
-				case latest = <-frames:
-				case <-timer.C:
-					break wait
-				}
-			}
-		}
-	}()
-	return frames, events, done
+// Surface runs a session per connected supported deck until its context
+// ends. Each deck shows the latest frame given for it; events are bounded.
+type Surface struct {
+	events chan Event
+	done   chan struct{}
+	mu     sync.Mutex
+	decks  map[string]chan Frame // By device ID, while its session runs.
+	latest map[string]Frame      // Last frame shown per device ID, kept across reconnects.
 }
 
-func surfaceSession(parent context.Context, d *device, frames <-chan Frame, events chan<- Event, latest *Frame) {
+// hidDeck is an open deck as a session uses it; tests replace the HID device.
+type hidDeck interface {
+	io(ctx context.Context, b []byte, write bool) (int, error)
+	setBrightness(percent int) error
+	close()
+	describe() deckInfo
+}
+
+// deckInfo is what a session needs to know about an open deck.
+type deckInfo struct {
+	input, output int // Report lengths.
+	serial        string
+	model         Model
+}
+
+// StartSurface discovers decks every two seconds and owns their sessions
+// until ctx ends; Done closes once every session has cleared its display and
+// closed its device.
+func StartSurface(ctx context.Context) *Surface {
+	return startSurface(ctx, discover, func(path string) (hidDeck, error) { return openDevice(path) })
+}
+
+func startSurface(ctx context.Context, discoverPaths func() ([]string, error), open func(string) (hidDeck, error)) *Surface {
+	s := &Surface{events: make(chan Event, 64), done: make(chan struct{}), decks: map[string]chan Frame{}, latest: map[string]Frame{}}
+	go s.run(ctx, discoverPaths, open)
+	return s
+}
+
+// Events delivers input, connections and failures; it closes before Done.
+func (s *Surface) Events() <-chan Event { return s.events }
+
+// Done closes when the surface has stopped.
+func (s *Surface) Done() <-chan struct{} { return s.done }
+
+// Show sets the frame a deck shows, replacing any frame it has not drawn yet.
+func (s *Surface) Show(id string, f Frame) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.latest[id] = f
+	frames, ok := s.decks[id]
+	if !ok {
+		return
+	}
+	select {
+	case <-frames:
+	default:
+	}
+	select {
+	case frames <- f:
+	default:
+	}
+}
+
+// deckID identifies a deck by serial, or by HID path without one.
+func deckID(serial, path string) string {
+	if serial != "" {
+		return serial
+	}
+	return "path:" + path
+}
+
+func (s *Surface) run(ctx context.Context, discoverPaths func() ([]string, error), open func(string) (hidDeck, error)) {
+	var sessions sync.WaitGroup
+	defer close(s.done)
+	defer close(s.events)
+	defer sessions.Wait()
+	running := map[string]bool{} // HID paths with a session.
+	ended := make(chan string)
+	for ctx.Err() == nil {
+		paths, err := discoverPaths()
+		for _, path := range paths {
+			if running[path] {
+				continue
+			}
+			d, openErr := open(path)
+			if openErr != nil {
+				err = openErr
+				continue
+			}
+			info := d.describe()
+			id := deckID(info.serial, path)
+			frames := make(chan Frame, 1)
+			s.mu.Lock()
+			if _, taken := s.decks[id]; taken {
+				// The same deck on another interface path; one session drives it.
+				s.mu.Unlock()
+				d.close()
+				continue
+			}
+			s.decks[id] = frames
+			initial := s.latest[id]
+			s.mu.Unlock()
+			running[path] = true
+			sessions.Add(1)
+			go func() {
+				defer sessions.Done()
+				surfaceSession(ctx, d, id, initial, frames, s.events)
+				d.close()
+				s.mu.Lock()
+				delete(s.decks, id)
+				s.mu.Unlock()
+				select {
+				case ended <- path:
+				case <-ctx.Done():
+				}
+			}()
+		}
+		if len(running) == 0 {
+			if err == nil {
+				err = fmt.Errorf("Stream Deck disconnected")
+			}
+			select {
+			case s.events <- Event{Error: err.Error()}:
+			default:
+			}
+		}
+		timer := time.NewTimer(2 * time.Second)
+	wait:
+		for {
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return
+			case path := <-ended:
+				delete(running, path)
+			case <-timer.C:
+				break wait
+			}
+		}
+	}
+}
+
+func surfaceSession(parent context.Context, d hidDeck, id string, latest Frame, frames <-chan Frame, events chan<- Event) {
+	info := d.describe()
 	ctx, cancel := context.WithCancel(parent)
 	var wg sync.WaitGroup
 	defer wg.Wait()
@@ -75,9 +166,9 @@ func surfaceSession(parent context.Context, d *device, frames <-chan Frame, even
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		decoder := Decoder{Model: d.model}
+		decoder := Decoder{Model: info.model}
 		for ctx.Err() == nil {
-			b := make([]byte, d.input)
+			b := make([]byte, info.input)
 			n, err := d.io(ctx, b, false)
 			if err == context.DeadlineExceeded {
 				continue
@@ -95,7 +186,7 @@ func surfaceSession(parent context.Context, d *device, frames <-chan Frame, even
 			}
 			for _, event := range list {
 				event.Generation = generation.Load()
-				event.Serial = d.serial
+				event.Device, event.Serial, event.Model = id, info.serial, info.model.ID
 				select {
 				case inputs <- event:
 				case <-ctx.Done():
@@ -112,10 +203,10 @@ func surfaceSession(parent context.Context, d *device, frames <-chan Frame, even
 	}()
 	// reports splits image n of a frame: the keys, then the strip or screen.
 	reports := func(n int, image []byte) ([][]byte, error) {
-		if n < d.model.Keys() {
-			return ImageReports(n, false, image, d.output)
+		if n < info.model.Keys() {
+			return ImageReports(n, false, image, info.output)
 		}
-		return displayReports(d.model, image, d.output)
+		return displayReports(info.model, image, info.output)
 	}
 	var previous [][]byte
 	var lastFrame Frame
@@ -157,7 +248,7 @@ func surfaceSession(parent context.Context, d *device, frames <-chan Frame, even
 				brightness = want
 			}
 		}()
-		tiles, display, moving := renderChangedFrame(d.model, shown, cache, time.Since(started))
+		tiles, display, moving := renderChangedFrame(info.model, shown, cache, time.Since(started))
 		scrolling = moving
 		all := append(tiles, display)
 		for n, tile := range all {
@@ -179,15 +270,18 @@ func surfaceSession(parent context.Context, d *device, frames <-chan Frame, even
 		haveFrame = true
 		return nil
 	}
-	if err := draw(*latest, false); err != nil {
+	failed := func(err error) Event {
+		return Event{Device: id, Serial: info.serial, Model: info.model.ID, Error: err.Error()}
+	}
+	if err := draw(latest, false); err != nil {
 		select {
-		case events <- Event{Error: err.Error()}:
+		case events <- failed(err):
 		case <-ctx.Done():
 		}
 		return
 	}
 	select {
-	case events <- Event{Serial: d.serial, Model: d.model.ID, Connected: true}:
+	case events <- Event{Device: id, Serial: info.serial, Model: info.model.ID, Connected: true}:
 	case <-ctx.Done():
 		return
 	}
@@ -196,7 +290,7 @@ func surfaceSession(parent context.Context, d *device, frames <-chan Frame, even
 		case <-ctx.Done():
 			// The parent has cancelled; use a separate short deadline to clear displays.
 			clearCtx, stop := context.WithTimeout(context.Background(), time.Second)
-			tiles, display := renderFrame(d.model, Frame{})
+			tiles, display := renderFrame(info.model, Frame{})
 			for n, tile := range append(tiles, display) {
 				if tile == nil {
 					continue
@@ -218,7 +312,7 @@ func surfaceSession(parent context.Context, d *device, frames <-chan Frame, even
 			return
 		case err := <-failures:
 			select {
-			case events <- Event{Error: err.Error()}:
+			case events <- failed(err):
 			case <-ctx.Done():
 			}
 			return
@@ -229,18 +323,18 @@ func surfaceSession(parent context.Context, d *device, frames <-chan Frame, even
 				return
 			}
 		case <-scroll.C:
-			if err := draw(*latest, true); err != nil {
+			if err := draw(latest, true); err != nil {
 				select {
-				case events <- Event{Error: err.Error()}:
+				case events <- failed(err):
 				case <-ctx.Done():
 				}
 				return
 			}
 		case frame := <-frames:
-			*latest = frame
+			latest = frame
 			if err := draw(frame, false); err != nil {
 				select {
-				case events <- Event{Error: err.Error()}:
+				case events <- failed(err):
 				case <-ctx.Done():
 				}
 				return

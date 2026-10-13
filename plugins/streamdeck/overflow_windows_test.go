@@ -19,10 +19,7 @@ func TestEditorRegionClipAndMakeHome(t *testing.T) {
 	registry := snoofer.NewControls()
 	layout := Layout{Home: "a", Pages: []Page{{ID: "a", Name: "A", Regions: []Region{{Source: "a.s", First: 0, Last: 1}}}}}
 	done := make(chan struct{})
-	surface := func(ctx context.Context) (chan device.Frame, <-chan device.Event, <-chan struct{}) {
-		go func() { <-ctx.Done(); close(done) }()
-		return make(chan device.Frame, 1), make(chan device.Event), done
-	}
+	surface := fakeSurface(make(chan device.Frame, 1), make(chan device.Event), done)
 	instance, err := startWithSurface(ctx, snoofer.Services{Controls: registry}, snoofer.MarshalSettings(Settings{Layout: layout}), surface)
 	if err != nil {
 		t.Fatal(err)

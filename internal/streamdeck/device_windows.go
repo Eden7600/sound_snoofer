@@ -95,6 +95,9 @@ func openDevice(path string) (*device, error) {
 	}
 	return d, nil
 }
+func (d *device) describe() deckInfo {
+	return deckInfo{input: d.input, output: d.output, serial: d.serial, model: d.model}
+}
 func (d *device) close() { windows.CancelIoEx(d.handle, nil); windows.CloseHandle(d.handle) }
 func (d *device) io(ctx context.Context, b []byte, write bool) (int, error) {
 	event, e := windows.CreateEvent(nil, 1, 0, nil)
