@@ -16,9 +16,9 @@ Mic stack enablement is a master switch for both Normal and VR. Disabling discon
 
 ## Stream Deck
 
-The integrated editor shows a 9×4 key grid and five assignable dials plus the reserved page dial. Click a position or use arrows then Enter to select it without triggering its action. The searchable binding inspector shows shared/automatic ownership. Save commits a validated draft live; Discard restores the saved layout. Key labels use zero-based physical indices. Device layouts can be edited while hardware is disconnected.
+Supported decks: Stream Deck + XL, +, XL, MK.2 (and Original v2) and Neo, several at once. The integrated editor shows the selected model’s grid and dials: Device lists a layout per model and each remembered deck (by serial, recorded on first connection) that has its own layout. Decks of one model share its layout unless Own Layout is on; Name, Own Layout and Forget apply to the selected deck. Click a position or use arrows then Enter to select it without triggering its action. The searchable binding inspector shows shared/automatic ownership. Save commits a validated draft live; Discard restores the saved layout. Key labels use zero-based physical indices. Device layouts can be edited while hardware is disconnected.
 
-The sixth dial rotates through pages with wraparound; press it for Home. The first five dials are assignable. Shared positions are reserved on every page. Missing-plugin bindings remain visible as Unavailable and become usable again when their original provider returns.
+The last dial (sixth on the + XL, fourth on the +) rotates through pages with wraparound; press it for Home. The other dials are assignable. Decks without dials reserve the bottom-right key as Pages: press for the next page, hold for Home; the Neo uses its touch buttons (left previous, right next, hold for Home) and shows the page on its screen. Paging is Independent (each deck its own page) or Mirrored (every deck follows the last page change where it has that page). Shared positions are reserved on every page. Missing-plugin bindings remain visible as Unavailable and become usable again when their original provider returns.
 
 See [plugin and configuration guide](plugins.md) for build composition, settings ownership and external plugin authoring.
 
