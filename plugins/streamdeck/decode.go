@@ -7,24 +7,28 @@ import (
 	"sound-snoofer/snoofer"
 )
 
-// UnmarshalJSON rejects positions beyond the physical surface rather than
-// silently truncating JSON arrays into Go's fixed-size arrays.
+// pageJSON and layoutJSON are the saved forms, with positions as lists.
+type pageJSON struct {
+	AutoControls string    `json:"auto_controls,omitempty"`
+	Regions      []Region  `json:"regions,omitempty"`
+	DialRegions  []Region  `json:"dial_regions,omitempty"`
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	Keys         []Binding `json:"keys"`
+	Dials        []Binding `json:"dials"`
+}
+type layoutJSON struct {
+	Home        string     `json:"home"`
+	Pages       []pageJSON `json:"pages"`
+	SharedKeys  []Binding  `json:"shared_keys"`
+	SharedDials []Binding  `json:"shared_dials"`
+}
+
+// UnmarshalJSON rejects positions beyond the largest surface rather than
+// silently truncating JSON arrays into Go's fixed-size arrays. The layout's
+// model is set by where it is stored, and Validate checks its geometry.
 func (l *Layout) UnmarshalJSON(data []byte) error {
-	type page struct {
-		AutoControls string    `json:"auto_controls,omitempty"`
-		Regions      []Region  `json:"regions,omitempty"`
-		DialRegions  []Region  `json:"dial_regions,omitempty"`
-		ID           string    `json:"id"`
-		Name         string    `json:"name"`
-		Keys         []Binding `json:"keys"`
-		Dials        []Binding `json:"dials"`
-	}
-	var raw struct {
-		Home        string    `json:"home"`
-		Pages       []page    `json:"pages"`
-		SharedKeys  []Binding `json:"shared_keys"`
-		SharedDials []Binding `json:"shared_dials"`
-	}
+	var raw layoutJSON
 	if err := snoofer.DecodeSettings(data, &raw); err != nil {
 		return err
 	}
@@ -47,4 +51,16 @@ func (l *Layout) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalJSON saves only the positions the layout's geometry has.
+func (l Layout) MarshalJSON() ([]byte, error) {
+	sh := l.shape()
+	raw := layoutJSON{Home: l.Home, SharedKeys: l.SharedKeys[:sh.keys], SharedDials: l.SharedDials[:sh.dials]}
+	for _, p := range l.Pages {
+		raw.Pages = append(raw.Pages, pageJSON{AutoControls: p.AutoControls, Regions: p.Regions, DialRegions: p.DialRegions, ID: p.ID, Name: p.Name,
+			Keys: p.Keys[:sh.keys], Dials: p.Dials[:sh.dials]})
+	}
+	return json.Marshal(raw)
+}
+
 var _ json.Unmarshaler = (*Layout)(nil)
+var _ json.Marshaler = Layout{}

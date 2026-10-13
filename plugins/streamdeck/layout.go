@@ -9,6 +9,8 @@ import (
 	"sound-snoofer/snoofer"
 )
 
+// Keys and Dials are the most keys and user dials of any model; a page holds
+// this many and a layout's geometry decides how many it uses.
 const Keys = 36
 const Dials = 5
 
@@ -31,22 +33,44 @@ type Page struct {
 	Dials        [Dials]Binding `json:"dials"`
 }
 
-// Layout reserves shared positions globally and the sixth dial for navigation.
+// Layout reserves shared positions globally and the last dial (or the Pages
+// key) for navigation.
 type Layout struct {
 	Home        string         `json:"home"`
 	Pages       []Page         `json:"pages"`
 	SharedKeys  [Keys]Binding  `json:"shared_keys"`
 	SharedDials [Dials]Binding `json:"shared_dials"`
+	model       string         // Model ID, from where the layout is stored; empty is the + XL.
 }
 
-// Settings contains a default layout and optional exact serial overrides.
+// Settings holds a layout per model and optional per-deck layouts. Layout is
+// the + XL's; Models holds the others by model ID, and a model without one
+// uses its shipped default. Serials are decks' own layouts, of the model
+// their Devices record names (the + XL without one).
 type Settings struct {
 	Layout  Layout            `json:"layout"`
+	Models  map[string]Layout `json:"models,omitempty"`
 	Serials map[string]Layout `json:"serials,omitempty"`
+	// Devices remembers decks by serial.
+	Devices map[string]Deck `json:"devices,omitempty"`
+	// Paging is "independent" (the default when empty) or "mirrored".
+	Paging string `json:"paging,omitempty"`
 	// Brightness is the backlight (1-100) when the deck is not dark; nil
 	// means 100.
 	Brightness *int `json:"brightness,omitempty"`
 }
+
+// Deck is a remembered deck: its model and an optional name.
+type Deck struct {
+	Model string `json:"model"`
+	Name  string `json:"name,omitempty"`
+}
+
+// Paging modes.
+const (
+	pagingIndependent = "independent"
+	pagingMirrored    = "mirrored"
+)
 
 // backlight is the validated brightness.
 func (s Settings) backlight() int {
@@ -174,6 +198,21 @@ func (l Layout) Validate(controls []snoofer.Control) error {
 		return fmt.Errorf("layout needs pages and a valid Home")
 	}
 	seen := map[string]bool{}
+	sh := l.shape()
+	// placed rejects a binding at a position the geometry lacks or reserves.
+	placed := func(where string, n int, b Binding, dial bool) error {
+		switch {
+		case b.Control == "":
+			return nil
+		case dial && n >= sh.dials:
+			return fmt.Errorf("%s dial %d is not on this deck", where, n+1)
+		case !dial && n == sh.pagesKey:
+			return fmt.Errorf("%s key %d is the Pages key", where, n+1)
+		case !dial && n >= sh.keys:
+			return fmt.Errorf("%s key %d is not on this deck", where, n+1)
+		}
+		return nil
+	}
 	check := func(b Binding, dial bool) error {
 		if b.Control == "" {
 			return nil
@@ -211,7 +250,7 @@ func (l Layout) Validate(controls []snoofer.Control) error {
 			}
 			free := 0
 			for n, b := range p.Keys {
-				if b.Control == "" && l.SharedKeys[n].Control == "" {
+				if sh.usable(n) && b.Control == "" && l.SharedKeys[n].Control == "" {
 					free++
 				}
 			}
@@ -220,6 +259,9 @@ func (l Layout) Validate(controls []snoofer.Control) error {
 			}
 		}
 		for n, b := range p.Keys {
+			if err := placed(p.Name, n, b, false); err != nil {
+				return err
+			}
 			if b.Control != "" && l.SharedKeys[n].Control != "" {
 				return fmt.Errorf("%s key %d conflicts with shared binding", p.Name, n+1)
 			}
@@ -228,6 +270,9 @@ func (l Layout) Validate(controls []snoofer.Control) error {
 			}
 		}
 		for n, b := range p.Dials {
+			if err := placed(p.Name, n, b, true); err != nil {
+				return err
+			}
 			if b.Control != "" && l.SharedDials[n].Control != "" {
 				return fmt.Errorf("%s dial %d conflicts with shared binding", p.Name, n+1)
 			}
@@ -236,12 +281,18 @@ func (l Layout) Validate(controls []snoofer.Control) error {
 			}
 		}
 	}
-	for _, b := range l.SharedKeys {
+	for n, b := range l.SharedKeys {
+		if err := placed("Shared", n, b, false); err != nil {
+			return err
+		}
 		if err := check(b, false); err != nil {
 			return err
 		}
 	}
-	for _, b := range l.SharedDials {
+	for n, b := range l.SharedDials {
+		if err := placed("Shared", n, b, true); err != nil {
+			return err
+		}
 		if err := check(b, true); err != nil {
 			return err
 		}

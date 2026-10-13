@@ -90,6 +90,7 @@ func (s stack) sets() []map[int]snoofer.Control {
 func (l Layout) expanded(controls []snoofer.Control) Layout {
 	result := l.clone()
 	result.Pages = nil
+	sh := l.shape()
 	hidden := map[string]bool{}
 	mirrors := map[string]string{} // Stand-in control ID to the control it mirrors.
 	for _, c := range controls {
@@ -111,7 +112,7 @@ func (l Layout) expanded(controls []snoofer.Control) Layout {
 		return true
 	}
 	for _, page := range l.Pages {
-		fills := page.fills()
+		fills := page.fills(sh.keys)
 		if len(fills) == 0 && len(page.DialRegions) == 0 {
 			result.Pages = append(result.Pages, page)
 			continue
@@ -159,10 +160,10 @@ func (l Layout) expanded(controls []snoofer.Control) Layout {
 				for _, source := range append([]string{f.Source}, f.Sources...) {
 					st.sources = append(st.sources, candidates(fill{Region: Region{Source: source}}, controls, boundKeys, "press"))
 				}
-				for _, row := range f.rows() {
+				for _, row := range f.rows(sh.columns) {
 					var cells []int
 					for _, cell := range row {
-						if free(page.Keys[cell], l.SharedKeys[cell]) {
+						if sh.usable(cell) && free(page.Keys[cell], l.SharedKeys[cell]) {
 							cells = append(cells, cell)
 						}
 					}
@@ -174,8 +175,8 @@ func (l Layout) expanded(controls []snoofer.Control) Layout {
 				continue
 			}
 			s := add(f, false)
-			for _, cell := range f.cells() {
-				if free(page.Keys[cell], l.SharedKeys[cell]) {
+			for _, cell := range f.cells(sh.columns) {
+				if sh.usable(cell) && free(page.Keys[cell], l.SharedKeys[cell]) {
 					s.cells = append(s.cells, cell)
 				}
 			}

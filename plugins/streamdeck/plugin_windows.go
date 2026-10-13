@@ -51,23 +51,12 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, _ map[s
 	return startWithSurface(ctx, s, raw, func(ctx context.Context) surface { return device.StartSurface(ctx) })
 }
 func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessage, startSurface func(context.Context) surface) (snoofer.Instance, error) {
-	var settings Settings
-	if err := snoofer.DecodeSettings(raw, &settings); err != nil {
+	settings, err := decodeSettings(raw)
+	if err != nil {
 		return nil, err
 	}
-	if b := settings.Brightness; b != nil && (*b < 1 || *b > 100) {
-		return nil, fmt.Errorf("brightness must be 1-100")
-	}
-	if err := settings.Layout.Validate(s.Controls.Snapshot()); err != nil {
+	if err := settings.validate(s.Controls.Snapshot()); err != nil {
 		return nil, err
-	}
-	for serial, l := range settings.Serials {
-		if serial == "" {
-			return nil, fmt.Errorf("serial must be nonempty")
-		}
-		if err := l.Validate(s.Controls.Snapshot()); err != nil {
-			return nil, err
-		}
 	}
 	runCtx, cancel := context.WithCancel(ctx)
 	i := &instance{cancel: cancel, done: make(chan struct{})}
@@ -83,7 +72,8 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 		slot := 0
 		shared := false
 		serial := ""
-		deckID := "" // The deck frames are shown on.
+		model := plusXLModel // The shown deck's model.
+		deckID := ""         // The deck frames are shown on.
 		editSerial := "Default"
 		status := "" // Layout editor feedback only; device state lives in hardware.
 		var hardware deviceLink
@@ -126,10 +116,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			}
 		}
 		active := func() Layout {
-			if l, ok := settings.Serials[serial]; ok {
-				return l
-			}
-			return settings.Layout
+			return settings.layoutFor(model, serial)
 		}
 		editorLayout := func() Layout {
 			if editSerial != "Default" {
@@ -375,6 +362,9 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					hardware.connectedTo(event.Serial, time.Now())
 					serial = event.Serial
 					deckID = event.Device
+					if event.Model != "" {
+						model = event.Model
+					}
 					page = active().Home
 					generation++
 					publish()

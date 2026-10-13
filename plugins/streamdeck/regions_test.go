@@ -19,7 +19,7 @@ func clips(n int) []snoofer.Control {
 
 func TestRegionCells(t *testing.T) {
 	// Corners in either order describe the same rectangle.
-	if got := (Region{First: 20, Last: 0}).cells(); !reflect.DeepEqual(got, []int{0, 1, 2, 9, 10, 11, 18, 19, 20}) {
+	if got := (Region{First: 20, Last: 0}).cells(9); !reflect.DeepEqual(got, []int{0, 1, 2, 9, 10, 11, 18, 19, 20}) {
 		t.Fatal(got)
 	}
 }

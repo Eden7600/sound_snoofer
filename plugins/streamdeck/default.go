@@ -76,11 +76,108 @@ func DefaultLayout() Layout {
 	for slot := 1; slot <= 3; slot++ {
 		for column, suffix := range []string{"", ":virtual:1", ":monitor", ":soundboard", ":tape"} {
 			id := fmt.Sprintf("audio.slot-%d%s", slot, suffix)
-			routing.Keys[slot*Columns+column] = Binding{Control: id, Label: id}
+			routing.Keys[slot*9+column] = Binding{Control: id, Label: id}
 		}
 	}
 	for n, id := range map[int]string{0: "audio.gain-playback", 1: "audio.gain-mic"} {
 		routing.Dials[n] = Binding{Control: id, Label: id}
+	}
+	return Layout{Home: "home", Pages: []Page{home, sounds, lights, media, meetings, routing}}
+}
+
+// DefaultLayoutFor is a model's shipped layout. Every model has the same
+// page IDs, so mirrored paging lines up, and keeps the + XL's frame scaled to
+// its grid: fixed controls on an edge, content in regions, Playback and Mic
+// on dials 1–2 (openspec/changes/multi-model-stream-deck).
+func DefaultLayoutFor(model string) Layout {
+	switch model {
+	case "plus":
+		return smallLayout(true).forModel(model)
+	case "neo":
+		return smallLayout(false).forModel(model)
+	case "mk2":
+		return mk2Layout().forModel(model)
+	case "xl":
+		return xlLayout().forModel(model)
+	}
+	return DefaultLayout()
+}
+
+// defaultPage builds a page from key and dial bindings by position.
+func defaultPage(id, name string, keys map[int]string, dials map[int]string, regions ...Region) Page {
+	p := Page{ID: id, Name: name, Regions: regions}
+	for n, control := range keys {
+		p.Keys[n] = Binding{Control: control, Label: control}
+	}
+	for n, control := range dials {
+		p.Dials[n] = Binding{Control: control, Label: control}
+	}
+	return p
+}
+
+// smallLayout is the 4 × 2 layout of the + (with its three user dials) and
+// the Neo (without).
+func smallLayout(dials bool) Layout {
+	pick := func(m map[int]string) map[int]string {
+		if !dials {
+			return nil
+		}
+		return m
+	}
+	home := defaultPage("home", "Home", map[int]string{0: "audio.mic-mute", 1: "audio.speaker-mute", 2: "audio.monitor", 3: "audio.record-toggle",
+		4: gotoPrefix + "media", 5: gotoPrefix + "soundboard", 6: gotoPrefix + "lights", 7: gotoPrefix + "meetings"},
+		pick(map[int]string{0: "audio.gain-playback", 1: "audio.gain-mic", 2: "nowplaying.dial"}))
+	sounds := defaultPage("soundboard", "Soundboard", map[int]string{3: "soundboard.stop", 7: scrollPrefix + "down"},
+		pick(map[int]string{0: "soundboard.volume"}), Region{Source: "soundboard.clips", First: 0, Last: 6})
+	lights := defaultPage("lights", "Lights", map[int]string{0: "hue.group", 1: "hue.brightness", 2: "hue.motion", 3: "hue.sort"},
+		pick(map[int]string{0: "audio.gain-playback", 1: "hue.saturation", 2: "hue.brightness"}), Region{Source: "hue.room-scenes", First: 4, Last: 7})
+	media := defaultPage("media", "Media", map[int]string{3: scrollPrefix + "up", 7: scrollPrefix + "down"},
+		pick(map[int]string{0: "audio.gain-playback", 1: "nowplaying.dial", 2: "appaudio.focus"}),
+		Region{Source: "nowplaying.sessions", Sources: []string{"appaudio.apps"}, First: 0, Last: 6})
+	meetings := defaultPage("meetings", "Meetings", map[int]string{0: "discord.mute", 1: "discord.deafen", 2: "discord.video", 3: "discord.leave"},
+		pick(map[int]string{0: "audio.gain-playback", 1: "audio.gain-mic"}))
+	return Layout{Home: "home", Pages: []Page{home, sounds, lights, media, meetings}}
+}
+
+// mk2Layout is the 5 × 3 layout of the MK.2 and Original; key 15 pages.
+func mk2Layout() Layout {
+	home := defaultPage("home", "Home", map[int]string{0: "audio.mic-mute", 1: "audio.speaker-mute", 2: "audio.monitor", 3: "audio.mode", 4: "audio.record-toggle",
+		5: "nowplaying.prev", 6: "nowplaying.toggle", 7: "nowplaying.next", 8: "hue.brightness", 9: "hue.motion",
+		10: gotoPrefix + "meetings", 11: gotoPrefix + "media", 12: gotoPrefix + "soundboard", 13: gotoPrefix + "lights"}, nil)
+	sounds := defaultPage("soundboard", "Soundboard", map[int]string{4: "soundboard.stop", 9: scrollPrefix + "down"}, nil,
+		Region{Source: "soundboard.clips", First: 0, Last: 13})
+	lights := defaultPage("lights", "Lights", map[int]string{0: "hue.group", 1: "hue.brightness", 2: "hue.motion", 3: "hue.sort", 4: "hue.sync"}, nil,
+		Region{Source: "hue.room-scenes", First: 5, Last: 14})
+	media := defaultPage("media", "Media", map[int]string{4: scrollPrefix + "up", 9: scrollPrefix + "down",
+		10: "nowplaying.prev", 11: "nowplaying.toggle", 12: "nowplaying.next", 13: "nowplaying.mute"}, nil,
+		Region{Source: "nowplaying.sessions", Sources: []string{"appaudio.apps"}, First: 0, Last: 8})
+	meetings := defaultPage("meetings", "Meetings", map[int]string{0: "discord.mute", 1: "discord.deafen", 2: "discord.video", 3: "discord.screenshare", 4: "discord.leave"}, nil)
+	return Layout{Home: "home", Pages: []Page{home, sounds, lights, media, meetings}}
+}
+
+// xlLayout is the + XL layout on the XL's 8 × 4 grid: without column 9 and
+// the dial-only keys; key 32 pages.
+func xlLayout() Layout {
+	home := defaultPage("home", "Home", map[int]string{0: "audio.mic-mute", 1: "audio.speaker-mute", 2: "audio.monitor", 3: "audio.mode", 4: "aec.mode", 5: "aec.strength",
+		7: gotoPrefix + "routing",
+		8: "audio.record-mic", 9: "audio.record-computer", 10: "audio.record-tap", 11: "audio.record-toggle", 12: "audio.tape-play", 13: "audio.tape-stop", 14: "audio.tape-rew", 15: "audio.tape-ff",
+		24: "nowplaying.prev", 25: "nowplaying.toggle", 26: "nowplaying.next",
+		27: gotoPrefix + "meetings", 28: gotoPrefix + "media", 29: gotoPrefix + "soundboard", 30: gotoPrefix + "lights"}, nil,
+		Region{Source: "nowplaying.sessions", First: 16, Last: 19, Clip: true}, Region{Source: "appaudio.apps", First: 20, Last: 23, Clip: true})
+	sounds := defaultPage("soundboard", "Soundboard", map[int]string{7: "soundboard.stop", 15: "soundboard.overlap", 23: scrollPrefix + "down"}, nil,
+		Region{Source: "soundboard.clips", First: 0, Last: 30})
+	lights := defaultPage("lights", "Lights", map[int]string{0: "hue.group", 1: "hue.brightness", 2: "hue.motion", 3: "hue.sort", 4: "hue.sync", 5: "hue.sync-mode", 6: "hue.sync-intensity"}, nil,
+		Region{Source: "hue.room-scenes", First: 8, Last: 31})
+	media := defaultPage("media", "Media", map[int]string{15: scrollPrefix + "up", 23: scrollPrefix + "down",
+		24: "nowplaying.prev", 25: "nowplaying.toggle", 26: "nowplaying.next", 27: "nowplaying.mute", 29: "appaudio.deck-apps", 30: "nowplaying.deck-media"}, nil,
+		Region{Source: "nowplaying.sessions", Sources: []string{"appaudio.apps"}, First: 0, Last: 22})
+	meetings := defaultPage("meetings", "Meetings", map[int]string{0: "discord.mute", 1: "discord.deafen", 2: "discord.video", 3: "discord.screenshare", 7: "discord.leave"}, nil)
+	routing := defaultPage("routing", "Routing", map[int]string{0: "audio.playback-device", 1: "audio.playback:virtual:1", 2: "audio.monitor"}, nil)
+	for slot := 1; slot <= 3; slot++ {
+		for column, suffix := range []string{"", ":virtual:1", ":monitor", ":soundboard", ":tape"} {
+			id := fmt.Sprintf("audio.slot-%d%s", slot, suffix)
+			routing.Keys[slot*8+column] = Binding{Control: id, Label: id}
+		}
 	}
 	return Layout{Home: "home", Pages: []Page{home, sounds, lights, media, meetings, routing}}
 }

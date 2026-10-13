@@ -23,7 +23,7 @@ func rowsOf(p Page) []string {
 	for row := 0; row < 3; row++ {
 		var parts []string
 		for col := 0; col < 8; col++ {
-			id := p.Keys[row*Columns+col].Control
+			id := p.Keys[row*9+col].Control
 			if id == "" {
 				parts = append(parts, ".")
 				continue

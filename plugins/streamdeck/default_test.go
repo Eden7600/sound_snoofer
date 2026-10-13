@@ -112,7 +112,7 @@ func TestDefaultMediaPage(t *testing.T) {
 		for row := 0; row < 3; row++ {
 			line := ""
 			for col := 0; col < 8; col++ {
-				switch id := page.Keys[row*Columns+col].Control; {
+				switch id := page.Keys[row*9+col].Control; {
 				case strings.HasPrefix(id, "nowplaying.s-"):
 					line += "n"
 				case strings.HasPrefix(id, "appaudio.app-"):

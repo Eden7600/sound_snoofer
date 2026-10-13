@@ -46,14 +46,15 @@ func editorView(draft Layout, page string, selected int, dirty bool, controls []
 	effective := expanded.effective(page)
 	view.Sets = len(expanded.sets(page))
 	view.Scrolls = expanded.scrolls(page)
+	sh := draft.shape()
 	region := make([]int, Keys)
 	for n := range region {
 		region[n] = -1
 	}
-	for n, f := range base.fills() {
+	for n, f := range base.fills(sh.keys) {
 		view.Regions = append(view.Regions, EditorRegion{Source: f.Source, Label: collectionLabel(f, controls), Stacked: stackedLabel(f, controls),
 			First: f.First, Last: f.Last, Legacy: len(base.Regions) == 0, Clip: f.Clip})
-		for _, cell := range f.cells() {
+		for _, cell := range f.cells(sh.columns) {
 			region[cell] = n
 		}
 	}
@@ -78,7 +79,7 @@ func editorView(draft Layout, page string, selected int, dirty bool, controls []
 		}
 		return EditorSlot{Control: binding.Control, Label: binding.Label, Source: source, Region: region}
 	}
-	for n, b := range effective.Keys {
+	for n, b := range effective.Keys[:sh.keys] {
 		view.Keys = append(view.Keys, slot(b, base.Keys[n], draft.SharedKeys[n], region[n]))
 	}
 	dialRegion := make([]int, Dials)
@@ -91,7 +92,7 @@ func editorView(draft Layout, page string, selected int, dirty bool, controls []
 		}
 		view.Regions = append(view.Regions, EditorRegion{Source: r.Source, Label: collectionLabel(fill{Region: r}, controls), First: r.First, Last: r.Last, Dials: true, Clip: r.Clip})
 	}
-	for n, b := range effective.Dials {
+	for n, b := range effective.Dials[:sh.dials] {
 		view.Dials = append(view.Dials, slot(b, base.Dials[n], draft.SharedDials[n], dialRegion[n]))
 	}
 	return view

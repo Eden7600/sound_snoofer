@@ -9,9 +9,6 @@ import (
 	"sound-snoofer/snoofer"
 )
 
-// Columns is the key grid width; regions are rectangles on this grid.
-const Columns = 9
-
 // Region fills a rectangle of keys from a control collection. Sources, when
 // set, are further collections that share the rectangle's rows after Source,
 // each taking rows by need, so a source with nothing to show leaves its rows
@@ -24,24 +21,24 @@ type Region struct {
 	Clip    bool     `json:"clip,omitempty"` // Show only what fits; never add overflow sets.
 }
 
-// cells lists the rectangle's keys in row-major order.
-func (r Region) cells() []int {
-	top, bottom := min(r.First/Columns, r.Last/Columns), max(r.First/Columns, r.Last/Columns)
-	left, right := min(r.First%Columns, r.Last%Columns), max(r.First%Columns, r.Last%Columns)
+// cells lists the rectangle's keys in row-major order on a grid of columns.
+func (r Region) cells(columns int) []int {
+	top, bottom := min(r.First/columns, r.Last/columns), max(r.First/columns, r.Last/columns)
+	left, right := min(r.First%columns, r.Last%columns), max(r.First%columns, r.Last%columns)
 	var out []int
 	for row := top; row <= bottom; row++ {
 		for column := left; column <= right; column++ {
-			out = append(out, row*Columns+column)
+			out = append(out, row*columns+column)
 		}
 	}
 	return out
 }
 
 // rows lists the rectangle's keys row by row.
-func (r Region) rows() [][]int {
+func (r Region) rows(columns int) [][]int {
 	var out [][]int
-	for _, cell := range r.cells() {
-		if len(out) == 0 || out[len(out)-1][0]/Columns != cell/Columns {
+	for _, cell := range r.cells(columns) {
+		if len(out) == 0 || out[len(out)-1][0]/columns != cell/columns {
 			out = append(out, nil)
 		}
 		out[len(out)-1] = append(out[len(out)-1], cell)
@@ -72,13 +69,14 @@ func (f fill) matches(c snoofer.Control) bool {
 	return c.Collection == f.Source
 }
 
-// fills returns the page's regions in effect. A legacy prefix covers every key.
-func (p Page) fills() []fill {
+// fills returns the page's regions in effect. A legacy prefix covers all
+// keys of the page's deck.
+func (p Page) fills(keys int) []fill {
 	if len(p.Regions) == 0 {
 		if p.AutoControls == "" {
 			return nil
 		}
-		return []fill{{Region: Region{Source: p.AutoControls, First: 0, Last: Keys - 1}, prefix: true}}
+		return []fill{{Region: Region{Source: p.AutoControls, First: 0, Last: keys - 1}, prefix: true}}
 	}
 	out := make([]fill, 0, len(p.Regions))
 	for _, r := range p.Regions {
@@ -99,9 +97,10 @@ func (l Layout) validateRegions(p Page) error {
 	if p.AutoControls != "" {
 		return fmt.Errorf("%s uses both an automatic prefix and regions", p.Name)
 	}
+	sh := l.shape()
 	owner := map[int]int{}
 	for n, r := range p.Regions {
-		if r.First < 0 || r.First >= Keys || r.Last < 0 || r.Last >= Keys {
+		if r.First < 0 || r.First >= sh.keys || r.Last < 0 || r.Last >= sh.keys {
 			return fmt.Errorf("%s region %d is outside the deck", p.Name, n+1)
 		}
 		if !strings.Contains(r.Source, ".") {
@@ -113,12 +112,12 @@ func (l Layout) validateRegions(p Page) error {
 			}
 		}
 		free := 0
-		for _, key := range r.cells() {
+		for _, key := range r.cells(sh.columns) {
 			if other, taken := owner[key]; taken {
 				return fmt.Errorf("%s regions %d and %d overlap", p.Name, other+1, n+1)
 			}
 			owner[key] = n
-			if p.Keys[key].Control == "" && l.SharedKeys[key].Control == "" {
+			if sh.usable(key) && p.Keys[key].Control == "" && l.SharedKeys[key].Control == "" {
 				free++
 			}
 		}
@@ -130,9 +129,10 @@ func (l Layout) validateRegions(p Page) error {
 }
 
 func (l Layout) validateDialRegions(p Page) error {
+	dials := l.shape().dials
 	owner := map[int]int{}
 	for n, r := range p.DialRegions {
-		if r.First < 0 || r.First >= Dials || r.Last < 0 || r.Last >= Dials {
+		if r.First < 0 || r.First >= dials || r.Last < 0 || r.Last >= dials {
 			return fmt.Errorf("%s dial region %d is outside the deck", p.Name, n+1)
 		}
 		if !strings.Contains(r.Source, ".") || strings.HasSuffix(r.Source, "-") {
@@ -157,15 +157,16 @@ func (l Layout) validateDialRegions(p Page) error {
 
 // editRegion applies an editor request to a copy of page n's regions:
 // "add" takes "first,last,source", "source" takes "index,source", "clip"
-// takes "index,on" or "index,off" and "remove" takes "index". Positions are editor slots: keys 0–35, then dials
-// from Keys. Indexes count key regions first, then dial regions. Editing a
+// takes "index,on" or "index,off" and "remove" takes "index". Positions are editor slots: the layout's keys,
+// then its dials. Indexes count key regions first, then dial regions. Editing a
 // legacy page first converts its prefix into an explicit whole-page region.
 // The caller validates the result.
 func (l Layout) editRegion(n int, op, value string) (Layout, error) {
 	next := l.clone()
 	page := &next.Pages[n]
+	keys := l.shape().keys
 	if len(page.Regions) == 0 && page.AutoControls != "" {
-		page.Regions = []Region{{Source: page.AutoControls, First: 0, Last: Keys - 1}}
+		page.Regions = []Region{{Source: page.AutoControls, First: 0, Last: keys - 1}}
 		page.AutoControls = ""
 	}
 	parts := strings.SplitN(value, ",", 3)
@@ -188,9 +189,9 @@ func (l Layout) editRegion(n int, op, value string) (Layout, error) {
 		}
 		source := strings.TrimSpace(parts[2])
 		switch {
-		case first >= Keys && last >= Keys:
-			page.DialRegions = append(page.DialRegions, Region{Source: source, First: first - Keys, Last: last - Keys})
-		case first < Keys && last < Keys:
+		case first >= keys && last >= keys:
+			page.DialRegions = append(page.DialRegions, Region{Source: source, First: first - keys, Last: last - keys})
+		case first < keys && last < keys:
 			page.Regions = append(page.Regions, Region{Source: source, First: first, Last: last})
 		default:
 			return l, fmt.Errorf("a region holds keys or dials, not both")
