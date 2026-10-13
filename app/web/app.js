@@ -900,15 +900,21 @@ function buildMeetings(){
  }
 }
 // deckRange is the GUI-local key rectangle, or dial span (dials: true, slot
-// indexes from 36), for creating regions; selecting it never dispatches
-// anything. It resets when the edited page changes.
+// indexes after the keys), for creating regions; selecting it never
+// dispatches anything. It resets when the edited page changes.
 let deckRange=null;
+// deckShape is the edited layout's grid: key count, columns and dial count.
+function deckShape(){
+ const v=c("streamdeck.preview")?.ViewData;
+ return {keys:v?.Keys.length??0,columns:v?.Columns??1,dials:v?.Dials.length??0};
+}
 function rangeKeys(range){
  if(!range)return [];
  if(range.dials){const out=[];for(let i=Math.min(range.anchor,range.end);i<=Math.max(range.anchor,range.end);i++)out.push(i);return out;}
- const top=Math.min(Math.floor(range.anchor/9),Math.floor(range.end/9)),bottom=Math.max(Math.floor(range.anchor/9),Math.floor(range.end/9));
- const left=Math.min(range.anchor%9,range.end%9),right=Math.max(range.anchor%9,range.end%9);
- const out=[];for(let row=top;row<=bottom;row++)for(let col=left;col<=right;col++)out.push(row*9+col);return out;
+ const n=deckShape().columns;
+ const top=Math.min(Math.floor(range.anchor/n),Math.floor(range.end/n)),bottom=Math.max(Math.floor(range.anchor/n),Math.floor(range.end/n));
+ const left=Math.min(range.anchor%n,range.end%n),right=Math.max(range.anchor%n,range.end%n);
+ const out=[];for(let row=top;row<=bottom;row++)for(let col=left;col<=right;col++)out.push(row*n+col);return out;
 }
 function regionDialsLabel(first,last){
  const a=Math.min(first,last)+1,b=Math.max(first,last)+1;return a===b?"Dial "+a:"Dials "+a+"–"+b;
@@ -922,10 +928,14 @@ function buildDeck(){
  const toolbar=el("div",ui.toolbar);
  const selectors=el("div",ui.grid+" col-span-full flex-1");toolbar.append(selectors);
  control("streamdeck.profile",selectors,"Device");control("streamdeck.page",selectors,"Page");root.append(toolbar);
+ const shape=preview.ViewData,K=shape.Keys.length,D=shape.Dials.length,columns=shape.Columns;
  const workspace=el("div","grid grid-cols-[minmax(0,1fr)_280px] items-start gap-[18px] min-[1500px]:grid-cols-[minmax(0,1fr)_330px] max-[1120px]:grid-cols-1"),left=el("div"),inspector=el("section",ui.panel+" sticky top-5 max-[1120px]:static");
  inspector.dataset.part="inspector";
  workspace.append(left,inspector);root.append(workspace);
- const frame=el("div","mb-5 rounded-[18px] border border-[#2e414f] bg-deck p-[19px]"),keys=el("div","grid grid-cols-9 gap-[7px]"),dials=el("div","mt-[22px] grid grid-cols-6 gap-2");frame.append(keys,dials);left.append(frame);
+ const frame=el("div","mb-5 rounded-[18px] border border-[#2e414f] bg-deck p-[19px]"),keys=el("div","grid gap-[7px]"),dials=el("div","mt-[22px] grid gap-2");frame.append(keys,dials);left.append(frame);
+ // The grid follows the model; narrow decks keep keys near their + XL size.
+ keys.style.gridTemplateColumns="repeat("+columns+",minmax(0,1fr))";frame.style.maxWidth=columns<9?(columns*88+38)+"px":"";
+ dials.style.gridTemplateColumns="repeat("+(D+(shape.NavDial?1:0))+",minmax(0,1fr))";dials.hidden=!D&&!shape.NavDial;
  keys.setAttribute("aria-label","Deck Keys");dials.setAttribute("aria-label","Deck Dials");
  const keyClass="relative flex aspect-square min-w-0 flex-col items-center justify-center overflow-hidden rounded-[7px] bg-key px-[3px] py-[5px] text-[9px] data-[empty=true]:border-[#1c2a36] data-[empty=true]:bg-key-empty data-[region=true]:bg-active-bg data-[range=true]:outline-2 data-[range=true]:outline-dashed data-[range=true]:outline-active aria-pressed:border-2 aria-pressed:border-active aria-pressed:shadow-[0_0_0_2px_#183a46] min-[1500px]:text-xs max-[1120px]:text-[11px]";
  const dialClass="relative data-[region=true]:bg-active-bg data-[range=true]:outline-2 data-[range=true]:outline-dashed data-[range=true]:outline-active flex min-h-[62px] min-w-0 flex-col items-center justify-center bg-key px-1 py-[7px] text-[10px] before:mb-[5px] before:size-[18px] before:rounded-full before:border-2 before:border-[#60798a] before:content-[''] aria-pressed:border-2 aria-pressed:border-active aria-pressed:shadow-[0_0_0_2px_#183a46] *:max-w-full *:truncate";
@@ -934,29 +944,30 @@ function buildDeck(){
    // Shift extends the region selection without selecting a binding.
    if(e.shiftKey&&deckRange&&!!deckRange.dials===dial){deckRange.end=index;update();return;}
    deckRange={page:c("streamdeck.page")?.Value,anchor:index,end:index,dials:dial};
-   request(c("streamdeck.slot"),"set",(dial?"Dial ":"Key ")+(dial?index-36+1:index+1));
+   request(c("streamdeck.slot"),"set",(dial?"Dial ":"Key ")+(dial?index-K+1:index+1));
   },dial?dialClass:keyClass);
   b.dataset.part=dial?"dial":"deck-key";
-  const number=el("small","absolute top-0.5 left-1 text-[8px] text-muted",String(dial?index-36+1:index+1)),glyph=el("span","leading-tight text-active"),name=el("span","max-w-full truncate"),source=el("span","text-[8px] text-attention"),regionTag=el("small","absolute right-1 bottom-0.5 text-[8px] text-active");
+  const number=el("small","absolute top-0.5 left-1 text-[8px] text-muted",String(dial?index-K+1:index+1)),glyph=el("span","leading-tight text-active"),name=el("span","max-w-full truncate"),source=el("span","text-[8px] text-attention"),regionTag=el("small","absolute right-1 bottom-0.5 text-[8px] text-active");
   if(!dial)b.append(number,glyph);b.append(regionTag);b.append(name,source);(dial?dials:keys).append(b);
   b.onkeydown=e=>{
    if(!e.key.startsWith("Arrow"))return;e.preventDefault();
    if(e.shiftKey){
     if(!deckRange||!!deckRange.dials!==dial)deckRange={page:c("streamdeck.page")?.Value,anchor:index,end:index,dials:dial};
-    deckRange.end=dial?36+gridMove(deckRange.end-36,e.key,5,5):gridMove(deckRange.end,e.key,9,36);update();
-    (dial?dials:keys).children[dial?deckRange.end-36:deckRange.end]?.focus();return;
+    deckRange.end=dial?K+gridMove(deckRange.end-K,e.key,D,D):gridMove(deckRange.end,e.key,columns,K);update();
+    (dial?dials:keys).children[dial?deckRange.end-K:deckRange.end]?.focus();return;
    }
    const list=[...(dial?dials:keys).querySelectorAll("button:not(:disabled)")];
-   const next=gridMove(list.indexOf(b),e.key,dial?5:9,list.length);list[next]?.focus();
+   const next=gridMove(list.indexOf(b),e.key,dial?D:columns,list.length);list[next]?.focus();
   };
   updaters.push(()=>{
    const view=c("streamdeck.preview")?.ViewData;if(!view)return;
-   const slot=dial?view.Dials[index-36]:view.Keys[index],item=c(slot.Control);
+   const slot=dial?view.Dials[index-K]:view.Keys[index],item=c(slot.Control);
+   if(!slot)return;
    b.setAttribute("aria-pressed",String(view.Selected===index));
    const region=slot.Region??-1,inRange=rangeKeys(deckRange).includes(index);
    b.dataset.region=String(region>=0);b.dataset.range=String(inRange);
    regionTag.textContent=region>=0?"R"+(region+1):"";
-   b.setAttribute("aria-label",(dial?"Dial "+(index-35):"Key "+(index+1))+": "+(item?.Label||slot.Label||"Empty")+(slot.Source?" · "+slot.Source:"")+(region>=0?" · Region "+(region+1):"")+(inRange?" · In selection":""));
+   b.setAttribute("aria-label",(dial?"Dial "+(index-K+1):"Key "+(index+1))+": "+(item?.Label||slot.Label||"Empty")+(slot.Source?" · "+slot.Source:"")+(region>=0?" · Region "+(region+1):"")+(inRange?" · In selection":""));
    b.title=b.getAttribute("aria-label");b.disabled=!!pending;
    b.dataset.empty=String(!slot.Control);
    name.textContent=item?.ShortLabel||item?.Label||slot.Label||"";
@@ -969,9 +980,11 @@ function buildDeck(){
    }
   });
  }
- for(let i=0;i<36;i++)slotButton(i,false);
- for(let i=36;i<41;i++)slotButton(i,true);
- const reserved=el("div",dialClass.replace(/(aria-pressed|data-\[\w+=true\]):\S+ ?/g,"")+" rounded-[7px] border border-line");reserved.append(el("span","","Pages"),el("small","text-muted","Reserved"));dials.append(reserved);
+ // reserved is the page control: the Pages key of decks without dials, or the last dial.
+ const reserved=(base,parent)=>{const r=el("div",base.replace(/(aria-pressed|data-\[\w+=true\]):\S+ ?/g,"")+" rounded-[7px] border border-line");r.dataset.part="reserved";r.append(el("span","","Pages"),el("small","text-muted","Reserved"));parent.append(r);};
+ for(let i=0;i<K;i++){if(i===shape.Reserved)reserved(keyClass,keys);else slotButton(i,false);}
+ for(let i=K;i<K+D;i++)slotButton(i,true);
+ if(shape.NavDial)reserved(dialClass,dials);
  const tools=panel("Page",left,"grid gap-3");
  control("streamdeck.name",tools,"Name");
  const commands=el("div",ui.actions+" justify-end");tools.append(commands);
@@ -980,16 +993,18 @@ function buildDeck(){
  const more=el("details","mt-4"),summary=el("summary","","Page Options");more.append(summary);tools.append(more);
  control("streamdeck.add",more,"New Page");
  regionsPanel(left);
+ decksPanel(left);
  const deletion=el("div",ui.actions+" justify-end");more.append(deletion);
  const del=command("streamdeck.delete","Delete Page",deletion,ui.danger);
  if(del)del.onclick=()=>{if(window.confirm("Delete this page from the draft? Save applies the deletion."))press("streamdeck.delete");};
- const selected=preview.ViewData.Selected,dial=selected>=36;
- const eyebrow=el("div","text-[10px] font-semibold tracking-[1.7px] text-muted",dial?"DIAL "+(selected-35):"KEY "+(selected+1));eyebrow.dataset.part="eyebrow";
+ const selected=preview.ViewData.Selected,dial=selected>=K;
+ const eyebrow=el("div","text-[10px] font-semibold tracking-[1.7px] text-muted",dial?"DIAL "+(selected-K+1):"KEY "+(selected+1));eyebrow.dataset.part="eyebrow";
  inspector.append(eyebrow,el("h2",ui.h2,"Binding"));
  const ownership=el("p",ui.note+" mt-1");inspector.append(ownership);
  updaters.push(()=>{
   const v=c("streamdeck.preview")?.ViewData;if(!v)return;
-  const slot=dial?v.Dials[selected-36]:v.Keys[selected];
+  const slot=dial?v.Dials[selected-K]:v.Keys[selected];
+  if(!slot)return;
   ownership.className=slot.Source?ui.note+" mt-1":"mt-1 mb-[15px] text-xs text-muted";
   ownership.textContent=slot.Source==="Auto"?"Auto-filled · assigning a binding pins this position":slot.Source==="Shared"?"Shared Across Pages":"Page binding";
  });
@@ -1022,6 +1037,24 @@ function buildDeck(){
   status.className="text-xs "+(v?.Dirty?"text-attention":"text-muted");
   if(discard)discard.disabled=!!pending||!v?.Dirty;if(save)save.disabled=!!pending||!v?.Dirty;
  });
+}
+// decksPanel holds Paging and the remembered decks: name, own layout and
+// Forget. Dropping an own layout and forgetting a deck are confirmed.
+function decksPanel(parent){
+ if(!c("streamdeck.paging"))return;
+ const card=panel("Decks",parent,"mt-5 grid gap-3");card.dataset.part="decks";
+ control("streamdeck.paging",card,"Paging");
+ if(!(c("streamdeck.deck")?.Options||[]).length)return;
+ control("streamdeck.deck",card,"Deck");
+ control("streamdeck.deck-name",card,"Deck Name");
+ control("streamdeck.deck-own",card,"Own Layout");
+ const own=widgets.at(-1);
+ if(own?.id==="streamdeck.deck-own")own.input.onclick=()=>{
+  if(c("streamdeck.deck-own")?.Value!=="On"||window.confirm("Use the model layout on this deck? Its own layout is deleted."))press("streamdeck.deck-own");
+ };
+ const actions=el("div",ui.actions+" justify-end");card.append(actions);
+ const forget=command("streamdeck.deck-forget","Forget Deck",actions,ui.danger);
+ if(forget)forget.onclick=()=>{if(window.confirm("Forget this deck and its own layout?"))press("streamdeck.deck-forget");};
 }
 function regionsPanel(parent){
  const view=c("streamdeck.preview")?.ViewData;if(!view||!c("streamdeck.region-add"))return;
@@ -1068,8 +1101,9 @@ function regionsPanel(parent){
  updaters.push(()=>{
   if(deckRange&&deckRange.page!==c("streamdeck.page")?.Value)deckRange=null;
   const keysInRange=rangeKeys(deckRange),current=c("streamdeck.preview")?.ViewData;
-  const overlaps=keysInRange.some(k=>((k>=36?current?.Dials[k-36]:current?.Keys[k])?.Region??-1)>=0);
-  create.textContent=deckRange?"Add Region · "+(deckRange.dials?regionDialsLabel(deckRange.anchor-36,deckRange.end-36):regionKeysLabel(deckRange.anchor,deckRange.end)):"Add Region";
+  const K=deckShape().keys;
+  const overlaps=keysInRange.some(k=>((k>=K?current?.Dials[k-K]:current?.Keys[k])?.Region??-1)>=0);
+  create.textContent=deckRange?"Add Region · "+(deckRange.dials?regionDialsLabel(deckRange.anchor-K,deckRange.end-K):regionKeysLabel(deckRange.anchor,deckRange.end)):"Add Region";
   create.disabled=!!pending||!deckRange||overlaps||!collections.length;
   create.title=overlaps?"The selection overlaps a region":!deckRange?"Select keys or dials first":"";
   source.disabled=!collections.length;
@@ -1163,7 +1197,7 @@ function buildDiagnostics(){
 function layoutKey(){
  // Values and telemetry are updated in place. Only structure/context rebuilds a screen.
  const list=[...controls.values()].map(v=>[v.ID,v.Label,v.Kind,v.Group,v.Options,v.OptionLabels]);
- return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="lights"?[state.Enabled?.hue,c("hue.group")?.Value,c("hue.rooms")?.ViewData,[...controls.values()].filter(v=>v.ID.startsWith("hue.scene-")).map(v=>v.Order)]:null,screen==="meetings"?[state.Enabled?.discord]:null,screen==="media"?[state.Enabled?.nowplaying,(c("nowplaying.status")?.ViewData?.Sessions||[]).map(s=>[s.ID,s.CanSeek,s.CanMute]),(c("nowplaying.status")?.ViewData?.Browsers||[]).map(b=>b.Name)]:null,screen==="appaudio"?[state.Enabled?.appaudio,(c("appaudio.status")?.ViewData?.Apps||[]).map(a=>[a.ID,a.Name,a.Hidden,a.Picked,a.Open,a.Rule,a.Naming]),c("appaudio.status")?.ViewData?.Exclude]:null,screen==="routing"?[c("audio.priorities")?.ViewData,[1,2,3].map(n=>[c("audio.slot-"+n)?.Hidden,c("audio.slot-"+n)?.Status,c("audio.slot-"+n)?.ViewData])]:null,screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value,c("streamdeck.preview")?.ViewData?.Regions,c("streamdeck.preview")?.ViewData?.Collections]:null]);
+ return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="lights"?[state.Enabled?.hue,c("hue.group")?.Value,c("hue.rooms")?.ViewData,[...controls.values()].filter(v=>v.ID.startsWith("hue.scene-")).map(v=>v.Order)]:null,screen==="meetings"?[state.Enabled?.discord]:null,screen==="media"?[state.Enabled?.nowplaying,(c("nowplaying.status")?.ViewData?.Sessions||[]).map(s=>[s.ID,s.CanSeek,s.CanMute]),(c("nowplaying.status")?.ViewData?.Browsers||[]).map(b=>b.Name)]:null,screen==="appaudio"?[state.Enabled?.appaudio,(c("appaudio.status")?.ViewData?.Apps||[]).map(a=>[a.ID,a.Name,a.Hidden,a.Picked,a.Open,a.Rule,a.Naming]),c("appaudio.status")?.ViewData?.Exclude]:null,screen==="routing"?[c("audio.priorities")?.ViewData,[1,2,3].map(n=>[c("audio.slot-"+n)?.Hidden,c("audio.slot-"+n)?.Status,c("audio.slot-"+n)?.ViewData])]:null,screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value,c("streamdeck.preview")?.ViewData?.Regions,c("streamdeck.preview")?.ViewData?.Collections,c("streamdeck.deck")?.Options]:null]);
 }
 function build(){
  widgets.length=0;updaters.length=0;root.replaceChildren();

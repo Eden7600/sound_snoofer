@@ -7,7 +7,7 @@ Each numbered block is one reviewable commit.
 - [x] 3. `feat(streamdeck)`: run a session per connected deck. Covers discovery of all supported PIDs, per-deck frames and events, per-deck failure and reconnection, and bounded shutdown of every session. Tests cover two decks, one failing, and shutdown.
 - [x] 4. `feat(deck)`: size layouts to each model and ship per-model defaults. Covers slice-backed pages, column-aware regions, the reserved Pages key, padding and validation, the `models` settings and defaults for the +, Neo, MK.2 and XL. Tests cover legacy + XL decode, validation by geometry and that every default validates.
 - [x] 5. `feat(deck)`: per-deck pages, Pages key, Neo touch paging, Paging setting, remembered decks and per-deck connection reports. Tests cover independent and mirrored paging, Pages key press and hold, routing input to the right deck, first-connection recording, Own Layout, Forget and rename.
-- [ ] 6. `feat(gui)`: a device-shaped deck editor. Covers grid and dials from the view geometry, the reserved Pages key/dial, model and deck targets, deck name, Own Layout, Forget (confirmed) and Paging. GUI check covers the + and MK.2 geometries.
+- [x] 6. `feat(gui)`: a device-shaped deck editor. Covers grid and dials from the view geometry, the reserved Pages key/dial, model and deck targets, deck name, Own Layout, Forget (confirmed) and Paging. GUI check covers the + and MK.2 geometries.
 - [ ] 7. Validate: Go tests, vet and race; GUI and desktop checks; OpenSpec; the canonical build; native-size renders of each model reviewed; read-only probe of the connected +; relaunch.
 
 ## Hardware acceptance
