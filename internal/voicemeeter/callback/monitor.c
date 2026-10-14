@@ -99,6 +99,20 @@ __declspec(dllexport) long __stdcall SnooferStart(HMODULE remote) {
     return 0;
 }
 
+/* SnooferReadInputs takes the pre-insert peaks of the first count physical
+   input channels since the last call, clearing them, and returns the input
+   inserts seen since then (zero: no fresh audio). Single reader: the owner's
+   worker. */
+__declspec(dllexport) long __stdcall SnooferReadInputs(float *peaks, long count) {
+    long c;
+    if (count > PEAK_CHANNELS) count = PEAK_CHANNELS;
+    for (c = 0; c < count; ++c) {
+        LONG bits = InterlockedExchange(&input_peaks[c], 0);
+        memcpy(&peaks[c], &bits, sizeof(bits));
+    }
+    return InterlockedExchange(&input_inserts, 0);
+}
+
 /* Fixed seven uint32 fields; reads occur on the owner's worker, not audio thread. */
 __declspec(dllexport) void __stdcall SnooferRead(unsigned long *values) {
     values[0] = (unsigned long)READ(buffers);

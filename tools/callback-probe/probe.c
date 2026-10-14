@@ -104,8 +104,17 @@ static int self_test(void) {
         input_stage = test_input;
         output_stage = test_output;
         stage_context = &weight;
+        InterlockedExchange(&input_inserts, 0);
+        input_peaks[0] = input_peaks[1] = 0;
         observe(NULL, 10, &b, 1);
         assert(stage_calls[0] == 1 && out[0] == 0.5f && out[3] == 0.5f);
+        /* Peaks are taken before the stage overwrote channel 0 with 0.5. */
+        {
+            float peak;
+            LONG bits = input_peaks[0];
+            memcpy(&peak, &bits, sizeof(peak));
+            assert(peak == 1.0f && input_inserts == 1);
+        }
         observe(NULL, 11, &b, 1);
         assert(stage_calls[1] == 1 && memcmp(in, out, sizeof(in)) == 0 && buffers == 3);
         b.write[1] = NULL;

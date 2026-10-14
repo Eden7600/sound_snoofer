@@ -16,6 +16,12 @@ static volatile LONG sample_rate, frame_size, channels;
 static InsertStage input_stage, output_stage;
 static void *stage_context;
 
+/* Pre-insert peaks of the physical input channels (Potato: 5 strips x 2),
+   stored as float bits, and the input inserts seen; the owner's worker takes
+   and clears them. Non-negative floats order like their bit patterns. */
+#define PEAK_CHANNELS 16
+static volatile LONG input_peaks[PEAK_CHANNELS], input_inserts;
+
 /* Both inserts have equal input/output channel counts and every pointer set. */
 static int valid(const AudioBuffer *b) {
     long i;
@@ -37,6 +43,29 @@ static void pass_through(AudioBuffer *b) {
     }
 }
 
+/* Raises each physical channel's stored peak before any insert stage runs.
+   Lock-free and bounded by samples x PEAK_CHANNELS. */
+static void record_peaks(const AudioBuffer *b) {
+    long c, i, count = b->inputs < PEAK_CHANNELS ? b->inputs : PEAK_CHANNELS;
+    for (c = 0; c < count; ++c) {
+        float peak = 0.0f;
+        LONG bits, stored;
+        for (i = 0; i < b->samples; ++i) {
+            float x = b->read[c][i];
+            if (x < 0.0f) x = -x;
+            if (x > peak) peak = x; /* NaN compares false and is skipped. */
+        }
+        memcpy(&bits, &peak, sizeof(bits));
+        stored = input_peaks[c];
+        while (bits > stored) {
+            LONG prior = InterlockedCompareExchange(&input_peaks[c], bits, stored);
+            if (prior == stored) break;
+            stored = prior;
+        }
+    }
+    InterlockedIncrement(&input_inserts);
+}
+
 static long __stdcall observe(void *user, long command, void *data, long sync) {
     AudioBuffer *b = (AudioBuffer *)data;
     (void)user;
@@ -53,6 +82,7 @@ static long __stdcall observe(void *user, long command, void *data, long sync) {
             InterlockedIncrement(&invalid);
             return 0;
         }
+        record_peaks(b);
         if (input_stage) {
             input_stage(stage_context, b); /* Writes every channel itself. */
         } else {

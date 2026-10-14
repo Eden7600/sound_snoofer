@@ -89,3 +89,39 @@ func TestInputLevels(t *testing.T) {
 		}
 	}
 }
+
+type peakAPI struct {
+	levelAPI
+	peaks []float32
+	fresh bool
+	asked int
+}
+
+func (a *peakAPI) InputPeaks(channels int) ([]float32, bool) {
+	a.asked = channels
+	return a.peaks, a.fresh
+}
+
+// Fresh pre-insert peaks replace the strip meters, which follow an insert
+// such as echo cancellation; without fresh audio the meters apply.
+func TestInputLevelsPreferPreInsertPeaks(t *testing.T) {
+	peaks := make([]float32, 10)
+	peaks[0], peaks[3], peaks[4] = 0.2, 0.05, float32(math.Inf(1))
+	a := &peakAPI{levelAPI: levelAPI{fakeAPI: fakeAPI{edition: 3}, values: map[[2]int]float32{{0, 0}: 0.0001}, failure: [2]int{-1, -1}}, peaks: peaks, fresh: true}
+	c, _ := connect(a)
+	defer c.Close()
+	levels := c.InputLevels([]int{0, 1, 2})
+	if levels[0] != 0.2 || levels[1] != 0.05 || a.asked != 10 {
+		t.Fatal(levels, a.asked)
+	}
+	if _, ok := levels[2]; ok {
+		t.Fatal("invalid peak accepted")
+	}
+	if len(a.calls) != 0 {
+		t.Fatal("strip meters read with fresh peaks", a.calls)
+	}
+	a.fresh = false
+	if levels := c.InputLevels([]int{0}); levels[0] != 0.0001 || len(a.calls) != 2 {
+		t.Fatal("stale peaks used", levels, a.calls)
+	}
+}

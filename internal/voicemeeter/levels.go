@@ -56,8 +56,9 @@ func (c *Client) GainLevels(micStrip int) map[string]float32 {
 }
 
 // InputLevels reads the pre-fader input peak (linear) of physical strips on
-// the caller's native worker thread. Pre-fader levels ignore strip mute, so a
-// muted microphone still reads its signal. Strips with a missing or invalid
+// the caller's native worker thread, taken before any input insert while one
+// is delivering audio. Pre-fader levels ignore strip mute, so a muted
+// microphone still reads its signal. Strips with a missing or invalid
 // reading are omitted: unknown, never silent.
 func (c *Client) InputLevels(strips []int) map[int]float32 {
 	c.mu.Lock()
@@ -76,6 +77,16 @@ func (c *Client) InputLevels(strips []int) map[int]float32 {
 		return nil
 	}
 	physical := map[int32]int{1: 2, 2: 3, 3: 5}[edition]
+	// An input insert such as echo cancellation changes what the strip meters
+	// see, so fresh pre-insert peaks take precedence.
+	var raw []float32
+	if peaks, ok := c.api.(interface {
+		InputPeaks(channels int) ([]float32, bool)
+	}); ok {
+		if values, fresh := peaks.InputPeaks(physical * 2); fresh {
+			raw = values
+		}
+	}
 	levels := map[int]float32{}
 	for _, strip := range strips {
 		if strip < 0 || strip >= physical {
@@ -84,7 +95,13 @@ func (c *Client) InputLevels(strips []int) map[int]float32 {
 		var peak float32
 		valid := true
 		for ch := strip * 2; ch < strip*2+2; ch++ {
-			value, code := reader.GetLevel(0, ch)
+			var value float32
+			var code int32
+			if raw != nil {
+				value = raw[ch]
+			} else {
+				value, code = reader.GetLevel(0, ch)
+			}
 			if code != 0 || value < 0 || math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
 				valid = false
 				break

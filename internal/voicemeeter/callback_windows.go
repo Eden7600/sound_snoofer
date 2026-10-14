@@ -13,11 +13,11 @@ import (
 )
 
 type callbackMonitor struct {
-	dll                             *windows.DLL
-	start, stop, read, insertStages *windows.Proc
-	enabled, active, unsafeClose    bool
-	insert                          *InsertHook // Stages of the current registration.
-	err                             error
+	dll                                         *windows.DLL
+	start, stop, read, insertStages, readInputs *windows.Proc
+	enabled, active, unsafeClose                bool
+	insert                                      *InsertHook // Stages of the current registration.
+	err                                         error
 }
 
 // SetCallback registers while monitoring or an insert is wanted. Insert stages
@@ -64,7 +64,7 @@ func (a *winAPI) SetCallback(monitor bool, insert *InsertHook) error {
 			m.err = fmt.Errorf("audio monitor missing or unloadable beside executable: %w", m.err)
 			return m.err
 		}
-		procs := map[string]**windows.Proc{"SnooferStart": &m.start, "SnooferStop": &m.stop, "SnooferRead": &m.read, "SnooferSetInsert": &m.insertStages}
+		procs := map[string]**windows.Proc{"SnooferStart": &m.start, "SnooferStop": &m.stop, "SnooferRead": &m.read, "SnooferSetInsert": &m.insertStages, "SnooferReadInputs": &m.readInputs}
 		for name, target := range procs {
 			*target, m.err = m.dll.FindProc(name)
 			if m.err != nil {
@@ -145,6 +145,22 @@ func (a *winAPI) CallbackStatus() *model.CallbackStatus {
 		}
 	}
 	return s
+}
+
+// InputPeaks takes the linear peaks of the first channels physical input
+// channels recorded before any input-insert stage since the last call. It
+// reports false without a registered input insert or fresh input audio.
+func (a *winAPI) InputPeaks(channels int) ([]float32, bool) {
+	m := &a.monitor
+	if channels < 1 || !m.active || m.insert == nil || m.readInputs == nil {
+		return nil, false
+	}
+	peaks := make([]float32, channels)
+	inserts, _, _ := m.readInputs.Call(uintptr(unsafe.Pointer(&peaks[0])), uintptr(channels))
+	if result(inserts) <= 0 {
+		return nil, false
+	}
+	return peaks, true
 }
 
 func sameHook(a, b *InsertHook) bool {
