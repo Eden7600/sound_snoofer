@@ -42,19 +42,35 @@ Stopped and Audio Callback Monitor Active; Buffers advanced 218493→219302 with
 error. Voicemeeter/Recorder retained the actual disconnect-gap error as history. This completes
 the real Voicemeeter process-restart component. First Deck key/dial presses are already verified
 in task 15; a refused second Deck and frozen media-player acceptance remain open. Startup with
-Voicemeeter absent is separately pending in audit-reliability-fixes task 16.
+Voicemeeter absent now passes, as separately recorded in audit-reliability-fixes task 16.
 
 ## Second-deck refusal acceptance helper
-- [ ] 16. Prepare the explicitly invoked scratch-only HID holder after this plan is
+- [x] 16. Prepare the explicitly invoked scratch-only HID holder after this plan is
   committed: resolve one verified serial/model/path, acquire a read-only exclusive
   handle without report I/O, prove Win32 sharing error 32, and guarantee explicit
   release plus an at-most-90-second deadline and handle cleanup. No production or
   default-test behavior changes.
+
+Task 16 preparation evidence: the scratch holder was reviewed, including atomic readiness.
+Eight fake-handle cases passed 20 repetitions; its native entry skipped without opt-in. These
+are preparation checks only; the unsuccessful live setup is recorded under task 17.
+
 - [ ] 17. Root coordinates graceful stop and same-config canonical host restart with
   the holder active; observe the refused path error and the other deck's physical
   operation, release the holder, and verify normal recovery/temporary-error removal.
   Confirm helper exit and restored host configuration even on unsuccessful setup.
   Record the component result without completing task 11's frozen-player check.
+
+Task 17 attempted, setup refused: after the exact host and controls child stopped normally,
+the helper verified Plus serial A00WA6261J4HRK/model/path. Its exclusive GENERIC_READ/share-0
+open itself returned a sharing violation; it exited 1 in 0.01 seconds without acquiring an
+exclusive handle. No fallback or unrelated-app closure was attempted. This error belongs to
+the helper's acquisition, not Snoofer's refused-deck reporting; that acceptance remains unproven.
+The canonical host was restored with the same configuration. Both decks were Connected/display
+On; callback Active (Buffers 4025), Recorder Stopped, Mic Stack On and both mutes Off were
+observed. The original configuration fingerprint was retained and no disposable MP3, silent player WAV or WMP test process
+remained. Task 17 stays unchecked. Chat scratch log:
+work/deck-refusal-holder/runs/8d068724fc194c61896a4f21d7ad16d1/holder.stdout.log.
 
 ## Conditional installed-player feasibility
 - [ ] 18. After this plan is committed, create one uniquely owned scratch silent
@@ -67,3 +83,12 @@ Voicemeeter absent is separately pending in audit-reliability-fixes task 16.
   Preserve existing media playback, focus, configuration and processes. Record
   feasibility only: no debugger/freeze helper or build, and no completion of task
   11's frozen-player or gui-action-outcomes 6.3's uncertain/no-replay acceptance.
+
+Task 18 attempted, not completed: the newly owned WMP process exposed no attributable
+Windows SMTC session (only Brave) and had MainWindowHandle 0 with no targetable window.
+Computer-control approval/wait timeouts exceeded the agreed window, so root stopped control.
+CloseMainWindow returned false. The user then explicitly authorized termination of only the
+owned test process; PID, executable path and start time were verified, termination and exit
+were confirmed, and the exact 160,044-byte silent WAV was removed. Task 18 stays unchecked
+because its bounded normal-close criteria were not fulfilled. No frozen-player or uncertain-
+one-shot/no-replay acceptance is claimed; those checks remain open.

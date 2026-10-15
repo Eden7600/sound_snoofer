@@ -25,10 +25,12 @@ Live media artwork changes, selective removal, clocks and controls reopen pass. 
 State-call injection now verifies connection feedback, bounded backoff, refusal and recovery
 without replay. The Dismiss fix passes 295 browser tests and strict frontend checks.
 Packaged short/wrapped notice alignment now passes at both normal and minimum window sizes.
-The normal canonical build passed; production is restored as PID 71976 with --config bin/snoofer.json.
-Rapid independent mute pairs, real recording Pause/resume/Stop and callback recovery after
-Voicemeeter process restart now pass. The audit is **not fully accepted**: stale-target,
-delayed-error, uncertain-one-shot and remaining hardware checks below remain open.
+The normal canonical build passed; production retains the same --config bin/snoofer.json path.
+Rapid independent mute pairs, real recording Pause/resume/Stop, callback recovery after
+Voicemeeter process restart and startup before Voicemeeter now pass. A captured stale Mic Stage
+choice was explicitly rejected, and a real asynchronous native Soundboard failure reached its
+originating action. The audit is **not fully accepted**: uncertain-one-shot/no-replay and
+remaining hardware checks below remain open.
 
 The findings below retain their original audit wording and old source references;
 current implementation lives in `app/web/src`.
@@ -41,7 +43,7 @@ current implementation lives in `app/web/src`.
 | `gui-connection-recovery`: 5 | Source and native rejected-State fault checks pass: separate banner, bounded backoff, recovery and no replay | None for packaged recovery acceptance |
 | `gui-layout-polish`: 10–13 and meter/search parts of 14 | Affected screens, compact branding, navigation and native short/wrapped notice alignment pass | None for packaged layout acceptance; physical checks remain separate |
 | `gui-state-preservation`: 3, 6 | Complete; functional native restoration, dialog cancellation, polling and captured-target invalidation verified | No remaining functional native journey; aggregate validation and physical integration remain separately tracked |
-| `gui-action-outcomes`: 1, 4 | Source/native checks pass; user confirms rapid independent mute pairs, with real per-control Processed/Saved feedback and both mutes restored Off | Real stale-target rejection, delayed native error and uncertain one-shot without replay |
+| `gui-action-outcomes`: 1, 4 | Source/native checks pass; rapid independent mute pairs, captured stale Mic Stage rejection and a real asynchronous native Soundboard failure are verified | Uncertain one-shot without replay; queued-target replacement remains unclaimed |
 | `gui-attention-journeys`: remaining 14 | Complete; disabled/starting/failed Audio gates, marker-to-reason keyboard navigation, Plugins link/Retry availability and captured host-proposal cancellation verified natively | None for packaged presentation; real plugin lifecycle effects remain unclaimed |
 | `view-state-transport` | Complete; source/native smoke and live media artwork change, selective removal, clocks and controls reopen pass | None for the transport artwork acceptance |
 | Repository hardening/cleanup | Original source gates, canonical companion build, native smoke and coordinated shutdown recheck pass; original timeout unexplained | First key/dial presses pass on both connected models; remaining physical acceptance |
@@ -174,6 +176,15 @@ Nine captured actions were retained in the local acceptance log.
 
 - The user confirmed rapid Mic Mute + Playback Mute pairs work in both directions, On then Off.
   Separate live GUI checks showed each control's Processed/Saved result and both mutes Off.
+- After two physical Mic Mute presses, the captured Mic Stage choice was stale. The user
+  confirmed its rejection with "control changed; try again" and Mic Stage remained Pre.
+  This verifies real drawn-revision rejection, not queued-target replacement.
+- The unique 39-byte invalid `zz-snoofer-native-error-20261015-571b8a.mp3` appeared Ready in
+  Soundboard. One click returned the correlated result "Failed · normalize Zz Snoofer Native Error
+  20261015 571b8a: soundboard native error 0xC00D36C4"; no playback started. After verifying its
+  exact content, only that file was removed. The GUI showed No matching clips while retaining
+  the local failed summary for the vanished clip. This completes delayed native-error acceptance,
+  not a timeout or uncertain-one-shot/no-replay check.
 - A real recording started with Stop Rec/Pause shown. Pause changed the playback button to Play
   while retaining Stop Rec; Rewind/Fast-forward were disabled and Third-Party Apps → Voicemeeter
   Recorder explicitly reported Paused. Resume restored Pause; Stop restored Record/Play with Stop
@@ -182,21 +193,52 @@ Nine captured actions were retained in the local acceptance log.
 - Temporarily disabling Record Microphone while Record Computer was already Off produced
   "Recorder: no eligible recording sources enabled". Record Microphone was restored On before
   the successful take. This is a source-validation refusal, not a delayed native error.
-  Mic Stack was restored Off and verified in the GUI and saved state; Record Computer remains Off.
+  After that take, Mic Stack was restored Off and verified in the GUI and saved state. The user
+  later enabled Mic Stack; that current choice is retained.
 - Voicemeeter was shut down normally from its menu; process inspection confirmed it absent while
   Snoofer remained running. After Voicemeeter was relaunched, Third-Party Apps showed Recorder
   Stopped and Audio Callback Monitor Active, with Buffers increasing from 218493 to 219302 and
   no callback error. The Voicemeeter/Recorder cards retained the real gap's last error,
   "VBVMR_IsParametersDirty: Voicemeeter is disconnected; start Banana or Potato". This verifies
   recovery after a real Voicemeeter process restart, not startup with Voicemeeter initially absent.
+- In the separate startup check, the prior host and controls child exited gracefully with code 0.
+  Snoofer then started with the same configuration while Voicemeeter was absent; native Audio
+  explicitly showed Disconnected. After Voicemeeter launched, Third-Party Apps reported
+  "Logged in; Voicemeeter was not running", Recorder Stopped and Audio Callback Monitor Active.
+  Buffers advanced from 3685 to 5280 without restarting Snoofer. This verifies startup before
+  Voicemeeter and subsequent callback registration.
+- A temporary Audit Test output slot had no device and all sends Off. Bound as `audio.slot-1`
+  on Plus XL Home key 8, it showed No Device without Unavailable; the user confirmed pressing it
+  did nothing. Key 8 was restored to Empty/Saved and removing the slot returned Processed/Reloaded.
+  The base configuration fingerprint returned to its original value and the user's enabled Mic
+  Stack choice was preserved. This verifies only the physical no-device/inert case; healthy,
+  disconnected-device caption and In Use checks remain open.
 
-Keep aggregate acceptance tasks open until all their required checks are performed. Real
-stale-target rejection, delayed native error and uncertain-one-shot/no-replay outcomes remain
-open. Native recovery, live media artwork/clocks/reopen, rapid mute pairs and GUI recording
-Pause/resume/Stop are verified. Voicemeeter process-restart recovery passes; starting Snoofer
-before Voicemeeter, remaining recorder/deck transport scenarios and physical Stream Deck checks
-remain separate. The observed XL first-key failure is fixed and its key/dial-button
-retest passes on both available models. Mini/MK.2 are unavailable.
+The scratch-only second-deck holder is prepared and reviewed, with atomic readiness and
+eight fake-handle cases passing 20 repetitions; its entry skips without opt-in. During the
+authorized live attempt, the host and controls child stopped normally and the Plus serial/model/
+path were verified, but the holder's exclusive read-only open itself failed with a sharing
+violation. It exited 1 in 0.01 seconds without acquiring an exclusive handle; no fallback or
+other-app closure followed. This is refused setup, not proof that Snoofer reports a refused
+deck while another operates. The same-config canonical host was restored; both serials were
+Connected/display On, callback Active (Buffers 4025), Recorder Stopped, Mic Stack On and both
+mutes Off. The original configuration fingerprint was retained, with no test media or WMP
+process remaining. Task 17 stays open; no physical Play request was needed without a hold.
+
+An owned WMP feasibility attempt exposed no Windows WMP session (only Brave) and no targetable
+window. Computer-control approval/wait timeouts
+exceeded the agreed window, so control stopped. Normal close returned false; after the user
+explicitly authorized cleanup of only the owned test process, its PID/path/start identity was
+verified, termination and exit were confirmed, and its exact 160,044-byte silent WAV was removed.
+This does not complete bounded normal-close feasibility, frozen-player or uncertain-action checks.
+
+Keep aggregate acceptance tasks open until all their required checks are performed. An uncertain
+one-shot without replay remains open; the captured stale Mic Stage rejection does not establish
+queued-target replacement. Native recovery, live media artwork/clocks/reopen, rapid mute pairs,
+GUI recording Pause/resume/Stop, delayed native Soundboard failure, Voicemeeter process-restart
+recovery and startup before Voicemeeter are verified. Remaining recorder/deck transport scenarios
+and physical Stream Deck checks remain separate. The observed XL first-key failure is fixed and
+its key/dial-button retest passes on both available models. Mini/MK.2 are unavailable.
 Fixtures, screenshots and native self-tests do not establish those hardware results.
 
 Native WebView2 confirmed item 2 during migration acceptance: Down on a closed Processing select
