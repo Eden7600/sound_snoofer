@@ -47,3 +47,12 @@ Diagnostics SHALL group displayed notices by registered plugin name, consolidate
 - **WHEN** the user chooses Copy Notices
 - **THEN** the displayed plugin groups, labels and full statuses are copied with local confirmation
 - **AND** polling does not steal focus or erase the confirmation, clipboard fallback remains available and no provider action is sent
+
+### Requirement: Native compact sidebar branding stays visible
+At the supported minimum outer window size, the sidebar SHALL fit the existing mascot and complete wordmark inside its usable client width even when a classic scrollbar reserves space. The sidebar SHALL retain vertical scrolling, full navigation access and its existing width, without horizontal overflow or wordmark truncation.
+
+#### Scenario: Classic scrollbar at the native compact client size
+- **WHEN** the 800×600 outer native window yields an approximately 784×562 content area and the sidebar needs a vertical scrollbar
+- **THEN** the mascot and every letter of the wordmark remain inside the usable sidebar content bounds
+- **AND** the last navigation item remains reachable and visible through sidebar scrolling or keyboard navigation
+- **AND** navigation sends no provider action and no horizontal sidebar scrolling is needed

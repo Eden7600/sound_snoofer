@@ -12,3 +12,6 @@ GUI audit items 10–14 identify cramped Routing editors, stretched Audio cards,
 
 ## Impact
 Frontend presentation and focused tests only. Reuse native controls, Tailwind, existing copy behavior and provider IDs/payloads. No dependencies, routing/persistence changes or new action protocol. Sidebar attention and disabled-plugin journeys remain a separate change; action outcomes and edit-state preservation have their own owners.
+
+## Native compact-window follow-up
+Packaged WebView2 inspection at the 800×600 outer minimum exposed clipped sidebar branding when a classic vertical scrollbar consumes horizontal space. Browser viewport checks did not cover that gutter or the noninteractive wordmark. Fit the existing mascot and complete wordmark inside the compact sidebar, retain its vertical scrolling and navigation, and add focused geometry coverage at the native content size.

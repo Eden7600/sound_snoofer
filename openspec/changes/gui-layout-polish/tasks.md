@@ -7,3 +7,5 @@
 - [x] 5. Diagnostics checkpoint: grouped/contextual notices, conservative informational filtering, shared clipboard code and compact Engine card. Cover real errors, unavailable statuses, VR duplication, copy fallback, live updates and existing restart/startup actions.
 - [x] 6. Update UI contract and audit status; run type/lint/format, model, full GUI and strict OpenSpec checks. Inspect affected screens at 1280×820 and 800×600.
 - [ ] 7. Coordinate canonical build and packaged WebView2 acceptance, restore the previous launch configuration and record remaining hardware checks honestly.
+
+- [ ] 8. Native compact-sidebar checkpoint: reproduce classic-scrollbar brand clipping at the approximately 784×562 client viewport; apply the smallest existing-brand utility adjustment; verify text/image bounds, no horizontal overflow and last-item navigation with a reserved gutter, retain existing viewport checks, and inspect the packaged outer 800×600 window using its measured client size.
