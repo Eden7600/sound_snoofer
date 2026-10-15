@@ -45,13 +45,12 @@ func TestAbsentDiscoveryIgnoresFrameBurst(t *testing.T) {
 
 // fakeDeck is an open deck whose input and failures the test supplies.
 type fakeDeck struct {
-	info    deckInfo
-	initial []byte
-	input   chan []byte
-	fail    chan error
-	mu      sync.Mutex
-	writes  int
-	closed  bool
+	info   deckInfo
+	input  chan []byte
+	fail   chan error
+	mu     sync.Mutex
+	writes int
+	closed bool
 }
 
 func newFakeDeck(serial, model string) *fakeDeck {
@@ -77,12 +76,7 @@ func (f *fakeDeck) io(ctx context.Context, b []byte, write bool) (int, error) {
 		return 0, context.DeadlineExceeded
 	}
 }
-func (f *fakeDeck) inputReport() ([]byte, error) {
-	if f.initial == nil {
-		return nil, errors.New("current input unavailable")
-	}
-	return f.initial, nil
-}
+
 func (f *fakeDeck) setBrightness(int) error { return nil }
 func (f *fakeDeck) describe() deckInfo      { return f.info }
 func (f *fakeDeck) close() {
@@ -182,8 +176,19 @@ func TestEachDeckRunsItsOwnSession(t *testing.T) {
 	if e := next(t, events, func(e Event) bool { return e.Connected }); e.Device != "A" {
 		t.Fatal(e)
 	}
-	if again := deck("a"); again == a || again.written() == 0 {
+	again := deck("a")
+	if again == a || again.written() == 0 {
 		t.Fatal("A not reopened and redrawn")
+	}
+	firstKeys := make([]byte, 8)
+	firstKeys[2] = 1
+	again.input <- report(0, firstKeys)
+	if e := next(t, events, func(e Event) bool { return e.Press && e.Device == "A" }); e.Key != 2 || e.Generation != 7 {
+		t.Fatal("first reconnected key press", e)
+	}
+	again.input <- report(3, []byte{0, 1, 0, 0, 0})
+	if e := next(t, events, func(e Event) bool { return e.Press && e.Device == "A" }); e.Encoder != 0 || e.Key != -1 || e.Generation != 7 {
+		t.Fatal("first reconnected dial press", e)
 	}
 
 	cancel()

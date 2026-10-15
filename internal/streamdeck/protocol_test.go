@@ -11,8 +11,8 @@ func TestKeyEdgesReconnectAndMalformedReports(t *testing.T) {
 	d := Decoder{Model: plusXL}
 	keys := make([]byte, Keys)
 	keys[2] = 1
-	if e, err := d.Decode(report(0, keys)); err != nil || len(e) != 0 {
-		t.Fatal("initial held key fired")
+	if e, err := d.Decode(report(0, keys)); err != nil || len(e) != 1 || e[0].Key != 2 || !e[0].Press {
+		t.Fatal("first key down was not delivered", e, err)
 	}
 	keys[2] = 0
 	d.Decode(report(0, keys))
@@ -27,6 +27,10 @@ func TestKeyEdgesReconnectAndMalformedReports(t *testing.T) {
 	}
 	if _, err = d.Decode([]byte{1, 0, 36, 0, 1}); err == nil {
 		t.Fatal("truncation accepted")
+	}
+	d = Decoder{Model: plusXL}
+	if e, err := d.Decode(report(0, keys)); err != nil || len(e) != 1 || !e[0].Press {
+		t.Fatal("reconnected decoder did not start released", e, err)
 	}
 }
 func TestSignedEncoderAndImageFrames(t *testing.T) {

@@ -32,13 +32,12 @@ type Event struct {
 	Error      string
 }
 
-// Decoder turns a model's input reports into edge events. Neo touch
+// Decoder starts buttons released and turns input reports into edges. Neo touch
 // buttons are keys after the display keys.
 type Decoder struct {
-	Model                    Model
-	keys                     [Keys]bool
-	encoders                 [Encoders]bool
-	keysReady, encodersReady bool
+	Model    Model
+	keys     [Keys]bool
+	encoders [Encoders]bool
 }
 
 func (d *Decoder) Decode(b []byte) ([]Event, error) {
@@ -62,17 +61,16 @@ func (d *Decoder) Decode(b []byte) ([]Event, error) {
 			if v > 1 {
 				return nil, fmt.Errorf("invalid key state")
 			}
-			if d.keysReady && v == 1 && !d.keys[n] {
+			if v == 1 && !d.keys[n] {
 				events = append(events, Event{Key: n, Encoder: -1, Press: true})
 			}
-			if d.keysReady && v == 0 && d.keys[n] {
+			if v == 0 && d.keys[n] {
 				events = append(events, Event{Key: n, Encoder: -1, Release: true})
 			}
 		}
 		for n, v := range states {
 			d.keys[n] = v == 1
 		}
-		d.keysReady = true
 	case 3:
 		count := d.Model.Dials
 		if count == 0 || length < count+1 {
@@ -85,14 +83,13 @@ func (d *Decoder) Decode(b []byte) ([]Event, error) {
 				if v > 1 {
 					return nil, fmt.Errorf("invalid encoder state")
 				}
-				if d.encodersReady && v == 1 && !d.encoders[n] {
+				if v == 1 && !d.encoders[n] {
 					events = append(events, Event{Key: -1, Encoder: n, Press: true})
 				}
 			}
 			for n, v := range states {
 				d.encoders[n] = v == 1
 			}
-			d.encodersReady = true
 		case 1:
 			for n, v := range states {
 				if v != 0 {
