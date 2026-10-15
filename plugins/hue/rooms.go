@@ -2,6 +2,7 @@ package hue
 
 import (
 	"encoding/json"
+	"errors"
 	"slices"
 	"strings"
 
@@ -27,18 +28,21 @@ func (w *worker) chosenGroups() []groupInfo {
 
 // enforceRoom moves the selection to the first chosen group when the selected
 // group is not chosen. It needs bridge data, so it only acts while connected.
-func (w *worker) enforceRoom() {
+func (w *worker) enforceRoom() error {
 	if !w.connected || len(w.settings.Rooms) == 0 || slices.Contains(w.settings.Rooms, w.settings.Group) {
-		return
+		return nil
 	}
 	if groups := w.chosenGroups(); len(groups) > 0 {
-		w.selectGroup(groups[0].ID)
+		return w.selectGroup(groups[0].ID)
 	}
+	return nil
 }
 
 // setRooms saves the comma-separated list of chosen groups. At least one
 // existing group must stay chosen.
-func (w *worker) setRooms(value string) {
+var errNoRooms = errors.New("Choose at least one room")
+
+func (w *worker) setRooms(value string) error {
 	known := map[string]bool{}
 	for _, g := range w.model.groups() {
 		known[g.ID] = true
@@ -51,17 +55,17 @@ func (w *worker) setRooms(value string) {
 		}
 	}
 	if len(rooms) == 0 {
-		w.roomsErr = "Choose at least one room"
-		return
+		w.roomsErr = errNoRooms.Error()
+		return errNoRooms
 	}
 	next := w.settings
 	next.Rooms = rooms
 	if err := w.save(next); err != nil {
 		w.roomsErr = err.Error()
-		return
+		return err
 	}
 	w.roomsErr = ""
-	w.enforceRoom()
+	return w.enforceRoom()
 }
 
 // roomChoice is one row of the Lights screen's Rooms card.

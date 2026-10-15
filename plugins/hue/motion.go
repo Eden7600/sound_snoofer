@@ -2,6 +2,7 @@ package hue
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"sound-snoofer/snoofer"
@@ -47,44 +48,72 @@ func (w *worker) roomSensors() []motionSensor {
 
 // toggleMotion disables every sensor in the room when all are on, and
 // otherwise enables every sensor.
-func (w *worker) toggleMotion(ctx context.Context) {
-	sensors := w.roomSensors()
-	if len(sensors) == 0 || w.motion.writing > 0 {
+type motionOperation struct {
+	command   command
+	remaining int
+	errs      []error
+}
+
+func (w *worker) toggleMotion(ctx context.Context, c command) {
+	finish := func(o snoofer.Outcome) {
+		if c.complete != nil {
+			c.complete(o)
+		}
+	}
+	if !w.connected || len(c.sensors) == 0 {
+		finish(rejected("Motion sensors unavailable"))
 		return
 	}
-	enable := motionValue(sensors) != "On"
-	w.motion.err = ""
-	if w.motion.want == nil {
-		w.motion.want = map[string]bool{}
-		w.motion.sent = map[string]time.Time{}
+	if w.motionAction != nil {
+		finish(rejected("Motion request already in progress"))
+		return
 	}
-	client, generation := w.client, w.generation
-	for _, sensor := range sensors {
-		if sensor.Known && sensor.Enabled == enable {
+	w.motion.err = ""
+	w.motion.want = map[string]bool{}
+	w.motion.sent = map[string]time.Time{}
+	op := &motionOperation{command: c}
+	w.motionAction = op
+	client := w.client
+	for _, sensor := range c.sensors {
+		current := w.model.resources[sensor.ID]
+		if current.Enabled != nil && *current.Enabled == c.want {
 			continue
 		}
 		id := sensor.ID
-		w.motion.want[id] = enable
+		w.motion.want[id] = c.want
 		w.motion.writing++
+		op.remaining++
 		w.spawn(ctx, func(ctx context.Context) func(context.Context) {
-			err := client.Put(ctx, "motion", id, map[string]bool{"enabled": enable})
-			return func(context.Context) { w.motionWritten(generation, id, err) }
+			err := client.Put(ctx, "motion", id, map[string]bool{"enabled": c.want})
+			return func(context.Context) {
+				if w.motionAction != op {
+					return
+				}
+				if c.target != w.capture(c.request.ID).target {
+					w.resetMotion()
+					return
+				}
+				op.remaining--
+				w.motion.writing--
+				if err != nil {
+					op.errs = append(op.errs, err)
+					delete(w.motion.want, id)
+					w.motion.err = err.Error()
+				} else {
+					w.motion.sent[id] = time.Now()
+					w.observeMotion()
+				}
+				if op.remaining == 0 {
+					w.motionAction = nil
+					finish(operationOutcome(errors.Join(op.errs...)))
+				}
+			}
 		})
 	}
-}
-
-func (w *worker) motionWritten(generation int, id string, err error) {
-	if generation != w.generation {
-		return
+	if op.remaining == 0 {
+		w.motionAction = nil
+		finish(processed("Sensors already set"))
 	}
-	w.motion.writing--
-	if err != nil {
-		delete(w.motion.want, id)
-		w.motion.err = err.Error()
-		return
-	}
-	w.motion.sent[id] = time.Now()
-	w.observeMotion()
 }
 
 // observeMotion clears requests the bridge has reported as applied.
@@ -114,6 +143,12 @@ func (w *worker) expireMotion(now time.Time) bool {
 
 // resetMotion drops requests from a previous connection.
 func (w *worker) resetMotion() {
+	if op := w.motionAction; op != nil {
+		w.motionAction = nil
+		if op.command.complete != nil {
+			op.command.complete(snoofer.Outcome{Status: snoofer.Unknown, Detail: "Motion target changed"})
+		}
+	}
 	w.motion = motionLink{}
 }
 

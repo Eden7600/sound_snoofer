@@ -49,11 +49,13 @@ func findGroupDial(id string) (groupDial, bool) {
 // fraction. Nothing is sent until a press, and every stage expires together
 // stageHold after the last turn of any light-group dial.
 type stage struct {
-	target float64
+	context actionTarget
+	target  float64
 }
 
 // lightWrite is one queued per-light write and how to confirm it.
 type lightWrite struct {
+	context     actionTarget
 	dial, light string
 	body        map[string]any
 	confirmed   func(roomLight) bool
@@ -86,46 +88,56 @@ func (w *worker) roomLightsNow() []roomLight {
 }
 
 // adjustGroupDial stages on a turn and applies or toggles on a press.
-func (w *worker) adjustGroupDial(d groupDial, r snoofer.Request) {
+func (w *worker) adjustGroupDial(d groupDial, r snoofer.Request, want bool) error {
 	if !w.connected || w.syncing() {
-		return
+		return errors.New("Light controls unavailable")
 	}
 	lights := d.lights(w.roomLightsNow())
 	if len(lights) == 0 {
-		return
+		return errors.New("Lights unavailable")
 	}
 	if w.stages == nil {
 		w.stages = map[string]stage{}
 	}
+	for id, s := range w.stages {
+		if s.context != w.capture(id).target {
+			delete(w.stages, id)
+		}
+	}
 	switch r.Operation {
 	case "adjust":
 		if r.Delta == 0 {
-			return
+			return errors.New("No light change")
 		}
 		base, ok := w.stageBase(d, lights)
 		if !ok {
-			return
+			return errors.New("Light state unknown")
 		}
-		next := w.stepTarget(d, base, r.Delta)
-		w.stages[d.id] = stage{target: next}
+		w.stages[d.id] = stage{target: w.stepTarget(d, base, r.Delta), context: w.capture(d.id).target}
 		w.stagedAt = time.Now()
 	case "press":
 		if len(w.stages) > 0 {
 			w.applyStages()
-			return
+			return nil
 		}
-		if !d.saturation {
-			w.enqueueLights(d.id, toggleWrites(d.id, lights))
+		if d.saturation {
+			return errors.New("No saturation change staged")
 		}
+		if !summarize(lights).Known {
+			return errors.New("Light state unknown")
+		}
+		w.enqueueLights(d.id, toggleWritesTo(d.id, lights, want))
+	default:
+		return errors.New("Light operation unavailable")
 	}
+	return nil
 }
 
-// applyStages applies every staged target at once and clears the stages.
 func (w *worker) applyStages() {
 	all := w.roomLightsNow()
 	for _, d := range groupDials {
 		s, ok := w.stages[d.id]
-		if !ok {
+		if !ok || s.context != w.capture(d.id).target {
 			continue
 		}
 		w.enqueueLights(d.id, w.applyWrites(d, d.lights(all), s.target))
@@ -202,7 +214,10 @@ func (w *worker) applyWrites(d groupDial, lights []roomLight, target float64) []
 
 // toggleWrites turns a group off when any light is lit, otherwise on.
 func toggleWrites(dial string, lights []roomLight) []lightWrite {
-	on := !summarize(lights).AnyOn
+	return toggleWritesTo(dial, lights, !summarize(lights).AnyOn)
+}
+
+func toggleWritesTo(dial string, lights []roomLight, on bool) []lightWrite {
 	var out []lightWrite
 	for _, l := range lights {
 		out = append(out, lightWrite{dial: dial, light: l.ID, body: map[string]any{"on": map[string]bool{"on": on}},
@@ -234,6 +249,9 @@ func (w *worker) enqueueLights(dial string, writes []lightWrite) {
 			kept = append(kept, item)
 		}
 	}
+	for i := range writes {
+		writes[i].context = w.capture(dial).target
+	}
 	q.queue = append(kept, writes...)
 	if q.gap == 0 {
 		q.gap = w.timing.lightGap
@@ -253,7 +271,9 @@ func (w *worker) tickLights(ctx context.Context, now time.Time) bool {
 	}
 	q := &w.lights
 	if w.connected && len(q.queue) > 0 && !q.inFlight && now.Sub(q.lastSend) >= q.gap {
-		w.sendLight(ctx, q.queue[0])
+		if q.queue[0].context == w.capture(q.queue[0].dial).target {
+			w.sendLight(ctx, q.queue[0])
+		}
 		q.queue = q.queue[1:]
 		changed = true
 	}
@@ -295,6 +315,9 @@ func (w *worker) lightWritten(generation int, epoch uint64, item lightWrite, err
 	q := &w.lights
 	q.inFlight = false
 	q.sending = ""
+	if item.context != (actionTarget{}) && item.context != w.capture(item.dial).target {
+		return
+	}
 	q.lastSend = time.Now()
 	switch {
 	case errors.Is(err, ErrThrottled):

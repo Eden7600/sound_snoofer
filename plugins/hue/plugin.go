@@ -108,9 +108,13 @@ type worker struct {
 	timing     timing
 	deviceType string
 
-	requests chan snoofer.Request
-	results  chan func(context.Context)
-	children sync.WaitGroup
+	settingsEpoch, roomEpoch, nextContext uint64
+	contexts                              map[string]actionContext
+	sceneAction                           *command
+	motionAction                          *motionOperation
+	requests                              chan command
+	results                               chan func(context.Context)
+	children                              sync.WaitGroup
 
 	generation    int // Invalidates results from superseded connections.
 	connecting    bool
@@ -167,7 +171,7 @@ func newWorker(s snoofer.Services, settings Settings, raw json.RawMessage, disco
 		discover:     discover,
 		timing:       t,
 		deviceType:   "snoofer#" + host,
-		requests:     make(chan snoofer.Request, 16),
+		requests:     make(chan command, 16),
 		results:      make(chan func(context.Context), 16),
 		model:        newModel(nil),
 		status:       "Disconnected",
@@ -187,7 +191,7 @@ func (w *worker) run(ctx context.Context) {
 	defer ticker.Stop()
 	w.connect(ctx)
 	w.syncConnect(ctx)
-	w.publish()
+	w.publish(ctx)
 	for {
 		select {
 		case <-ctx.Done():
@@ -201,7 +205,7 @@ func (w *worker) run(ctx context.Context) {
 				continue
 			}
 		}
-		w.publish()
+		w.publish(ctx)
 	}
 }
 
@@ -216,18 +220,6 @@ func (w *worker) spawn(ctx context.Context, work func(context.Context) func(cont
 		case <-ctx.Done():
 		}
 	}()
-}
-
-// enqueue is the control handler. It runs under the registry lock and must not block.
-func (w *worker) enqueue(ctx context.Context, r snoofer.Request) error {
-	select {
-	case w.requests <- r:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
-		return errors.New("hue queue full")
-	}
 }
 
 func (w *worker) closeClient() {
@@ -334,7 +326,7 @@ func (w *worker) disconnect(err error) {
 	w.closeClient()
 	w.group = groupRequest{}
 	w.resetGroupDials()
-	w.sceneWriting = ""
+	w.finishScene(snoofer.Outcome{Status: snoofer.Unknown, Detail: "Hue bridge disconnected"})
 	clear(w.scenePending)
 	w.resetMotion()
 	w.fail(err)
@@ -371,6 +363,7 @@ func (w *worker) fail(err error) {
 
 // reconnect discards the current connection and connects with current settings.
 func (w *worker) reconnect(ctx context.Context) {
+	w.finishScene(snoofer.Outcome{Status: snoofer.Unknown, Detail: "Hue bridge replaced"})
 	w.generation++
 	w.connected = false
 	w.connecting = false
@@ -440,70 +433,48 @@ func (w *worker) observe() {
 	w.enforceRoom()
 }
 
-func (w *worker) handle(ctx context.Context, r snoofer.Request) {
-	if !w.services.Live {
-		return
-	}
-	switch {
-	case r.ID == "hue.pair":
-		w.startPairing(ctx)
-	case r.ID == "hue.group":
-		w.selectGroup(r.Value) // The registry accepts only published options: chosen rooms.
-	case r.ID == "hue.rooms":
-		w.setRooms(r.Value)
-	case r.ID == "hue.brightness":
-		w.adjustBrightness(r)
-	case r.ID == "hue.motion":
-		w.toggleMotion(ctx)
-	case r.ID == "hue.sort":
-		w.setSceneSort(r.Value) // The registry accepts only published options.
-	case r.ID == "hue.decor" || r.ID == "hue.mixed" || r.ID == "hue.saturation":
-		if d, ok := findGroupDial(r.ID); ok {
-			w.adjustGroupDial(d, r)
-		}
-	case strings.HasPrefix(r.ID, "hue.sync"):
-		w.handleSync(r)
-	case strings.HasPrefix(r.ID, "hue.scene-"):
-		w.recallScene(ctx, w.sceneForControl(r.ID))
-	case strings.HasPrefix(r.ID, "hue.room-scene-"):
-		w.recallScene(ctx, w.sceneForSlot(r.ID))
-	}
-}
-
 func (w *worker) save(next Settings) error {
 	raw, err := json.Marshal(next)
 	if err != nil {
 		return err
+	}
+	if w.services.SaveSettings == nil {
+		return errors.New("Settings save unavailable")
 	}
 	if err := w.services.SaveSettings("hue", w.raw, raw); err != nil {
 		return err
 	}
 	w.raw = raw
 	w.settings = next
+	w.settingsEpoch++
 	return nil
 }
 
-func (w *worker) selectGroup(id string) {
+func (w *worker) selectGroup(id string) error {
 	next := w.settings
 	next.Group = id
 	if err := w.save(next); err != nil {
 		w.groupErr = err.Error()
-		return
+		return err
 	}
+	w.roomEpoch++
 	w.groupErr = ""
 	w.group = groupRequest{}
 	w.resetGroupDials()
+	w.resetMotion()
 	w.brightErr = ""
+	return nil
 }
 
-func (w *worker) setSceneSort(mode string) {
+func (w *worker) setSceneSort(mode string) error {
 	next := w.settings
 	next.SceneSort = mode
 	if err := w.save(next); err != nil {
 		w.sortErr = err.Error()
-		return
+		return err
 	}
 	w.sortErr = ""
+	return nil
 }
 
 // sceneSort is the chosen scene sort, defaulting to name.
@@ -529,33 +500,36 @@ func (w *worker) effectiveOn(view groupView) (on, known bool) {
 	return view.On, view.OnKnown
 }
 
-func (w *worker) adjustBrightness(r snoofer.Request) {
+func (w *worker) adjustBrightness(r snoofer.Request, want bool) error {
 	if r.Operation == "adjust" && w.syncing() {
-		w.sync.stepsDue += r.Delta * syncBrightnessStep // The sync stream owns the lights.
-		return
+		w.sync.stepsDue += r.Delta * syncBrightnessStep
+		return nil
+	}
+	if w.group.context != w.capture(r.ID).target {
+		w.group = groupRequest{}
 	}
 	view := w.view()
 	if view.GroupedLight == "" {
-		return
+		return errors.New("Room unavailable")
 	}
 	w.retarget(view.GroupedLight)
 	w.brightErr = ""
 	on, known := w.effectiveOn(view)
 	if !known {
 		w.brightErr = "Room state unknown"
-		return
+		return errors.New(w.brightErr)
 	}
+	w.group.context = w.capture(r.ID).target
 	if r.Operation == "press" {
-		next := !on
-		w.group.on = &next
+		w.group.on = &want
 		w.group.dirty = true
-		return
+		return nil
 	}
 	if r.Operation != "adjust" || r.Delta == 0 {
-		return
+		return errors.New("No brightness change")
 	}
 	if !on && r.Delta < 0 {
-		return
+		return errors.New("Room already off")
 	}
 	base := 0.0
 	switch {
@@ -565,7 +539,7 @@ func (w *worker) adjustBrightness(r snoofer.Request) {
 		base = view.Brightness
 	case on:
 		w.brightErr = "Brightness unknown"
-		return
+		return errors.New(w.brightErr)
 	}
 	if !on {
 		turnOn := true
@@ -574,22 +548,32 @@ func (w *worker) adjustBrightness(r snoofer.Request) {
 	next := nextBrightness(base, r.Delta)
 	w.group.brightness = &next
 	w.group.dirty = true
+	return nil
 }
 
 // sendGroup writes the latest targets; at most one write is outstanding.
 func (w *worker) sendGroup(ctx context.Context) {
+	if w.group.context != w.capture("hue.brightness").target {
+		w.group = groupRequest{}
+		return
+	}
 	client, target, generation := w.client, w.group.target, w.generation
+	identity := w.group.context
 	body := w.group.body()
 	w.group.dirty = false
 	w.group.inFlight = true
 	w.spawn(ctx, func(ctx context.Context) func(context.Context) {
 		err := client.Put(ctx, "grouped_light", target, body)
-		return func(context.Context) { w.groupWritten(generation, target, err) }
+		return func(context.Context) { w.groupWritten(generation, target, identity, err) }
 	})
 }
 
-func (w *worker) groupWritten(generation int, target string, err error) {
-	if generation != w.generation || target != w.group.target {
+func (w *worker) groupWritten(generation int, target string, identity actionTarget, err error) {
+	if generation != w.generation || target != w.group.target || identity != w.group.context {
+		return
+	}
+	if identity != w.capture("hue.brightness").target {
+		w.group = groupRequest{}
 		return
 	}
 	w.group.inFlight = false
@@ -651,69 +635,117 @@ func (w *worker) sceneForControl(controlID string) string {
 // recallScene recalls a scene. While Hue Sync is syncing, the stream would
 // override the scene, so sync is stopped first and the recall waits for the
 // app to confirm.
-func (w *worker) recallScene(ctx context.Context, sceneID string) {
-	if !w.connected || sceneID == "" || w.sceneWriting != "" || w.sync.sceneAfterStop != "" {
+func (w *worker) recallScene(ctx context.Context, c command) {
+	fail := func(detail string) {
+		if c.complete != nil {
+			c.complete(rejected(detail))
+		}
+	}
+	sceneID := c.target.scene
+	if !w.connected || sceneID == "" || !c.target.chosen {
+		fail("Scene unavailable")
 		return
 	}
+	if w.sceneAction != nil || w.sceneWriting != "" || w.sync.sceneAfterStop != "" {
+		fail("Scene recall already in progress")
+		return
+	}
+	w.sceneAction = &c
 	delete(w.sceneErr, sceneID)
 	delete(w.scenePending, sceneID)
 	if w.syncing() {
-		if w.syncSet(false) {
-			w.sync.sceneAfterStop = sceneID
-			w.sync.sceneStopAt = time.Now()
+		if err := w.syncSet(false); err != nil {
+			w.finishScene(syncOutcome(err))
+			return
 		}
+		w.sync.sceneAfterStop = sceneID
+		w.sync.sceneStopAt = time.Now()
 		return
 	}
 	w.sendRecall(ctx, sceneID)
 }
 
+func (w *worker) finishScene(outcome snoofer.Outcome) {
+	c := w.sceneAction
+	w.sceneAction = nil
+	w.sceneWriting = ""
+	w.sync.sceneAfterStop = ""
+	if c != nil && c.complete != nil {
+		c.complete(outcome)
+	}
+}
+
 func (w *worker) sendRecall(ctx context.Context, sceneID string) {
-	if !w.connected {
-		w.sceneErr[sceneID] = "Bridge disconnected"
+	c := w.sceneAction
+	if c == nil {
+		return
+	}
+	target := w.capture(c.request.ID).target
+	target.syncing = c.target.syncing // A confirmed Sync stop is expected preparation.
+	if c.target.syncing {
+		target.sync = w.sync.generation
+	}
+	if !w.connected || target != c.target {
+		outcome := rejected("Scene target changed; scene not recalled")
+		if c.target.syncing {
+			outcome.Status = snoofer.Failed
+		}
+		w.finishScene(outcome)
+		return
+	}
+	if ctx.Err() != nil {
+		w.finishScene(operationOutcome(ctx.Err()))
 		return
 	}
 	w.sceneWriting = sceneID
-	client, generation := w.client, w.generation
+	client := w.client
 	w.spawn(ctx, func(ctx context.Context) func(context.Context) {
 		err := client.Put(ctx, "scene", sceneID, map[string]any{"recall": map[string]string{"action": "active"}})
-		return func(context.Context) { w.sceneRecalled(generation, sceneID, err) }
+		return func(context.Context) {
+			if w.sceneAction != c {
+				return
+			}
+			current := w.capture(c.request.ID).target
+			current.syncing = c.target.syncing
+			if c.target.syncing {
+				current.sync = w.sync.generation
+			}
+			if current != c.target {
+				w.finishScene(operationOutcome(err))
+				return
+			}
+			w.finishScene(operationOutcome(err))
+			if err != nil {
+				w.sceneErr[sceneID] = err.Error()
+				return
+			}
+			if active, ok := w.model.resources[sceneID]; ok && active.Status != nil && active.Status.Active != "inactive" {
+				return
+			}
+			w.scenePending[sceneID] = time.Now()
+		}
 	})
 }
 
-func (w *worker) sceneRecalled(generation int, sceneID string, err error) {
-	if generation != w.generation {
-		return
-	}
-	w.sceneWriting = ""
-	if err != nil {
-		w.sceneErr[sceneID] = err.Error()
-		return
-	}
-	if active, ok := w.model.resources[sceneID]; ok && active.Status != nil && active.Status.Active != "inactive" {
-		return // Already reported active; the recall needs no further confirmation.
-	}
-	w.scenePending[sceneID] = time.Now()
-}
-
-func (w *worker) startPairing(ctx context.Context) {
+func (w *worker) startPairing(ctx context.Context, c command) {
 	if w.pairing {
 		return
 	}
 	w.pairing = true
 	w.pairValue = "Press button"
 	w.pairErr = ""
-	address, deviceType, discover, window := w.settings.Address, w.deviceType, w.discover, w.timing.pairWindow
+	address, deviceType, discover, window := c.target.endpoint, w.deviceType, w.discover, w.timing.pairWindow
 	w.spawn(ctx, func(ctx context.Context) func(context.Context) {
-		target, key, err := pair(ctx, address, deviceType, discover, window)
-		return func(ctx context.Context) { w.paired(ctx, target, key, err) }
+		target, key, err := pair(ctx, address, c.target.bridgeID, deviceType, discover, window)
+		return func(ctx context.Context) { w.paired(ctx, c, target, key, err) }
 	})
 }
 
 // pair resolves any single bridge and polls for a key while the link button window is open.
-func pair(ctx context.Context, address, deviceType string, discover discoverFunc, window time.Duration) (bridgeTarget, string, error) {
+func pair(ctx context.Context, address, bridgeID, deviceType string, discover discoverFunc, window time.Duration) (bridgeTarget, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, window)
 	defer cancel()
-	target, err := resolve(ctx, address, "", discover)
+	target, err := resolve(ctx, address, bridgeID, discover)
 	if err != nil {
 		return target, "", err
 	}
@@ -726,7 +758,7 @@ func pair(ctx context.Context, address, deviceType string, discover discoverFunc
 		}
 		// A request cut off by the pairing window is a timeout, not a bridge error.
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			return target, "", fmt.Errorf("bridge button not pressed within %s", window)
+			return target, "", fmt.Errorf("pairing timed out after %s: %w", window, ctx.Err())
 		}
 		if !errors.Is(err, ErrLinkButton) {
 			return target, "", err
@@ -734,7 +766,7 @@ func pair(ctx context.Context, address, deviceType string, discover discoverFunc
 		select {
 		case <-ctx.Done():
 			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-				return target, "", fmt.Errorf("bridge button not pressed within %s", window)
+				return target, "", fmt.Errorf("pairing timed out after %s: %w", window, ctx.Err())
 			}
 			return target, "", ctx.Err()
 		case <-ticker.C:
@@ -742,11 +774,26 @@ func pair(ctx context.Context, address, deviceType string, discover discoverFunc
 	}
 }
 
-func (w *worker) paired(ctx context.Context, target bridgeTarget, key string, err error) {
+func (w *worker) paired(ctx context.Context, c command, target bridgeTarget, key string, err error) {
+	finish := func(o snoofer.Outcome) {
+		if c.complete != nil {
+			c.complete(o)
+		}
+	}
+	if ctx.Err() != nil {
+		finish(operationOutcome(ctx.Err()))
+		return
+	}
+	if c.target.settings != w.settingsEpoch {
+		w.pairing = false
+		finish(snoofer.Outcome{Status: snoofer.Failed, Detail: "Hue settings changed; pairing was not saved"})
+		return
+	}
 	w.pairing = false
 	w.pairValue = ""
 	if err != nil {
 		w.pairErr = err.Error()
+		finish(operationOutcome(err))
 		return
 	}
 	next := w.settings
@@ -758,14 +805,11 @@ func (w *worker) paired(ctx context.Context, target bridgeTarget, key string, er
 	next.CertificateSHA256 = target.Fingerprint
 	if err := w.save(next); err != nil {
 		w.pairErr = err.Error()
+		finish(operationOutcome(err))
 		return
 	}
+	finish(processed("Paired and saved"))
 	w.reconnect(ctx)
-}
-
-func (w *worker) publish() {
-	// Publish fails only while the host is stopping, which also cancels this worker.
-	_ = w.services.Controls.Publish("hue", w.controls(), w.enqueue)
 }
 
 func (w *worker) controls() []snoofer.Control {

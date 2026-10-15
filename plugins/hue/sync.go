@@ -3,8 +3,10 @@ package hue
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"time"
 
@@ -182,7 +184,7 @@ func (w *worker) syncLost(err error) {
 	w.sync.stepsDue = 0
 	if w.sync.sceneAfterStop != "" {
 		w.sceneErr[w.sync.sceneAfterStop] = errSceneSyncNotEnded
-		w.sync.sceneAfterStop = ""
+		w.finishScene(snoofer.Outcome{Status: snoofer.Unknown, Detail: errSceneSyncNotEnded})
 	}
 	w.sync.diagnostic = err.Error()
 	w.sync.link.Fail(err.Error(), time.Now())
@@ -208,8 +210,12 @@ func (w *worker) syncObserve(ctx context.Context, update syncState) {
 	}
 	if w.sync.sceneAfterStop != "" && !w.syncing() {
 		scene := w.sync.sceneAfterStop
-		w.sync.sceneAfterStop = ""
-		w.sendRecall(ctx, scene)
+		if !w.syncReady() {
+			w.finishScene(snoofer.Outcome{Status: snoofer.Failed, Detail: errSceneSyncNotEnded})
+		} else {
+			w.sync.sceneAfterStop = ""
+			w.sendRecall(ctx, scene)
+		}
 	}
 }
 
@@ -225,7 +231,9 @@ func (w *worker) syncTick(ctx context.Context, now time.Time) bool {
 		step := w.sync.stepsDue
 		w.sync.stepsDue = 0
 		w.sync.stepSent = now
-		w.syncSend("inc_bri", map[string]any{"step": step})
+		if w.syncing() {
+			w.syncSend("inc_bri", map[string]any{"step": step})
+		}
 		changed = true
 	}
 	if w.sync.wanted != nil && now.Sub(w.sync.sent) > w.timing.confirm {
@@ -235,54 +243,70 @@ func (w *worker) syncTick(ctx context.Context, now time.Time) bool {
 	}
 	if w.sync.sceneAfterStop != "" && now.Sub(w.sync.sceneStopAt) > w.timing.confirm {
 		w.sceneErr[w.sync.sceneAfterStop] = errSceneSyncNotEnded
-		w.sync.sceneAfterStop = ""
+		w.finishScene(snoofer.Outcome{Status: snoofer.Unknown, Detail: errSceneSyncNotEnded})
 		changed = true
 	}
 	return changed
 }
 
-func (w *worker) handleSync(r snoofer.Request) {
+var errSyncBusy = errors.New("Hue Sync request already in progress")
+var errSyncUnavailable = errors.New("Hue Sync unavailable")
+
+func syncOutcome(err error) snoofer.Outcome {
+	if errors.Is(err, errSyncBusy) || errors.Is(err, errSyncUnavailable) {
+		return rejected(err.Error())
+	}
+	if err != nil {
+		return snoofer.Outcome{Status: snoofer.Unknown, Detail: err.Error()}
+	}
+	return submitted("Hue Sync command sent")
+}
+
+func (w *worker) handleSync(r snoofer.Request, want bool) snoofer.Outcome {
 	if !w.syncReady() {
-		return
+		return rejected(errSyncUnavailable.Error())
 	}
 	switch r.ID {
 	case "hue.sync":
-		w.syncToggle()
+		return syncOutcome(w.syncSet(want))
 	case "hue.sync-mode":
-		if w.syncing() {
-			w.syncSend("set_app_mode", map[string]any{"mode": r.Value})
+		if !w.syncing() || !slices.Contains(syncModes, r.Value) {
+			return rejected("Hue Sync mode unavailable")
 		}
+		return syncOutcome(w.syncSend("set_app_mode", map[string]any{"mode": r.Value}))
 	case "hue.sync-intensity":
-		if w.syncing() {
-			w.syncSend("set_intensity", map[string]any{"intensity": r.Value})
+		if !w.syncing() || !slices.Contains(syncIntensities, r.Value) {
+			return rejected("Hue Sync intensity unavailable")
 		}
+		return syncOutcome(w.syncSend("set_intensity", map[string]any{"intensity": r.Value}))
 	}
+	return rejected("Hue Sync control unavailable")
 }
 
-// syncSet requests a sync state; it reports whether a command was sent.
-func (w *worker) syncSet(want bool) bool {
+func (w *worker) syncSet(want bool) error {
 	if w.sync.wanted != nil {
-		return false // Awaiting the previous command's outcome.
+		return errSyncBusy
+	}
+	if !w.syncReady() {
+		return errSyncUnavailable
 	}
 	command := "stop_sync"
 	if want {
-		command = "start_sync" // Without data the app keeps its current mode and intensity.
+		command = "start_sync"
 	}
 	w.sync.err = ""
-	if !w.syncSend(command, nil) {
-		return false
+	if err := w.syncSend(command, nil); err != nil {
+		return err
 	}
 	w.sync.wanted = &want
 	w.sync.sent = time.Now()
-	return true
+	return nil
 }
 
-func (w *worker) syncToggle() { w.syncSet(!w.syncing()) }
-
 // syncSend writes one command. A write failure drops the connection without retrying.
-func (w *worker) syncSend(command string, data map[string]any) bool {
+func (w *worker) syncSend(command string, data map[string]any) error {
 	if w.sync.conn == nil {
-		return false
+		return errSyncUnavailable
 	}
 	if data == nil {
 		data = map[string]any{}
@@ -290,18 +314,18 @@ func (w *worker) syncSend(command string, data map[string]any) bool {
 	payload, err := json.Marshal(map[string]any{"command": command, "data": data})
 	if err != nil {
 		w.sync.err = err.Error()
-		return false
+		return err
 	}
 	if err := w.sync.conn.SetWriteDeadline(time.Now().Add(w.timing.syncWrite)); err != nil {
 		w.syncLost(err)
-		return false
+		return err
 	}
 	if err := w.sync.conn.WriteMessage(websocket.TextMessage, payload); err != nil {
 		w.syncLost(fmt.Errorf("Hue Sync write failed: %w", err))
-		return false
+		return err
 	}
 	w.sync.link.Activity(time.Now())
-	return true
+	return nil
 }
 
 func (w *worker) syncBrightnessLabel() string {

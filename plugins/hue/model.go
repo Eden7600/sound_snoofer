@@ -216,33 +216,48 @@ func (r resource) name() string {
 
 // model is the worker-owned view of bridge resources.
 type model struct {
-	resources map[string]resource
+	resources    map[string]resource
+	lifetimes    map[string]uint64
+	nextLifetime uint64
 }
 
 func newModel(items []resource) model {
-	m := model{resources: make(map[string]resource, len(items))}
+	m := model{resources: make(map[string]resource, len(items)), lifetimes: map[string]uint64{}}
 	for _, item := range items {
 		m.resources[item.ID] = item
+		m.nextLifetime++
+		m.lifetimes[item.ID] = m.nextLifetime
 	}
 	return m
 }
 
 // apply merges event-stream changes. Updates for unknown resources are ignored;
 // the next full reload restores them.
-func (m model) apply(events []event) {
+func (m *model) apply(events []event) {
+	if m.lifetimes == nil {
+		m.lifetimes = map[string]uint64{}
+	}
 	for _, e := range events {
 		for _, item := range e.Data {
 			switch e.Type {
 			case "add":
 				m.resources[item.ID] = item
+				m.nextLifetime++
+				m.lifetimes[item.ID] = m.nextLifetime
 			case "delete":
 				delete(m.resources, item.ID)
+				delete(m.lifetimes, item.ID)
 			case "update":
 				current, ok := m.resources[item.ID]
 				if !ok {
 					continue
 				}
+				before := resourceTarget(current)
 				current.merge(item)
+				if resourceTarget(current) != before {
+					m.nextLifetime++
+					m.lifetimes[item.ID] = m.nextLifetime
+				}
 				m.resources[item.ID] = current
 			}
 		}
@@ -446,4 +461,15 @@ func shortID(id string) string {
 		out = out[:8]
 	}
 	return out
+}
+
+// Resource membership, capabilities and scene contents change command identity;
+// ordinary observations (on, brightness, enabled and active) do not.
+func resourceTarget(r resource) string {
+	function := ""
+	if r.Metadata != nil {
+		function = r.Metadata.Function
+	}
+	data, _ := json.Marshal([]any{r.Type, r.Children, r.Services, r.Group, r.Owner, function, r.Color != nil, r.Actions, r.Palette})
+	return string(data)
 }

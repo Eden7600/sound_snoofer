@@ -56,6 +56,7 @@ func percentLabel(value float64) string { return fmt.Sprintf("%.0f%%", math.Roun
 // groupRequest holds requested grouped_light targets that the bridge has not
 // yet confirmed. Only the latest values are kept, so writes never back up.
 type groupRequest struct {
+	context    actionTarget
 	target     string // grouped_light ID the targets belong to.
 	on         *bool
 	brightness *float64

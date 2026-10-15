@@ -138,6 +138,7 @@ func TestGroupWritesPacedAndConfirmed(t *testing.T) {
 	// A throttled write is retried after a longer gap.
 	bridge.set(func(b *fakeBridge) { b.throttle = 1 })
 	h.mustDispatch("hue.decor", "adjust", 1, "")
+	h.waitControl("hue.decor", func(c snoofer.Control) bool { return c.Subdued && strings.HasPrefix(c.Value, "→ ") })
 	h.mustDispatch("hue.decor", "press", 0, "")
 	h.value("hue.decor", "65%")
 	if puts := bridge.putLog(); len(puts) != 2 {
@@ -146,6 +147,7 @@ func TestGroupWritesPacedAndConfirmed(t *testing.T) {
 	// An unconfirmed light is reported, not retried.
 	bridge.set(func(b *fakeBridge) { b.ignorePuts = true })
 	h.mustDispatch("hue.decor", "adjust", 1, "")
+	h.waitControl("hue.decor", func(c snoofer.Control) bool { return c.Subdued && strings.HasPrefix(c.Value, "→ ") })
 	h.mustDispatch("hue.decor", "press", 0, "")
 	// Wait while the write awaits confirmation, then the report.
 	h.waitControl("hue.decor", func(c snoofer.Control) bool { return c.Status == "Pending" && c.Subdued })

@@ -215,7 +215,7 @@ func TestPairingTimeoutKeepsSettings(t *testing.T) {
 	h := startHarness(t, bridge, Settings{}, true)
 	h.value("hue.status", "Not paired")
 	h.mustDispatch("hue.pair", "press", 0, "")
-	c := h.waitControl("hue.pair", func(c snoofer.Control) bool { return strings.Contains(c.Status, "not pressed") })
+	c := h.waitControl("hue.pair", func(c snoofer.Control) bool { return strings.Contains(c.Status, "timed out") })
 	if c.Value != "" {
 		t.Fatalf("pair %+v", c)
 	}
