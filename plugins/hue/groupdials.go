@@ -68,6 +68,7 @@ type pendingLight struct {
 
 // lightQueue paces per-light writes: one in flight, at least gap apart.
 type lightQueue struct {
+	epoch    uint64
 	queue    []lightWrite
 	inFlight bool
 	sending  string // Dial of the write in flight.
@@ -278,17 +279,17 @@ func (w *worker) tickLights(ctx context.Context, now time.Time) bool {
 }
 
 func (w *worker) sendLight(ctx context.Context, item lightWrite) {
-	client, generation := w.client, w.generation
+	client, generation, epoch := w.client, w.generation, w.lights.epoch
 	w.lights.inFlight = true
 	w.lights.sending = item.dial
 	w.spawn(ctx, func(ctx context.Context) func(context.Context) {
 		err := client.Put(ctx, "light", item.light, item.body)
-		return func(context.Context) { w.lightWritten(generation, item, err) }
+		return func(context.Context) { w.lightWritten(generation, epoch, item, err) }
 	})
 }
 
-func (w *worker) lightWritten(generation int, item lightWrite, err error) {
-	if generation != w.generation {
+func (w *worker) lightWritten(generation int, epoch uint64, item lightWrite, err error) {
+	if generation != w.generation || epoch != w.lights.epoch {
 		return
 	}
 	q := &w.lights
@@ -347,7 +348,7 @@ func (q *lightQueue) applying(dial string) bool {
 // resetGroupDials drops stages and queued writes, as on disconnect.
 func (w *worker) resetGroupDials() {
 	w.stages = nil
-	w.lights = lightQueue{}
+	w.lights = lightQueue{epoch: w.lights.epoch + 1}
 }
 
 // groupDialControls publishes the light-group dials for the selected room.
