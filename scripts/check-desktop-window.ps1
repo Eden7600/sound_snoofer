@@ -36,8 +36,8 @@ function Find-Control([string]$Name) {
 $lights = Find-Control 'Lights'
 $invoke = $lights.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
 $invoke.Invoke()
-$sync = Find-Control 'Start sync'
+$sync = Find-Control 'Start Sync'
 $toggle = $sync.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
 $toggle.Toggle()
-Write-Output 'PASS: native window and accessible Lights / Start sync controls'
+Write-Output 'PASS: native window and accessible Lights / Start Sync controls'
 

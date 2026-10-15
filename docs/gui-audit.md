@@ -7,6 +7,22 @@ specification: each fix below goes through its own OpenSpec change before implem
 **Baseline:** `node scripts/check-gui.cjs` passes in about 27 s, and `node --test app/web/model.test.mjs` passes.
 Screenshots were reviewed at 1280×820 and 800×600 using the browser fixture.
 
+## Current status
+
+The harness and TypeScript migration are complete. The GUI now lives in `app/web/src`, with
+95 browser cases passing in 13.6 s, strict type/lint/format gates, a canonical bundled build and
+native packaged-screen inspection. The references below identify the dated audit baseline;
+use the corresponding typed screen/shared module for current implementation.
+
+The next order is content corrections → dropdown commitment → remaining reliability/layout
+changes, alongside repository hardening. The selected TypeScript-first ordering supersedes the
+original numbered proposal order below. Page OptionLabels already render Home/custom names;
+the old raw-page example came from the hand-written fixture. Current gain labels are Playback/Mic.
+The narrow-deck harness tracks only Dial 5 overlapping Discard and Save Layout at 800×600.
+
+Native WebView2 confirmed item 2 during migration acceptance: Down on a closed Processing select
+immediately sent a set action. This was an isolated fixture, with no live audio writes.
+
 ## Reliability
 
 1. **Clicks are silently dropped.** `send` returns early while any action is pending
