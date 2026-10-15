@@ -100,6 +100,7 @@ function layoutKey() {
           c<DeckView>("streamdeck.preview")?.ViewData?.Regions,
           c<DeckView>("streamdeck.preview")?.ViewData?.Collections,
           c("streamdeck.deck")?.Options,
+          c("streamdeck.deck")?.Value,
         ]
       : null,
   ]);

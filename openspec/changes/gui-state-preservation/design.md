@@ -120,5 +120,7 @@ First cover generic presentation state and stable focus, then explicit form draf
 invalidation, then the dialog conversion. Keep each checkpoint independently reviewable. Add
 regressions that fail before each implementation, inspect both window sizes for the dialog, and
 run the existing dropdown, deck, Routing, keyboard and accessibility tests after relevant changes.
-Full frontend/model/OpenSpec checks are source-only. Canonical build and WebView2 acceptance remain
-deferred while the user prohibits interacting with the running host; do not mark them complete.
+Full frontend/model/OpenSpec checks run against isolated source fixtures. The running-host
+restriction has been lifted; coordinate canonical build, restart and packaged WebView2 acceptance
+after the source checkpoints are coherent. Restore the prior launch and keep hardware acceptance
+separate; do not mark native acceptance complete from isolated browser results.

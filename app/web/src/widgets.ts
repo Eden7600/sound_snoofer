@@ -2,11 +2,15 @@ import type { Control, WidgetInput } from "./types.ts";
 import type { MeterState } from "./model.ts";
 import { display, tone, meterValue, meterBallistics, gainPosition } from "./model.ts";
 import { el, button, iconButton, withIcon, ui } from "./dom.ts";
-import { appState, c, updaters, widgets } from "./state.ts";
+import { appState, c, updaters, widgets, update } from "./state.ts";
 import { request, press } from "./host.ts";
 import { commitSelect } from "./select.ts";
 import { viewKey } from "./view-state.ts";
+import { registerDraft } from "./draft.ts";
 function widgetKey(id: string) {
+  if (id === "streamdeck.name") return [id, c("streamdeck.profile")?.Value || "", c("streamdeck.page")?.Value || ""];
+  if (id === "streamdeck.add") return [id, c("streamdeck.profile")?.Value || ""];
+  if (id === "streamdeck.deck-name") return [id, c("streamdeck.deck")?.Value || ""];
   return id.startsWith("streamdeck.")
     ? [id, ...["profile", "page", "deck", "slot", "shared"].map((part) => c("streamdeck." + part)?.Value || "")]
     : [id];
@@ -49,6 +53,7 @@ export function control(id: string, parent: HTMLElement, label?: string, { layou
   const wide = layout === "stack";
   let input: WidgetInput;
   let editRevision: number | undefined;
+  let draft: ReturnType<typeof registerDraft> | undefined;
   if (initial.Kind === "toggle") {
     input = button("", () => request(c(id), "press"), ui.toggle);
     input.setAttribute("aria-label", label || initial.Label);
@@ -77,16 +82,32 @@ export function control(id: string, parent: HTMLElement, label?: string, { layou
     input = field;
     input.id = "field-" + id;
     title.htmlFor = input.id;
-    input.onfocus = () => {
-      editRevision = c(id)?.Revision;
-    };
+    draft = registerDraft(field, {
+      observed: () => c(id)?.Value || "",
+      revision: () => c(id)?.Revision,
+      refresh: update,
+      ...(id === "streamdeck.add"
+        ? {
+            submissionContext: () => JSON.stringify(c("streamdeck.page")?.Options || []),
+            completed: (name: string, context: string | undefined) => {
+              if (!context) return false;
+              const before = JSON.parse(context) as string[];
+              const pages = c("streamdeck.page");
+              return !!pages?.Options?.some(
+                (page) => !before.includes(page) && pages.OptionLabels?.[page] === name.trim(),
+              );
+            },
+          }
+        : {}),
+    });
     input.onkeydown = (e) => {
       if (e.key === "Enter") {
-        request(c(id), "set", "value" in input ? input.value : "", 0, editRevision);
+        draft?.submit();
+        request(c(id), "set", "value" in input ? input.value : "", 0, draft?.revision);
         input.blur();
       }
       if (e.key === "Escape") {
-        if ("value" in input) input.value = c(id)?.Value || "";
+        draft?.cancel();
         input.blur();
       }
     };
@@ -122,7 +143,8 @@ export function control(id: string, parent: HTMLElement, label?: string, { layou
       apply = button(
         id === "streamdeck.add" ? "Add" : "Apply",
         () => {
-          request(c(id), "set", "value" in input ? input.value : "", 0, editRevision ?? c(id)?.Revision);
+          draft?.submit();
+          request(c(id), "set", "value" in input ? input.value : "", 0, draft?.revision);
           input.blur();
         },
         ui.small,

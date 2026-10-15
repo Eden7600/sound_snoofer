@@ -5,10 +5,11 @@ import { meterBar, setArt } from "../widgets.ts";
 import { display, tone, numericValue, relativeTime } from "../model.ts";
 import type { AppAudioView, AppAudioApp } from "./appaudio-types.ts";
 import { viewKey } from "../view-state.ts";
+import { registerDraft } from "../draft.ts";
 
 // appEdit sends a pick or rule change for an app.
-function appEdit(op: string, app: string, value = "") {
-  request(c("appaudio.edit"), "set", JSON.stringify({ op, app, value }));
+function appEdit(op: string, app: string, value = "", revision?: number) {
+  request(c("appaudio.edit"), "set", JSON.stringify({ op, app, value }), 0, revision);
 }
 function appStrip(id: string, parent: HTMLElement) {
   const initial = c(id);
@@ -60,11 +61,12 @@ function appStrip(id: string, parent: HTMLElement) {
   rename.type = "text";
   rename.placeholder = "New name";
   rename.setAttribute("aria-label", "Rename " + initial.Label);
+  const renameDraft = registerDraft(rename, { revision: () => c("appaudio.edit")?.Revision, refresh: update });
   const renameRow = el("div", "mt-2 flex gap-2"),
     renameApply = button(
       "Rename",
       () => {
-        if (rename.value.trim()) appEdit("rename", initial.Label, rename.value.trim());
+        if (rename.value.trim()) appEdit("rename", initial.Label, rename.value.trim(), renameDraft.revision);
       },
       ui.small,
     );
@@ -73,11 +75,12 @@ function appStrip(id: string, parent: HTMLElement) {
   viewKey(renameApply, id, initial.Label, "rename-apply");
   const combine = el("select", "min-w-0 flex-1");
   combine.setAttribute("aria-label", "Combine " + initial.Label + " into");
+  const combineDraft = registerDraft(combine, { revision: () => c("appaudio.edit")?.Revision, refresh: update });
   const combineRow = el("div", "mt-2 flex gap-2"),
     combineApply = button(
       "Combine",
       () => {
-        if (combine.value) appEdit("combine", initial.Label, combine.value);
+        if (combine.value) appEdit("combine", initial.Label, combine.value, combineDraft.revision);
       },
       ui.small,
     );
@@ -119,6 +122,8 @@ function appStrip(id: string, parent: HTMLElement) {
   }
   node.append(head, value, status, slider, ...meter.nodes, mute, more);
   updaters.push(() => {
+    renameDraft.sync();
+    combineDraft.sync();
     const item = c(id);
     if (!item) return;
     const a = info(),
@@ -142,6 +147,8 @@ function appStrip(id: string, parent: HTMLElement) {
     for (const b of [pin, earlier, later, renameApply, combineApply, hide, rename, combine, ...separates])
       b.disabled = !!appState.pending || !c("appaudio.edit")?.Available;
     for (const b of [renameApply, combineApply, hide, rename, combine]) b.disabled ||= closed;
+    renameApply.disabled ||= !rename.value.trim();
+    combineApply.disabled ||= !combine.value;
     details.replaceChildren();
     for (const [label, text] of [
       ["Programs", (a.Executables || []).join("\n")],
@@ -268,13 +275,18 @@ function excludedCard(view: Partial<AppAudioView>) {
   input.type = "text";
   input.placeholder = "game.exe";
   input.setAttribute("aria-label", "Program to Exclude");
+  const draft = registerDraft(input, {
+    revision: () => c("appaudio.edit")?.Revision,
+    refresh: update,
+    completed: (value) => !!c<AppAudioView>("appaudio.status")?.ViewData?.Exclude?.includes(value.trim()),
+  });
   const apply = button(
     "Exclude",
     () => {
       const v = input.value.trim();
       if (v) {
-        appEdit("exclude", v, v);
-        input.value = "";
+        draft.submit();
+        appEdit("exclude", v, v, draft.revision);
       }
     },
     ui.small,
@@ -288,6 +300,7 @@ function excludedCard(view: Partial<AppAudioView>) {
   add.append(input, apply);
   card.append(add);
   updaters.push(() => {
+    draft.sync();
     for (const b of buttons) b.disabled = !editable();
     apply.disabled = !editable() || !input.value.trim();
   });

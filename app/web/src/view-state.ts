@@ -1,3 +1,4 @@
+import { captureDraft, restoreDraft } from "./draft.ts";
 // Only explicitly keyed presentation state survives an automatic screen rebuild.
 const searches = new WeakMap<HTMLInputElement, () => void>();
 export function viewKey<T extends HTMLElement>(node: T, ...parts: Array<string | number>): T {
@@ -31,6 +32,7 @@ export function captureView(root: HTMLElement) {
         {
           open: node instanceof HTMLDetailsElement ? node.open : undefined,
           query: node instanceof HTMLInputElement && searches.has(node) ? node.value : undefined,
+          draft: captureDraft(node),
           left: node.scrollLeft,
           top: node.scrollTop,
         },
@@ -48,6 +50,7 @@ export function restoreView(root: HTMLElement, saved: ReturnType<typeof captureV
       node.value = state.query;
       searches.get(node)?.();
     }
+    restoreDraft(node, state.draft);
   }
   // A modal opened by update owns focus; it lives outside the rebuilt content.
   if (saved.focusInside && !document.querySelector("dialog[open]")) {

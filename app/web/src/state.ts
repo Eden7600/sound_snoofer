@@ -1,6 +1,7 @@
 import type { Control, ViewState, Pending, Widget } from "./types.ts";
 import { $, button, ui, badge, tc } from "./dom.ts";
 import { display, tone } from "./model.ts";
+import { syncDraft } from "./draft.ts";
 export const root = $("#content");
 export const widgets: Widget[] = [];
 export const updaters: Array<() => void> = [];
@@ -75,7 +76,7 @@ export function update() {
       input.setAttribute("aria-pressed", String(item.Value === "On"));
       input.dataset.tone = tone(item);
     } else if (item.Kind === "selection" || item.Kind === "text") {
-      if (document.activeElement !== input && "value" in input) input.value = item.Value || "";
+      if (!syncDraft(input) && document.activeElement !== input && "value" in input) input.value = item.Value || "";
     } else if (item.Kind === "status") {
       input.textContent = display(item);
       input.className = "max-w-[65%] text-right break-words " + tc(tone(item));
