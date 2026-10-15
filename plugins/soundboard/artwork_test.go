@@ -105,3 +105,41 @@ func TestMatchingArtworkRefreshAndFallback(t *testing.T) {
 		t.Fatal("deleted artwork retained")
 	}
 }
+
+func TestArtworkInputLimits(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "clip.png")
+	for _, tc := range []struct {
+		name          string
+		width, height int
+		invalid       bool
+	}{
+		{"maximum width", 4096, 1, false},
+		{"maximum height", 1, 4096, false},
+		{"excessive width", 4097, 1, true},
+		{"excessive height", 1, 4097, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var encoded bytes.Buffer
+			if err := png.Encode(&encoded, image.NewNRGBA(image.Rect(0, 0, tc.width, tc.height))); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, encoded.Bytes(), 0600); err != nil {
+				t.Fatal(err)
+			}
+			art, animation, err := loadArtwork(path)
+			if tc.invalid {
+				if err == nil || art != "" || len(animation) != 0 {
+					t.Fatalf("invalid artwork accepted: %v", err)
+				}
+			} else if err != nil || art == "" || len(animation) != 0 {
+				t.Fatalf("valid artwork rejected: %v", err)
+			}
+		})
+	}
+	if err := os.WriteFile(path, make([]byte, 8*1024*1024+1), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if art, frames, err := loadArtwork(path); art != "" || len(frames) != 0 || err == nil || err.Error() != "image exceeds 8 MiB" {
+		t.Fatalf("oversized artwork = %q, %d frames, %v", art, len(frames), err)
+	}
+}
