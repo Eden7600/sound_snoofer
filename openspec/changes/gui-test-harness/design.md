@@ -45,7 +45,7 @@ For every screen at both viewports:
 - every visible button, input and select lies inside the viewport width and is not clipped by an `overflow: hidden` ancestor;
 - no two visible interactive elements overlap.
 
-Each test attaches a full-page screenshot on failure, and the layout spec always attaches one per screen for review. There are no committed baselines: fonts and rendering vary between machines, and geometry assertions catch the defects baselines were meant to catch.
+Known layout defects use exact screen, viewport and affected-control expectations, each owned by a follow-up change. The suite rejects both new defects and obsolete expectations. This keeps the test-only migration honest about existing defects, including the narrow Stream Deck save-bar overlap owned by gui-layout-polish. Each test attaches a full-page screenshot on failure, and the layout spec always attaches one per screen for review. There are no committed baselines: fonts and rendering vary between machines, and geometry assertions catch the defects baselines were meant to catch.
 
 ## Browser and budget
 - `channel: "chrome"`. `globalSetup` checks that the installed Chrome can launch. If it cannot, it fails with "Install Google Chrome; the GUI suite never downloads a browser". `@playwright/test` has no install-time download.

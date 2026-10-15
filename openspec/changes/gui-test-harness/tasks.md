@@ -9,5 +9,5 @@
 - [x] 7. `test(deck)`: golden GUI fixture from the Stream Deck editor, with drift test; specs use it.
 - [x] 8. `test(gui)`: keyboard journeys and cross-screen journeys.
 - [x] 9. `test(gui)`: axe-core scans with recorded known violations.
-- [ ] 10. `test(gui)`: layout geometry at both viewports.
+- [x] 10. `test(gui)`: layout geometry at both viewports.
 - [ ] 11. Validate: full suite within the 60 s budget (record the time), each spec file alone, `go test ./...`, `go vet ./...`, `scripts/check.ps1`, OpenSpec strict validation.

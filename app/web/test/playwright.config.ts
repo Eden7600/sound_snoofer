@@ -15,6 +15,6 @@ export default defineConfig({
     channel: "chrome",
     headless: true,
     viewport: { width: 1280, height: 820 },
-    screenshot: "only-on-failure",
+    screenshot: { mode: "only-on-failure", fullPage: true },
   },
 });

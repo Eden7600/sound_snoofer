@@ -29,11 +29,11 @@ Every screen SHALL be scanned for accessibility violations, and a violation not 
 - **THEN** the accessibility scan fails
 
 ### Requirement: GUI layout holds at supported sizes
-Every screen SHALL show no horizontal scroll, clipped controls or overlapping interactive elements at 1280×820 and 800×600.
+Every screen SHALL be checked for horizontal scroll, clipped controls and overlapping interactive elements at 1280×820 and 800×600. New violations SHALL fail. Existing violations SHALL be recorded by exact screen, viewport and affected controls with an owning change; obsolete exceptions SHALL fail until removed.
 
 #### Scenario: Narrow window
 - **WHEN** a screen renders at 800×600
-- **THEN** all controls are reachable without horizontal scrolling and none overlap
+- **THEN** the suite rejects any horizontal scroll, clipping or overlap except an exact recorded existing defect owned by a follow-up change
 
 ### Requirement: GUI suite runs by default without downloads
 The GUI suite SHALL run in the default repository check, use the installed Chrome, and never download a browser.
