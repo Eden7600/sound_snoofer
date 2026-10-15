@@ -7,12 +7,15 @@
 #include <winrt/Windows.Media.Control.h>
 #include <winrt/Windows.Storage.Streams.h>
 
+#include "async_wait.h"
+
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <functional>
 #include <map>
+#include <memory>
 #include <new>
 #include <string>
 #include <utility>
@@ -122,13 +125,13 @@ extern "C" __declspec(dllexport) HRESULT __cdecl MSOpen(MS** out) {
         return e.code();
     }
     try {
-        MS* ms = new (std::nothrow) MS;
+        std::unique_ptr<MS> ms{new (std::nothrow) MS};
         if (!ms) {
             uninit_apartment();
             return E_OUTOFMEMORY;
         }
-        ms->manager = GlobalSystemMediaTransportControlsSessionManager::RequestAsync().get();
-        *out = ms;
+        ms->manager = mediaResult(GlobalSystemMediaTransportControlsSessionManager::RequestAsync());
+        *out = ms.release();
         return S_OK;
     } catch (hresult_error const& e) {
         uninit_apartment();
@@ -150,7 +153,7 @@ extern "C" __declspec(dllexport) HRESULT __cdecl MSSnapshot(MS* ms, char* buf, u
             std::string title, artist, album;
             bool art = false;
             try {
-                auto props = s.TryGetMediaPropertiesAsync().get();
+                auto props = mediaResult(s.TryGetMediaPropertiesAsync());
                 if (props) {
                     title = to_string(props.Title());
                     artist = to_string(props.Artist());
@@ -210,20 +213,20 @@ extern "C" __declspec(dllexport) HRESULT __cdecl MSArt(MS* ms, const char* id, c
     Session* s = find(ms, id);
     if (!s) return E_BOUNDS;
     try {
-        auto props = s->TryGetMediaPropertiesAsync().get();
+        auto props = mediaResult(s->TryGetMediaPropertiesAsync());
         auto thumb = props ? props.Thumbnail() : nullptr;
         if (!thumb) {
             *needed = 0;
             return S_FALSE;
         }
-        auto stream = thumb.OpenReadAsync().get();
+        auto stream = mediaResult(thumb.OpenReadAsync());
         uint64_t size = stream.Size();
         if (size == 0 || size > maxArtBytes) {
             *needed = 0;
             return S_FALSE;
         }
         Buffer data(static_cast<uint32_t>(size));
-        auto read = stream.ReadAsync(data, static_cast<uint32_t>(size), InputStreamOptions::None).get();
+        auto read = mediaResult(stream.ReadAsync(data, static_cast<uint32_t>(size), InputStreamOptions::None));
         std::string bytes(reinterpret_cast<const char*>(read.data()), read.Length());
         return deliver(bytes, buf, cap, needed);
     } catch (hresult_error const& e) {
@@ -239,12 +242,12 @@ extern "C" __declspec(dllexport) HRESULT __cdecl MSCommand(MS* ms, const char* i
     try {
         bool accepted = false;
         switch (op) {
-        case 1: accepted = s->TryPlayAsync().get(); break;
-        case 2: accepted = s->TryPauseAsync().get(); break;
-        case 3: accepted = s->TryTogglePlayPauseAsync().get(); break;
-        case 4: accepted = s->TrySkipNextAsync().get(); break;
-        case 5: accepted = s->TrySkipPreviousAsync().get(); break;
-        case 6: accepted = s->TryChangePlaybackPositionAsync(value * 10000).get(); break;
+        case 1: accepted = mediaResult(s->TryPlayAsync()); break;
+        case 2: accepted = mediaResult(s->TryPauseAsync()); break;
+        case 3: accepted = mediaResult(s->TryTogglePlayPauseAsync()); break;
+        case 4: accepted = mediaResult(s->TrySkipNextAsync()); break;
+        case 5: accepted = mediaResult(s->TrySkipPreviousAsync()); break;
+        case 6: accepted = mediaResult(s->TryChangePlaybackPositionAsync(value * 10000)); break;
         default: return E_INVALIDARG;
         }
         return accepted ? S_OK : S_FALSE;
