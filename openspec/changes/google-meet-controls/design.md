@@ -5,8 +5,8 @@
 The transport/source checkpoint and approved disposable-call feasibility probe are
 complete as of 2026-10-15. The first release is Meet mic mute, camera and call state
 on Stream Deck and in Meetings. Production implementation is authorized within
-this resolved scope. No implementation, automated adapter verification or live
-extension/provider/deck acceptance is claimed by this design checkpoint.
+this resolved scope. Implementation and automated verification are now recorded in validation.md.
+Live extension/provider/deck acceptance remains a separate checkpoint.
 
 [Sanitized observations](observations.md) establish the supported DOM candidate and
 its limits. Browser/call control still requires a separate approved session under

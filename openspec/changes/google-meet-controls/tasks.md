@@ -1,12 +1,10 @@
 # Tasks
 
-Status: transport/source design and disposable-call probe complete on 2026-10-15.
-Production implementation is authorized within the resolved scope. Implementation
-and extension/provider/deck acceptance remain unperformed. The probe evidence in
-observations.md establishes only the observed DOM candidate and lifecycle signals;
-it does not verify implemented stale-action rejection. Each checkpoint remains a
-separately reviewable block. Commit validated blocks according to AGENTS.md. Live
-control requires session permission.
+Status: implementation and automated validation complete on 2026-10-15.
+See validation.md for commands, evidence and limits. The disposable-call probe
+established the observed DOM candidate; fixture tests verify the implemented
+stale-action guards. Actual extension/provider/deck acceptance remains task 7.
+Live control requires a new session permission.
 
 - [x] 1. Resolve the transport/source design before production edits: trace both
   consumers end to end; choose the narrow owner/placement, registration/shutdown,
@@ -21,7 +19,7 @@ control requires session permission.
   repeated prompts for covered steps. Amend the design with proven coverage or a
   blocker before dependent implementation. Evidence: observations.md; stale-command
   rejection and extension/provider/deck acceptance remain tasks 4, 6 and 7.
-- [ ] 3. Implement the documented narrow transport reuse with focused tests for
+- [x] 3. Implement the documented narrow transport reuse with focused tests for
   Meet-only, Media-only and both running; stop/restart ownership, protocol mismatch,
   obsolete sockets/ports, duplicate-browser admission and existing media behavior.
   Exercise each FIFO16 overflow, exact-connection retirement, the documented
@@ -30,7 +28,7 @@ control requires session permission.
   concrete lifecycle/schema/deadline regression checklist in design.md.
   Preserve the existing first-claimant limitation unless the design explicitly
   resolves it. Do not modify unrelated bridge behavior or personal configuration.
-- [ ] 4. Implement the Meet adapter/provider and meaningful fake/fixture tests:
+- [x] 4. Implement the Meet adapter/provider and meaningful fake/fixture tests:
   known/unknown mic and camera state, external changes, explicit desired values,
   simultaneous controls, busy behavior, actual correlated outcomes and no replay;
   invalid origin/frame, old document/socket/call lifetime, same-URL rejoin, selection
@@ -42,13 +40,13 @@ control requires session permission.
   Cover port-loss adapter reconnect and immediate cancellation on socket replacement
   or feature disable, requiring fresh enablement/observation before new work.
   Do not mark stale-rejection coverage complete from the live DOM probe alone.
-- [ ] 5. Add independent Meetings cards/gates, target selection and truthful local
+- [x] 5. Add independent Meetings cards/gates, target selection and truthful local
   state/status; update its UI-contract section and focused GUI/attention fixtures.
   Make controls/status bindable in the existing deck editor; verify rendered known,
   unknown, pending and unavailable states plus keyboard/accessibility behavior.
   Demonstrate Discord/global mute behavior unchanged and no default/personal layout
   migration. Preserve source-muted distinction when audio state is available.
-- [ ] 6. Run appropriate Go tests/vet/race, extension tests, frontend gates and GUI
+- [x] 6. Run appropriate Go tests/vet/race, extension tests, frontend gates and GUI
   checks, strict validation of this change, and the canonical build for production
   changes. Record evidence and restore the prior host launch configuration as
   required by AGENTS.md; distinguish automated checks from hardware acceptance.
