@@ -15,15 +15,15 @@ func (w *worker) observed(id string) string {
 	switch id {
 	case "discord.deafen":
 		if v.settingsKnown {
-			return onOff(v.deaf)
+			return snoofer.OnOff(v.deaf)
 		}
 	case "discord.video":
 		if v.videoKnown {
-			return onOff(v.video)
+			return snoofer.OnOff(v.video)
 		}
 	case "discord.screenshare":
 		if v.screenKnown {
-			return onOff(v.screen)
+			return snoofer.OnOff(v.screen)
 		}
 	case "discord.leave":
 		if v.channelKnown && v.channelID == "" {
@@ -116,7 +116,7 @@ func (w *worker) handle(ctx context.Context, c command, now time.Time) {
 			reject("Discord voice settings unavailable")
 			return
 		}
-		cmd, want = "SET_VOICE_SETTINGS", onOff(c.desired)
+		cmd, want = "SET_VOICE_SETTINGS", snoofer.OnOff(c.desired)
 		args["deaf"] = c.desired
 	case "discord.video", "discord.screenshare":
 		if _, pending := w.pending[r.ID]; pending {
@@ -140,7 +140,7 @@ func (w *worker) handle(ctx context.Context, c command, now time.Time) {
 			return
 		}
 		if c.known {
-			want = onOff(c.desired)
+			want = snoofer.OnOff(c.desired)
 		}
 	case "discord.leave":
 		cmd, want = "SELECT_VOICE_CHANNEL", "left"
@@ -264,7 +264,7 @@ func (w *worker) report(now time.Time) snoofer.Control {
 	}
 	details := []snoofer.ConnectionDetail{{Label: "Authorization", Value: authorization}}
 	if w.state == stateReady {
-		details = append(details, snoofer.ConnectionDetail{Label: "Voice Channel", Value: onOff(w.voice.channelID != "")})
+		details = append(details, snoofer.ConnectionDetail{Label: "Voice Channel", Value: snoofer.OnOff(w.voice.channelID != "")})
 	}
 	endpoint := w.pipeName
 	if endpoint == "" {
@@ -298,20 +298,13 @@ func (w *worker) publish(ctx context.Context, now time.Time) {
 	})
 }
 
-func onOff(on bool) string {
-	if on {
-		return "On"
-	}
-	return "Off"
-}
-
 // muteControl toggles the Mic mute preference that Discord mute follows. It
 // mirrors audio.mic-mute, so automatic deck layouts show only one of them.
 func (w *worker) muteControl(reason string, pref audio.MicMute) snoofer.Control {
 	c := snoofer.Control{ID: "discord.mute", Label: "Discord Mute", ShortLabel: "Mute", Group: "Discord", Kind: "toggle", Icon: "mic-mute",
 		Mirrors: "audio.mic-mute", Operations: []string{"press"}, Status: reason, Available: reason == "" && pref.Known}
 	if pref.Known {
-		c.Value = onOff(pref.Muted)
+		c.Value = snoofer.OnOff(pref.Muted)
 		if pref.Muted {
 			c.Icon = "mic-mute-muted"
 		}

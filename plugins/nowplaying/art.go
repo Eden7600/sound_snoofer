@@ -11,6 +11,8 @@ import (
 
 	"golang.org/x/image/draw"
 	_ "golang.org/x/image/webp"
+
+	"sound-snoofer/internal/artwork"
 )
 
 // thumbnail fits cover art proportionally inside a coverSize PNG, the full
@@ -27,17 +29,7 @@ func thumbnail(data []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	bounds := source.Bounds()
-	thumb := image.NewNRGBA(image.Rect(0, 0, coverSize, coverSize))
-	longest := max(bounds.Dx(), bounds.Dy())
-	width, height := max(1, coverSize*bounds.Dx()/longest), max(1, coverSize*bounds.Dy()/longest)
-	x, y := (coverSize-width)/2, (coverSize-height)/2
-	draw.CatmullRom.Scale(thumb, image.Rect(x, y, x+width, y+height), source, bounds, draw.Src, nil)
-	var encoded bytes.Buffer
-	if err := png.Encode(&encoded, thumb); err != nil {
-		return "", err
-	}
-	return base64.StdEncoding.EncodeToString(encoded.Bytes()), nil
+	return artwork.Thumbnail(source, coverSize, draw.CatmullRom)
 }
 
 // coverSize is the cover thumbnail edge: the artwork contract's 128 px.

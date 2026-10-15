@@ -21,6 +21,14 @@ const (
 	AttentionCritical AttentionLevel = "critical"
 )
 
+// OnOff returns the shared boolean control value.
+func OnOff(on bool) string {
+	if on {
+		return "On"
+	}
+	return "Off"
+}
+
 // Control is an immutable snapshot. Operations are press, adjust or set.
 type Control struct {
 	ViewData                                    json.RawMessage `json:",omitempty"` // Optional provider-owned structured view; core treats it as opaque.

@@ -2,12 +2,11 @@ package soundboard
 
 import (
 	"bytes"
-	"encoding/base64"
 	"fmt"
 	"image"
 	"image/gif"
 	_ "image/jpeg"
-	"image/png"
+	_ "image/png"
 	"io"
 	"os"
 	"path/filepath"
@@ -17,6 +16,7 @@ import (
 	"golang.org/x/image/draw"
 	_ "golang.org/x/image/webp"
 
+	art "sound-snoofer/internal/artwork"
 	"sound-snoofer/snoofer"
 )
 
@@ -171,15 +171,5 @@ func gifArtwork(data []byte, cfg image.Config) (string, []snoofer.ArtworkFrame, 
 
 // thumbnail fits an image proportionally inside a 64px square PNG.
 func thumbnail(source image.Image) (string, error) {
-	bounds := source.Bounds()
-	thumb := image.NewNRGBA(image.Rect(0, 0, 64, 64))
-	longest := max(bounds.Dx(), bounds.Dy())
-	width, height := max(1, 64*bounds.Dx()/longest), max(1, 64*bounds.Dy()/longest)
-	x, y := (64-width)/2, (64-height)/2
-	draw.ApproxBiLinear.Scale(thumb, image.Rect(x, y, x+width, y+height), source, bounds, draw.Src, nil)
-	var encoded bytes.Buffer
-	if err := png.Encode(&encoded, thumb); err != nil {
-		return "", err
-	}
-	return base64.StdEncoding.EncodeToString(encoded.Bytes()), nil
+	return art.Thumbnail(source, 64, draw.ApproxBiLinear)
 }

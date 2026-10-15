@@ -179,10 +179,3 @@ func (p *voicePool) paths() []string {
 	}
 	return out
 }
-
-func onOff(v bool) string {
-	if v {
-		return "On"
-	}
-	return "Off"
-}

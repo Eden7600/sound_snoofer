@@ -137,7 +137,7 @@ func startWithPlayback(ctx context.Context, s snoofer.Services, raw json.RawMess
 			controls := []snoofer.Control{
 				{ID: "soundboard.status", Label: "Soundboard", Group: "Soundboard", Kind: "status", Value: note, Timers: voices.timers(), Attention: attention, Available: true},
 				{ID: "soundboard.stop", Label: "Stop Soundboard", ShortLabel: "Stop", Group: "Soundboard", Kind: "command", Icon: "soundboard-stop", Operations: []string{"press"}, Available: s.Live},
-				{ID: "soundboard.overlap", Label: "Overlap Clips", ShortLabel: "Overlap", Group: "Soundboard", Kind: "toggle", Icon: "soundboard-overlap", Value: onOff(settings.Overlap), Operations: []string{"press"}, Available: s.SaveSettings != nil},
+				{ID: "soundboard.overlap", Label: "Overlap Clips", ShortLabel: "Overlap", Group: "Soundboard", Kind: "toggle", Icon: "soundboard-overlap", Value: snoofer.OnOff(settings.Overlap), Operations: []string{"press"}, Available: s.SaveSettings != nil},
 			}
 			volume, volumeHandler := audioPlugin.SoundboardVolume()
 			controls = append(controls, volume, playbackReport(&link, s.Live, ready, voices.loaded(), settings.Renderer, lastClip, time.Now()))

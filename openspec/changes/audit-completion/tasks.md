@@ -2,7 +2,7 @@
 - [x] 1. Review and commit the strictly validated plan before source/test changes.
 - [ ] 2. Remove unused worker protocol, adapt meaningful tests and older conflicting
   contracts; focused/repeated control and linked-provider checks; review and commit.
-- [ ] 3. Characterize and consolidate thumbnail encoding and OnOff; preserve policy
+- [x] 3. Characterize and consolidate thumbnail encoding and OnOff; preserve policy
   and caller tests; focused tests/vet; review and commit.
 - [x] 4. Reject all second live browser-name claims; prove admission/routing/reconnect
   regressions and retain generation/outcome coverage; review and commit.
@@ -24,3 +24,5 @@ This proves cleanup/guard logic only, not live sharing refusal.
   measured validation, explicit no-dial-model waiver and any remaining evidence gap.
 
 Checkpoint 4: Same-origin Chrome/Firefox and concurrent-claim regressions failed before the fix. All bridge tests pass 25 repetitions; complete Now Playing tests and vet pass. Independent root review confirms admission is synchronized, incumbents retain ownership and fresh reconnects retain generation guards. The original reject-second-live-connection option is fulfilled; first-claimant authentication is not asserted.
+
+Checkpoint 3: Six decoded-pixel baselines were captured before extraction and passed unchanged afterward, including transparency, aspect ratio and nonzero source bounds. Source immutability, provider file/dimension limits and invalid shared inputs pass. Artwork, Now Playing, Soundboard, Discord and snoofer package tests and vet pass. Root review confirms all eight OnOff callers migrated and GIF/decoding/cache policies remain local.
