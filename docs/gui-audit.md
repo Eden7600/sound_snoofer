@@ -9,19 +9,43 @@ Screenshots were reviewed at 1280×820 and 800×600 using the browser fixture.
 
 ## Current status
 
-The harness and TypeScript migration are complete. The GUI now lives in `app/web/src`, with
-95 browser cases passing in 13.6 s, strict type/lint/format gates, a canonical bundled build and
-native packaged-screen inspection. The references below identify the dated audit baseline;
-use the corresponding typed screen/shared module for current implementation.
+The audit is **not complete**. The harness and TypeScript split are complete, and the content,
+dropdown, reconnect and screen-layout fixes have landed in source. Action feedback,
+state preservation and plugin recovery are being completed in separate reviewed checkpoints.
+The findings below retain their original audit wording and old source references;
+current implementation lives in `app/web/src`.
 
-The next order is content corrections → dropdown commitment → remaining reliability/layout
-changes, alongside repository hardening. The selected TypeScript-first ordering supersedes the
-original numbered proposal order below. Page OptionLabels already render Home/custom names;
-the old raw-page example came from the hand-written fixture. Current gain labels are Playback/Mic.
-The narrow-deck harness tracks only Dial 5 overlapping Discard and Save Layout at 800×600.
+| Work / findings | Source status | Remaining acceptance |
+| --- | --- | --- |
+| `gui-test-harness`, `gui-typescript-modules` | Complete: independent Playwright cases, generated Audio/Deck fixtures, keyboard/axe/geometry checks, strict TypeScript and esbuild | Rerun shared gates after integration |
+| `gui-content-fixes`: 7–9, 15–16 | Complete; labels, Activity keys, internal labels and display-only Deck bindings corrected | Packaged acceptance with the final build |
+| `gui-dropdown-commit`: 2 | Complete; closed browsing stages locally, native popup confirmation/cancellation retained | Final packaged WebView2 keyboard acceptance |
+| `gui-connection-recovery`: 5 | Complete; separate reconnect banner, bounded backoff, no replay | Final packaged reconnect acceptance |
+| `gui-layout-polish`: 10–13 and meter/search parts of 14 | Complete screen checkpoints: Diagnostics, Audio, Routing, Deck and Soundboard; both sizes inspected | Final shared gates and packaged acceptance |
+| `gui-state-preservation`: 3, 6 | Focus, scroll, details and search committed; explicit drafts/context validation and styled confirmations in progress | Complete draft/dialog checkpoints and packaged journeys |
+| `gui-action-outcomes`: 1, 4 | Correlated bounded session-result transport committed; audio ordering, provider completion, local feedback and lifecycle identity in progress | Complete cross-layer integration before deploying this protocol |
+| `gui-attention-journeys`: remaining 14 | Typed plugin lifecycle committed; attention publication, gates and navigation markers in progress | Provider/GUI regressions and packaged recovery journeys |
+| `view-state-transport`, repository hardening/cleanup | Source checkpoints committed; versioned/coalesced state transport and native cleanup tested offline | Canonical build, final gates and actual hardware acceptance |
+
+Recent focused runs include 53 Routing/keyboard/preservation/accessibility cases in 7.4 s and
+52 Deck/Soundboard/preservation/accessibility cases in 8.3 s. The geometry suite no longer carries
+the narrow Deck save-bar overlap exception. These are checkpoint results, not a substitute for a
+final full-suite run within the 60-second budget.
+
+The meeting-time restriction on the running host has been lifted. Root coordinates a stable
+canonical build and packaged acceptance, then restores the prior launch configuration. No
+hardware task is complete merely because a fixture, browser screenshot or offline native test
+passes. The configured toolchain still cannot run the race detector without cgo.
+
+Execution continues through action outcomes, explicit drafts/dialogs and attention journeys,
+then shared source gates and native acceptance. Do not deploy the intermediate action-result
+protocol before its frontend and provider integration is complete. The TypeScript-first order
+is satisfied; repository hardening is no longer waiting on that split.
 
 Native WebView2 confirmed item 2 during migration acceptance: Down on a closed Processing select
-immediately sent a set action. This was an isolated fixture, with no live audio writes.
+immediately sent a set action. This was an isolated fixture, with no live audio writes. Its source
+fix has since landed; final packaged keyboard acceptance remains tracked separately.
+
 
 ## Reliability
 
