@@ -17,12 +17,13 @@ feedback. Functional native state-preservation acceptance is fulfilled.
 Native inspection exposed compact-sidebar wordmark clipping, fixed in `9065ff7`. A later graceful
 host stop reached its deadline; `c3cff86` adds the awaited plugin to that diagnostic without changing
 shutdown policy. The canonical executable and companions were rebuilt with both follow-ups.
-The coordinated shutdown recheck and unchanged native smoke now pass. After the subsequent Deck
-probes, the host was restored as PID 20488. The original timeout's cause remains unknown.
-Physical reconnect acceptance exposed a separate first-key failure on Plus XL. The user chose
-all-released initialization for keys and dial buttons so the first press works; implementation is
-pending. The audit is **not fully accepted**: that fix, packaged brand recheck and the remaining
-native/live checks below are pending.
+The coordinated shutdown recheck and unchanged native smoke now pass. The original timeout's
+cause remains unknown. Physical reconnect acceptance exposed a separate first-key failure on
+Plus XL. The user selected released-at-connect button state; `03e74d2` implements that policy
+and removes the unsupported startup query. After the canonical rebuild, the user confirmed
+the first key and first dial-button press work on both Plus and Plus XL. Snoofer is running as
+PID 69960 with the previous configuration. The audit is **not fully accepted**: the packaged
+brand recheck and remaining native/live checks below are pending.
 
 The findings below retain their original audit wording and old source references;
 current implementation lives in `app/web/src`.
@@ -36,8 +37,8 @@ current implementation lives in `app/web/src`.
 | `gui-layout-polish`: 10–13 and meter/search parts of 14 | Complete source work, including compact native brand fix; five affected screens inspected at both outer window sizes | Packaged brand recheck with the classic scrollbar |
 | `gui-state-preservation`: 3, 6 | Complete; functional native restoration, dialog cancellation, polling and captured-target invalidation verified | No remaining functional native journey; aggregate validation and physical integration remain separately tracked |
 | `gui-action-outcomes`: 1, 4 | Complete; independent completion-path review and native smoke pass; packaged result attribution, state updates and close with an outstanding action verified | Real integration outcomes |
-| `gui-attention-journeys`: remaining 14 | Complete; disabled Audio gate and captured host-proposal cancellation verified natively | Starting/failed gates, marker visibility and keyboard navigation |
-| `view-state-transport`, repository hardening/cleanup | Original source gates, canonical companion build, native smoke and coordinated shutdown recheck pass; original timeout unexplained | Implement the chosen all-released key/dial-button initialization and recheck first press; live artwork/clocks and remaining physical acceptance |
+| `gui-attention-journeys`: remaining 14 | Complete; disabled Audio gate and captured host-proposal cancellation verified natively | Starting/failed gates and marker-to-screen keyboard navigation |
+| `view-state-transport`, repository hardening/cleanup | Original source gates, canonical companion build, native smoke and coordinated shutdown recheck pass; original timeout unexplained | First key/dial presses pass on both connected models; live asset removal/reopen and remaining physical acceptance |
 
 ### Shared source and build validation
 
@@ -48,12 +49,13 @@ current implementation lives in `app/web/src`.
   machine caused widespread timeouts; the corrected default meets the existing 60-second budget
   without extending test timeouts or weakening assertions. That run also exposed the fixed
   shared-notice focus defect. The initial failed run is retained separately in the local logs.
+- After the compact-brand fix, the complete browser suite passed **293 tests in 44.1 s**, with strict frontend gates passing. Final compact packaged inspection was interrupted by physical Escape and remains pending; the isolated fixture exited normally via EOF without actions.
 - Canonical `bin/snoofer.exe` and companions built successfully. Native ABI/buffer/callback-stop,
   media async timeout and canonical COM identity self-tests pass; the actual media DLL compiles.
 - The initial media DLL probe opened and snapshotted successfully with no active sessions. After
   unlock, a read-only probe found the active Brave YouTube Music session, playing position,
   duration, canonical instance token 1 and 33,390 bytes of artwork. No media command was sent;
-  GUI rendering, asset replacement/removal and reopen acceptance remain separate. The soundboard
+  a later live GUI inspection showed actual artwork and the track change from Eyes Without A Face to Human Feel, with a 0:10/3:01 clock. Removal/reopen acceptance remains separate. The soundboard
   normalization probe passes using temporary WAV files, with its playback path disabled.
 - Extension unit/build tests: 16 pass. Chrome page-script and isolated Brave protocol 2 end-to-end
   checks pass. Browser media controls require the matching extension 1.1.0; the installed user
@@ -84,7 +86,7 @@ current implementation lives in `app/web/src`.
   the second worked and redrew. The user explicitly chose all-released initialization for keys
   and dial buttons: holding a button during startup is negligible in their use, and a displayed
   button must work on the first press. This supersedes the previous held-key suppression policy;
-  the OpenSpec correction and implementation are pending. Host PID 20488 was restored after the probes.
+  the OpenSpec correction is committed in `2924946` and implementation in `03e74d2`. Eight startup regressions failed before the fix and pass afterward, including repeated down, release/repress and malformed input. Reopened-session generation checks pass. Full repository Go tests and vet pass. The canonical build passed, including companion self-tests, and restored the same config as PID 69960. The user confirmed all four hardware checks: first XL Play key, first XL dial 3 press, first Plus dial 3 press and first Plus Media key after reconnect. Three two-second XL Play holds/releases each toggled once per press, with no repeats or extra release action.
 - Changed Go files are formatted. Two untouched legacy Voicemeeter test files still have their
   pre-existing import formatting. The race detector remains unavailable: `CGO_ENABLED=0`.
 
@@ -111,7 +113,7 @@ Nine captured actions were retained in the local acceptance log.
   focus and no restoration action. These observations fulfill functional native state preservation.
 - Disabled Audio exposed Enable Audio with the captured `native-fixture-config` revision. A host
   proposal kept its original text and ID after a replacement arrived; Cancel sent the original
-  `native-audio-enable-1` ID. Starting/failed gates and marker-to-screen keyboard journeys remain open.
+  `native-audio-enable-1` ID. Critical Audio and warning Routing markers were visible in the later packaged fixture. Starting/failed gates and marker-to-screen keyboard journeys remain open.
 - Audio, Routing including Activity/output devices, Soundboard, Deck and Diagnostics were inspected
   at 1280×820 and 800×600 outer window sizes. The compact CSS client was approximately 784×562.
   Other inspected controls remained accessible through scrolling; classic-scrollbar wordmark
@@ -124,8 +126,8 @@ Keep aggregate acceptance tasks open until all their required checks are perform
 work includes the final brand check, remaining dropdown, attention and connection-recovery
 journeys, real mute/error/uncertain-one-shot outcomes, and live artwork changes/removal/reopen.
 Recorder Pause, Voicemeeter startup/restart and remaining physical Stream Deck input/hotplug
-checks remain separate. The observed XL first-key failure is an unresolved implementation issue,
-not a completed acceptance check. Plus and Plus XL are available; Mini/MK.2 are unavailable.
+checks remain separate. The observed XL first-key failure is fixed and its key/dial-button
+retest passes on both available models. Mini/MK.2 are unavailable.
 Fixtures, screenshots and native self-tests do not establish those hardware results.
 
 Native WebView2 confirmed item 2 during migration acceptance: Down on a closed Processing select
