@@ -11,6 +11,9 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Tests failed" }
     node --test app/web/model.test.mjs
     if ($LASTEXITCODE -ne 0) { throw "GUI model tests failed" }
+    # Browser GUI suite: installed Chrome, never a browser download.
+    npx playwright test -c app/web/test
+    if ($LASTEXITCODE -ne 0) { throw "Browser GUI tests failed" }
     & $goPath vet ./...
     if ($LASTEXITCODE -ne 0) { throw "Vet failed" }
     node node_modules/@fission-ai/openspec/bin/openspec.js validate --all --strict --no-interactive
@@ -27,11 +30,9 @@ try {
         & $goPath test ./internal/streamdeck -run '^$' -fuzz FuzzHIDDecode -fuzztime 3s -parallel 2
         if ($LASTEXITCODE -ne 0) { throw "HID fuzz check failed" }
     }
-    Write-Output "SKIPPED: native probes, GUI smoke, and audible/hardware acceptance are separate opt-in checks"
+    Write-Output "SKIPPED: native probes, native GUI smoke, and audible/hardware acceptance are separate opt-in checks"
     & ./scripts/build.ps1
     if ($GUI) {
-        node scripts/check-gui.cjs
-        if ($LASTEXITCODE -ne 0) { throw "Browser GUI checks failed" }
         node scripts/check-desktop.cjs
         if ($LASTEXITCODE -ne 0) { throw "Native GUI checks failed" }
     }
