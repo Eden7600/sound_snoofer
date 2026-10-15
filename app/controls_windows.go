@@ -22,7 +22,6 @@ type controls struct {
 	command       *exec.Cmd
 	input, output *os.File
 	closeOnce     sync.Once
-	exitErr       error
 	view          viewSender // Used only by the tray goroutine that publishes.
 }
 
@@ -70,7 +69,8 @@ func startControls(ctx context.Context, state ViewState, actions chan<- UIAction
 		c.close()
 	}()
 	go func() {
-		c.exitErr = cmd.Wait()
+		// Session closure handles child exit; only joining the process is needed here.
+		_ = cmd.Wait()
 		c.close()
 		ioDone.Wait()
 		close(c.done)

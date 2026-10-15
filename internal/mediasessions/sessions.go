@@ -25,8 +25,7 @@ type Session struct {
 	CanNext    bool    `json:"canNext"`
 	CanPrev    bool    `json:"canPrev"`
 	CanSeek    bool    `json:"canSeek"`
-	Current    bool    `json:"current"` // The session media keys control.
-	ArtKey     string  `json:"artKey"`  // Changes with the track; empty without artwork.
+	ArtKey     string  `json:"artKey"` // Changes with the track; empty without artwork.
 }
 
 // Op is a session command.

@@ -142,7 +142,6 @@ extern "C" __declspec(dllexport) HRESULT __cdecl MSOpen(MS** out) {
 extern "C" __declspec(dllexport) HRESULT __cdecl MSSnapshot(MS* ms, char* buf, uint32_t cap, uint32_t* needed) {
     if (!ms || !needed) return E_INVALIDARG;
     try {
-        auto current = ms->manager.GetCurrentSession();
         std::vector<std::pair<std::string, Session>> sessions;
         std::map<std::string, int> seen;
         std::string out = "[";
@@ -186,7 +185,6 @@ extern "C" __declspec(dllexport) HRESULT __cdecl MSSnapshot(MS* ms, char* buf, u
             flag(out, "canNext", controls.IsNextEnabled());
             flag(out, "canPrev", controls.IsPreviousEnabled());
             flag(out, "canSeek", controls.IsPlaybackPositionEnabled());
-            flag(out, "current", current && current.SourceAppUserModelId() == s.SourceAppUserModelId());
             std::string key;
             if (art) {
                 char hash[17];

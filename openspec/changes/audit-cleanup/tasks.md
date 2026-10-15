@@ -15,7 +15,7 @@
 - [x] 4. `refactor(go)`: share bus-number parsing with existing caller strictness, replace
   `firstNonEmpty` with `cmp.Or`, and share only cancel-and-wait; test bus boundaries and shutdown
   deadlines and retain plugin join tests.
-- [ ] 5. `refactor(dead-code)`: recheck and remove finding 30's confirmed unused members/helpers;
+- [x] 5. `refactor(dead-code)`: recheck and remove finding 30's confirmed unused members/helpers;
   preserve the renderer, media and child-process behavior covered by their remaining tests.
 - [x] 6. `refactor(build)`: consolidate the six native toolchain setup sites after rebasing on
   hardening; retain staging, output paths, compiler flags, media self-tests and failure context;

@@ -22,7 +22,6 @@ const (
 	pbtPowerSettingChange  = 0x8013
 	displayOff             = 0
 	sessionFlagLock        = 0
-	sessionFlagUnlock      = 1
 	powerSettingDataOffset = 20 // After the GUID and its DWORD length.
 )
 

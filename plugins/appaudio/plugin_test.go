@@ -62,12 +62,6 @@ func (f *fakeSessions) SetMute(key string, m bool) error {
 
 func (f *fakeSessions) Close() {}
 
-func (f *fakeSessions) setPeak(key string, peak float64) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.peaks[key] = peak
-}
-
 func studio() *fakeSessions {
 	session := func(key, path, name string, volume float64, muted bool) windowsaudio.Session {
 		return windowsaudio.Session{Key: key, Device: "Voicemeeter Input", Path: path, Name: name, Volume: volume, Muted: muted, Active: true}

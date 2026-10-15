@@ -34,9 +34,6 @@ func text(im *image.RGBA, x, y, scale int, s string, c color.RGBA) {
 		x += 6 * scale
 	}
 }
-func render(lines []string, w, h int, on bool, icon string, fallback bool) []byte {
-	return renderArtwork(lines, w, h, on, icon, fallback, "")
-}
 
 type keyPresentation struct {
 	Artwork            string
@@ -74,15 +71,6 @@ func renderKey(key keyPresentation, out keyOutput, phase time.Duration) ([]byte,
 		spec.brightness = &key.Brightness
 	}
 	return drawKeySpec(spec, phase)
-}
-
-func renderPresentation(view presentation) ([][]byte, []byte) {
-	tiles := make([][]byte, Keys)
-	for n, key := range view.Keys {
-		tiles[n], _ = renderKey(key, keyOutput{}, 0)
-	}
-	touch, _ := renderKnobs(plusXL, view.Knobs, 0)
-	return tiles, touch
 }
 
 func fill(im *image.RGBA, x0, y0, x1, y1 int, c color.RGBA) {

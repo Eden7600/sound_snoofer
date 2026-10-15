@@ -64,7 +64,7 @@ func TestBorderlessDistinctSignalIcons(t *testing.T) {
 			}
 		}
 		previous = append(previous, append([]byte(nil), canvas.Pix...))
-		raw := render([]string{"Mic processing", "Direct"}, 112, 112, true, icon, false)
+		raw := renderArtwork([]string{"Mic processing", "Direct"}, 112, 112, true, icon, false, "")
 		im, err := jpeg.Decode(bytes.NewReader(raw))
 		if err != nil {
 			t.Fatal(err)
