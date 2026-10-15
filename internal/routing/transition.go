@@ -13,6 +13,14 @@ import (
 func buildVoiceTransition(c config.Config, s model.Snapshot, t *Topology) {
 	inputs := map[int]bool{}
 	outputs := map[string]bool{}
+	// Interface microphones own the two patch cells of their strip: Patch.asio[k] feeds strip k/2.
+	patchStrip := func(op Operation) (int, bool) {
+		var cell int
+		if _, err := fmt.Sscanf(op.Parameter, "Patch.asio[%d]", &cell); err != nil {
+			return 0, false
+		}
+		return cell / 2, true
+	}
 	for _, op := range t.Operations {
 		if !op.Change {
 			continue
@@ -27,14 +35,17 @@ func buildVoiceTransition(c config.Config, s model.Snapshot, t *Topology) {
 			} else {
 				outputs[op.Target] = true
 				if op.Target == "A1" && (t.ASIOActive || c.Studio.OwnsASIO(op.BeforeName)) {
-					inputs[0], inputs[1] = true, true
+					// Every interface microphone hears the A1 device.
+					for _, patch := range t.Operations {
+						if strip, ok := patchStrip(patch); ok {
+							inputs[strip] = true
+						}
+					}
 				}
 			}
 		}
-		for patch := 0; patch < 4; patch++ {
-			if op.Parameter == fmt.Sprintf("Patch.asio[%d]", patch) {
-				inputs[patch/2] = true
-			}
+		if strip, ok := patchStrip(op); ok {
+			inputs[strip] = true
 		}
 	}
 	// Hardware changes upstream of Element also affect its return strip.

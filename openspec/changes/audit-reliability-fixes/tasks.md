@@ -7,7 +7,7 @@
 - [x] 5. `fix(voicemeeter)`: retry a failed callback registration; test.
 - [x] 6. `fix(deck)`: deliver reads that complete at the deadline (native; verified on hardware in task 16).
 - [x] 7. `fix(nowplaying)`: skip malformed bridge messages; coerce report fields; fetch only http(s) artwork without credentials; tests.
-- [ ] 8. `fix(routing)`: gate every interface-mic strip; test with a patch index of 4 or higher.
+- [x] 8. `fix(routing)`: gate every interface-mic strip; test with a patch index of 4 or higher.
 - [ ] 9. `fix(audio)`: save tape ownership only before tape playback starts; test pausing a recording with saved choices unwritable.
 - [ ] 10. `fix(audio)`: refuse audio settings edits whose saved choices would not load; test.
 - [ ] 11. `fix(gui)`: reschedule polling after render errors; guard missing deck slots.

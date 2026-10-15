@@ -79,3 +79,25 @@ func TestHardwareTransitionGatesOnlyDependencies(t *testing.T) {
 		})
 	}
 }
+
+func TestTransitionGatesInterfaceMicsBeyondTheFirstTwoStrips(t *testing.T) {
+	c, s := voiceFixture(t)
+	for _, scenario := range []string{"patch", "a1"} {
+		t.Run(scenario, func(t *testing.T) {
+			// A third interface microphone on strip 2 owns Patch.asio[4] and [5].
+			patch := Operation{Parameter: "Patch.asio[4]", Value: 3, BeforeValue: 3}
+			topology := &Topology{ASIOActive: true}
+			if scenario == "patch" {
+				patch.BeforeValue, patch.Change = 0, true
+			} else {
+				topology.Operations = append(topology.Operations, Operation{Target: "A1", Device: &model.Device{Name: "Other ASIO", Driver: "asio"}, BeforeName: "Volt ASIO", Change: true})
+			}
+			send := Operation{Parameter: "Strip[2].B3", Value: 1, BeforeValue: 1}
+			topology.Operations = append(topology.Operations, patch, send)
+			buildVoiceTransition(c, s, topology)
+			if len(topology.Transition) == 0 || topology.Transition[0].Parameter != "Strip[2].B3" || topology.Transition[0].Value != 0 {
+				t.Fatalf("strip 2 not gated first: %+v", topology.Transition)
+			}
+		})
+	}
+}
