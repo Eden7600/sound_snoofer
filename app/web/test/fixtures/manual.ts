@@ -1,4 +1,4 @@
-// The hand-written GUI fixture, ported verbatim from scripts/check-gui.cjs.
+// Hand-written provider scenarios retained from scripts/check-gui.cjs.
 // Every call builds a fresh copy, so tests never share state.
 import fs from "node:fs";
 import path from "node:path";
@@ -101,41 +101,6 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
   for (const name of ["fah", "sadge", "instinct", "airhorn", "ping"]) {
     add("soundboard.clip-" + name, name, "command", "Ready", { Operations: ["press", "hold"] });
   }
-  for (const [id, label, kind, value, options] of [
-    ["profile", "Device", "selection", "model:plus-xl", ["model:plus-xl", "model:plus", "model:mk2", "serial:A00WA6261J4HRK"]],
-    ["page", "Page", "selection", "home", ["home", "soundboard"]],
-    ["slot", "Position", "selection", "Key 1", Array.from({ length: 36 }, (_, i) => "Key " + (i + 1))],
-    ["shared", "Shared", "toggle", "Off"],
-    ["binding", "Binding", "selection", "audio.mic-stack", ["", "audio.mic-stack", "audio.mic-mute"]],
-    ["name", "Name", "text", "Home"],
-    ["add", "New Page", "text", ""],
-    ["region-add", "Add Region", "text", ""],
-    ["region-source", "Region Source", "text", ""],
-    ["region-clip", "Region Overflow", "text", ""],
-    ["region-remove", "Remove Region", "text", ""],
-    ["preview", "Preview", "status", ""],
-    ["status", "Layout Status", "status", "Connected"],
-  ] as [string, string, string, string, string[]?][]) {
-    add("streamdeck." + id, label, kind, value, { Options: options });
-  }
-  for (const id of ["save", "cancel", "delete", "earlier", "later", "home"]) add("streamdeck." + id, id, "command", "");
-  find("streamdeck.profile").OptionLabels = {
-    "model:plus-xl": "Stream Deck + XL",
-    "model:plus": "Stream Deck +",
-    "model:mk2": "Stream Deck MK.2",
-    "serial:A00WA6261J4HRK": "Desk (Stream Deck +)",
-  };
-  add("streamdeck.paging", "Paging", "selection", "independent", {
-    Options: ["independent", "mirrored"],
-    OptionLabels: { independent: "Independent", mirrored: "Mirrored" },
-  });
-  add("streamdeck.deck", "Deck", "selection", "A00WA6261J4HRK", {
-    Options: ["A00WA6261J4HRK"],
-    OptionLabels: { A00WA6261J4HRK: "Desk (Stream Deck +)" },
-  });
-  add("streamdeck.deck-name", "Deck Name", "text", "Desk");
-  add("streamdeck.deck-own", "Own Layout", "toggle", "On");
-  add("streamdeck.deck-forget", "Forget Deck", "command", "");
   add("hue.status", "Hue", "status", "Not paired", { ViewData: { bridge: "172.16.102.3" } });
   add("hue.pair", "Pair Hue Bridge", "command", "Ready", { ShortLabel: "Pair" });
   add("hue.group", "Hue Room", "selection", "room-1", {
@@ -236,34 +201,6 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
     LastActivity: "0001-01-01T00:00:00Z",
     Details: [],
   });
-
-  const slot = (Control = "", Label = "", Source = "") => ({ Control, Label, Source });
-  const view = {
-    Selected: 0,
-    Dirty: false,
-    Home: true,
-    Model: "plus-xl",
-    Columns: 9,
-    Reserved: -1,
-    NavDial: true,
-    Decks: [{ Serial: "A00WA6261J4HRK", Name: "Desk", Model: "plus", Connected: true, Own: true }],
-    Regions: [],
-    Collections: [
-      { ID: "hue.room-scenes", Label: "Scenes · Selected Room" },
-      { ID: "soundboard.clips", Label: "Soundboard Clips" },
-    ],
-    Keys: Array.from({ length: 36 }, () => slot()),
-    Dials: Array.from({ length: 5 }, () => slot()),
-  };
-  ["audio.mic-stack", "audio.mic-mute", "audio.speaker-mute", "audio.normal-monitor", "audio.normal-mode"].forEach((control, i) => {
-    view.Keys[i] = slot(control);
-  });
-  view.Keys[9] = slot("soundboard.clip-fah", "fah", "Auto");
-  view.Keys[31] = slot("core.open-controls", "Controls", "Shared");
-  ["audio.gain-playback", "audio.gain-mic", ""].forEach((control, i) => {
-    view.Dials[i] = slot(control);
-  });
-  find("streamdeck.preview").ViewData = view;
 
   // App audio: Discord pinned first, Chrome heard, Spotify pinned but closed; Voicemeeter hidden by default.
   const appMeter = { Present: true, Known: true, DB: -18, At: new Date().toISOString() };

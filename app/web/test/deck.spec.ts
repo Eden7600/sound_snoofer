@@ -29,6 +29,15 @@ async function model(gui: Gui, id: string, shape: { columns: number; reserved: n
   );
 }
 
+// Region-edit scenarios start with an empty page, while other tests use the generated layout.
+async function clearRegions(gui: Gui) {
+  await gui.update(() => {
+    const view = window.ctl("streamdeck.preview").ViewData;
+    view.Regions = [];
+    for (const slot of [...view.Keys, ...view.Dials]) slot.Region = -1;
+  });
+}
+
 test.describe("Stream Deck", () => {
   test.beforeEach(async ({ gui }) => {
     await gui.open();
@@ -38,9 +47,12 @@ test.describe("Stream Deck", () => {
 
   test("keys are numbered and arrow browsing sends nothing", async ({ gui }) => {
     const { page } = gui;
+    await expect(page.getByLabel("Device", { exact: true }).locator("option")).toHaveText([
+      "Stream Deck + XL", "Stream Deck +", "Stream Deck XL", "Stream Deck MK.2", "Stream Deck Neo", "Desk (Stream Deck +)",
+    ]);
     await expect(page.locator("[data-part=deck-key]")).toHaveCount(36);
     await expect(page.locator("[data-part=deck-key] small").first(), "key numbers start at 1").toHaveText("1");
-    await page.getByRole("button", { name: "Key 1: Mic Stack", exact: true }).focus();
+    await page.getByRole("button", { name: "Key 1: Mic Mute", exact: true }).focus();
     await page.keyboard.press("ArrowDown");
     await expect(page.locator(":focus")).toHaveAttribute("aria-label", /^Key 10:/);
     expect(await gui.sent(), "arrow browsing fired an action").toEqual([]);
@@ -55,6 +67,11 @@ test.describe("Stream Deck", () => {
 
   test("key regions: range, add, source, overflow and remove", async ({ gui }) => {
     const { page } = gui;
+    await clearRegions(gui);
+    await gui.update(() => {
+      // Hue is still a hand-written provider; include its collection for the source-change scenario.
+      window.ctl("streamdeck.preview").ViewData.Collections.push({ ID: "hue.room-scenes", Label: "Scenes · Selected Room" });
+    });
     await page.getByRole("button", { name: /^Key 19: / }).click();
     await expect(page.locator("[data-part=inspector] [data-part=eyebrow]")).toHaveText("KEY 19");
     await gui.settled();
@@ -105,6 +122,7 @@ test.describe("Stream Deck", () => {
 
   test("dial regions from a span of dials", async ({ gui }) => {
     const { page } = gui;
+    await clearRegions(gui);
     await page.getByRole("button", { name: /^Dial 3: / }).click();
     await gui.settled();
     const before = (await gui.sent()).length;
@@ -153,7 +171,7 @@ test.describe("Stream Deck", () => {
     await expect(page.locator("[data-part=deck-key]")).toHaveCount(8);
     await expect(page.locator("[data-part=dial]")).toHaveCount(3);
     await expect(page.locator("[data-part=reserved]"), "+ page dial").toHaveCount(1);
-    await page.getByRole("button", { name: "Key 1: Mic Stack", exact: true }).focus();
+    await page.getByRole("button", { name: "Key 1: Mic Mute", exact: true }).focus();
     await page.keyboard.press("ArrowDown");
     await expect(page.locator(":focus")).toHaveAttribute("aria-label", /^Key 5:/);
     await page.getByRole("button", { name: /^Dial 3: / }).waitFor();
@@ -166,7 +184,7 @@ test.describe("Stream Deck", () => {
     await expect(page.locator("[data-part=dial]")).toHaveCount(0);
     await expect(page.locator("[data-part=reserved]"), "MK.2 Pages key").toHaveCount(1);
     await expect(page.locator("[aria-label='Deck Dials']"), "dial row on a deck without dials").toBeHidden();
-    await page.getByRole("button", { name: "Key 1: Mic Stack", exact: true }).focus();
+    await page.getByRole("button", { name: "Key 1: Mic Mute", exact: true }).focus();
     await page.keyboard.press("ArrowDown");
     await expect(page.locator(":focus")).toHaveAttribute("aria-label", /^Key 6:/);
   });

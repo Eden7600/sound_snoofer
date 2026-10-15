@@ -9,8 +9,8 @@ test.describe("Third-Party Apps", () => {
 
   test("cards summarise each connection", async ({ gui }) => {
     const { page } = gui;
-    await expect(page.locator("[data-part=app-card]")).toHaveCount(4);
-    expect(await page.locator("[data-part=summary] span").allTextContents()).toEqual(["1 OK", "0 Attention", "1 Problems", "2 Idle"]);
+    await expect(page.locator("[data-part=app-card]")).toHaveCount(5);
+    expect(await page.locator("[data-part=summary] span").allTextContents()).toEqual(["1 OK", "0 Attention", "1 Problems", "3 Idle"]);
     const voicemeeter = page.locator("[data-part=app-card]", { hasText: "Voicemeeter" });
     await expect(voicemeeter, "required peer down must be critical").toHaveAttribute("data-tone", "critical");
     expect(await voicemeeter.locator("[data-part=app-details] dt").allTextContents(), "Required stays internal").toEqual(["Edition", "Interval"]);
@@ -31,6 +31,6 @@ test.describe("Third-Party Apps", () => {
     expect(copied).toContain("Bridge ID: 001788fffe2490e0");
     await page.getByRole("button", { name: "Copy All", exact: true }).click();
     await page.waitForFunction(() => window.copied.length === 2);
-    expect((await page.evaluate(() => window.copied[1]!)).split("\n\n")).toHaveLength(4);
+    expect((await page.evaluate(() => window.copied[1]!)).split("\n\n")).toHaveLength(5);
   });
 });
