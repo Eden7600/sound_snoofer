@@ -4,7 +4,7 @@ Each numbered implementation block is a reviewable commit. Planning does not mar
 
 ## Design
 - [x] 1. Review and commit proposal, requirements, design and task sequence with the stated focus default. Validate this change strictly.
-- [ ] 2. With approved read-only browser access, verify current player identity, rating state and controls; record sanitized observations and refine the selector/identity contract before implementation.
+- [x] 2. Complete the approved read-only identity/selector probe and record its sanitized [observations](observations.md), observed-layout contract and limits before implementation. Verified in Brave on 2026-10-15 without playback or account changes. Rating mutations, the complete unrated/disliked mappings, paused mutation updates, and other-browser acceptance remain unchecked work in tasks 3, 7 and 8.
 
 ## Implementation and automated checks
 - [ ] 3. Extend the companion's bounded session/command contract and YouTube Music page support. Cover paused updates, rating toggles, same-title song changes, unknown/disabled state, stale routing, delayed artwork and no replay. Version helpers/events safely; explain the one-time tab reload and test upgrades plus existing transport after reload. Build and test both extension packages.

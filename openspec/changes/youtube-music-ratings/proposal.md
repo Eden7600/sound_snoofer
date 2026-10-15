@@ -11,7 +11,7 @@ The user wants Stream Deck Like and Dislike buttons that show the current song's
 - Add hardware icons and Deck editor previews using the existing rendering conventions. Preserve saved layouts; bind the controls during acceptance without overwriting existing assignments.
 
 ## Scope and Decisions
-The initial target is the focused media session, matching existing transport. This default was stated while the optional target question remained unanswered; amend it if the user chooses to always target YouTube Music. No target-selection preference is added merely to support both possibilities.
+The user confirmed that Like and Dislike follow Snoofer's selected media session, matching existing transport. Rating actions are unavailable when the selected session is unsupported. No separate target-selection preference is added.
 
 First release covers the two Stream Deck controls and their setup/diagnostics. Additional buttons on Media cards, bulk ratings, playlist management, default-layout redesign and a separate Google OAuth flow are outside this change.
 
