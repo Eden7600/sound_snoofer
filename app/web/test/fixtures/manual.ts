@@ -495,18 +495,18 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
   add("googlemeet.call", "Meet Call", "status", "Brave · Tab 7", { Group: "Google Meet" });
   add("googlemeet.target", "Meet Call", "selection", "call-7", {
     Group: "Google Meet",
-    Options: ["", "call-7"],
-    OptionLabels: { "": "Select a call", "call-7": "Brave · Tab 7" },
+    Options: ["call-7"],
+    OptionLabels: { "call-7": "Brave · Tab 7" },
     Operations: ["set"],
   });
   add("googlemeet.mute", "Meet Mute", "toggle", "On", {
     Group: "Google Meet",
-    Icon: "mic-mute",
+    Icon: "mic-mute-muted",
     Operations: ["press"],
   });
   add("googlemeet.camera", "Meet Camera", "toggle", "Off", {
     Group: "Google Meet",
-    Icon: "discord-video",
+    Icon: "discord-video-off",
     Operations: ["press"],
   });
 
