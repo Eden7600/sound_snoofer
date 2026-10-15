@@ -161,26 +161,40 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, open fu
 	i := &instance{cancel: cancel, done: make(chan struct{})}
 	updates := make(chan browserUpdate, 16)
 	commands := make(chan snoofer.Request, 8)
-	// A busy port leaves Windows sessions working; the GUI shows why tabs are missing.
-	if b, err := listen(runCtx, w.settings.port(), updates); err != nil {
-		w.bridgeErr = err.Error()
-	} else {
-		w.bridge, w.send = b, b.send
-	}
-	go func() {
-		if w.bridge != nil {
-			defer w.bridge.close()
+	// A busy port leaves Windows sessions working; the GUI shows why tabs are
+	// missing, and the worker retries until the port is free.
+	listenAt := time.Now()
+	tryListen := func(now time.Time) {
+		if w.bridge != nil || now.Before(listenAt) {
+			return
 		}
+		listenAt = now.Add(t.retry)
+		b, err := listen(runCtx, w.settings.port(), updates)
+		if err != nil {
+			w.bridgeErr = err.Error()
+			return
+		}
+		w.bridge, w.send, w.bridgeErr = b, b.send, ""
+	}
+	tryListen(time.Now())
+	go func() {
+		// Registered first, so it runs last: Stop returns once the listener is closed.
+		defer close(i.done)
+		defer func() {
+			if w.bridge != nil {
+				w.bridge.close()
+			}
+		}()
 		// The Windows companion belongs to this OS thread for its whole life.
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
-		defer close(i.done)
 		defer s.Controls.Remove("nowplaying")
 		defer w.closeWindows()
 		ticker := time.NewTicker(t.poll)
 		defer ticker.Stop()
 		for {
 			now := time.Now()
+			tryListen(now)
 			w.step(now)
 			w.publish(commands, now)
 			select {

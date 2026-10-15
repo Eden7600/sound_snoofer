@@ -44,4 +44,4 @@ The controller gains an optional `BeforeTapePlay func() error`, called in `Tape`
 The worker records an in-flight exchange, and `startExchange` never starts a second one while it runs. The result is accepted whenever the worker is waiting for an exchange on a live connection, even if the pipe reconnected meanwhile, so the per-connection generation on token results is removed. The rotated token is still saved in every case. With a single exchange, a reused refresh token can no longer cause the `invalid_grant` that erased the saved token. The test token server now rotates single-use refresh tokens, like Discord.
 
 ## 13. Now Playing shutdown and port retry
-`close(i.done)` is deferred first, so it runs last, after the bridge is closed. While no bridge is listening, the worker retries `listen` at most every 5 s.
+`close(i.done)` is deferred first, so it runs last, after the bridge is closed. While no bridge is listening, the worker retries `listen` on the existing retry interval (5 s).

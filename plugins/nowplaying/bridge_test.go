@@ -22,6 +22,7 @@ type bridgeRig struct {
 	controls *snoofer.Controls
 	windows  *fakeWindows
 	port     int
+	instance snoofer.Instance
 }
 
 func freePort(t *testing.T) int {
@@ -36,7 +37,12 @@ func freePort(t *testing.T) int {
 
 func startBridgeRig(t *testing.T) *bridgeRig {
 	t.Helper()
-	r := &bridgeRig{t: t, controls: snoofer.NewControls(), windows: &fakeWindows{}, port: freePort(t)}
+	return startBridgeRigOn(t, freePort(t))
+}
+
+func startBridgeRigOn(t *testing.T, port int) *bridgeRig {
+	t.Helper()
+	r := &bridgeRig{t: t, controls: snoofer.NewControls(), windows: &fakeWindows{}, port: port}
 	// The legacy token from the first build still loads, and is ignored.
 	raw, _ := json.Marshal(Settings{Port: r.port, Token: "legacy"})
 	services := snoofer.Services{Controls: r.controls, Live: true, SaveSettings: func(string, json.RawMessage, json.RawMessage) error {
@@ -48,6 +54,7 @@ func startBridgeRig(t *testing.T) *bridgeRig {
 	if err != nil {
 		t.Fatal(err)
 	}
+	r.instance = instance
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
@@ -198,4 +205,28 @@ func TestBridgeSkipsMalformedReports(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.wait("session after malformed report", func(v statusView) bool { return len(v.Browsers) == 1 && len(v.Sessions) == 1 })
+}
+
+func TestBridgeRetriesBusyPortAndStopsAfterClosing(t *testing.T) {
+	busy, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := startBridgeRigOn(t, busy.Addr().(*net.TCPAddr).Port)
+	r.wait("busy port reported", func(v statusView) bool { return v.Bridge.Error != "" })
+	busy.Close()
+	r.wait("listening once the port is free", func(v statusView) bool { return v.Bridge.Error == "" })
+	r.connect("moz-extension://x", "Firefox", protocol)
+	r.wait("connected", func(v statusView) bool { return len(v.Browsers) == 1 })
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if err := r.instance.Stop(ctx); err != nil {
+		t.Fatal(err)
+	}
+	// A restarted plugin must find the port free as soon as Stop returns.
+	again, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", r.port))
+	if err != nil {
+		t.Fatal("port still held after Stop:", err)
+	}
+	again.Close()
 }
