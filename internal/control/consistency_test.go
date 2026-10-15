@@ -12,6 +12,7 @@ import (
 	"sound-snoofer/internal/model"
 	"sound-snoofer/internal/routing"
 	"sound-snoofer/internal/windowsaudio"
+	"sound-snoofer/snoofer"
 )
 
 func TestMuteTargetsAndCurrentHealth(t *testing.T) {
@@ -144,30 +145,36 @@ func TestWorkerRejectsStaleRestartConfirmation(t *testing.T) {
 		}
 	}
 	s := next()
-	id := uint64(0)
-	send := func(a Action) State {
-		id++
+	send := func(a Action, want snoofer.OutcomeStatus, ready func(State) bool) State {
 		a.Origin = "test"
-		a.ID = id
-		actions <- a
+		if result := actionOutcome(t, actions, a); result.Status != want {
+			t.Fatal(result)
+		}
+		deadline := time.NewTimer(time.Second)
+		defer deadline.Stop()
 		for {
-			v := next()
-			if v.Acks["test"].ID == id {
-				return v
+			select {
+			case v := <-states:
+				if ready(v) {
+					return v
+				}
+			case <-deadline.C:
+				t.Fatal("action outcome was not reflected in state")
+				return State{}
 			}
 		}
 	}
-	s = send(Action{Kind: Restart, Revision: s.Revision - 1})
+	s = send(Action{Kind: Restart, Revision: s.Revision - 1}, snoofer.Rejected, func(s State) bool { return strings.Contains(s.Notice, "Stale") })
 	if !strings.Contains(s.Notice, "Stale") || b.restarts != 0 {
 		t.Fatal("stale restart submitted", s.Revision, s.Notice, s.Error, b.restarts)
 	}
-	s = send(Action{Kind: Restart, Revision: s.Revision})
+	s = send(Action{Kind: Restart, Revision: s.Revision}, snoofer.Rejected, func(s State) bool { return s.RestartConfirmation })
 	if !s.RestartConfirmation {
 		t.Fatal("unknown transport not confirmed")
 	}
 	old := s.Revision
-	s = send(ToggleLive)
-	s = send(Action{Kind: Restart, Revision: old, Confirm: true})
+	s = send(ToggleLive, snoofer.Processed, func(s State) bool { return !s.Live && s.Revision > old })
+	s = send(Action{Kind: Restart, Revision: old, Confirm: true}, snoofer.Rejected, func(s State) bool { return strings.Contains(s.Notice, "Stale") })
 	if s.RestartConfirmation || b.restarts != 0 || !strings.Contains(s.Notice, "Stale") {
 		t.Fatal("old confirmation survived mode change")
 	}

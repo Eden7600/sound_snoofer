@@ -137,36 +137,3 @@ func EditIntent(i *config.Intent, a Action) error {
 	i.NormalizeRehearsal()
 	return nil
 }
-
-const maxDeferredEdits = 64
-
-type SettingEdit struct {
-	Row, Value string
-}
-
-func EditsRow(action Action, row string) bool {
-	if len(action.Edits) == 0 {
-		return action.Row == row
-	}
-	for _, edit := range action.Edits {
-		if edit.Row == row {
-			return true
-		}
-	}
-	return false
-}
-
-func EditBatch(intent *config.Intent, action Action) error {
-	if len(action.Edits) == 0 {
-		return EditIntent(intent, action)
-	}
-	if len(action.Edits) > maxDeferredEdits {
-		return fmt.Errorf("too many queued settings")
-	}
-	for _, edit := range action.Edits {
-		if err := EditIntent(intent, Action{Row: edit.Row, Value: edit.Value}); err != nil {
-			return err
-		}
-	}
-	return nil
-}

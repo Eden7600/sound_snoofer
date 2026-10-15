@@ -1,6 +1,11 @@
 # Tasks
 
 ## Plan
+The checked checkpoints below describe the original scope. The user's 2026-10-15
+instruction supersedes their acknowledgement/batch retention in `audit-completion` task 2
+and thumbnail/OnOff retention in task 3. Callback and behavioral coverage replaces legacy
+protocol assertions; presentation sharing preserves each caller's rendering policy.
+
 - [x] 1. `docs(audit)`: review and commit this proposal before implementation; confirm
   `audit-hardening` native/media/build checkpoints have landed and retain the acknowledgement/batch,
   thumbnail and `onOff` deferrals.
@@ -33,5 +38,7 @@
   record actual native smoke results separately. Leave physical device acceptance unclaimed
   unless performed.
 
-Acknowledgement/batch redesign or removal, thumbnail merging and cross-plugin `onOff` sharing are
-deferred, not additional unchecked implementation tasks.
+Acknowledgement/batch removal was deferred at this checkpoint and is now tracked in
+`audit-completion` task 2 under the user's explicit completion instruction. Thumbnail merging
+and cross-plugin `onOff` sharing were also deferred from the original completed scope and
+are now handled by `audit-completion` task 3; these historical checkpoints are unchanged.

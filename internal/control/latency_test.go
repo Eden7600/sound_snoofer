@@ -11,6 +11,7 @@ import (
 
 	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/model"
+	"sound-snoofer/snoofer"
 )
 
 type measuredClient struct {
@@ -34,7 +35,7 @@ func (b *measuredClient) SetNumber(p string, v int) error {
 	return nil
 }
 func (b *measuredClient) SetMixer(p string, v float32) error { b.snapshot.Numbers[p] = v; return nil }
-func TestChoiceAckAndVerifiedReadbackLatency(t *testing.T) {
+func TestChoiceOutcomeAndVerifiedReadbackLatency(t *testing.T) {
 	c, e := config.Decode([]byte(ruleConfig))
 	if e != nil {
 		t.Fatal(e)
@@ -79,7 +80,7 @@ func TestChoiceAckAndVerifiedReadbackLatency(t *testing.T) {
 					return s
 				}
 			case <-deadline.C:
-				t.Fatal("ack/readback exceeded 4s bound")
+				t.Fatal("readback exceeded 4s bound")
 				return State{}
 			}
 		}
@@ -88,19 +89,19 @@ func TestChoiceAckAndVerifiedReadbackLatency(t *testing.T) {
 		return s.Connected && s.Plan != nil && !s.Plan.HasChanges() && !s.Plan.HasUnresolved() && s.Error == ""
 	}
 	s := wait(settled)
-	for n, edit := range []SettingEdit{{Row: "monitor", Value: "pre"}, {Row: "output", Value: "VR Phones"}} {
+	for _, edit := range []Action{{Row: "monitor", Value: "pre"}, {Row: "output", Value: "VR Phones"}} {
 		before := time.Now()
-		actions <- Action{Kind: editRule, Row: edit.Row, Value: edit.Value, Revision: s.Revision, ID: uint64(n + 1)}
-		s = wait(func(s State) bool { return s.EditAck == uint64(n+1) })
-		ack := time.Now()
-		if s.EditError != "" {
-			t.Fatal(s.EditError)
+		edit.Kind, edit.Revision = editRule, s.Revision
+		result := actionOutcome(t, actions, edit)
+		completed := time.Now()
+		if result.Status != snoofer.Processed || result.Detail != "Saved" {
+			t.Fatal(result)
 		}
-		if !settled(s) {
-			s = wait(settled)
-		}
+		s = wait(func(s State) bool {
+			return s.Revision > edit.Revision && settled(s)
+		})
 		verified := time.Now()
-		t.Logf("%s input-to-ack=%s ack-to-verified=%s (fake native readback, real save/worker)", edit.Row, ack.Sub(before), verified.Sub(ack))
+		t.Logf("%s input-to-outcome=%s outcome-to-verified=%s (fake native readback, real save/worker)", edit.Row, completed.Sub(before), verified.Sub(completed))
 	}
 	loaded, e := config.LoadEffective(path)
 	if e != nil || loaded.StateError != "" || loaded.VoiceIntent().PlaybackDevice != "VR Phones" || s.Plan.Topology.PlaybackTarget == "" {

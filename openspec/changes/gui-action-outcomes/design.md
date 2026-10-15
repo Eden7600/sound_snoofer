@@ -12,8 +12,9 @@ Keep the registry's captured `Request.Revision`, operation/options/availability 
 bounded handler contract. Handlers still perform no file/device I/O under its lock. Keep the
 versioned presentation protocol, unchanged/null polls, artwork caching and connection recovery.
 No result is carried in `ViewState`, provider `Control` or the newest-state queue. The worker's
-existing per-origin `Acks` map cannot substitute: it retains only the newest result per origin
-and its sixteen-origin limit is unsuitable for arbitrary GUI action identities.
+former per-origin `Acks` map could not substitute: it retained only the newest result per origin
+and its sixteen-origin limit was unsuitable for arbitrary GUI action identities. The user-directed
+`audit-completion` removes that unused worker protocol without changing GUI result identities.
 
 ## One result per action, scoped to a child session
 Extend private `UIAction` with a string action ID, generated once by the browser and not reused
@@ -75,8 +76,9 @@ error, queued cancellation, supersession, provider removal/stop and late async c
 provider can deliberately finish Submitted after worker validation when the operation enters a
 coalescer or untracked external workflow. Keep typed result/control flow separate from Notice or
 Status strings; do not parse presentation text to discover success or failure. Audio can adapt a
-worker callback without importing GUI types into the worker. Preserve existing non-GUI Acks and
-feedback; GUI action IDs do not create new origins in that map.
+worker callback without importing GUI types into the worker. Preserve scoped feedback and
+origin notice clearing. The original non-GUI Acks retention is superseded by the user's
+2026-10-15 `audit-completion` instruction; GUI action IDs remain separate from worker origins.
 
 Every queued command retains the semantic target from the published snapshot, its desired value
 when a toggle was resolved there, and the provider context/lifetime needed to validate it. Do not
@@ -194,14 +196,14 @@ the current worker-owned StateToken through the unchanged SaveIntent compare-and
 application follows the existing save-before-apply path.
 
 Advance a preference's generation whenever that preference changes, including changes made by
-other callers or batch edits. Invalidate both at an accepted reload/reset boundary and whenever
+other callers. Invalidate both at an accepted reload/reset boundary and whenever
 the intent becomes unavailable or is replaced, even if its boolean values are equal. Keep counters
 monotonic for the worker lifetime. Do not use boolean equality alone: false→true→false must still
 invalidate an old queued request. Recreated providers cannot process old-lifetime queued work.
 An external saved-choice edit still fails StateToken CAS; no generation exception bypasses it.
 
 This is not permission for arbitrary edits to commute. Profile selection, routing, recording,
-gain physical identities, restart confirmations, mic stack, reset and batch edits retain their
+gain physical identities, restart confirmations, mic stack and reset retain their
 strict overall revision/target guards. Gain-press aliases and Discord's linked-mute reconciliation
 also retain their existing strict policy; only the two named explicit controls opt in. Global
 mute preferences remain global across Normal/VR, so a profile transition does not select a new

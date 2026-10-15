@@ -7,17 +7,20 @@ Repository audit findings [19–20](../../../docs/repo-audit.md) and
 missing strict-decoder coverage. Inspection of the current tree confirms useful cleanup,
 but several proposed deletions or merges need narrower scope:
 
-- The worker acknowledgement and batch-edit paths may serve `gui-action-outcomes`; defer
-  their removal until attribution and atomic setting coalescing are designed.
+- The original checkpoint retained worker acknowledgement and batch-edit paths pending
+  `gui-action-outcomes`. The user's 2026-10-15 completion instruction supersedes that retention
+  in `audit-completion`: GUI results now use callbacks, and no production caller uses those paths.
 - Ack-based worker tests also protect live feedback, selection validation, restart
   confirmation and latency. Those tests are not disposable with an implementation detail.
 - Bus parsers, native buffer validators and thumbnail encoders are not identical.
-- A shared API for two trivial `onOff` functions would cost more than the duplication.
+- The original checkpoint retained local thumbnail and `onOff` helpers. The user's
+  `audit-completion` instruction supersedes that choice while preserving caller policies.
 
 ## What Changes
 
 - Remove write-only worker publication fields and unused helpers while retaining edit
-  validation, persistence, feedback, batch support and acknowledgements.
+  validation, persistence and feedback. The original batch/acknowledgement retention is
+  superseded by `audit-completion`; preserve callback outcomes and origin notice clearing.
 - Test `storage.Decode`, reuse it for configuration and saved choices, and replace config's
   forwarding journal helpers with direct storage calls.
 - Share hardware-bus parsing while retaining each caller's current accepted inputs. Replace
@@ -30,8 +33,9 @@ but several proposed deletions or merges need narrower scope:
 - Remove the confirmed small dead-code items in finding 30, updating the tests that still
   protect live behavior.
 
-Keep local thumbnail encoding and `onOff` implementations for now. Preserve their distinct
-policies instead of introducing configurable shared APIs solely to reduce line counts.
+`audit-completion` shares only thumbnail fit/encode through `internal/artwork.Thumbnail`,
+keeping 128px Catmull-Rom and 64px ApproxBiLinear policies and local input/GIF handling.
+Discord and Soundboard use the exact shared `snoofer.OnOff` conversion at all eight call sites.
 
 ## Impact
 

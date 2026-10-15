@@ -1,5 +1,10 @@
 # Tasks
 
+Historical verification below includes legacy acknowledgement/batch cases retained at the time.
+The user's 2026-10-15 `audit-completion` task 2 supersedes that retention; callback results,
+single-edit safety checks and no-replay coverage remain required. Historical test evidence is
+not rewritten as evidence for the later removal.
+
 ## 1. Planning and baseline
 - [x] 1.1 Review this design against actual GUI/pipe/registry/worker paths and the concurrent state-preservation dialog changes; commit the strictly validated plan before implementation.
 - [x] 1.2 Add focused failing regressions for rapid Mic Mute → Playback Mute, queue-only acknowledgments, delayed dispatch errors and cross-screen attribution. Preserve existing test assertions and fixtures.

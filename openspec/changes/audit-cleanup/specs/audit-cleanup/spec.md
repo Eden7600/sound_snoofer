@@ -1,16 +1,17 @@
 ## ADDED Requirements
 
 ### Requirement: Worker cleanup preserves live action behavior
-The worker SHALL remove only confirmed unused publication state and presentation helpers.
+The worker SHALL remove only confirmed unused publication state, presentation helpers and
+the unused acknowledgement/deduplication and batch protocol identified in `audit-completion`.
 Edit stale validation, device availability checks, save-before-apply,
-feedback, error reporting and shutdown behavior SHALL remain unchanged. Existing acknowledgement
-and deduplication fields and batch-edit support SHALL remain until the action-outcome design
-resolves their use.
+feedback, callback outcomes, origin notice clearing and shutdown behavior SHALL remain unchanged.
+The original acknowledgement/batch retention is superseded by the user's 2026-10-15
+completion instruction. GUI result identities and native defaults acknowledgements SHALL remain.
 
 #### Scenario: A device disconnects before a saved-choice edit
 - **WHEN** a normal or VR source/output edit names a device no longer available
 - **THEN** the existing validation rejects it without saving or applying partial choices
-- **AND** its feedback and acknowledgement remain available through the existing paths
+- **AND** its feedback and callback outcome remain available through the existing paths
 
 #### Scenario: Saving a single edit fails
 - **WHEN** persistence refuses an otherwise valid edit

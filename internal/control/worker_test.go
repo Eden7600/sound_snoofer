@@ -1,64 +1,58 @@
 package control
 
 import (
-	"context"
-	"fmt"
 	"path/filepath"
-	"sound-snoofer/internal/config"
 	"testing"
-	"time"
+
+	"sound-snoofer/internal/config"
+	"sound-snoofer/snoofer"
 )
 
-func TestHardwareAckCannotOverwriteControls(t *testing.T) {
-	c := config.Config{Studio: &config.Studio{Voice: &config.Voice{Source: "desk", Mode: "direct", Monitor: "off"}}, Intent: &config.Intent{Version: 1, Enabled: true, Source: "desk", Mode: "direct", Monitor: "off", Playback: map[string]bool{}}}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	actions := make(chan Action, 8)
-	states := make(chan State, 1)
-	done := make(chan struct{})
+func TestWorkerResultsFeedbackAndOriginNoticeClearing(t *testing.T) {
 	saves := 0
-	deps := Dependencies{Open: func(string) (Client, error) { return nil, fmt.Errorf("offline fixture") }, Save: func(string, config.Config, *config.Intent, string) (string, error) { saves++; return "saved", nil }}
-	go Work(ctx, c, filepath.Join(t.TempDir(), "config"), "", false, deps, actions, states, done)
-	next := func() State {
-		select {
-		case s := <-states:
-			return s
-		case <-time.After(2 * time.Second):
-			t.Fatal("worker did not publish")
-			return State{}
-		}
+	deps := Dependencies{Save: func(string, config.Config, *config.Intent, string) (string, error) {
+		saves++
+		return "saved", nil
+	}}
+	actions, states, _ := outcomeWorker(t, testRuleConfig(t), filepath.Join(t.TempDir(), "config"), deps)
+	s := nextState(t, states)
+	if result := actionOutcome(t, actions, Action{Kind: Edit, Revision: s.Revision, Row: "mic-mute", Value: "true"}); result.Status != snoofer.Processed {
+		t.Fatal(result)
 	}
-	s := next()
-	actions <- Action{Kind: Edit, ID: 10, Revision: s.Revision, Row: "mic-mute", Value: "true"}
-	s = next()
-	if s.EditAck != 10 || s.EditError != "" {
-		t.Fatal(s)
+	s = nextState(t, states)
+	if !s.Intent.MicMuted || saves != 1 {
+		t.Fatal("successful edit was not saved", s.Intent, saves)
 	}
-	actions <- Action{Kind: Edit, Origin: "deck", ID: 1, Revision: s.Revision, Row: "mic-mute", Value: "not-bool"}
-	s = next()
-	if s.EditAck != 10 || s.EditError != "" || s.Acks["deck"].Error == "" {
-		t.Fatal("ack cross-talk", s.Acks, s.EditAck, s.EditError)
+	if result := actionOutcome(t, actions, Action{Kind: Edit, Origin: "snoofer", Revision: s.Revision, Row: "mic-mute", Value: "not-bool"}); result.Status != snoofer.Rejected || result.Detail == "" {
+		t.Fatal(result)
+	}
+	s = nextState(t, states)
+	if !s.Intent.MicMuted || saves != 1 || s.Notice == "" || s.NoticeKind != NoticeError {
+		t.Fatal("invalid edit changed intent or hid its error", s.Intent, saves, s.Notice)
 	}
 	if len(s.Feedback) != 1 || s.Feedback["mic-mute"].Kind != NoticeError {
 		t.Fatal("action error was not scoped", s.Feedback)
 	}
-	actions <- Action{Kind: Edit, Origin: "deck", ID: 2, Revision: s.Revision, Row: "mic-mute", Value: "false"}
-	s = next()
-	if len(s.Feedback) != 0 {
-		t.Fatal("successful retry retained error", s.Feedback)
+	notice := s.Notice
+	if result := actionOutcome(t, actions, Refresh); result.Status != snoofer.Processed {
+		t.Fatal(result)
 	}
-	if s.Acks["deck"].Error != "" || s.Intent.MicMuted {
-		t.Fatal(s.Acks)
+	s = nextState(t, states)
+	if s.Notice != notice {
+		t.Fatal("background refresh cleared the action notice", s.Notice)
 	}
-	actions <- Action{Kind: Edit, Origin: "deck", ID: 2, Revision: s.Revision, Row: "mic-mute", Value: "true"}
-	s = next()
-	if s.Intent.MicMuted || saves != 2 {
-		t.Fatal("duplicate action replayed")
+	if result := actionOutcome(t, actions, Action{Kind: refresh, Origin: "soundboard"}); result.Status != snoofer.Processed {
+		t.Fatal(result)
 	}
-	cancel()
-	select {
-	case <-done:
-	case <-time.After(time.Second):
-		t.Fatal("worker leaked")
+	s = nextState(t, states)
+	if feedback, ok := s.Feedback["mic-mute"]; s.Notice != "" || !ok || feedback.Kind != NoticeError {
+		t.Fatal("origin notice clearing changed scoped feedback", s.Notice, s.Feedback)
+	}
+	if result := actionOutcome(t, actions, Action{Kind: Edit, Origin: "discord", Revision: s.Revision, Row: "mic-mute", Value: "false"}); result.Status != snoofer.Processed {
+		t.Fatal(result)
+	}
+	s = nextState(t, states)
+	if len(s.Feedback) != 0 || s.Intent.MicMuted || saves != 2 {
+		t.Fatal("successful retry retained error or failed to save", s.Feedback, s.Intent, saves)
 	}
 }

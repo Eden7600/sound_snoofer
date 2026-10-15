@@ -53,7 +53,6 @@ type State struct {
 	Stalled             bool                // A qualified callback stall: the engine is not processing audio.
 	RecoveryOutcome     string
 	RecoveryPending     bool
-	Acks                map[string]Ack
 	Health              string
 	Defaults            string
 	RestartConfirmation bool
@@ -69,8 +68,6 @@ type State struct {
 	SilentMics    []string
 	MicOptions    []string
 	OutputOptions []string
-	EditAck       uint64
-	EditError     string
 	Recorder      *model.RecorderSnapshot
 	TapePaused    bool // Snoofer's stop paused playback; see Controller.TapePaused.
 	Intent        *config.Intent
@@ -116,8 +113,6 @@ type Action struct {
 	Delta     float32
 	Confirm   bool
 
-	ID         uint64
-	Edits      []SettingEdit
 	Kind       ActionKind
 	Row, Value string
 	Revision   uint64
@@ -243,13 +238,12 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		defer stopCancel()
 		return windowsaudio.Revoke(stopCtx, defaultRequests, defaultDone)
 	}
-	state := State{Acks: map[string]Ack{}}
+	state := State{}
 	// planning is cfg with device identities resolved to the names devices
 	// have now; edits and saves always use cfg itself.
 	planning := func() config.Config {
 		return cfg.Resolve(DeviceNames(state.DefaultsDetail.Endpoints, state.Snapshot))
 	}
-	seen := map[string]uint64{}
 	if deps.Save == nil {
 		deps.Save = config.SaveIntent
 	}
@@ -565,24 +559,8 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				return
 			}
 			timer.Stop()
-			if action.Origin != "" && action.ID != 0 {
-				if seen[action.Origin] >= action.ID {
-					action.finish(snoofer.Outcome{Status: snoofer.Rejected, Detail: "Duplicate audio command"})
-					publish()
-					continue
-				}
-				if len(seen) >= 16 && seen[action.Origin] == 0 {
-					action.finish(snoofer.Outcome{Status: snoofer.Rejected, Detail: "Audio origin capacity full"})
-					continue
-				}
-				seen[action.Origin] = action.ID
-			}
-			previousEditError := state.EditError
 			if action.Origin != "" {
 				state.SetNotice("", NoticeSuccess, time.Now())
-			}
-			if action.Origin != "" {
-				state.EditError = ""
 			}
 			result := snoofer.Outcome{Status: snoofer.Processed, Detail: "Processed"}
 			reject := func(detail string) {
@@ -706,12 +684,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 					reset()
 				}
 			case editRule, resetChoices:
-				if action.ID != 0 && action.Origin == "" {
-					state.EditAck = action.ID
-					state.EditError = ""
-				}
 				if (action.MuteGeneration == 0 && action.Revision != revision) || (action.MuteGeneration != 0 && !mutes.matches(action)) {
-					state.EditError = "Stale rule command; try again"
 					reject("Stale rule command; try again")
 					break
 				}
@@ -720,7 +693,6 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				}
 				next := cfg.VoiceIntent()
 				if next == nil {
-					state.EditError = "No voice profile configured"
 					reject("No voice profile configured")
 					break
 				}
@@ -742,7 +714,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				} else if cfg.StateError != "" {
 					e = fmt.Errorf("reset or repair saved choices first")
 				} else {
-					e = EditBatch(next, action)
+					e = EditIntent(next, action)
 				}
 				if e == nil {
 					if next == nil {
@@ -753,10 +725,10 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				}
 				if e == nil && action.Kind == editRule {
 					// The plugin sends profile-prefixed rows; bare rows remain for older callers.
-					source := (EditsRow(action, "source") || EditsRow(action, "normal-source")) && next.Source != "off"
-					output := (EditsRow(action, "output") || EditsRow(action, "normal-output")) && next.PlaybackDevice != ""
-					vrSource := EditsRow(action, "vr-profile-source") && next.VRProfile != nil && next.VRProfile.Source != "off"
-					vrOutput := EditsRow(action, "vr-profile-output") && next.VRProfile != nil && next.VRProfile.Playback != ""
+					source := (action.Row == "source" || action.Row == "normal-source") && next.Source != "off"
+					output := (action.Row == "output" || action.Row == "normal-output") && next.PlaybackDevice != ""
+					vrSource := action.Row == "vr-profile-source" && next.VRProfile != nil && next.VRProfile.Source != "off"
+					vrOutput := action.Row == "vr-profile-output" && next.VRProfile != nil && next.VRProfile.Playback != ""
 					if source || output || vrSource || vrOutput {
 						if backend == nil {
 							e = fmt.Errorf("device observation unavailable")
@@ -808,7 +780,6 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 					}
 				}
 				if e != nil {
-					state.EditError = e.Error()
 					if result.Status == snoofer.Processed {
 						result = snoofer.Outcome{Status: snoofer.Rejected, Detail: e.Error()}
 					}
@@ -822,19 +793,6 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				resultKind = NoticeError
 			}
 			state.actionFeedback(action, resultKind, time.Now())
-			if action.Origin != "" {
-				next := map[string]Ack{}
-				for k, v := range state.Acks {
-					next[k] = v
-				}
-				actionError := state.EditError
-				if state.NoticeKind == NoticeError && state.Notice != "" {
-					actionError = state.Notice
-				}
-				next[action.Origin] = Ack{ID: action.ID, Error: actionError}
-				state.EditError = previousEditError
-				state.Acks = next
-			}
 		case <-timer.C:
 		}
 		if ctx.Err() != nil {
@@ -961,11 +919,6 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		state.ResolveNotice(time.Now())
 		publish()
 	}
-}
-
-type Ack struct {
-	ID    uint64
-	Error string
 }
 
 // Exported aliases preserve one authoritative action numbering for UI and IPC.

@@ -20,15 +20,16 @@ Retain and adapt meaningful tests of `ObserveMute`, `SetNotice`, `ResolveNotice`
 convergence, failed actions and success expiry through their live fields/worker behavior.
 Do not delete whole mixed-purpose test files.
 
-**Deferred:** retain `Action.ID`, `Origin`, `State.Acks`, `Ack`, `EditAck`, `EditError`,
-deduplication and acknowledgement publication. Also retain `Action.Edits`, `SettingEdit`,
-`maxDeferredEdits`, `EditBatch`, `EditsRow` and batch-aware feedback. Production callers
-currently leave ID at zero and do not submit batches, but `gui-action-outcomes` may reuse
-these paths for asynchronous results and atomically coalesced setting intents from one
-captured snapshot. `Origin` also clears prior notices even with ID zero. Root must settle
-that design before changing these protocols. Ack-based tests in `worker_test.go`,
-`consistency_test.go`, `selection_test.go`, `latency_test.go` and `batch_test.go` remain
-relevant; do not discard their behavioral checks or normal/VR availability validation.
+**Original retention, superseded by user-directed `audit-completion` on 2026-10-15:**
+The initial cleanup kept `Action.ID`, `State.Acks`, `Ack`, `EditAck`, `EditError`,
+deduplication, `Action.Edits`, `SettingEdit`, `maxDeferredEdits`, `EditBatch`, `EditsRow`
+and batch-aware feedback while action outcomes were designed. GUI outcomes now use
+`Action.Complete`; no production caller submits the legacy IDs or batches. Remove the
+unused protocol and convert meaningful acknowledgement-based tests to callback outcomes
+and observed state. Keep single-edit persistence failure, normal/VR availability checks,
+stale restart confirmation, scoped feedback and settled-readback latency coverage.
+Retain `Origin` because it clears prior notices, plus `Complete`, GUI session IDs and the
+unrelated native `windowsaudio.Request.Ack` revocation handshake.
 
 ### 20 and 31. Strict decoding and small shared operations
 
@@ -73,11 +74,13 @@ Cover cancellation before waiting, completed work and context deadline, and reta
 plugin tests that prove helper goroutines actually join. Do not invent a priority when
 both select cases are ready.
 
-**Deferred thumbnail merge:** Now Playing accepts encoded data, validates dimensions and
-produces 128px Catmull-Rom PNGs. Soundboard loads bounded files, composites GIF disposal and
-produces 64px ApproxBiLinear PNGs. Only their short final fit/encode steps overlap. A new
-package accepting size and interpolation policy is not justified by those two callers.
-Keep both and their tests; reconsider when another consumer needs the same concrete policy.
+**Original thumbnail retention, superseded by user-directed `audit-completion`:**
+Now Playing still accepts encoded data, validates dimensions and produces 128px Catmull-Rom
+PNGs. Soundboard still loads bounded files, composites GIF disposal and produces 64px
+ApproxBiLinear PNGs. Share only their final proportional fit, transparent canvas, scaling
+and PNG/base64 encoding through `internal/artwork.Thumbnail(image.Image, size, scaler)`.
+Keep input validation, GIF timing/disposal, caching and fallback behavior local; retain
+pixel characterization, nonzero source bounds, transparency and source-immutability checks.
 
 ### 27. Native build setup
 
@@ -114,9 +117,9 @@ through the canonical build workflow after this checkpoint.
 
 ### 29 and 30. Explicit deferral and small removals
 
-Keep Discord and Soundboard's local `onOff` functions. They are a few lines each and encode
-local UI words; moving them across a plugin boundary creates a shared API without a useful
-invariant. Finding 29 is a justified deferral, not a claimed removal.
+The original finding 29 retention is superseded by the user's `audit-completion` instruction.
+Discord and Soundboard share `snoofer.OnOff(bool)` at all eight call sites, retaining exactly
+`On` and `Off` for display and comparisons. No broader localization or rendering API is added.
 
 Confirmed small removals:
 

@@ -37,7 +37,7 @@ func (g *muteGenerations) update(intent *config.Intent, invalidate bool) {
 }
 
 func (g *muteGenerations) matches(a Action) bool {
-	if !g.present || a.Kind != editRule || len(a.Edits) != 0 || a.MuteGeneration == 0 {
+	if !g.present || a.Kind != editRule || a.MuteGeneration == 0 {
 		return false
 	}
 	switch a.Row {

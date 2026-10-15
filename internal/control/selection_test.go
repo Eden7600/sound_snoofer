@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"sound-snoofer/internal/config"
+	"sound-snoofer/snoofer"
 )
 
 func TestWorkerRejectsDisconnectedSelection(t *testing.T) {
@@ -27,10 +28,13 @@ func TestWorkerRejectsDisconnectedSelection(t *testing.T) {
 			states, actions, done := make(chan State, 1), make(chan Action, 1), make(chan struct{})
 			go Work(ctx, c, "unused", "", false, deps, actions, states, done)
 			state := nextState(t, states)
-			actions <- Action{Kind: editRule, ID: 1, Row: row, Value: "speakers disconnected", Revision: state.Revision}
+			result := actionOutcome(t, actions, Action{Kind: editRule, Row: row, Value: "speakers disconnected", Revision: state.Revision})
 			state = nextState(t, states)
-			if state.EditAck != 1 || !strings.Contains(state.EditError, "no longer connected") {
-				t.Fatal(state.EditError)
+			if result.Status != snoofer.Rejected || !strings.Contains(result.Detail, "no longer connected") {
+				t.Fatal(result)
+			}
+			if feedback, ok := state.Feedback[row]; !ok || feedback.Kind != NoticeError {
+				t.Fatal("disconnected selection lost feedback", state.Feedback)
 			}
 			cancel()
 			<-done

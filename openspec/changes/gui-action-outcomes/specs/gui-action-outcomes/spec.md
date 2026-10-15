@@ -51,7 +51,10 @@ matrix in the design defines the required boundaries; status-only providers need
 #### Scenario: An audio action fails after enqueueing
 - **WHEN** the audio worker rejects a queued action as stale, unavailable or invalid, or its save/reload fails
 - **THEN** that action receives the explicit error rather than an enqueue acknowledgment or another origin's acknowledgment
-- **AND** existing saved-choice validation and non-GUI acknowledgment behavior remain intact
+- **AND** existing saved-choice validation, origin notice clearing and scoped feedback remain intact
+
+The original non-GUI acknowledgement retention is superseded by the user's 2026-10-15
+`audit-completion` instruction; callback completion and GUI result identity remain unchanged.
 
 #### Scenario: Async state updates are discarded
 - **WHEN** an accepted Hue/Discord/Soundboard operation is cancelled, superseded, stopped or returns after its provider generation changed
@@ -135,7 +138,7 @@ remain unchanged; every other audio action SHALL retain its existing strict revi
 #### Scenario: Same preference changes away and back
 - **WHEN** a captured mute preference changes false to true and back before its queued request executes
 - **THEN** the old request is rejected by its generation despite equal boolean values
-- **AND** other callers and batch edits advance that preference generation when they change it
+- **AND** other callers advance that preference generation when they change it
 
 #### Scenario: Intent is reloaded, reset or replaced
 - **WHEN** a reload/reset boundary or intent lifetime change occurs after a mute request was captured

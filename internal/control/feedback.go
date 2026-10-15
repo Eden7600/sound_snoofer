@@ -11,14 +11,7 @@ type Feedback struct {
 func actionBindings(a Action) []string {
 	switch a.Kind {
 	case editRule:
-		if len(a.Edits) == 0 {
-			return []string{a.Row}
-		}
-		keys := make([]string, 0, len(a.Edits))
-		for _, edit := range a.Edits {
-			keys = append(keys, edit.Row)
-		}
-		return keys
+		return []string{a.Row}
 	case startRecording:
 		return []string{"record-start", "record-toggle"}
 	case stopRecording:

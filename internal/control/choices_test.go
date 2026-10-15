@@ -10,6 +10,7 @@ import (
 
 	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/model"
+	"sound-snoofer/snoofer"
 )
 
 func TestResetCorruptSavedState(t *testing.T) {
@@ -138,21 +139,24 @@ func TestRuleWorkerSaveBeforeApplyAndStaleCommands(t *testing.T) {
 	done := make(chan struct{})
 	go Work(ctx, c, "unused", "", false, deps, actions, states, done)
 	s := nextState(t, states)
-	actions <- Action{Kind: editRule, Row: "source", Value: "lav", Revision: s.Revision}
+	result := actionOutcome(t, actions, Action{Kind: editRule, Row: "source", Value: "lav", Revision: s.Revision})
 	s = nextState(t, states)
-	if s.Intent.Source != "lav" || saves != 1 || client.writes.Load() != 0 {
+	if result.Status != snoofer.Processed || s.Intent.Source != "lav" || saves != 1 || client.writes.Load() != 0 {
 		t.Fatal(s)
 	}
-	actions <- Action{Kind: editRule, Row: "source", Value: "webcam", Revision: s.Revision - 1}
+	result = actionOutcome(t, actions, Action{Kind: editRule, Row: "source", Value: "webcam", Revision: s.Revision - 1})
 	s = nextState(t, states)
-	if s.Intent.Source != "lav" || saves != 1 || !strings.Contains(s.Notice, "Stale") {
+	if result.Status != snoofer.Rejected || s.Intent.Source != "lav" || saves != 1 || !strings.Contains(s.Notice, "Stale") {
 		t.Fatal(s)
 	}
 	fail = true
-	actions <- Action{Kind: editRule, Row: "mode", Value: "direct", Revision: s.Revision}
+	result = actionOutcome(t, actions, Action{Kind: editRule, Row: "mode", Value: "direct", Revision: s.Revision})
 	s = nextState(t, states)
-	if s.Intent.Mode != "element" || !strings.Contains(s.Notice, "disk full") {
-		t.Fatal(s)
+	if result.Status != snoofer.Failed || result.Detail != "disk full" || saves != 2 || s.Intent.Source != "lav" || s.Intent.Mode != "element" || client.writes.Load() != 0 {
+		t.Fatal("failed save changed intent or writes", result, s.Intent, saves, client.writes.Load())
+	}
+	if feedback, ok := s.Feedback["mode"]; !ok || feedback.Kind != NoticeError || !strings.Contains(s.Notice, "disk full") {
+		t.Fatal("failed save lost feedback", s.Notice, s.Feedback)
 	}
 	actions <- Reload
 	s = nextState(t, states)

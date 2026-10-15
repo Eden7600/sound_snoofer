@@ -63,30 +63,23 @@ func actionOutcome(t *testing.T, actions chan<- Action, a Action) snoofer.Outcom
 	}
 }
 
-func TestMuteGenerationABAAndBatchEdits(t *testing.T) {
-	for _, batch := range []bool{false, true} {
-		t.Run(fmt.Sprint(batch), func(t *testing.T) {
-			actions, states, _ := outcomeWorker(t, testRuleConfig(t), filepath.Join(t.TempDir(), "audio"), Dependencies{})
-			initial := nextState(t, states)
-			state := initial
-			for _, value := range []string{"true", "false"} {
-				a := Action{Kind: Edit, Row: "mic-mute", Value: value, Revision: state.Revision}
-				if batch {
-					a.Edits = []SettingEdit{{Row: "mic-mute", Value: value}}
-				}
-				if result := actionOutcome(t, actions, a); result.Status != snoofer.Processed {
-					t.Fatal(result)
-				}
-				state = nextState(t, states)
-			}
-			if state.Intent.MicMuted || state.MicMuteGeneration != initial.MicMuteGeneration+2 || state.PlaybackMuteGeneration != initial.PlaybackMuteGeneration {
-				t.Fatal(state)
-			}
-			old := Action{Kind: Edit, Row: "mic-mute", Value: "true", Revision: initial.Revision, MuteGeneration: initial.MicMuteGeneration}
-			if result := actionOutcome(t, actions, old); result.Status != snoofer.Rejected {
-				t.Fatal("ABA accepted", result)
-			}
-		})
+func TestMuteGenerationABA(t *testing.T) {
+	actions, states, _ := outcomeWorker(t, testRuleConfig(t), filepath.Join(t.TempDir(), "audio"), Dependencies{})
+	initial := nextState(t, states)
+	state := initial
+	for _, value := range []string{"true", "false"} {
+		a := Action{Kind: Edit, Row: "mic-mute", Value: value, Revision: state.Revision}
+		if result := actionOutcome(t, actions, a); result.Status != snoofer.Processed {
+			t.Fatal(result)
+		}
+		state = nextState(t, states)
+	}
+	if state.Intent.MicMuted || state.MicMuteGeneration != initial.MicMuteGeneration+2 || state.PlaybackMuteGeneration != initial.PlaybackMuteGeneration {
+		t.Fatal(state)
+	}
+	old := Action{Kind: Edit, Row: "mic-mute", Value: "true", Revision: initial.Revision, MuteGeneration: initial.MicMuteGeneration}
+	if result := actionOutcome(t, actions, old); result.Status != snoofer.Rejected {
+		t.Fatal("ABA accepted", result)
 	}
 }
 
@@ -122,7 +115,6 @@ func TestMuteGenerationIntentLifetimeAndScope(t *testing.T) {
 	for _, a := range []Action{
 		{Kind: Edit, Row: "mode", MuteGeneration: g.mic},
 		{Kind: resetChoices, Row: "mic-mute", MuteGeneration: g.mic},
-		{Kind: Edit, Row: "mic-mute", MuteGeneration: g.mic, Edits: []SettingEdit{{Row: "mic-mute", Value: "true"}}},
 	} {
 		if g.matches(a) {
 			t.Fatal("independent policy escaped explicit controls", a)
@@ -198,22 +190,6 @@ func TestAudioOutcomesStaleAndReloadFailure(t *testing.T) {
 	state := nextState(t, states)
 	if state.MicMuteGeneration == initial.MicMuteGeneration {
 		t.Fatal("failed reload retained captured preference lifetime")
-	}
-}
-
-func TestAudioLegacyDuplicateAndOriginCapacityComplete(t *testing.T) {
-	actions, states, _ := outcomeWorker(t, testRuleConfig(t), filepath.Join(t.TempDir(), "audio"), Dependencies{})
-	nextState(t, states)
-	for n := range 16 {
-		if result := actionOutcome(t, actions, Action{Kind: refresh, Origin: fmt.Sprint(n), ID: 1}); result.Status != snoofer.Processed {
-			t.Fatal(result)
-		}
-		nextState(t, states)
-	}
-	for _, origin := range []string{"0", "new"} {
-		if result := actionOutcome(t, actions, Action{Kind: refresh, Origin: origin, ID: 1}); result.Status != snoofer.Rejected {
-			t.Fatal(result)
-		}
 	}
 }
 

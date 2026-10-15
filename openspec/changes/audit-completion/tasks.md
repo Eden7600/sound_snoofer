@@ -1,6 +1,6 @@
 # Tasks
 - [x] 1. Review and commit the strictly validated plan before source/test changes.
-- [ ] 2. Remove unused worker protocol, adapt meaningful tests and older conflicting
+- [x] 2. Remove unused worker protocol, adapt meaningful tests and older conflicting
   contracts; focused/repeated control and linked-provider checks; review and commit.
 - [x] 3. Characterize and consolidate thumbnail encoding and OnOff; preserve policy
   and caller tests; focused tests/vet; review and commit.
@@ -26,3 +26,5 @@ This proves cleanup/guard logic only, not live sharing refusal.
 Checkpoint 4: Same-origin Chrome/Firefox and concurrent-claim regressions failed before the fix. All bridge tests pass 25 repetitions; complete Now Playing tests and vet pass. Independent root review confirms admission is synchronized, incumbents retain ownership and fresh reconnects retain generation guards. The original reject-second-live-connection option is fulfilled; first-claimant authentication is not asserted.
 
 Checkpoint 3: Six decoded-pixel baselines were captured before extraction and passed unchanged afterward, including transparency, aspect ratio and nonzero source bounds. Source immutability, provider file/dimension limits and invalid shared inputs pass. Artwork, Now Playing, Soundboard, Discord and snoofer package tests and vet pass. Root review confirms all eight OnOff callers migrated and GIF/decoding/cache policies remain local.
+
+Checkpoint 2: Removed only unused worker IDs, acknowledgements, deduplication and batch edits; callbacks, Origin notice clearing, scoped feedback and native acknowledgements remain. Linked package tests/vet and three strict specs pass; focused regressions pass 25 repetitions. A negative overlay proves the notice-clearing check detects regression. Independent and root reviews found no issues.

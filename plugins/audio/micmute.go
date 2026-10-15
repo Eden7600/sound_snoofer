@@ -34,7 +34,7 @@ func (i *Instance) MicMute() MicMute {
 
 // SetMicMute requests a Mic mute preference through the audio worker, as
 // the Mic mute control does: it is saved, then applied to Voicemeeter.
-// origin names the requesting surface for acknowledgements.
+// A nonempty origin clears the prior worker notice before this action.
 func (i *Instance) SetMicMute(muted bool, origin string) error {
 	i.mu.Lock()
 	revision := i.state.Revision
