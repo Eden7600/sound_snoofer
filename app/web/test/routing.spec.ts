@@ -1,4 +1,5 @@
 import { expect, test, type Gui } from "./host.ts";
+import type { PriorityView } from "../src/screens/routing-types.ts";
 
 const lastValue = async (gui: Gui, id: string): Promise<unknown> => JSON.parse((await gui.last(id)).Value);
 
@@ -172,30 +173,47 @@ test.describe("Routing", () => {
   });
 
   test("activity metering settings", async ({ gui }) => {
-    // The provider sends activity settings as {check, silence_db, silent_after_s}, but the GUI
-    // reads {Check, SilenceDB, SilentAfterS}: docs/gui-audit.md item 15, owned by gui-content-fixes.
-    test.fail(true, "activity settings key mismatch; gui-content-fixes");
     const activity = gui.page.locator("[data-part=activity]");
     await expect(activity.getByLabel("Meter")).toHaveValue("2");
+    await expect(activity.getByLabel("Silence Below (dBFS)")).toHaveValue("-70");
+    await expect(activity.getByLabel("Silent After (s)")).toHaveValue("10");
+    for (const label of ["Meter", "Silence Below (dBFS)", "Silent After (s)"]) {
+      await activity.getByLabel(label).focus();
+      await activity.getByLabel(label).press("Tab");
+    }
+    expect(await gui.sent(), "rendering and focus must not edit activity").toEqual([]);
+    await activity.getByLabel("Silence Below (dBFS)").fill("-65");
+    expect(await gui.sent(), "typing must wait for change").toEqual([]);
+    await activity.getByLabel("Silence Below (dBFS)").press("Tab");
+    await expect.poll(async () => (await gui.sentValues("audio.priority-edit")).length).toBe(1);
+    await gui.settled();
     await activity.getByLabel("Silent After (s)").fill("5");
     await activity.getByLabel("Silent After (s)").press("Tab");
-    expect(await lastValue(gui, "audio.priority-edit")).toEqual({
-      list: "activity",
-      op: "set",
-      index: 0,
-      value: "5",
-      field: "silent_after_s",
-    });
+    await expect.poll(async () => (await gui.sentValues("audio.priority-edit")).length).toBe(2);
     await gui.settled();
     await activity.getByLabel("Meter").selectOption("0");
-    await expect.poll(async () => (await gui.sentValues("audio.priority-edit")).length).toBe(2);
-    expect(await lastValue(gui, "audio.priority-edit")).toEqual({
-      list: "activity",
-      op: "set",
-      index: 0,
-      value: "0",
-      field: "check",
+    await expect.poll(async () => (await gui.sentValues("audio.priority-edit")).length).toBe(3);
+    expect(await gui.sentValues("audio.priority-edit")).toEqual([
+      { list: "activity", op: "set", index: 0, value: "-65", field: "silence_db" },
+      { list: "activity", op: "set", index: 0, value: "5", field: "silent_after_s" },
+      { list: "activity", op: "set", index: 0, value: "0", field: "check" },
+    ]);
+  });
+
+  test("absent activity shows Off and empty disabled thresholds", async ({ gui }) => {
+    await gui.update(() => {
+      const view = window.ctl<PriorityView>("audio.priorities").ViewData;
+      if (!view) throw new Error("priority view missing");
+      delete view.Activity;
+      window.ctl("audio.priority-edit").Value += "-without-activity";
     });
+    const activity = gui.page.locator("[data-part=activity]");
+    await expect(activity.getByLabel("Meter")).toHaveValue("0");
+    for (const label of ["Silence Below (dBFS)", "Silent After (s)"]) {
+      await expect(activity.getByLabel(label)).toHaveValue("");
+      await expect(activity.getByLabel(label)).toBeDisabled();
+    }
+    expect(await gui.sent()).toEqual([]);
   });
 
   test("a new microphone uses interface channels by default", async ({ gui }) => {

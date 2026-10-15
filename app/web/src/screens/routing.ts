@@ -386,8 +386,7 @@ function channelFields(entry: PriorityEntry, n: number, m: MicView) {
 // removes metering), the silence threshold and the delay before Auto skips.
 function activityCard(parent: HTMLElement, view: Partial<PriorityView>) {
   if (!view.Profiles) return;
-  // shortcut: preserve legacy Activity casing until gui-content-fixes corrects the renderer.
-  const a = view.Activity as unknown as { Check?: number; SilenceDB?: number; SilentAfterS?: number } | undefined;
+  const a = view.Activity;
   const card = panel("Activity", parent),
     fields = el("div", "grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-3 gap-y-2");
   card.dataset.part = "activity";
@@ -395,7 +394,7 @@ function activityCard(parent: HTMLElement, view: Partial<PriorityView>) {
   check.setAttribute("aria-label", "Meter");
   check.append(Object.assign(el("option", "", "Off"), { value: "0" }));
   for (let k = 1; k <= 4; k++) check.append(Object.assign(el("option", "", "Top " + k), { value: String(k) }));
-  check.value = String(a?.Check || 0);
+  check.value = String(a?.check ?? 0);
   check.onchange = () => priorityEdit("activity", "set", 0, check.value, "check");
   const number = (value: number | undefined, label: string, field: string, min: number, max: number) => {
     const i = el("input", "w-24 tabular-nums");
@@ -407,8 +406,8 @@ function activityCard(parent: HTMLElement, view: Partial<PriorityView>) {
     i.onchange = () => priorityEdit("activity", "set", 0, i.value, field);
     return i;
   };
-  const threshold = number(a?.SilenceDB, "Silence Below (dBFS)", "silence_db", -120, -20),
-    delay = number(a?.SilentAfterS, "Silent After (s)", "silent_after_s", 2, 600);
+  const threshold = number(a?.silence_db, "Silence Below (dBFS)", "silence_db", -120, -20),
+    delay = number(a?.silent_after_s, "Silent After (s)", "silent_after_s", 2, 600);
   fields.append(
     el("span", "text-xs text-muted", "Meter"),
     check,

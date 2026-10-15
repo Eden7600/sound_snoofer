@@ -9,7 +9,7 @@ with its focused checks; retain unrelated GUI defects and user changes.
 - [x] 2. `fix(audio)`: assign control-specific option labels; extend provider tests for active,
   Normal/VR, tap, Automatic/Off and silent microphones; regenerate both audio fixtures and then
   Stream Deck; assert rendered Audio option labels and Routing's Pre label. Run drift tests.
-- [ ] 3. `fix(gui)`: read Activity's lowercase fields; remove legacy cast and expected failure;
+- [x] 3. `fix(gui)`: read Activity's lowercase fields; remove legacy cast and expected failure;
   assert initial 2/-70/10 values, absent Activity, no render/focus dispatch and all edit payloads.
 - [ ] 4. `fix(gui)`: classify/name playback sends with existing Routing/source metadata and render
   Retry as a compact command action; regenerate affected fixtures, verify no duplicate recovery
