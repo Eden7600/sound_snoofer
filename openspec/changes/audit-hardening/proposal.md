@@ -17,10 +17,10 @@ Findings 14, 15 and 26 are handled elsewhere:
 ## What Changes
 - **16:** priority and output edits drawn from an older configuration are sent as stale.
 - **17:** every WinRT media call waits at most 2 s. A timed-out call is cancelled and reported as an error.
-- **18:** native companions build into a staging folder and reach `bin/` only after the Go build succeeds. Neural-AEC setup repairs a wrong checkout and a partial CMake extraction.
+- **18:** native companions build into a fresh staging folder and reach `bin/` only after esbuild, Tailwind and the Go build succeed. Preparation and compilation failures preserve deployed files; deployment I/O failures are reported without a rollback guarantee. The only application output remains `bin/snoofer.exe`. Neural-AEC setup repairs a wrong checkout and a partial CMake extraction.
 - **21:** `SnooferStop` treats Voicemeeter's "no callback registered" (-2) as clean.
 - **22:** a deck session reads the current key state when it opens, so the first report is compared with real state.
-- **23:** a deck path that fails to open is reported even while another deck runs.
+- **23:** a deck path that fails to open is reported even while another deck runs; its temporary path report is retired when that path opens or disappears.
 - **24:** a Hue light-write result from before a room change is ignored.
 - **25:** a newer bridge connection replaces a live one only when it comes from the same extension origin.
 

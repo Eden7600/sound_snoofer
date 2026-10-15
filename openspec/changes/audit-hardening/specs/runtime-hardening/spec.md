@@ -13,12 +13,37 @@ Each call into a media application SHALL time out after 2 seconds.
 - **WHEN** a media application stops answering
 - **THEN** Now Playing keeps updating other sessions
 
-### Requirement: Builds never mix outputs
-A failed build SHALL leave `bin/` unchanged, and an interrupted dependency setup SHALL be repaired by the next build.
+### Requirement: Build preparation preserves deployed outputs
+Dependency preparation, native compilation, GUI asset generation and Go compilation/link failures before output deployment SHALL leave existing deployed file contents unchanged. Companions, models and licenses SHALL be staged afresh and published only after esbuild, Tailwind and the Go build succeed. Build tags SHALL retain their existing selection behavior. The application SHALL continue to build only through `scripts/build.ps1`, with `bin/snoofer.exe` as its sole application output.
 
-#### Scenario: Go build fails
-- **WHEN** the Go build fails after native companions were compiled
-- **THEN** `bin/` keeps the previous companions
+This guarantee excludes I/O failures while Go writes the final executable or while staged companions are copied into `bin/`. Such failures SHALL fail the build, report that deployed output may be incomplete and require a successful rebuild; rollback is not promised.
+
+#### Scenario: Compilation or GUI generation fails
+- **WHEN** native compilation, esbuild, Tailwind or Go compilation/linking fails before output deployment
+- **THEN** the existing executable, companions, models and licenses keep their previous contents
+
+#### Scenario: Tagged build follows a different build
+- **WHEN** the selected build tags exclude a companion produced by an earlier build
+- **THEN** no stale staged file is published and unrelated deployed files remain untouched
+
+#### Scenario: Successful build publishes nested assets
+- **WHEN** the application and its selected companions build successfully
+- **THEN** the selected companions, models and licenses are copied from the fresh stage into their existing `bin/` locations
+
+#### Scenario: Deployment write fails
+- **WHEN** writing the final executable or copying a staged companion fails
+- **THEN** the build reports failure and incomplete deployed output rather than reporting success
+
+### Requirement: Interrupted neural dependency setup recovers
+The next build SHALL repair an incomplete CMake extraction or missing/wrong pinned LocalVQE or GGML checkout. Verified model downloads SHALL be reused across fresh build stages.
+
+#### Scenario: CMake extraction was interrupted
+- **WHEN** the CMake cache exists but has no completed-extraction marker
+- **THEN** the verified archive is extracted completely before that cache is used
+
+#### Scenario: Dependency checkout was interrupted
+- **WHEN** the LocalVQE checkout or its GGML submodule is missing the pinned revision
+- **THEN** the next build restores and verifies the pinned revisions before compiling
 
 ### Requirement: Callback cleanup recognises a clean state
 A callback stop that finds nothing registered SHALL count as a clean stop.
@@ -35,11 +60,15 @@ A deck session SHALL start from the deck's current key state when the device pro
 - **THEN** the press is delivered
 
 ### Requirement: Every deck open failure is reported
-A deck that fails to open SHALL be reported even while another deck runs.
+A deck that fails to open SHALL be reported even while another deck runs. Its temporary path-only report SHALL be retired when that path opens or disappears; remembered serial-based reports SHALL be retained.
 
 #### Scenario: Second deck refused
 - **WHEN** one deck runs and another fails to open
 - **THEN** the failing deck's error is shown
+
+#### Scenario: Failed path recovers or disappears
+- **WHEN** a previously failing HID path opens successfully or disappears from discovery
+- **THEN** its temporary error report is removed without removing remembered serial-based deck reports
 
 ### Requirement: Hue room changes isolate writes
 Light-write results from before a room change SHALL NOT affect the new room's dials.
