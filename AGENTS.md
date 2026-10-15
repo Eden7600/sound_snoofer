@@ -115,10 +115,11 @@ Stop and commit frequently throughout every implementation session. The user rev
 ## Desktop control sessions
 
 Before each session of desktop GUI input or visible application launching, ask the
-user and wait for their go-ahead. State the intended duration, stop when that
-window ends, and tell the user when control is released. A previous session's
-approval does not authorize another session. Background source work may continue
-without taking desktop control.
+user and wait for their go-ahead. Unless the user specifies a time limit, approval
+lasts until the current task and its cleanup are finished. If the user specifies a
+limit, stop when that window ends. Tell the user when control is released. A previous
+session's approval does not authorize another session. Background source work may
+continue without taking desktop control.
 During unattended control windows, use only apps already approved for Computer Use.
 New-app approval waits can outlast the granted window; obtain that access separately
 while the user is available, and reserve time for cleanup before the deadline.

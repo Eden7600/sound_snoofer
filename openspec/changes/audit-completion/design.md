@@ -87,3 +87,15 @@ TestEditorSaveAndInputGenerations: its first rendered frame precedes publication
 of the current handler. Apply the same connected-report precondition there before
 its first edit. Keep its failed-save status, unchanged active layout, successful
 save and stale input-generation assertions. This is part of task 5a.
+
+## Complementary deck sharing check
+The verified Plus path rejected the access-zero/share-read holder with sharing
+error 32 after the canonical host stopped normally. This may be an existing writer
+or driver sharing policy; it does not identify a process or prove its access mode.
+Allow one final access-zero/FILE_SHARE_WRITE holder attempt, permitting existing
+writers while denying the read half of Snoofer's read/write open. Retain exact serial,
+no report I/O, production-shaped probe requiring error 32, atomic readiness, explicit
+release and the 90-second handle deadline. Update the fake flags assertion before
+rebuilding the scratch helper. No other mode permutations, ACL/driver changes or
+unrelated process closure: failed acquisition records incompatible sharing as the
+concrete live-acceptance blocker.
