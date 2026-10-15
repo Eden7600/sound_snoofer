@@ -1,6 +1,6 @@
 ## ADDED Requirements
 ### Requirement: Index-based edits are tied to drawn lists
-Priority, output-slot and deck-region edits SHALL carry the revision of the list they were drawn from.
+Priority and output-slot edits SHALL be rejected as stale when the configuration changed after their rows were drawn.
 
 #### Scenario: List changed before the click
 - **WHEN** a priority list changes after its rows were drawn and before the user clicks a row action

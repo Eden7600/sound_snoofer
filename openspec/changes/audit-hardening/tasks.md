@@ -1,7 +1,7 @@
 # Tasks
 ## Implementation
 - [x] 1. `docs(audit)`: specify the audit hardening.
-- [ ] 2. `fix(gui)`: send drawn revisions for index-based edits; GUI check.
+- [x] 2. `fix(gui)`: send priority and output edits from older lists as stale; GUI check (a targeted browser regression test belongs to `gui-test-harness`).
 - [ ] 3. `fix(nowplaying)`: bound WinRT media calls; build the media helper.
 - [ ] 4. `fix(build)`: stage companions until the Go build succeeds; repair neural-AEC setup.
 - [ ] 5. `fix(voicemeeter)`: treat "no callback registered" as a clean stop; callback probe.

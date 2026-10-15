@@ -15,7 +15,7 @@ Findings 14, 15 and 26 are handled elsewhere:
 - **15** and **26** overlap the planned GUI changes (`gui-action-outcomes`, `gui-state-preservation`) and are resolved there.
 
 ## What Changes
-- **16:** priority, output and region edits carry the revision of the lists they were drawn from.
+- **16:** priority and output edits drawn from an older configuration are sent as stale.
 - **17:** every WinRT media call waits at most 2 s. A timed-out call is cancelled and reported as an error.
 - **18:** native companions build into a staging folder and reach `bin/` only after the Go build succeeds. Neural-AEC setup repairs a wrong checkout and a partial CMake extraction.
 - **21:** `SnooferStop` treats Voicemeeter's "no callback registered" (-2) as clean.

@@ -215,7 +215,12 @@ function buildAudio() {
 }
 // priorityEdit sends one change to a device priority list; Snoofer validates,
 // saves and applies it.
-function priorityEdit(list,op,index=0,value="",field=""){request(c("audio.priority-edit"),"set",JSON.stringify({list,op,index,value,field}));}
+// drawnConfig is the audio configuration hash (the edit controls' Value) the screen was built
+// from. Index-based edits drawn from older lists send revision 0, which the host rejects as
+// stale, instead of changing whatever now sits at that index.
+let drawnConfig="";
+function listEdit(id,value){const control=c(id);request(control,"set",value,0,control?.Value===drawnConfig?control.Revision:0);}
+function priorityEdit(list,op,index=0,value="",field=""){listEdit("audio.priority-edit",JSON.stringify({list,op,index,value,field}));}
 function editable(){return !pending&&!!c("audio.priority-edit")?.Available;}
 // matchBadge states what an entry matches under the planner's rules.
 function matchBadge(entry,missing="No match"){
@@ -408,7 +413,7 @@ const sourceNames={"virtual:1":"Computer","virtual:2":"Virtual 2","virtual:3":"V
 const sourceIcons={"virtual:1":"monitor","virtual:2":"monitor","virtual:3":"monitor",monitor:"headphones",soundboard:"music",tape:"cassette-tape"};
 const outputTones={"In use":"active","No output":"attention"};
 // outputEdit adds, renames, re-assigns or removes an output slot by ID.
-function outputEdit(op,id,value=""){request(c("audio.output-edit"),"set",JSON.stringify({op,id,value}));}
+function outputEdit(op,id,value=""){listEdit("audio.output-edit",JSON.stringify({op,id,value}));}
 // routeCell is one source-to-destination switch; pressing it toggles (or
 // cycles Monitor on Playback). Moving focus never dispatches.
 function routeCell(id,label){
@@ -1196,11 +1201,12 @@ function buildDiagnostics(){
 }
 function layoutKey(){
  // Values and telemetry are updated in place. Only structure/context rebuilds a screen.
- const list=[...controls.values()].map(v=>[v.ID,v.Label,v.Kind,v.Group,v.Options,v.OptionLabels]);
+ // A configuration change rebuilds too, so drawnConfig always names the drawn lists.
+ const list=[...controls.values()].map(v=>[v.ID,v.Label,v.Kind,v.Group,v.Options,v.OptionLabels]).concat([c("audio.priority-edit")?.Value]);
  return JSON.stringify([screen,list,Object.keys(state.Plugins||{}),screen==="lights"?[state.Enabled?.hue,c("hue.group")?.Value,c("hue.rooms")?.ViewData,[...controls.values()].filter(v=>v.ID.startsWith("hue.scene-")).map(v=>v.Order)]:null,screen==="meetings"?[state.Enabled?.discord]:null,screen==="media"?[state.Enabled?.nowplaying,(c("nowplaying.status")?.ViewData?.Sessions||[]).map(s=>[s.ID,s.CanSeek,s.CanMute]),(c("nowplaying.status")?.ViewData?.Browsers||[]).map(b=>b.Name)]:null,screen==="appaudio"?[state.Enabled?.appaudio,(c("appaudio.status")?.ViewData?.Apps||[]).map(a=>[a.ID,a.Name,a.Hidden,a.Picked,a.Open,a.Rule,a.Naming]),c("appaudio.status")?.ViewData?.Exclude]:null,screen==="routing"?[c("audio.priorities")?.ViewData,[1,2,3].map(n=>[c("audio.slot-"+n)?.Hidden,c("audio.slot-"+n)?.Status,c("audio.slot-"+n)?.ViewData])]:null,screen==="deck"?[c("streamdeck.preview")?.ViewData?.Selected,c("streamdeck.page")?.Value,c("streamdeck.profile")?.Value,c("streamdeck.shared")?.Value,c("streamdeck.preview")?.ViewData?.Regions,c("streamdeck.preview")?.ViewData?.Collections,c("streamdeck.deck")?.Options]:null]);
 }
 function build(){
- widgets.length=0;updaters.length=0;root.replaceChildren();
+ widgets.length=0;updaters.length=0;root.replaceChildren();drawnConfig=c("audio.priority-edit")?.Value||"";
  for(const b of document.querySelectorAll("[data-screen]")){if(b.dataset.screen===screen)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current");}
  $("#eyebrow").textContent=titles[screen][0];$("#title").textContent=titles[screen][1];
  ({audio:buildAudio,routing:buildRouting,soundboard:buildSoundboard,lights:buildLights,appaudio:buildAppAudio,meetings:buildMeetings,media:buildMedia,deck:buildDeck,plugins:buildPlugins,apps:buildApps,diagnostics:buildDiagnostics})[screen]();

@@ -1,8 +1,10 @@
 # Design
 Numbers match the audit documents.
 
-## 16. Drawn revisions
-The Routing and Stream Deck screens rebuild whenever the priority lists, output slots or deck regions change (`layoutKey`). `build()` therefore records the revision of `audio.priority-edit`, `audio.output-edit`, `streamdeck.region-clip` and `streamdeck.region-remove`, and index-based edits send that recorded revision. An edit drawn from older lists is then rejected as stale instead of changing whatever now sits at that index.
+## 16. Drawn configuration
+A control's revision changes whenever any of its fields change, such as an error status, so pinning revisions would reject valid edits. The priority and output edit controls instead publish the audio configuration hash as their Value. `build()` records that hash, and the global `layoutKey` includes it, so a configuration change always rebuilds and the recorded hash always names the drawn lists. Priority and output edits send the current revision when the hash still matches, and revision 0 otherwise, which the host rejects as stale ("control changed; try again").
+
+Deck region controls carry no list identity on the host (their revision changes only with availability), so pinning them gains nothing; they are left unchanged.
 
 ## 17. Bounded media calls
 A helper waits for each WinRT async operation for up to 2 s. If the operation is still running, the helper cancels it and throws `HRESULT_FROM_WIN32(ERROR_TIMEOUT)`, which the existing handlers return. In a snapshot, a session whose metadata times out is reported without metadata, as other metadata failures already are. Synchronous property reads are unchanged.
