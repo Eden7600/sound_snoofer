@@ -14,4 +14,12 @@
 - [x] 7. Coordinate `scripts/build.ps1` and the existing native desktop smoke without modifying its script; verify legacy fixtures, revisioned actions, focus, close/reopen and EOF cleanup. Report race-detector results or the existing toolchain limitation.
 
 ## Live acceptance
-- [ ] 8. With live media or soundboard artwork, verify telemetry and clocks continue, animation/artwork changes and removal render correctly, and closing/reopening controls restores assets. Leave this unchecked if hardware acceptance is not performed.
+- [x] 8. With live media or soundboard artwork, verify telemetry and clocks continue, animation/artwork changes and removal render correctly, and closing/reopening controls restores assets. Leave this unchecked if hardware acceptance is not performed.
+
+2026-10-15 live acceptance on host PID 48916: Media showed 5150 artwork at 0:35/3:09
+from music.youtube.com, extension 1.1.0 and one tab with media. Closing YouTube Music removed
+its card/artwork and changed the count to zero while the separate paused Windows Brave
+Shape Of My Heart artwork remained. Reopened playback showed Come Together/Abbey Road artwork
+and a clock advancing 0:01 to 0:18. After closing live controls window 9637604 and reopening
+window 6493016, Media restored current Femme Like U artwork at 0:16/2:18. This completes the
+live artwork branch; the earlier synthetic animation check is recorded separately.

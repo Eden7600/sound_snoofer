@@ -25,8 +25,9 @@ the first key and first dial-button press work on both Plus and Plus XL. Host PI
 exited normally for the diagnostic DevTools build. The normal canonical build now passes and
 production is restored as PID 48916 with `--config bin/snoofer.json`. Compact branding, plugin
 gates, marker navigation, wide content inspection and all native dropdown paths now pass.
-The audit is **not fully accepted**: native recovery fault acceptance and real integration checks
-below remain open.
+Live media artwork change/removal and restoration after reopening controls also pass. The audit
+is **not fully accepted**: native recovery fault acceptance and the remaining real integration
+checks below remain open.
 
 The findings below retain their original audit wording and old source references;
 current implementation lives in `app/web/src`.
@@ -41,7 +42,8 @@ current implementation lives in `app/web/src`.
 | `gui-state-preservation`: 3, 6 | Complete; functional native restoration, dialog cancellation, polling and captured-target invalidation verified | No remaining functional native journey; aggregate validation and physical integration remain separately tracked |
 | `gui-action-outcomes`: 1, 4 | Complete; independent completion-path review and native smoke pass; packaged result attribution, state updates and close with an outstanding action verified | Real integration outcomes |
 | `gui-attention-journeys`: remaining 14 | Complete; disabled/starting/failed Audio gates, marker-to-reason keyboard navigation, Plugins link/Retry availability and captured host-proposal cancellation verified natively | None for packaged presentation; real plugin lifecycle effects remain unclaimed |
-| `view-state-transport`, repository hardening/cleanup | Original source gates, canonical companion build, native smoke and coordinated shutdown recheck pass; original timeout unexplained | First key/dial presses pass on both connected models; live asset removal/reopen and remaining physical acceptance |
+| `view-state-transport` | Complete; source/native smoke and live media artwork change, selective removal, clocks and controls reopen pass | None for the transport artwork acceptance |
+| Repository hardening/cleanup | Original source gates, canonical companion build, native smoke and coordinated shutdown recheck pass; original timeout unexplained | First key/dial presses pass on both connected models; remaining physical acceptance |
 
 ### Shared source and build validation
 
@@ -67,9 +69,16 @@ current implementation lives in `app/web/src`.
   media async timeout and canonical COM identity self-tests pass; the actual media DLL compiles.
 - The initial media DLL probe opened and snapshotted successfully with no active sessions. After
   unlock, a read-only probe found the active Brave YouTube Music session, playing position,
-  duration, canonical instance token 1 and 33,390 bytes of artwork. No media command was sent;
-  a later live GUI inspection showed actual artwork and the track change from Eyes Without A Face to Human Feel, with a 0:10/3:01 clock. Removal/reopen acceptance remains separate. The soundboard
-  normalization probe passes using temporary WAV files, with its playback path disabled.
+  duration, canonical instance token 1 and 33,390 bytes of artwork. No media command was sent.
+- Live Media on host PID 48916 showed 5150 artwork at 0:35/3:09 from music.youtube.com, with
+  extension 1.1.0 reporting one tab with media. When the user closed YouTube Music, that tab card
+  and artwork disappeared and the extension reported zero tabs with media; the separate paused
+  Windows Brave session retained its Shape Of My Heart artwork. Reopening playback showed
+  Come Together with new Abbey Road artwork and a clock advancing from 0:01 to 0:18. After live
+  controls window 9637604 closed normally and the user reopened window 6493016, selecting Media
+  restored the current Femme Like U artwork at 0:16/2:18. This fulfills live transport acceptance
+  through the artwork lifecycle, including selective removal, continuing clocks and reopen.
+- The soundboard normalization probe passes using temporary WAV files, with playback disabled.
 - Extension unit/build tests: 16 pass. Chrome page-script and isolated Brave protocol 2 end-to-end
   checks pass. Browser media controls require the matching extension 1.1.0; the installed user
   extension was not reloaded. Refresh older media tabs after updating if Next/Previous is unavailable.
@@ -117,7 +126,7 @@ Nine captured actions were retained in the local acceptance log.
   remained zero bytes. After computer use could not target the separate popup, the user
   completed pointer selection on normal-build fixture PID 42296: Monitor Pre to Post sent exactly
   one `audio.normal-monitor` request, revision 36, operation `set`, value `post`. All specified
-  native dropdown paths now pass.
+  native dropdown paths now pass. Fixture PID 42296 subsequently closed via EOF with exit code 0.
 - Mic Mute stayed reserved after the 2.5-second Unknown threshold while Playback Mute still sent.
   An injected Playback Failed reply stayed on Audio; navigation to Soundboard showed no Audio
   error. A later Mic Processed reply remained on Audio, gain updates continued, and no action
@@ -149,8 +158,8 @@ Nine captured actions were retained in the local acceptance log.
   action still unresolved, confirming that the outstanding result did not block window shutdown.
 
 Keep aggregate acceptance tasks open until all their required checks are performed. Outstanding
-work includes native connection-recovery fault acceptance, real mute/error/uncertain-one-shot
-outcomes, and live artwork removal/reopen. Live artwork change and clock progression have already been observed.
+work includes native connection-recovery fault acceptance and real mute/error/uncertain-one-shot
+outcomes. Live media artwork change/removal, clock progression and controls reopen are verified.
 Recorder Pause, Voicemeeter startup/restart and remaining physical Stream Deck input/hotplug
 checks remain separate. The observed XL first-key failure is fixed and its key/dial-button
 retest passes on both available models. Mini/MK.2 are unavailable.
