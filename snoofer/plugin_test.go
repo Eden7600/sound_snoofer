@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -66,17 +67,28 @@ func TestInvalidBranches(t *testing.T) {
 }
 func TestStopDeadline(t *testing.T) {
 	release := make(chan struct{})
+	defer close(release)
 	p := Plugin{ID: "slow", Start: func(context.Context, Services, json.RawMessage, map[string]Instance) (Instance, error) {
 		return testInstance{func() error { <-release; return nil }}, nil
 	}}
-	h := New(Config{Plugins: map[string]PluginConfig{"slow": {Enabled: true}}}, Services{Controls: NewControls()}, p)
+	earlier := errors.New("earlier stop failure")
+	fast := Plugin{ID: "z-fast", Start: func(context.Context, Services, json.RawMessage, map[string]Instance) (Instance, error) {
+		return testInstance{func() error { return earlier }}, nil
+	}}
+	h := New(Config{Plugins: map[string]PluginConfig{"slow": {Enabled: true}, "z-fast": {Enabled: true}}}, Services{Controls: NewControls()}, p, fast)
 	h.Start(context.Background())
-	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
-	if !errors.Is(h.Stop(ctx), context.DeadlineExceeded) {
-		t.Fatal("missing timeout")
+	err := h.Stop(ctx)
+	if !errors.Is(err, earlier) {
+		t.Fatalf("shutdown timeout lost earlier failure: %v", err)
 	}
-	close(release)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("missing timeout: %v", err)
+	}
+	if !strings.Contains(err.Error(), "slow:") {
+		t.Fatalf("shutdown timeout omitted the awaited plugin: %v", err)
+	}
 }
 func TestControlsStaleAndUnavailable(t *testing.T) {
 	c := NewControls()

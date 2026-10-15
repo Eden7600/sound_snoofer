@@ -196,7 +196,7 @@ func (h *Host) Stop(ctx context.Context) error {
 				failures = append(failures, fmt.Errorf("%s: %w", id, err))
 			}
 		case <-ctx.Done():
-			return errors.Join(append(failures, ctx.Err())...)
+			return errors.Join(append(failures, fmt.Errorf("%s: %w", id, ctx.Err()))...)
 		}
 	}
 	return errors.Join(failures...)

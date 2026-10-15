@@ -10,7 +10,7 @@
 - [x] 8. `fix(hue)`: ignore light-write results from before a room change; test.
 - [x] 9. `fix(nowplaying)`: replace bridge connections only from the same origin; test.
 - [x] 10. Validate: gofmt, `go test ./...`, `go vet ./...`, GUI check, OpenSpec strict validation, canonical build.
-- [ ] 10a. `fix(host)`: add plugin context to the host deadline branch without changing
+- [x] 10a. `fix(host)`: add plugin context to the host deadline branch without changing
   cleanup policy. First extend the held-instance timeout regression to fail on the
   missing ID and cover preserved context identity plus earlier cleanup errors; then
   apply the narrow fix, run focused lifecycle tests/vet and strict validation, and
