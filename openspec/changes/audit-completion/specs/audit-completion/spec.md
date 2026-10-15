@@ -65,3 +65,8 @@ bounded and cleanup SHALL not leave test-owned goroutines blocked indefinitely.
 #### Scenario: A bridge test supplies a native session
 - **WHEN** its background media worker begins polling
 - **THEN** the fake native session is already initialized without concurrent mutation
+
+#### Scenario: A Sync disconnect must preserve room brightness
+- **WHEN** its test disconnects the Sync app
+- **THEN** room brightness was already available before that change
+- **AND** the existing post-disconnect assertion remains immediate

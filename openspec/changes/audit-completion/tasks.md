@@ -35,3 +35,7 @@ Checkpoint 2: Removed only unused worker IDs, acknowledgements, deduplication an
   review and commit before rerunning full validation.
 - [ ] 5b. Initialize bridge Windows-session data before worker startup; retain
   matching assertions, verify repeated race checks, review and commit.
+
+- [ ] 5c. Await room brightness before the Hue Sync disconnect; retain immediate
+  post-disconnect availability assertions, repeat with race instrumentation, review
+  and commit.

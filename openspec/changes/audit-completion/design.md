@@ -75,3 +75,9 @@ adding synchronization to the synchronous unit-test rig. Preserve the duplicate
 Windows/tab session assertion and run the bridge tests with the race detector.
 No production timing, stale-action guard or queue semantics changes are intended.
 Further full-suite failures require confirmed diagnosis before their repair.
+
+Hue Sync and bridge resource discovery start independently. The disconnected-Sync
+test must establish available room brightness before disconnecting Sync, then keep
+its immediate assertion that room brightness remains available. Waiting only for
+Sync Ready is not bridge readiness; waiting only after disconnect could conceal a
+real transient loss. This correction changes test setup only.
