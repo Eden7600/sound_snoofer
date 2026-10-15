@@ -14,20 +14,19 @@ Interactive WebView2 acceptance resumed after Windows was unlocked. The isolated
 fixture verified keyboard commitment, state restoration, target-bound dialogs and local action
 feedback. Functional native state-preservation acceptance is fulfilled.
 
-Native inspection exposed compact-sidebar wordmark clipping, fixed in `9065ff7`. A later graceful
-host stop reached its deadline; `c3cff86` adds the awaited plugin to that diagnostic without changing
-shutdown policy. The canonical executable and companions were rebuilt with both follow-ups.
-The coordinated shutdown recheck and unchanged native smoke now pass. The original timeout's
-cause remains unknown. Physical reconnect acceptance exposed a separate first-key failure on
-Plus XL. The user selected released-at-connect button state; `03e74d2` implements that policy
-and removes the unsupported startup query. After the canonical rebuild, the user confirmed
-the first key and first dial-button press work on both Plus and Plus XL. Host PID 69960 later
-exited normally for the diagnostic DevTools build. The normal canonical build now passes and
-production is restored as PID 48916 with `--config bin/snoofer.json`. Compact branding, plugin
-gates, marker navigation, wide content inspection and all native dropdown paths now pass.
-Live media artwork change/removal and restoration after reopening controls also pass. The audit
-is **not fully accepted**: native recovery fault acceptance and the remaining real integration
-checks below remain open.
+Native inspection follow-ups corrected compact branding (9065ff7), first key/dial-button
+presses after reconnect (03e74d2), and shared-notice Dismiss alignment (fa08c20). The user
+confirmed first presses on both Plus and Plus XL. Named shutdown diagnostics (c3cff86),
+the coordinated graceful-stop recheck and unchanged native smoke pass; the original anonymous
+shutdown timeout remains unexplained.
+
+Compact/wide content, plugin gates, marker navigation and every native dropdown path pass.
+Live media artwork changes, selective removal, clocks and controls reopen pass. Native rejected
+State-call injection now verifies connection feedback, bounded backoff, refusal and recovery
+without replay. The Dismiss fix passes 295 browser tests and strict frontend checks.
+Packaged short/wrapped notice inspection remains pending after physical Escape stopped computer use.
+The normal canonical build passed; production is restored as PID 71976 with --config bin/snoofer.json.
+The audit is **not fully accepted**: the real integration checks below remain open.
 
 The findings below retain their original audit wording and old source references;
 current implementation lives in `app/web/src`.
@@ -37,8 +36,8 @@ current implementation lives in `app/web/src`.
 | `gui-test-harness`, `gui-typescript-modules` | Complete; generated Audio/Deck fixtures, independent Playwright cases, strict TypeScript/esbuild, keyboard/axe/geometry checks | None for source/tooling |
 | `gui-content-fixes`: 7–9, 15–16 | Complete; corrected content, native smoke and affected-screen inspection at both sizes pass | None for content presentation |
 | `gui-dropdown-commit`: 2 | Complete; native closed-select/popup keyboard commitment, cancellation and exactly-once pointer selection pass | None for native dropdown acceptance |
-| `gui-connection-recovery`: 5 | Complete source work; separate banner, bounded backoff, no replay; browser fault tests pass | Native fault acceptance unverified: DevTools approval timed out before injection; EOF establishes shutdown only |
-| `gui-layout-polish`: 10–13 and meter/search parts of 14 | Complete; affected screens, compact native branding, last-item keyboard navigation and fixture cleanup pass | No remaining layout journey; physical checks remain separate |
+| `gui-connection-recovery`: 5 | Source and native rejected-State fault checks pass: separate banner, bounded backoff, recovery and no replay | None for packaged recovery acceptance |
+| `gui-layout-polish`: 10–13 and meter/search parts of 14 | Affected screens, compact branding and navigation pass; notice alignment fixed with focused regressions | Packaged short/wrapped notice inspection pending; prior host launch restored |
 | `gui-state-preservation`: 3, 6 | Complete; functional native restoration, dialog cancellation, polling and captured-target invalidation verified | No remaining functional native journey; aggregate validation and physical integration remain separately tracked |
 | `gui-action-outcomes`: 1, 4 | Complete; independent completion-path review and native smoke pass; packaged result attribution, state updates and close with an outstanding action verified | Real integration outcomes |
 | `gui-attention-journeys`: remaining 14 | Complete; disabled/starting/failed Audio gates, marker-to-reason keyboard navigation, Plugins link/Retry availability and captured host-proposal cancellation verified natively | None for packaged presentation; real plugin lifecycle effects remain unclaimed |
@@ -58,13 +57,22 @@ current implementation lives in `app/web/src`.
   strict frontend gates passing. The first compact packaged inspection was interrupted by physical
   Escape; that fixture exited normally via EOF without actions. The resumed outer 800×600 native
   inspection now confirms full branding and keyboard access to the final navigation items.
-- Compact fixture PID 63112 closed via EOF with exit code 0 and zero action-log bytes. The
-  canonical diagnostic `devtools` build then passed after host PID 69960 stopped normally. Wide
-  fixture PID 63004 verified Plugins and Third-Party Apps at 1280×820, including headings, labels
-  and cards at the top and bottom; it also closed via EOF with exit code 0 and zero actions.
-  DevTools app approval timed out before any JavaScript or fault injection, so native recovery
-  remains unverified. The normal canonical build then passed and production was restored as
-  PID 48916 with `--config bin/snoofer.json`.
+- Compact and wide canonical fixtures verified Plugins and Third-Party Apps, including headings,
+  labels and cards at the top and bottom; both closed via EOF with exit code 0 and zero actions.
+- The later canonical diagnostic build verified recovery using a temporary Desktop.State rejection
+  wrapper in its isolated WebView2 fixture. The banner appeared beside the retained notice;
+  Plugins actions were disabled, navigation to Audio worked, and Record reported
+  "Host disconnected; action not sent" with zero captured actions. Failure intervals grew through
+  201, 414, 804, 1605 and 3206 ms, then remained about five seconds (5004–5016 ms).
+  After the wrapper resumed State, the banner cleared while the notice and refusal remained,
+  meters resumed and polling returned to 106–122 ms. The action log remained empty: no replay.
+  The fixture closed via EOF with exit code 0. This is native binding-fault evidence; EOF itself
+  only establishes cleanup. The earlier DevTools approval timeout was superseded by this check.
+- Shared-notice alignment regressions failed at both widths with the old float's 6px offset.
+  The centered layout passes short/wrapped checks, 16 focused notice/focus/recovery tests and
+  **295 browser tests in 42.1 s**, plus TypeScript, ESLint and Prettier.
+  Physical Escape stopped computer use before final notice inspection; that native check remains open.
+  The normal canonical build passed and the previous bin/snoofer.json launch was restored.
 - Canonical `bin/snoofer.exe` and companions built successfully. Native ABI/buffer/callback-stop,
   media async timeout and canonical COM identity self-tests pass; the actual media DLL compiles.
 - The initial media DLL probe opened and snapshotted successfully with no active sessions. After
@@ -157,9 +165,9 @@ Nine captured actions were retained in the local acceptance log.
   evidence, not live artwork lifecycle acceptance. Native window Close exited zero with an App Audio
   action still unresolved, confirming that the outstanding result did not block window shutdown.
 
-Keep aggregate acceptance tasks open until all their required checks are performed. Outstanding
-work includes native connection-recovery fault acceptance and real mute/error/uncertain-one-shot
-outcomes. Live media artwork change/removal, clock progression and controls reopen are verified.
+Keep aggregate acceptance tasks open until all their required checks are performed. Real
+mute/error/uncertain-one-shot outcomes remain open. Native connection-recovery faults and live
+media artwork change/removal, clock progression and controls reopen are verified.
 Recorder Pause, Voicemeeter startup/restart and remaining physical Stream Deck input/hotplug
 checks remain separate. The observed XL first-key failure is fixed and its key/dial-button
 retest passes on both available models. Mini/MK.2 are unavailable.

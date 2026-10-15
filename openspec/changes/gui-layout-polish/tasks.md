@@ -25,3 +25,8 @@ previous bin/snoofer.json configuration. Physical acceptance remains separate.
 - [ ] 10. Coordinate canonical packaging and inspect short/wrapped shared notices in WebView2; restore the prior host configuration and record the native result.
 
 Task 9 verification: both focused geometry cases failed on the old float with a 6px center offset. The corrected short and wrapped notices pass at both sizes; 16 focused layout/focus/dismissal/recovery tests pass, and the full suite passes 295 tests in 42.1 s. TypeScript, ESLint and Prettier pass. Rendered short/wrapped screenshots were inspected.
+
+Task 10: packaged short/wrapped shared-notice inspection is pending after the verified source fix.
+Physical Escape stopped computer use before that inspection; the final fixture closed via EOF
+with exit code 0 and zero captured actions. No further native input was attempted.
+The normal canonical build passed and the prior bin/snoofer.json launch was restored.
