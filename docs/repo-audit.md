@@ -13,8 +13,8 @@ Findings are numbered so they can be referenced individually.
 
 ## Current status (2026-10-15)
 
-Reconciled against the implemented OpenSpec changes and current source after
-`a5ca385`. The numbered findings and source locations below retain the original
+Reconciled through `07b616f` and the user-directed `audit-completion` change.
+The numbered findings and source locations below retain the original
 audit wording; they are historical evidence, not a list of current defects.
 
 | Findings | Current disposition | Implementation / evidence |
@@ -25,21 +25,31 @@ audit wording; they are historical evidence, not a list of current defects.
 | 16 | Fixed; priority/output edits retain their drawn list identity, with stale-list regression coverage | [audit-hardening](../openspec/changes/audit-hardening/tasks.md) |
 | 17 | Bounded native media waits implemented and tested | [audit-hardening](../openspec/changes/audit-hardening/tasks.md) |
 | 18 | Staged companion builds and interrupted dependency setup recovery implemented and tested | [audit-hardening](../openspec/changes/audit-hardening/tasks.md) |
-| 19 | Unused fields/helpers removed; existing non-GUI acknowledgement and batch protocol deliberately retained | [audit-cleanup](../openspec/changes/audit-cleanup/design.md), [action-outcome design](../openspec/changes/gui-action-outcomes/design.md) |
-| 20 | Shared decoding, journals, bus parsing, fallback and shutdown helpers complete; thumbnail implementations retained because their sizing, filtering and GIF policies differ | [audit-cleanup](../openspec/changes/audit-cleanup/tasks.md) |
+| 19 | Complete: `49ea955` removes unused acknowledgement/deduplication and batch paths, preserving callback outcomes, origin notice clearing, single-edit safety and meaningful tests | [audit-completion](../openspec/changes/audit-completion/tasks.md) |
+| 20 | Complete: shared decoding, journals, bus parsing, fallback and shutdown helpers; `9eb59e4` shares thumbnail fit/encode while retaining caller sizing/filtering/GIF policies, with input-limit coverage in `b002e6d` | [audit-completion](../openspec/changes/audit-completion/tasks.md) |
 
-The user accepted the GUI audit's quality improvement and chose to move on without
-requiring the remaining physical checks. This does not mark those checks passed:
-Mini/MK.2 editing, a genuinely refused second Deck, a frozen real player while
-another session updates, and uncertain one-shot/no-replay acceptance remain
-unverified. The original anonymous shutdown timeout remains unexplained; later
-coordinated graceful stops pass. The race detector remains unrun on the cgo-disabled
-toolchain. See [GUI acceptance](gui-audit.md#current-status) for detailed evidence.
+The user explicitly requested completing the original recommendations, superseding
+the former retained work in findings 19, 20, 25 and 29. Mini, MK.2 and original XL
+support stays as-is by the user's instruction; their unavailable physical acceptance
+is waived, not passed. A genuinely refused second Deck, a frozen real player while
+another session updates, and uncertain one-shot/no-replay acceptance remain pending.
+The original anonymous shutdown timeout remains unexplained; later coordinated
+graceful stops pass. See [GUI acceptance](gui-audit.md#current-status) for evidence.
+
+Latest checks: full Go tests, vet and the full race suite pass using the approved,
+verified portable compiler. Strict frontend gates, 297 browser tests in 42.2 seconds
+and all 106 OpenSpec changes pass. The initial Stream Deck fixture hang, Now Playing
+fixture race and Hue readiness failure were repaired in `07b616f` and `ad94e6e`;
+production behavior was unchanged by those test repairs.
+The canonical build and native async/identity/callback self-tests pass. The build
+preceded only test changes; host PID 73604 was restored with the same
+`--config bin/snoofer.json` command, unchanged persisted audio-state and user-owned
+smoke-script fingerprints. The physical checks listed above remain unverified.
 
 The companion [smaller audit](repo-audit-minor.md#current-status-2026-10-15) records
-the completed polling-content fix and the explicitly retained tiny duplication.
-All findings across both reports now have an implementation or explicit retained
-scope; unperformed acceptance remains separate.
+the completed polling-content fix, shared OnOff helper and rejection of every second
+live browser-name claimant. Source completion, validation and physical acceptance
+remain separate.
 
 ## Must fix
 

@@ -6,14 +6,24 @@
   and caller tests; focused tests/vet; review and commit.
 - [x] 4. Reject all second live browser-name claims; prove admission/routing/reconnect
   regressions and retain generation/outcome coverage; review and commit.
-- [ ] 5. Install the approved portable race compiler, verify full Go tests/vet/race,
+- [x] 5. Install the approved portable race compiler, verify full Go tests/vet/race,
   frontend gates and full browser suite, strict specs and canonical build; restore host.
 - [ ] 6. Refine and validate bounded second-deck/frozen-player/uncertain-action
   preparation; coordinate approved execution and record actual acceptance or blocker.
+
 Portable race compiler prepared: user authorized installation; official WinLibs GCC
 16.2.0 / MinGW-w64 14.0.0 UCRT archive SHA256 verified against release metadata.
 Compiler/runtime lookup and a real storage-package race run pass. Compiler, CGO
 and PATH settings were process-scoped; no persistent toolchain settings changed.
+
+Validation 5: Full Go tests/vet and `go test -race -p 4 ./... -timeout 90s` pass after
+the test-only fixture repairs in `07b616f` and `ad94e6e`. Strict frontend gates,
+297 browser tests in 42.2 seconds and all 106 OpenSpec changes pass. The canonical
+build and native async/identity/callback self-tests pass; no production source changed
+after that build. Host PID 73604 was restored with `--config bin/snoofer.json` and
+unchanged persisted audio-state and user-owned smoke-script fingerprints. Remaining
+native acceptance stays under task 6; Mini/MK.2/original XL acceptance is explicitly
+waived by the user, not passed.
 
 Second-deck preparation: the revised scratch holder requests access zero with
 read sharing, denying write opens without report I/O. Eight fake-only self-checks
@@ -43,3 +53,10 @@ Checkpoint 2: Removed only unused worker IDs, acknowledgements, deduplication an
 Validation 5b, 5c: Bridge native sessions are initialized before worker startup; all bridge tests pass 25 race-detector runs. Hue establishes room brightness before disconnecting Sync and retains immediate assertions; 75 CPU-scheduled focused race cases and the full Hue race suite pass. Both package vet checks and root review pass.
 
 Validation 5a: A controlled connection publication proves the old edit is rejected without saving and a connected edit saves once. Readiness waits now precede outcome/editor edits, save-entry waits are bounded, and the unnecessary frame drain is removed. Each affected outcome/device case passed 900 normal and 60 race repetitions across CPU schedules; the editor case passed 30 race runs. Full Stream Deck race tests, vet and root review pass.
+
+Native media preparation: the scratch owned-player helper compiles with MSVC
+/W4 /WX and passes pure identity, silent-WAV and deadline checks. Its scratch Go
+overlay probe passes exact-identity/uniqueness/operation checks and skips without
+opt-in before loading any DLL. Root reviewed both helpers. No live player, media
+probe or revised HID holder has run in this checkpoint; timed desktop permission
+is pending. Cooperative cleanup limits remain explicit in acceptance.md.

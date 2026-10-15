@@ -9,7 +9,9 @@ Screenshots were reviewed at 1280×820 and 800×600 using the browser fixture.
 
 ## Current status
 
-As of 2026-10-15, the original implementation checkpoints and shared source checks are complete.
+As of 2026-10-15, the original GUI implementation checkpoints and their shared source checks
+are complete. The later repository-completion changes pass aggregate validation and build;
+the remaining physical acceptance is listed separately below.
 Interactive WebView2 acceptance resumed after Windows was unlocked. The isolated canonical
 fixture verified keyboard commitment, state restoration, target-bound dialogs and local action
 feedback. Functional native state-preservation acceptance is fulfilled.
@@ -29,9 +31,11 @@ The normal canonical build passed; production retains the same --config bin/snoo
 Rapid independent mute pairs, real recording Pause/resume/Stop, callback recovery after
 Voicemeeter process restart and startup before Voicemeeter now pass. A captured stale Mic Stage
 choice was explicitly rejected, and a real asynchronous native Soundboard failure reached its
-originating action. The user accepted this quality improvement and chose to move on to
-the existing repository audits. Uncertain-one-shot/no-replay and the remaining hardware
-checks below are deferred, not passed; their evidence limits remain recorded.
+originating action. The user accepted this quality improvement and requested completion of
+the existing repository audits, superseding their former retained work. Mini, MK.2 and
+original XL support stays as-is by explicit instruction; unavailable physical acceptance
+is waived, not passed. Refused-second-deck, frozen-player and uncertain-one-shot/no-replay
+acceptance remain pending; their evidence limits remain recorded.
 
 The findings below retain their original audit wording and old source references;
 current implementation lives in `app/web/src`.
@@ -48,9 +52,21 @@ current implementation lives in `app/web/src`.
 | `gui-attention-journeys`: remaining 14 | Complete; disabled/starting/failed Audio gates, marker-to-reason keyboard navigation, Plugins link/Retry availability and captured host-proposal cancellation verified natively | None for packaged presentation; real plugin lifecycle effects remain unclaimed |
 | `view-state-transport` | Complete; source/native smoke and live media artwork change, selective removal, clocks and controls reopen pass | None for the transport artwork acceptance |
 | `output-slot-detail` | Provider/renderer/browser checks, packaged device caption/current selection, and physical No device/In use/Disconnected/reconnect cases pass | None for specified packaged/physical output presentation |
-| Repository hardening/cleanup | Original source gates, canonical companion build, native smoke and coordinated shutdown recheck pass; first key/dial presses pass on both connected models | Genuine refused second Deck, frozen player with another session updating, and Mini/MK.2 page editing; original shutdown timeout remains unexplained |
+| Repository hardening/cleanup | Findings 19, 20, 25 and 29 implemented in `49ea955`, `9eb59e4`/`b002e6d` and `f1c10fc` under `audit-completion`; full Go/vet/race, frontend/browser/spec gates, canonical build and native self-tests pass | Genuine refused second Deck, frozen player with another session updating and uncertain one-shot; no-dial-model physical acceptance waived, not passed; original shutdown timeout unexplained |
 
 ### Shared source and build validation
+
+- Current `audit-completion` checks: full Go tests/vet and
+  `go test -race -p 4 ./... -timeout 90s` pass using the approved, verified portable
+  compiler. Strict frontend gates, **297 browser tests in 42.2 s** and all
+  **106 OpenSpec changes** pass. The initial Stream Deck fixture hang, Now Playing
+  fixture race and Hue readiness failure were repaired in `07b616f` and `ad94e6e`,
+  with repeated race checks; production behavior was unchanged by those repairs.
+  The canonical build and native async/identity/callback self-tests pass; only test
+  changes followed the build. Host PID 73604 resumed `--config bin/snoofer.json` with
+  unchanged persisted audio-state and user-owned smoke-script fingerprints.
+  Remaining physical acceptance is unverified; Mini/MK.2/original XL checks are
+  explicitly waived by the user, not passed.
 
 - Follow-up reconciliation of the existing repository audits found minor item 26
   still present. `a5ca385` fixes App Audio detail selection during polling and
@@ -134,8 +150,10 @@ current implementation lives in `app/web/src`.
   and dial buttons: holding a button during startup is negligible in their use, and a displayed
   button must work on the first press. This supersedes the previous held-key suppression policy;
   the OpenSpec correction is committed in `2924946` and implementation in `03e74d2`. Eight startup regressions failed before the fix and pass afterward, including repeated down, release/repress and malformed input. Reopened-session generation checks pass. Full repository Go tests and vet pass. The canonical build passed, including companion self-tests, and restored the same config as PID 69960. The user confirmed all four hardware checks: first XL Play key, first XL dial 3 press, first Plus dial 3 press and first Plus Media key after reconnect. Three two-second XL Play holds/releases each toggled once per press, with no repeats or extra release action.
-- Changed Go files are formatted. Two untouched legacy Voicemeeter test files still have their
-  pre-existing import formatting. The race detector remains unavailable: `CGO_ENABLED=0`.
+- At that earlier checkpoint, changed Go files were formatted; two untouched legacy
+  Voicemeeter test files retained their pre-existing import formatting. The race detector
+  was unavailable with `CGO_ENABLED=0`; the current portable-compiler race run above supersedes
+  that limitation.
 
 ### Native fixture acceptance after unlock
 

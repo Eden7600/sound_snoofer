@@ -5,7 +5,7 @@ commit `237a8ee`. Numbering continues from that file.
 
 ## Current status (2026-10-15)
 
-Reconciled against current source at `a5ca385`. Original findings and source
+Reconciled through `07b616f` and the user-directed `audit-completion` change. Original findings and source
 locations below are retained as historical evidence; current implementation is
 tracked here and in the linked OpenSpec tasks.
 
@@ -15,19 +15,29 @@ tracked here and in the linked OpenSpec tasks.
 | 22 | Fixed; assume released buttons when no usable startup state exists, as the user explicitly requested. First key/dial presses pass on both Plus models; held XL presses toggle once | [audit-hardening](../openspec/changes/audit-hardening/tasks.md) |
 | 23 | Per-device open failures, deduplication and recovery implemented; genuine second-device refusal remains physically unverified | [audit-hardening](../openspec/changes/audit-hardening/tasks.md) |
 | 24 | Fixed with queue epochs so old-room completions cannot alter the new room | [audit-hardening](../openspec/changes/audit-hardening/tasks.md) |
-| 25 | Fixed within the accepted scope: another extension origin cannot evict a live browser connection. This does not authenticate the first claimant or pin an extension ID | [audit-hardening](../openspec/changes/audit-hardening/design.md) |
+| 25 | Complete in `f1c10fc`: every second live claimant for an occupied browser name is rejected, including the same origin; reconnect is admitted after incumbent cleanup. This does not authenticate the first claimant or pin an extension ID | [audit-completion](../openspec/changes/audit-completion/tasks.md) |
 | 26 | Fixed in `a5ca385`: unchanged App Audio details retain selection while Heard updates; Media retains its icon within a card until playback state changes | [gui-polling-content](../openspec/changes/gui-polling-content/tasks.md) |
 | 27–28 | Shared native-build setup and buffer helpers implemented, retaining callback validation | [audit-cleanup](../openspec/changes/audit-cleanup/tasks.md) |
-| 29 | Deliberately retained: two tiny local on/off helpers do not justify a new shared API | [audit-cleanup](../openspec/changes/audit-cleanup/design.md) |
+| 29 | Complete in `9eb59e4`: Discord and Soundboard use the exact shared `snoofer.OnOff` conversion at all eight call sites | [audit-completion](../openspec/changes/audit-completion/tasks.md) |
 | 30–31 | Listed dead code removed; strict storage decoding covered for valid/default/null, duplicate, unknown and trailing input | [audit-cleanup](../openspec/changes/audit-cleanup/tasks.md) |
 | 32 | Fixed; display-only controls are allowed on keys and remain inert, with audio-first startup covered | [deck-status-bindings](../openspec/changes/deck-status-bindings/tasks.md) |
 | 33 | Fixed; provider, renderer, browser, packaged and physical AirPods states pass | [output-slot-detail](../openspec/changes/output-slot-detail/tasks.md) |
 
-Remaining physical limitations and the user's decision to accept the achieved GUI
-quality are recorded in [the main audit](repo-audit.md#current-status-2026-10-15).
-They are not outstanding source fixes or newly claimed passes.
+The user's completion instruction supersedes the former retained work. Mini, MK.2
+and original XL support stays as-is; unavailable physical acceptance is explicitly
+waived, not passed. Refused-deck, frozen-player and uncertain-one-shot checks remain
+pending. [The main audit](repo-audit.md#current-status-2026-10-15) records those limits.
 
-Finding 26's two regressions failed before the fix and pass afterward. Full strict
+Latest completion validation: full Go tests, vet and race checks, strict frontend
+gates, 297 browser tests in 42.2 seconds and all 106 OpenSpec changes pass. The initial
+Stream Deck fixture hang, Now Playing fixture race and Hue readiness failure were
+repaired in `07b616f` and `ad94e6e`, with repeated race coverage. The canonical build
+and native async/identity/callback self-tests pass; only tests changed afterward.
+Host PID 73604 resumed `--config bin/snoofer.json`; persisted audio-state and
+user-owned smoke-script fingerprints stayed unchanged. Native checks listed above
+remain unverified.
+
+Earlier finding 26 checkpoint: its two regressions failed before the fix and pass afterward. Full strict
 frontend gates, 15 model tests and 297 browser tests pass (44.2 seconds); both
 screens were inspected at 1280x820 and 800x600. All 105 OpenSpec changes validate.
 The canonical build and native self-tests pass; the tray host restarted with its
