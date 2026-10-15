@@ -1,6 +1,21 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { compatible, tone, meterValue, gridMove, progressAt } from "./model.ts";
+test("status bindings are display-only keys", () => {
+  assert.equal(compatible({ Kind: "status" }, false), true);
+  assert.equal(compatible({ Kind: "status", Hidden: true, Available: false }, false), true);
+  assert.equal(compatible({ Kind: "status" }, true), false);
+  assert.equal(compatible({ Kind: "status", Operations: ["adjust"] }, true), false);
+  assert.equal(compatible({ Kind: "text", Operations: ["press", "set", "adjust"] }, false), false);
+  assert.equal(compatible({ Kind: "text", Operations: ["press", "set", "adjust"] }, true), false);
+  assert.equal(compatible({ Kind: "connection" }, false), false);
+  assert.equal(compatible({ Kind: "connection" }, true), false);
+  assert.equal(compatible({ Operations: ["adjust"] }, false), false);
+  assert.equal(compatible({ Operations: ["adjust"] }, true), true);
+  assert.equal(compatible({ Operations: ["press", "adjust"] }, false), true);
+  assert.equal(compatible({ Operations: ["press", "adjust"] }, true), true);
+});
+
 test("binding compatibility, semantic states and meter expiry", () => {
   assert.equal(compatible({ Operations: ["press"] }, true), false);
   assert.equal(compatible({ Operations: ["set"] }, false), true);

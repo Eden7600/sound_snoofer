@@ -4,6 +4,7 @@ export function controlsByID(state: ViewState) {
 }
 export function compatible(control: Partial<Control>, dial: boolean) {
   if (control.Kind === "text") return false; // Text entry has no deck position.
+  if (control.Kind === "status") return !dial; // Display-only keys never act.
   const ops = control.Operations || [];
   return dial ? ops.includes("adjust") : ops.includes("press") || ops.includes("set");
 }

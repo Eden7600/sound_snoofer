@@ -70,6 +70,28 @@ test.describe("Stream Deck", () => {
     expect(await gui.sent(), "arrow browsing fired an action").toEqual([]);
   });
 
+  test("status bindings are offered on keys and excluded from dials", async ({ gui }) => {
+    const binding = gui.page.getByLabel("Binding", { exact: true });
+    for (const id of ["audio.playback-device", "audio.slot-1"]) {
+      await expect(binding.locator('option[value="' + id + '"]')).toHaveCount(1);
+    }
+    for (const id of ["audio.priority-edit", "audio.app-voicemeeter"]) {
+      await expect(binding.locator('option[value="' + id + '"]')).toHaveCount(0);
+    }
+    await gui.page.getByRole("button", { name: /^Dial 1: / }).click();
+    await expect(gui.page.locator("[data-part=inspector] [data-part=eyebrow]")).toHaveText("DIAL 1");
+    for (const id of ["audio.playback-device", "audio.slot-1", "audio.priority-edit", "audio.app-voicemeeter"]) {
+      await expect(binding.locator('option[value="' + id + '"]')).toHaveCount(0);
+    }
+    await expect(binding.locator('option[value="audio.gain-playback"]')).toHaveCount(1);
+    await gui.settled();
+    await gui.page.getByRole("button", { name: "Key 8: Empty", exact: true }).click();
+    await gui.settled();
+    await binding.selectOption("audio.playback-device");
+    expect(await request(gui)).toEqual(["streamdeck.binding", "audio.playback-device"]);
+    await gui.settled();
+  });
+
   test("clicking a key selects it", async ({ gui }) => {
     const { page } = gui;
     await page.getByRole("button", { name: "Key 8: Empty", exact: true }).click();

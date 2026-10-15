@@ -38,6 +38,19 @@ func TestGUIFixture(t *testing.T) {
 			Operations: []string{"press", "hold"}, Collection: "soundboard.clips", CollectionLabel: "Soundboard Clips", Order: n + 1})
 	}
 
+	// The shipped status bindings must validate when audio publishes first.
+	if err := registry.Publish("audio", audio, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := registry.Publish("soundboard", clips, nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, model := range []string{"plus-xl", "plus", "xl", "mk2", "neo"} {
+		if err := DefaultLayoutFor(model).Validate(registry.Snapshot()); err != nil {
+			t.Fatalf("%s default with audio present: %v", model, err)
+		}
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	settings := Settings{
@@ -59,14 +72,6 @@ func TestGUIFixture(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	// Providers publish after the deck starts, as at host startup: the start-time
-	// validation refuses the default layout's status keys (docs/repo-audit.md, finding 32).
-	if err := registry.Publish("audio", audio, nil); err != nil {
-		t.Fatal(err)
-	}
-	if err := registry.Publish("soundboard", clips, nil); err != nil {
-		t.Fatal(err)
-	}
 
 	var published []snoofer.Control
 	deadline := time.Now().Add(5 * time.Second)
