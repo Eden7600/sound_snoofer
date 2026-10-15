@@ -63,8 +63,14 @@ export function buildDeck() {
   const toolbar = el("div", ui.toolbar);
   const selectors = el("div", ui.grid + " col-span-full flex-1");
   toolbar.append(selectors);
-  control("streamdeck.profile", selectors, "Device");
-  control("streamdeck.page", selectors, "Page");
+  for (const [id, label] of [
+    ["streamdeck.profile", "Device"],
+    ["streamdeck.page", "Page"],
+  ] as const) {
+    const field = el("div", "min-w-0");
+    selectors.append(field);
+    control(id, field, label, { layout: "stack" });
+  }
   root.append(toolbar);
   const shape = preview.ViewData,
     K = shape.Keys.length,
@@ -262,9 +268,10 @@ export function buildDeck() {
           ? "Shared Across Pages"
           : "Page binding";
   });
-  control("streamdeck.shared", inspector, "Edit Shared Binding", {
+  control("streamdeck.shared", inspector, "Edit All Pages", {
     layout: "stack",
   });
+  inspector.append(el("p", "-mt-1 mb-3 text-xs text-muted", "Same position on every page."));
   const search = el("input", "w-full");
   search.type = "search";
   search.placeholder = "Find an action";
@@ -327,12 +334,12 @@ export function buildDeck() {
   });
   const bar = el(
       "div",
-      "sticky bottom-3 mt-[18px] flex items-center justify-between gap-3 rounded-[10px] border border-[#345365] bg-[#192a36] px-[18px] py-3.5",
+      "mb-[18px] flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-[#345365] bg-[#192a36] px-[18px] py-3.5",
     ),
     status = el("p", "text-xs"),
     actions = el("div", ui.actions);
   bar.append(status, actions);
-  root.append(bar);
+  root.insertBefore(bar, workspace);
   const discard = command("streamdeck.cancel", "Discard", actions),
     save = command("streamdeck.save", "Save Layout", actions, ui.primary);
   updaters.push(() => {

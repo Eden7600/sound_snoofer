@@ -63,12 +63,6 @@ const screens = [
   "Third-Party Apps",
   "Diagnostics",
 ];
-// gui-layout-polish owns audit item 13: the sticky save bar covers the dials at the top of the page.
-const knownDeckOverlaps = [
-  "button[Dial 5: Empty]: overlaps button[Discard]",
-  "button[Dial 5: Empty]: overlaps button[Save Layout]",
-];
-
 for (const viewport of [
   { width: 1280, height: 820 },
   { width: 800, height: 600 },
@@ -88,13 +82,7 @@ for (const viewport of [
           path: screenshot,
           contentType: "image/png",
         });
-        const known = screen === "Stream Deck" && viewport.width === 800 ? knownDeckOverlaps : [];
-        if (known.length)
-          testInfo.annotations.push({
-            type: "known-layout",
-            description: "gui-layout-polish: audit item 13, sticky save bar overlaps Dial 5 at scrollY=0",
-          });
-        expect(issues, "Unexpected or resolved layout issue; update only the exact owned entries").toEqual(known);
+        expect(issues, "Unexpected layout issue").toEqual([]);
       });
     }
   });

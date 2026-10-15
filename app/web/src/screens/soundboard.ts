@@ -73,4 +73,9 @@ export function buildSoundboard() {
       b.hidden = !item.Label.toLocaleLowerCase().includes(search.value.toLocaleLowerCase());
     });
   }
+  const noMatch = el("p", ui.empty, "No matching clips");
+  root.append(noMatch);
+  updaters.push(() => {
+    noMatch.hidden = [...grid.children].some((clip) => !(clip as HTMLElement).hidden);
+  });
 }

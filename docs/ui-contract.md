@@ -178,3 +178,5 @@ Audio cards use their content height. Engine and Interface appear together above
 Automatic rebuilds of the current GUI screen preserve registered search filters, expanded sections, focus and scroll by stable target identity. Provider values continue to refresh. Removed or disabled focus targets fall back to screen content, and open dialogs keep their focus. Navigation starts a fresh screen view.
 
 Routing provides local section links. Output source switches and state stay in the table; Output Devices below it owns slot device/name/removal. Candidate movement stays beside each field, with match detail below. Microphone Apply appears only for a changed name; Enter applies, Escape cancels, and blur never writes.
+
+The Deck Device/Page fields use matching stacked layouts. Save/Discard sits near them in normal document flow and never overlays the editor. Edit All Pages identifies shared binding scope with Same position on every page. A nonempty Soundboard library with no search matches shows No matching clips; clearing search restores the clips.
