@@ -13,6 +13,17 @@ import (
 // Instance owns all resources acquired during Start. Stop must honor its deadline.
 type Instance interface{ Stop(context.Context) error }
 
+// CancelAndWait requests worker shutdown, then joins it within the stop context.
+func CancelAndWait(ctx context.Context, cancel context.CancelFunc, done <-chan struct{}) error {
+	cancel()
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
 // Plugin contains inert metadata. Start must clean up partial initialization on error.
 type Plugin struct {
 	Command   func(context.Context, Services, json.RawMessage, []string) error

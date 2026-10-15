@@ -89,13 +89,7 @@ type instance struct {
 }
 
 func (i *instance) Stop(ctx context.Context) error {
-	i.cancel()
-	select {
-	case <-i.done:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+	return snoofer.CancelAndWait(ctx, i.cancel, i.done)
 }
 
 // scrub is a dial seek being gathered: detents move the target, and one seek

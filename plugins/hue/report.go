@@ -1,6 +1,7 @@
 package hue
 
 import (
+	"cmp"
 	"strconv"
 	"time"
 
@@ -38,10 +39,10 @@ func (w *worker) bridgeReport(now time.Time) snoofer.Control {
 		state = snoofer.ConnectionError
 	}
 	w.bridgeLink.Observe(state, now)
-	endpoint := firstNonEmpty(w.lastAddress, w.bridgeAddress, w.settings.Address, "mDNS _hue._tcp.local")
+	endpoint := cmp.Or(w.lastAddress, w.bridgeAddress, w.settings.Address, "mDNS _hue._tcp.local")
 	paired := w.settings.AppKey != ""
 	var d details
-	d.add("Bridge ID", firstNonEmpty(w.bridgeInfo.BridgeID, w.settings.BridgeID))
+	d.add("Bridge ID", cmp.Or(w.bridgeInfo.BridgeID, w.settings.BridgeID))
 	d.add("Name", w.bridgeInfo.Name)
 	d.add("Software", w.bridgeInfo.Software)
 	d.add("API Version", w.bridgeInfo.APIVersion)

@@ -175,8 +175,8 @@ func GainTarget(p *routing.Plan, target string) string {
 	case "playback":
 		if p != nil && p.Topology != nil {
 			bus := p.Topology.PlaybackTarget
-			if len(bus) == 2 && bus[0] == 'A' && bus[1] >= '1' && bus[1] <= '5' {
-				return fmt.Sprintf("Bus[%d].Gain", bus[1]-'1')
+			if number, ok := routing.HardwareBus(bus); len(bus) == 2 && ok {
+				return fmt.Sprintf("Bus[%d].Gain", number-1)
 			}
 		}
 	case "mic":

@@ -58,7 +58,7 @@ func (r *reporter) voicemeeterReport(s control.State, now time.Time) snoofer.Con
 		readError = s.Recorder.Error // The worker stores the native read error here when disconnected.
 	}
 	if r.connected && !s.Connected {
-		t.Fail(firstNonEmpty(readError, s.Error, "Voicemeeter disconnected"), now)
+		t.Fail(cmp.Or(readError, s.Error, "Voicemeeter disconnected"), now)
 	} else if !s.Connected && s.Error != "" {
 		t.Fail(s.Error, now)
 	}
@@ -70,7 +70,7 @@ func (r *reporter) voicemeeterReport(s control.State, now time.Time) snoofer.Con
 		state, value = snoofer.ConnectionAttention, "Engine stalled"
 		t.Fail(control.StallMessage, now)
 	case s.Connected:
-		state, value = snoofer.ConnectionConnected, firstNonEmpty(editionName(s.Snapshot.Edition), "Connected")
+		state, value = snoofer.ConnectionConnected, cmp.Or(editionName(s.Snapshot.Edition), "Connected")
 	}
 	t.Observe(state, now)
 	if !s.ObservedAt.IsZero() {
@@ -96,7 +96,7 @@ func (r *reporter) voicemeeterReport(s control.State, now time.Time) snoofer.Con
 	}
 	d.add("Mode", mode)
 	d.add("Required", "Yes")
-	return report("voicemeeter", "Voicemeeter", value, t.Report(firstNonEmpty(s.Remote.DLLPath, "VoicemeeterRemote64.dll"), d...))
+	return report("voicemeeter", "Voicemeeter", value, t.Report(cmp.Or(s.Remote.DLLPath, "VoicemeeterRemote64.dll"), d...))
 }
 
 func (r *reporter) callbackReport(s control.State, now time.Time) snoofer.Control {
@@ -243,13 +243,4 @@ func (r *reporter) defaultsReport(s control.State, now time.Time) snoofer.Contro
 	}
 	t.Observe(state, now)
 	return report("windows-defaults", "Windows Default Devices", value, t.Report("Windows Core Audio (MMDevice, IPolicyConfig)", d...))
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
 }

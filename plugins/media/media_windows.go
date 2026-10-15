@@ -21,13 +21,7 @@ type instance struct {
 }
 
 func (i *instance) Stop(ctx context.Context) error {
-	i.cancel()
-	select {
-	case <-i.done:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+	return snoofer.CancelAndWait(ctx, i.cancel, i.done)
 }
 
 // Plugin registers media commands without claiming observed player state.

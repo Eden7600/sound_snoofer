@@ -12,7 +12,7 @@
 - [x] 3. `test(storage)`: add the strict `Decode` table and valid/default/null cases; consolidate
   config/saved-choice decoding and direct journal/storage callers while retaining normalization,
   validation, state tokens, contextual errors and failed-load behavior.
-- [ ] 4. `refactor(go)`: share bus-number parsing with existing caller strictness, replace
+- [x] 4. `refactor(go)`: share bus-number parsing with existing caller strictness, replace
   `firstNonEmpty` with `cmp.Or`, and share only cancel-and-wait; test bus boundaries and shutdown
   deadlines and retain plugin join tests.
 - [ ] 5. `refactor(dead-code)`: recheck and remove finding 30's confirmed unused members/helpers;

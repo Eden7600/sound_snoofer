@@ -96,13 +96,7 @@ type instance struct {
 
 // Stop cancels the worker and waits for it and its helper goroutines.
 func (i *instance) Stop(ctx context.Context) error {
-	i.cancel()
-	select {
-	case <-i.done:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+	return snoofer.CancelAndWait(ctx, i.cancel, i.done)
 }
 
 func start(ctx context.Context, w *worker) *instance {

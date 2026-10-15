@@ -1,6 +1,7 @@
 package hue
 
 import (
+	"cmp"
 	"context"
 	"encoding/hex"
 	"encoding/json"
@@ -79,13 +80,7 @@ type instance struct {
 
 // Stop cancels the worker and waits for it and its requests to finish.
 func (i *instance) Stop(ctx context.Context) error {
-	i.cancel()
-	select {
-	case <-i.done:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+	return snoofer.CancelAndWait(ctx, i.cancel, i.done)
 }
 
 func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, discover discoverFunc, t timing) (snoofer.Instance, error) {
@@ -814,7 +809,7 @@ func (w *worker) controls() []snoofer.Control {
 	ready := live && w.connected && view.GroupedLight != ""
 	syncing := w.syncing()
 	brightness := snoofer.Control{ID: "hue.brightness", Label: "Hue Brightness", ShortLabel: "Brightness", Group: "Hue", Kind: "numeric", Icon: "hue-brightness",
-		Value: w.brightnessValue(view), Status: firstNonEmpty(knobNote, w.brightErr), Subdued: w.group.on != nil || w.group.brightness != nil,
+		Value: w.brightnessValue(view), Status: cmp.Or(knobNote, w.brightErr), Subdued: w.group.on != nil || w.group.brightness != nil,
 		Operations: []string{"adjust", "press"}, Available: ready}
 	if syncing {
 		// While syncing the dial adjusts the stream; a press still toggles the room.
@@ -943,15 +938,6 @@ func (w *worker) brightnessValue(view groupView) string {
 		return percentLabel(view.Brightness)
 	}
 	return observedBrightness(view)
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
 }
 
 // statusView gives the Lights screen setup details that do not belong in deck text.

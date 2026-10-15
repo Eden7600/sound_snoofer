@@ -4,6 +4,7 @@
 package aec
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -488,7 +489,7 @@ func (w *worker) status() (string, string) {
 	if w.loading {
 		return "Wait", "Loading " + engineLabels[w.settings.engine()]
 	}
-	failure := firstNonEmpty(w.releaseErr, w.retryErr, w.engineErr, w.statsErr)
+	failure := cmp.Or(w.releaseErr, w.retryErr, w.engineErr, w.statsErr)
 	switch {
 	case w.stats.Failed:
 		if w.stats.Reason != "" {
@@ -529,15 +530,6 @@ func (w *worker) status() (string, string) {
 func (w *worker) retryDetail() string {
 	if w.active && w.hooked && w.releaseErr == "" {
 		return "; automatic retry pending"
-	}
-	return ""
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if v != "" {
-			return v
-		}
 	}
 	return ""
 }

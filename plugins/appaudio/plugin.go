@@ -2,6 +2,7 @@
 package appaudio
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -98,13 +99,7 @@ type instance struct {
 }
 
 func (i *instance) Stop(ctx context.Context) error {
-	i.cancel()
-	select {
-	case <-i.done:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+	return snoofer.CancelAndWait(ctx, i.cancel, i.done)
 }
 
 // request is a write awaiting read-back.
@@ -477,7 +472,7 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 		value = "Preview"
 	}
 	controls = append(controls,
-		snoofer.Control{ID: "appaudio.status", Label: "App Audio", Group: "App Audio", Kind: "status", Value: value, Status: firstNonEmpty(w.backendErr, w.editErr), ViewData: data, Available: true},
+		snoofer.Control{ID: "appaudio.status", Label: "App Audio", Group: "App Audio", Kind: "status", Value: value, Status: cmp.Or(w.backendErr, w.editErr), ViewData: data, Available: true},
 		// The edit control changes with every saved or failed edit, so a GUI waiting on it settles.
 		snoofer.Control{ID: "appaudio.edit", Label: "App Audio Edit", Group: "App Audio", Kind: "text", Value: fmt.Sprintf("%x", sha256.Sum256(w.raw))[:12], Status: w.editErr,
 			Operations: []string{"set"}, Available: w.services.SaveSettings != nil})
@@ -541,13 +536,4 @@ func (w *worker) artwork(a *app) string {
 		w.tiles[a.Name] = tile
 	}
 	return tile
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
 }

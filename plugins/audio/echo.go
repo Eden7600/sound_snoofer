@@ -3,11 +3,10 @@ package audio
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"strings"
 	"time"
 
 	"sound-snoofer/internal/control"
+	"sound-snoofer/internal/routing"
 	"sound-snoofer/internal/voicemeeter"
 )
 
@@ -59,7 +58,7 @@ func echoTargets(s control.State) EchoTargets {
 		t.Reason = "No mic"
 		return t
 	}
-	bus, ok := hardwareBus(topology.PlaybackTarget)
+	bus, ok := routing.HardwareBus(topology.PlaybackTarget)
 	if !ok {
 		t.Reason = "No playback"
 		return t
@@ -74,19 +73,6 @@ func echoTargets(s control.State) EchoTargets {
 	}
 	t.Playback = s.Snapshot.Assignments[topology.PlaybackTarget]
 	return t
-}
-
-// hardwareBus parses A1-A5 into its 1-based bus number.
-func hardwareBus(target string) (int, bool) {
-	number, ok := strings.CutPrefix(target, "A")
-	if !ok {
-		return 0, false
-	}
-	bus, err := strconv.Atoi(number)
-	if err != nil || bus < 1 || bus > 5 {
-		return 0, false
-	}
-	return bus, true
 }
 
 // insertRequest is read by the worker each step.

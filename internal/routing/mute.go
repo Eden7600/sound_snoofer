@@ -25,8 +25,8 @@ func MuteTargets(i *config.Intent, p *Plan, key string) (parameters []string, re
 		requested = i.PlaybackMuted
 		if t != nil {
 			bus := t.PlaybackTarget
-			if len(bus) == 2 && bus[0] == 'A' && bus[1] >= '1' && bus[1] <= '5' {
-				parameters = []string{fmt.Sprintf("Bus[%d].Mute", bus[1]-'1')}
+			if number, ok := HardwareBus(bus); len(bus) == 2 && ok {
+				parameters = []string{fmt.Sprintf("Bus[%d].Mute", number-1)}
 			}
 		}
 	default:
