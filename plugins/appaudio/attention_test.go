@@ -1,6 +1,7 @@
 package appaudio
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -20,7 +21,7 @@ func TestStatusAttentionUsesBackendAndEditErrors(t *testing.T) {
 			}
 			check := func(want snoofer.AttentionLevel) {
 				t.Helper()
-				w.publish(nil, time.Unix(1, 0))
+				w.publish(context.Background(), nil, time.Unix(1, 0))
 				for _, item := range registry.Snapshot() {
 					if item.ID == "appaudio.status" {
 						if item.Attention != want {

@@ -112,11 +112,15 @@ type request struct {
 }
 
 type worker struct {
-	services snoofer.Services
-	raw      json.RawMessage
-	settings Settings
-	rules    []compiledRule
-	timing   timing
+	contexts                                            map[string]appContext
+	nextGeneration, settingsGeneration, focusGeneration uint64
+	focusSelection                                      string
+	focusTarget                                         appContext
+	services                                            snoofer.Services
+	raw                                                 json.RawMessage
+	settings                                            Settings
+	rules                                               []compiledRule
+	timing                                              timing
 
 	open       func() (windowsaudio.SessionBackend, error)
 	backend    windowsaudio.SessionBackend
@@ -150,7 +154,7 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, open fu
 	i := &instance{cancel: cancel, done: make(chan struct{})}
 	w := &worker{services: s, raw: raw, settings: settings, rules: rules, timing: t, open: open,
 		peaks: map[string]float64{}, heard: map[string]time.Time{}, pending: map[string]request{}, ignored: map[string]bool{}}
-	commands := make(chan snoofer.Request, 8)
+	commands := make(chan command, 8)
 	go func() {
 		// COM objects belong to this OS thread for the worker's whole life.
 		runtime.LockOSThread()
@@ -162,13 +166,13 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, open fu
 		defer ticker.Stop()
 		for {
 			w.step(time.Now())
-			w.publish(commands, time.Now())
+			w.publish(runCtx, commands, time.Now())
 			select {
 			case <-runCtx.Done():
 				return
 			case <-ticker.C:
 			case r := <-commands:
-				w.handle(r, time.Now())
+				w.process(runCtx, r, time.Now())
 			}
 		}
 	}()
@@ -179,6 +183,7 @@ func (w *worker) closeBackend() {
 	if w.backend != nil {
 		w.backend.Close()
 		w.backend = nil
+		w.contexts = nil
 	}
 }
 
@@ -267,12 +272,15 @@ func (w *worker) find(k string) *app {
 	return nil
 }
 
-func (w *worker) handle(r snoofer.Request, now time.Time) {
+func (w *worker) handle(c command, now time.Time) snoofer.Outcome {
+	r := c.request
 	if r.ID == "appaudio.edit" {
-		w.edit(r.Value)
-		return
+		return w.edit(r.Value)
 	}
 	if r.ID == "appaudio.deck-apps" {
+		if !slices.Contains(deckApps, r.Value) {
+			return snoofer.Outcome{Status: snoofer.Rejected, Detail: "Invalid deck app filter"}
+		}
 		next := w.settings
 		next.DeckApps = r.Value
 		if r.Value == "all" {
@@ -281,28 +289,21 @@ func (w *worker) handle(r snoofer.Request, now time.Time) {
 		w.editErr = ""
 		if err := w.save(next); err != nil {
 			w.editErr = err.Error()
+			return failedOutcome(err)
 		}
-		return
+		return snoofer.Outcome{Status: snoofer.Processed, Detail: "Saved"}
 	}
-	var target *app
-	if r.ID == "appaudio.focus" {
-		target = w.focusedApp(visible(w.apps, w.settings.Picked, w.heard, w.settings.window(), now))
-	}
-	for _, a := range w.apps {
-		if !a.Hidden && controlID(a.Name) == r.ID {
-			target = a
-		}
-	}
+	target := w.find(c.target.key)
 	if r.ID == "appaudio.focus" && r.Operation == "reset" {
 		w.focus = "" // Reset focus: the dial follows the first app again.
-		return
+		return snoofer.Outcome{Status: snoofer.Processed, Detail: "Focus reset"}
 	}
 	if target != nil && r.Operation == "hold" {
 		w.focus = key(target.Name) // A held key gives its app the focus dial.
-		return
+		return snoofer.Outcome{Status: snoofer.Processed, Detail: "Focus selected"}
 	}
 	if target == nil || len(target.Sessions) == 0 || !w.services.Live || w.backend == nil {
-		return // Closed apps and preview ignore input.
+		return snoofer.Outcome{Status: snoofer.Rejected, Detail: "App audio unavailable"}
 	}
 	k := key(target.Name)
 	current, writing := w.pending[k]
@@ -310,10 +311,7 @@ func (w *worker) handle(r snoofer.Request, now time.Time) {
 	switch r.Operation {
 	case "press":
 		next.mute = true
-		next.wantMute = target.muteState() != "all"
-		if writing && current.mute {
-			next.wantMute = !current.wantMute
-		}
+		next.wantMute = c.target.wantMute
 	case "adjust":
 		base := target.volume()
 		if writing && current.volume {
@@ -323,13 +321,13 @@ func (w *worker) handle(r snoofer.Request, now time.Time) {
 		next.wantVolume = math.Round(min(1, max(0, base+float64(r.Delta)*volumeStep))*100) / 100
 	case "set":
 		percent, err := strconv.ParseFloat(strings.TrimSuffix(strings.TrimSpace(r.Value), "%"), 64)
-		if err != nil || percent < 0 || percent > 100 {
-			return
+		if err != nil || math.IsNaN(percent) || math.IsInf(percent, 0) || percent < 0 || percent > 100 {
+			return snoofer.Outcome{Status: snoofer.Rejected, Detail: "Invalid app volume"}
 		}
 		next.volume = true
 		next.wantVolume = math.Round(percent) / 100
 	default:
-		return
+		return snoofer.Outcome{Status: snoofer.Rejected, Detail: "Unsupported app audio operation"}
 	}
 	var failures []error
 	for _, s := range target.Sessions {
@@ -340,12 +338,17 @@ func (w *worker) handle(r snoofer.Request, now time.Time) {
 			failures = append(failures, w.backend.SetMute(s.Key, next.wantMute))
 		}
 	}
-	if err := errors.Join(failures...); err != nil {
+	err := errors.Join(failures...)
+	if err != nil {
 		next.failed = err.Error()
 	}
 	delete(w.ignored, k)
 	w.pending[k] = next
 	w.listAt = now // Read back on the next step.
+	if err != nil {
+		return failedOutcome(err)
+	}
+	return snoofer.Outcome{Status: snoofer.Processed, Detail: "Processed"}
 }
 
 // appValue is the shown value: the requested one while a write is pending.
@@ -400,7 +403,8 @@ type statusView struct {
 	RecentMinutes int
 }
 
-func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
+func (w *worker) publish(providerCtx context.Context, commands chan command, now time.Time) {
+	w.refreshContexts(now)
 	shown := visible(w.apps, w.settings.Picked, w.heard, w.settings.window(), now)
 	var controls []snoofer.Control
 	for n, a := range shown {
@@ -410,11 +414,11 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 		picked := slices.ContainsFunc(w.settings.Picked, func(p string) bool { return key(p) == key(a.Name) })
 		controls = append(controls, snoofer.Control{ID: controlID(a.Name), Label: a.Name, ShortLabel: a.Name, Group: "App Audio",
 			Collection: "appaudio.apps", CollectionLabel: "Apps", Order: n + 1, Kind: "numeric", Icon: "app-audio", Artwork: w.artwork(a),
-			Value: value, Status: status, Meter: meter, Operations: []string{"press", "hold", "adjust", "set"}, Hidden: !w.settings.onDeck(picked), Available: true})
+			Value: value, Status: status, Meter: meter, Epoch: w.contexts[appKey(a)].generation, Operations: []string{"press", "hold", "adjust", "set"}, Hidden: !w.settings.onDeck(picked), Available: true})
 	}
 	// The focus dial follows the focused app wherever it sits in the list.
 	focus := snoofer.Control{ID: "appaudio.focus", Label: "Focused App", ShortLabel: "Focused App", Group: "App Audio", Kind: "numeric", Icon: "app-audio",
-		Operations: []string{"press", "adjust", "reset"}, Hidden: true}
+		Operations: []string{"press", "adjust", "reset"}, Hidden: true, Epoch: w.focusGeneration}
 	if a := w.focusedApp(shown); a != nil {
 		value, status := w.appValue(a)
 		focus.ShortLabel, focus.Value, focus.Status, focus.Meter, focus.Artwork = a.Name, value, status, w.meter(a, now), w.artwork(a)
@@ -427,7 +431,7 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 		filter = "all"
 	}
 	controls = append(controls, snoofer.Control{ID: "appaudio.deck-apps", Label: "Apps on the Deck", ShortLabel: "Apps", Group: "App Audio", Kind: "selection", Icon: "app-audio",
-		Value: filter, Options: deckApps, OptionLabels: map[string]string{"all": "All", "pinned": "Pinned", "off": "Off"}, Operations: []string{"set"}, Available: w.services.SaveSettings != nil})
+		Value: filter, Epoch: w.settingsGeneration, Options: deckApps, OptionLabels: map[string]string{"all": "All", "pinned": "Pinned", "off": "Off"}, Operations: []string{"set"}, Available: w.services.SaveSettings != nil})
 	view := statusView{Exclude: w.settings.excluded(), RecentMinutes: int(w.settings.window() / time.Minute)}
 	listed := map[string]bool{}
 	for _, a := range append(append([]*app{}, w.apps...), shown...) {
@@ -477,12 +481,19 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 	}
 	controls = append(controls,
 		snoofer.Control{ID: "appaudio.status", Label: "App Audio", Group: "App Audio", Kind: "status", Value: value, Status: cmp.Or(w.backendErr, w.editErr), Attention: attention, ViewData: data, Available: true},
-		// The edit control changes with every saved or failed edit, so a GUI waiting on it settles.
-		snoofer.Control{ID: "appaudio.edit", Label: "App Audio Edit", Group: "App Audio", Kind: "text", Value: fmt.Sprintf("%x", sha256.Sum256(w.raw))[:12], Status: w.editErr,
+		// The edit control identifies the settings behind its displayed model.
+		snoofer.Control{ID: "appaudio.edit", Label: "App Audio Edit", Group: "App Audio", Kind: "text", Value: fmt.Sprintf("%x", sha256.Sum256(w.raw))[:12], Status: w.editErr, Epoch: w.settingsGeneration,
 			Operations: []string{"set"}, Available: w.services.SaveSettings != nil})
+	contexts, focused, focusGeneration := w.contexts, w.focusTarget, w.focusGeneration
+	raw, settingsGeneration := string(w.raw), w.settingsGeneration
 	_ = w.services.Controls.Publish("appaudio", controls, func(ctx context.Context, r snoofer.Request) error {
+		if err := providerCtx.Err(); err != nil {
+			return err
+		}
+		queued := capture(r, contexts, focused, focusGeneration, settingsGeneration, raw)
+		queued.complete = r.ClaimCompletion(providerCtx)
 		select {
-		case commands <- r:
+		case commands <- queued:
 			return nil
 		case <-ctx.Done():
 			return ctx.Err()

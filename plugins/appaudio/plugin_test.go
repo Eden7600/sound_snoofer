@@ -2,8 +2,10 @@ package appaudio
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"sync"
@@ -168,7 +170,7 @@ func find(list []snoofer.Control, label string) snoofer.Control {
 	return snoofer.Control{}
 }
 
-func (h *harness) dispatch(label, op, value string, delta int) {
+func (h *harness) dispatch(label, op, value string, delta int) snoofer.Outcome {
 	h.t.Helper()
 	for attempt := 0; attempt < 50; attempt++ {
 		c := find(h.controls.Snapshot(), label)
@@ -179,19 +181,40 @@ func (h *harness) dispatch(label, op, value string, delta int) {
 				}
 			}
 		}
-		err := h.controls.Dispatch(context.Background(), snoofer.Request{ID: c.ID, Revision: c.Revision, Operation: op, Value: value, Delta: delta})
+		results := make(chan snoofer.Outcome, 1)
+		err := h.controls.DispatchWithResult(context.Background(), snoofer.Request{ID: c.ID, Revision: c.Revision, Operation: op, Value: value, Delta: delta}, func(result snoofer.Outcome) { results <- result })
 		if err == nil {
-			return
+			select {
+			case result := <-results:
+				return result
+			case <-time.After(2 * time.Second):
+				h.t.Fatal("queued action did not complete")
+			}
 		}
 		time.Sleep(2 * time.Millisecond) // A newer revision raced the dispatch.
 	}
 	h.t.Fatalf("dispatch %s %s failed", label, op)
+	return snoofer.Outcome{}
 }
 
 func (h *harness) edit(op, app, value string) {
 	h.t.Helper()
 	data, _ := json.Marshal(edit{Op: op, App: app, Value: value})
-	h.dispatch("edit", "set", string(data), 0)
+	result := h.dispatch("edit", "set", string(data), 0)
+	if result.Status == snoofer.Processed {
+		h.mu.Lock()
+		raw, _ := json.Marshal(h.saved)
+		h.mu.Unlock()
+		wanted := fmt.Sprintf("%x", sha256.Sum256(raw))[:12]
+		h.wait("saved edit publication", func(list []snoofer.Control) bool {
+			for _, c := range list {
+				if c.ID == "appaudio.edit" {
+					return c.Value == wanted
+				}
+			}
+			return false
+		})
+	}
 }
 
 func TestVisibilityGroupingAndDefaults(t *testing.T) {

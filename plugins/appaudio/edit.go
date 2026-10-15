@@ -2,11 +2,14 @@ package appaudio
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	"sound-snoofer/snoofer"
 )
 
 // edit is one GUI change to picks or rules.
@@ -16,22 +19,24 @@ type edit struct {
 	Value string `json:"value,omitempty"`
 }
 
-// edit applies a GUI change and saves it. Failures are reported on the
-// status control rather than returned, because input is queued.
-func (w *worker) edit(raw string) {
+// edit validates and saves a captured GUI change.
+func (w *worker) edit(raw string) snoofer.Outcome {
 	var e edit
 	if err := json.Unmarshal([]byte(raw), &e); err != nil || strings.TrimSpace(e.App) == "" {
 		w.editErr = "Invalid app edit"
-		return
+		return snoofer.Outcome{Status: snoofer.Rejected, Detail: w.editErr}
 	}
 	next, err := w.applyEdit(e)
-	if err == nil {
-		err = w.save(next)
-	}
 	w.editErr = ""
 	if err != nil {
 		w.editErr = err.Error()
+		return snoofer.Outcome{Status: snoofer.Rejected, Detail: err.Error()}
 	}
+	if err := w.save(next); err != nil {
+		w.editErr = err.Error()
+		return failedOutcome(err)
+	}
+	return snoofer.Outcome{Status: snoofer.Processed, Detail: "Saved"}
 }
 
 func (w *worker) applyEdit(e edit) (Settings, error) {
@@ -157,10 +162,14 @@ func (w *worker) save(next Settings) error {
 	if err != nil {
 		return err
 	}
+	if w.services.SaveSettings == nil {
+		return errors.New("settings cannot be saved")
+	}
 	if err := w.services.SaveSettings("appaudio", w.raw, raw); err != nil {
 		return err
 	}
 	w.raw, w.settings, w.rules = raw, next, rules
+	w.settingsGeneration++
 	w.listAt = time.Time{} // Regroup on the next step.
 	return nil
 }
