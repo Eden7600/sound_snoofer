@@ -102,3 +102,15 @@ commit `237a8ee`. Numbering continues from that file.
     - **Problem:** `Decode` rejects duplicate keys, unknown fields and trailing
       documents, and it guards every config load. Nothing fails if it breaks.
     - **Fix:** One table test covering each of the three rejections.
+
+32. **Stream Deck refuses its default layout when audio published first**
+    (`plugins/streamdeck/plugin_windows.go:104`, `plugins/streamdeck/layout.go:216-231`,
+    `plugins/streamdeck/default.go:73,175`)
+    - **Problem:** `settings.validate` runs at plugin start against the current registry. The
+      default layouts bind status controls (`audio.playback-device`, `audio.slot-*`) that have no
+      `press` operation, so the plugin fails to start with "Playback Device does not support this
+      position" whenever audio's controls are already published, for example when Stream Deck is
+      enabled from the Plugins page while audio runs. Normal startup only works because audio
+      publishes later. Found by the GUI fixture generator (`gui-test-harness`).
+    - **Fix:** Accept status controls on keys (they render state), or validate only positions
+      that the user edits.

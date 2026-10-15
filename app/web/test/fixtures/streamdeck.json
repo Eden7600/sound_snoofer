@@ -1,0 +1,1949 @@
+[
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 1,
+    "Subdued": false,
+    "ID": "streamdeck.add",
+    "Label": "New Page (Name)",
+    "Group": "Stream Deck Configurator",
+    "Kind": "text",
+    "Value": "",
+    "Status": "",
+    "Icon": "",
+    "Options": null,
+    "Operations": [
+      "set"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": {
+      "": "Clear Binding",
+      "audio.auto-recover": "Automatic Recovery (audio.auto-recover)",
+      "audio.defaults": "Protect Windows Defaults (audio.defaults)",
+      "audio.engine-restart": "Restart Audio Engine · Normal (audio.engine-restart)",
+      "audio.gain-mic": "Mic (audio.gain-mic)",
+      "audio.gain-playback": "Playback (audio.gain-playback)",
+      "audio.health": "Audio Health (audio.health)",
+      "audio.interface": "Interface (audio.interface)",
+      "audio.mic-device": "Microphone (audio.mic-device)",
+      "audio.mic-mute": "Mic Mute (audio.mic-mute)",
+      "audio.mic-stack": "Mic Stack (audio.mic-stack)",
+      "audio.mode": "Mic Path · Normal (audio.mode)",
+      "audio.monitor": "Monitor · Normal (audio.monitor)",
+      "audio.normal-mode": "Processing (audio.normal-mode)",
+      "audio.normal-monitor": "Monitoring (audio.normal-monitor)",
+      "audio.normal-output": "Playback (audio.normal-output)",
+      "audio.normal-source": "Mic Stack Target (audio.normal-source)",
+      "audio.output": "Playback · Normal (audio.output)",
+      "audio.output-edit": "Output Edit (audio.output-edit)",
+      "audio.pause-devices": "Disable Device Manipulation (audio.pause-devices)",
+      "audio.pause-sends": "Disable Send Manipulation (audio.pause-sends)",
+      "audio.playback-device": "Playback Device (audio.playback-device)",
+      "audio.playback:virtual:1": "virtual:1 Playback (audio.playback:virtual:1)",
+      "audio.priorities": "Device Priorities (audio.priorities)",
+      "audio.priority-edit": "Device Priority Edit (audio.priority-edit)",
+      "audio.record-computer": "Record Computer (audio.record-computer)",
+      "audio.record-loop": "Loop Recording (audio.record-loop)",
+      "audio.record-mic": "Record Microphone (audio.record-mic)",
+      "audio.record-start": "record start (audio.record-start)",
+      "audio.record-stop": "record stop (audio.record-stop)",
+      "audio.record-tap": "Mic Stage (audio.record-tap)",
+      "audio.record-toggle": "Record (audio.record-toggle)",
+      "audio.record-vst": "Recording to VST (audio.record-vst)",
+      "audio.slot-1": "Music (audio.slot-1)",
+      "audio.slot-1:monitor": "Music Monitor (audio.slot-1:monitor)",
+      "audio.slot-1:soundboard": "Music Soundboard (audio.slot-1:soundboard)",
+      "audio.slot-1:tape": "Music Tape (audio.slot-1:tape)",
+      "audio.slot-1:virtual:1": "Music Computer (audio.slot-1:virtual:1)",
+      "audio.slot-1:virtual:2": "Music Virtual 2 (audio.slot-1:virtual:2)",
+      "audio.slot-1:virtual:3": "Music Virtual 3 (audio.slot-1:virtual:3)",
+      "audio.slot-2": "Output 2 (audio.slot-2)",
+      "audio.slot-2:monitor": "Output 2 Monitor (audio.slot-2:monitor)",
+      "audio.slot-2:soundboard": "Output 2 Soundboard (audio.slot-2:soundboard)",
+      "audio.slot-2:tape": "Output 2 Tape (audio.slot-2:tape)",
+      "audio.slot-2:virtual:1": "Output 2 Computer (audio.slot-2:virtual:1)",
+      "audio.slot-2:virtual:2": "Output 2 Virtual 2 (audio.slot-2:virtual:2)",
+      "audio.slot-2:virtual:3": "Output 2 Virtual 3 (audio.slot-2:virtual:3)",
+      "audio.slot-3": "Output 3 (audio.slot-3)",
+      "audio.slot-3:monitor": "Output 3 Monitor (audio.slot-3:monitor)",
+      "audio.slot-3:soundboard": "Output 3 Soundboard (audio.slot-3:soundboard)",
+      "audio.slot-3:tape": "Output 3 Tape (audio.slot-3:tape)",
+      "audio.slot-3:virtual:1": "Output 3 Computer (audio.slot-3:virtual:1)",
+      "audio.slot-3:virtual:2": "Output 3 Virtual 2 (audio.slot-3:virtual:2)",
+      "audio.slot-3:virtual:3": "Output 3 Virtual 3 (audio.slot-3:virtual:3)",
+      "audio.snippet-play": "snippet play (audio.snippet-play)",
+      "audio.snippet-stop": "snippet stop (audio.snippet-stop)",
+      "audio.source": "Mic Stack Target · Normal (audio.source)",
+      "audio.speaker-mute": "Playback Mute (audio.speaker-mute)",
+      "audio.tape-ff": "Fast-forward (audio.tape-ff)",
+      "audio.tape-play": "Play Recording (audio.tape-play)",
+      "audio.tape-rew": "Rewind (audio.tape-rew)",
+      "audio.tape-stop": "Stop (audio.tape-stop)",
+      "soundboard.clip-airhorn": "airhorn (soundboard.clip-airhorn)",
+      "soundboard.clip-fah": "fah (soundboard.clip-fah)",
+      "soundboard.clip-instinct": "instinct (soundboard.clip-instinct)",
+      "soundboard.clip-ping": "ping (soundboard.clip-ping)",
+      "soundboard.clip-sadge": "sadge (soundboard.clip-sadge)",
+      "streamdeck.add": "New Page (Name) (streamdeck.add)",
+      "streamdeck.binding": "Binding (Empty Clears) (streamdeck.binding)",
+      "streamdeck.cancel": "Cancel Edits (streamdeck.cancel)",
+      "streamdeck.deck": "Deck (streamdeck.deck)",
+      "streamdeck.deck-forget": "Forget Deck (streamdeck.deck-forget)",
+      "streamdeck.deck-name": "Deck Name (streamdeck.deck-name)",
+      "streamdeck.deck-own": "Own Layout (streamdeck.deck-own)",
+      "streamdeck.delete": "Delete Page (streamdeck.delete)",
+      "streamdeck.device-A00WA6261J4HRK": "Desk (streamdeck.device-A00WA6261J4HRK)",
+      "streamdeck.earlier": "Move Page Earlier (streamdeck.earlier)",
+      "streamdeck.goto-lights": "Go to Lights (streamdeck.goto-lights)",
+      "streamdeck.goto-media": "Go to Media (streamdeck.goto-media)",
+      "streamdeck.goto-meetings": "Go to Meetings (streamdeck.goto-meetings)",
+      "streamdeck.goto-routing": "Go to Routing (streamdeck.goto-routing)",
+      "streamdeck.goto-soundboard": "Go to Soundboard (streamdeck.goto-soundboard)",
+      "streamdeck.home": "Make This Home (streamdeck.home)",
+      "streamdeck.later": "Move Page Later (streamdeck.later)",
+      "streamdeck.name": "Rename Page (streamdeck.name)",
+      "streamdeck.page": "Page (streamdeck.page)",
+      "streamdeck.paging": "Paging (streamdeck.paging)",
+      "streamdeck.preview": "Effective Position (streamdeck.preview)",
+      "streamdeck.profile": "Device Layout (streamdeck.profile)",
+      "streamdeck.region-add": "Add Region (streamdeck.region-add)",
+      "streamdeck.region-clip": "Region Overflow (streamdeck.region-clip)",
+      "streamdeck.region-remove": "Remove Region (streamdeck.region-remove)",
+      "streamdeck.region-source": "Region Source (streamdeck.region-source)",
+      "streamdeck.reset-focus": "Reset Focus (streamdeck.reset-focus)",
+      "streamdeck.save": "Save Layout (streamdeck.save)",
+      "streamdeck.scroll-down": "Scroll Down (streamdeck.scroll-down)",
+      "streamdeck.scroll-up": "Scroll Up (streamdeck.scroll-up)",
+      "streamdeck.shared": "Shared Across Pages (streamdeck.shared)",
+      "streamdeck.slot": "Position (streamdeck.slot)",
+      "streamdeck.status": "Layout Status (streamdeck.status)"
+    },
+    "EnterOnly": false,
+    "Epoch": 1,
+    "Subdued": false,
+    "ID": "streamdeck.binding",
+    "Label": "Binding (Empty Clears)",
+    "Group": "Stream Deck Configurator",
+    "Kind": "selection",
+    "Value": "audio.mic-mute",
+    "Status": "",
+    "Icon": "",
+    "Options": [
+      "",
+      "soundboard.clip-airhorn",
+      "soundboard.clip-fah",
+      "soundboard.clip-instinct",
+      "soundboard.clip-ping",
+      "soundboard.clip-sadge",
+      "audio.engine-restart",
+      "audio.mode",
+      "audio.monitor",
+      "audio.output",
+      "audio.source",
+      "audio.mic-stack",
+      "audio.normal-mode",
+      "audio.normal-monitor",
+      "audio.normal-source",
+      "audio.normal-output",
+      "audio.record-computer",
+      "audio.record-loop",
+      "audio.record-mic",
+      "audio.record-tap",
+      "audio.record-vst",
+      "audio.slot-1:monitor",
+      "audio.slot-1:soundboard",
+      "audio.slot-1:tape",
+      "audio.slot-1:virtual:1",
+      "audio.slot-1:virtual:2",
+      "audio.slot-1:virtual:3",
+      "audio.slot-2:monitor",
+      "audio.slot-2:soundboard",
+      "audio.slot-2:tape",
+      "audio.slot-2:virtual:1",
+      "audio.slot-2:virtual:2",
+      "audio.slot-2:virtual:3",
+      "audio.slot-3:monitor",
+      "audio.slot-3:soundboard",
+      "audio.slot-3:tape",
+      "audio.slot-3:virtual:1",
+      "audio.slot-3:virtual:2",
+      "audio.slot-3:virtual:3",
+      "audio.auto-recover",
+      "audio.defaults",
+      "audio.gain-mic",
+      "audio.gain-playback",
+      "audio.mic-mute",
+      "audio.pause-devices",
+      "audio.pause-sends",
+      "audio.playback:virtual:1",
+      "audio.speaker-mute",
+      "streamdeck.goto-lights",
+      "streamdeck.goto-media",
+      "streamdeck.goto-meetings",
+      "streamdeck.goto-routing",
+      "streamdeck.goto-soundboard",
+      "streamdeck.reset-focus",
+      "streamdeck.scroll-down",
+      "streamdeck.scroll-up",
+      "audio.record-start",
+      "audio.record-stop",
+      "audio.record-toggle",
+      "audio.snippet-play",
+      "audio.snippet-stop",
+      "audio.tape-ff",
+      "audio.tape-play",
+      "audio.tape-rew",
+      "audio.tape-stop"
+    ],
+    "Operations": [
+      "set"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 1,
+    "Subdued": false,
+    "ID": "streamdeck.cancel",
+    "Label": "Cancel Edits",
+    "Group": "Stream Deck Configurator",
+    "Kind": "command",
+    "Value": "",
+    "Status": "",
+    "Icon": "",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": {
+      "A00WA6261J4HRK": "Desk (Stream Deck +)"
+    },
+    "EnterOnly": false,
+    "Epoch": 1,
+    "Subdued": false,
+    "ID": "streamdeck.deck",
+    "Label": "Deck",
+    "Group": "Stream Deck Configurator",
+    "Kind": "selection",
+    "Value": "A00WA6261J4HRK",
+    "Status": "",
+    "Icon": "",
+    "Options": [
+      "A00WA6261J4HRK"
+    ],
+    "Operations": [
+      "set"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 1,
+    "Subdued": false,
+    "ID": "streamdeck.deck-forget",
+    "Label": "Forget Deck",
+    "Group": "Stream Deck Configurator",
+    "Kind": "command",
+    "Value": "",
+    "Status": "",
+    "Icon": "",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 1,
+    "Subdued": false,
+    "ID": "streamdeck.deck-name",
+    "Label": "Deck Name",
+    "Group": "Stream Deck Configurator",
+    "Kind": "text",
+    "Value": "Desk",
+    "Status": "",
+    "Icon": "",
+    "Options": null,
+    "Operations": [
+      "set"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 1,
+    "Subdued": false,
+    "ID": "streamdeck.deck-own",
+    "Label": "Own Layout",
+    "Group": "Stream Deck Configurator",
+    "Kind": "toggle",
+    "Value": "On",
+    "Status": "",
+    "Icon": "",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 1,
+    "Subdued": false,
+    "ID": "streamdeck.delete",
+    "Label": "Delete Page",
+    "Group": "Stream Deck Configurator",
+    "Kind": "command",
+    "Value": "",
+    "Status": "",
+    "Icon": "",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Connection": {
+      "State": "disconnected",
+      "Endpoint": "USB HID 0FD9",
+      "Since": "2026-10-14T12:00:00Z",
+      "LastActivity": "0001-01-01T00:00:00Z",
+      "LastError": "",
+      "LastErrorAt": "0001-01-01T00:00:00Z",
+      "Details": [
+        {
+          "Label": "Model",
+          "Value": "Stream Deck +"
+        },
+        {
+          "Label": "Serial",
+          "Value": "A00WA6261J4HRK"
+        },
+        {
+          "Label": "Display",
+          "Value": "On (lock state unknown)"
+        }
+      ]
+    },
+    "SurfaceOnly": true,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "streamdeck.device-A00WA6261J4HRK",
+    "Label": "Desk",
+    "Group": "Stream Deck",
+    "Kind": "connection",
+    "Value": "Not connected",
+    "Status": "",
+    "Icon": "",
+    "Options": null,
+    "Operations": null,
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 1,
+    "Subdued": false,
+    "ID": "streamdeck.earlier",
+    "Label": "Move Page Earlier",
+    "Group": "Stream Deck Configurator",
+    "Kind": "command",
+    "Value": "",
+    "Status": "",
+    "Icon": "",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Lights",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "streamdeck.goto-lights",
+    "Label": "Go to Lights",
+    "Group": "Stream Deck Pages",
+    "Kind": "command",
+    "Value": "",
+    "Status": "",
+    "Icon": "deck-page",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Media",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "streamdeck.goto-media",
+    "Label": "Go to Media",
+    "Group": "Stream Deck Pages",
+    "Kind": "command",
+    "Value": "",
+    "Status": "",
+    "Icon": "deck-page",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Meetings",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "streamdeck.goto-meetings",
+    "Label": "Go to Meetings",
+    "Group": "Stream Deck Pages",
+    "Kind": "command",
+    "Value": "",
+    "Status": "",
+    "Icon": "deck-page",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Routing",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "streamdeck.goto-routing",
+    "Label": "Go to Routing",
+    "Group": "Stream Deck Pages",
+    "Kind": "command",
+    "Value": "",
+    "Status": "",
+    "Icon": "deck-page",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Soundboard",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "streamdeck.goto-soundboard",
+    "Label": "Go to Soundboard",
+    "Group": "Stream Deck Pages",
+    "Kind": "command",
+    "Value": "",
+    "Status": "",
+    "Icon": "deck-page",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 1,
+    "Subdued": false,
+    "ID": "streamdeck.home",
+    "Label": "Make This Home",
+    "Group": "Stream Deck Configurator",
+    "Kind": "command",
+    "Value": "home",
+    "Status": "",
+    "Icon": "",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 1,
+    "Subdued": false,
+    "ID": "streamdeck.later",
+    "Label": "Move Page Later",
+    "Group": "Stream Deck Configurator",
+    "Kind": "command",
+    "Value": "",
+    "Status": "",
+    "Icon": "",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 1,
+    "Subdued": false,
+    "ID": "streamdeck.name",
+    "Label": "Rename Page",
+    "Group": "Stream Deck Configurator",
+    "Kind": "text",
+    "Value": "Home",
+    "Status": "",
+    "Icon": "",
+    "Options": null,
+    "Operations": [
+      "set"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": {
+      "home": "Home",
+      "lights": "Lights",
+      "media": "Media",
+      "meetings": "Meetings",
+      "routing": "Routing",
+      "soundboard": "Soundboard"
+    },
+    "EnterOnly": false,
+    "Epoch": 1,
+    "Subdued": false,
+    "ID": "streamdeck.page",
+    "Label": "Page",
+    "Group": "Stream Deck Configurator",
+    "Kind": "selection",
+    "Value": "home",
+    "Status": "",
+    "Icon": "",
+    "Options": [
+      "home",
+      "soundboard",
+      "lights",
+      "media",
+      "meetings",
+      "routing"
+    ],
+    "Operations": [
+      "set"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": {
+      "independent": "Independent",
+      "mirrored": "Mirrored"
+    },
+    "EnterOnly": false,
+    "Epoch": 1,
+    "Subdued": false,
+    "ID": "streamdeck.paging",
+    "Label": "Paging",
+    "Group": "Stream Deck Configurator",
+    "Kind": "selection",
+    "Value": "independent",
+    "Status": "",
+    "Icon": "",
+    "Options": [
+      "independent",
+      "mirrored"
+    ],
+    "Operations": [
+      "set"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "ViewData": {
+      "Keys": [
+        {
+          "Control": "audio.mic-mute",
+          "Label": "audio.mic-mute",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "audio.speaker-mute",
+          "Label": "audio.speaker-mute",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "audio.monitor",
+          "Label": "audio.monitor",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "audio.mode",
+          "Label": "audio.mode",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "aec.mode",
+          "Label": "aec.mode",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "aec.strength",
+          "Label": "aec.strength",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "",
+          "Label": "",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "",
+          "Label": "",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "streamdeck.goto-routing",
+          "Label": "streamdeck.goto-routing",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "audio.record-mic",
+          "Label": "audio.record-mic",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "audio.record-computer",
+          "Label": "audio.record-computer",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "audio.record-tap",
+          "Label": "audio.record-tap",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "audio.record-toggle",
+          "Label": "audio.record-toggle",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "audio.tape-play",
+          "Label": "audio.tape-play",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "audio.tape-stop",
+          "Label": "audio.tape-stop",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "audio.tape-rew",
+          "Label": "audio.tape-rew",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "audio.tape-ff",
+          "Label": "audio.tape-ff",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "",
+          "Label": "",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "",
+          "Label": "",
+          "Source": "",
+          "Region": 0
+        },
+        {
+          "Control": "",
+          "Label": "",
+          "Source": "",
+          "Region": 0
+        },
+        {
+          "Control": "",
+          "Label": "",
+          "Source": "",
+          "Region": 0
+        },
+        {
+          "Control": "",
+          "Label": "",
+          "Source": "",
+          "Region": 0
+        },
+        {
+          "Control": "",
+          "Label": "",
+          "Source": "",
+          "Region": 1
+        },
+        {
+          "Control": "",
+          "Label": "",
+          "Source": "",
+          "Region": 1
+        },
+        {
+          "Control": "",
+          "Label": "",
+          "Source": "",
+          "Region": 1
+        },
+        {
+          "Control": "",
+          "Label": "",
+          "Source": "",
+          "Region": 1
+        },
+        {
+          "Control": "streamdeck.reset-focus",
+          "Label": "streamdeck.reset-focus",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "nowplaying.prev",
+          "Label": "nowplaying.prev",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "nowplaying.toggle",
+          "Label": "nowplaying.toggle",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "nowplaying.next",
+          "Label": "nowplaying.next",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "hue.brightness",
+          "Label": "hue.brightness",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "hue.motion",
+          "Label": "hue.motion",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "streamdeck.goto-meetings",
+          "Label": "streamdeck.goto-meetings",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "streamdeck.goto-media",
+          "Label": "streamdeck.goto-media",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "streamdeck.goto-soundboard",
+          "Label": "streamdeck.goto-soundboard",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "streamdeck.goto-lights",
+          "Label": "streamdeck.goto-lights",
+          "Source": "",
+          "Region": -1
+        }
+      ],
+      "Dials": [
+        {
+          "Control": "audio.gain-playback",
+          "Label": "audio.gain-playback",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "audio.gain-mic",
+          "Label": "audio.gain-mic",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "nowplaying.dial",
+          "Label": "nowplaying.dial",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "appaudio.focus",
+          "Label": "appaudio.focus",
+          "Source": "",
+          "Region": -1
+        },
+        {
+          "Control": "",
+          "Label": "",
+          "Source": "",
+          "Region": -1
+        }
+      ],
+      "Regions": [
+        {
+          "Source": "nowplaying.sessions",
+          "Label": "nowplaying.sessions",
+          "Stacked": "",
+          "First": 18,
+          "Last": 21,
+          "Legacy": false,
+          "Dials": false,
+          "Clip": true
+        },
+        {
+          "Source": "appaudio.apps",
+          "Label": "appaudio.apps",
+          "Stacked": "",
+          "First": 22,
+          "Last": 25,
+          "Legacy": false,
+          "Dials": false,
+          "Clip": true
+        }
+      ],
+      "Collections": [
+        {
+          "ID": "soundboard.clips",
+          "Label": "Soundboard Clips"
+        }
+      ],
+      "Selected": 0,
+      "Dirty": false,
+      "Home": true,
+      "Sets": 1,
+      "Scrolls": false,
+      "Model": "plus-xl",
+      "Columns": 9,
+      "Reserved": -1,
+      "NavDial": true,
+      "Decks": [
+        {
+          "Serial": "A00WA6261J4HRK",
+          "Name": "Desk",
+          "Model": "plus",
+          "Connected": false,
+          "Own": true
+        }
+      ]
+    },
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 1,
+    "Subdued": false,
+    "ID": "streamdeck.preview",
+    "Label": "Effective Position",
+    "Group": "Stream Deck Configurator",
+    "Kind": "status",
+    "Value": "Mic Mute Off",
+    "Status": "",
+    "Icon": "",
+    "Options": null,
+    "Operations": null,
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": {
+      "model:mk2": "Stream Deck MK.2",
+      "model:neo": "Stream Deck Neo",
+      "model:plus": "Stream Deck +",
+      "model:plus-xl": "Stream Deck + XL",
+      "model:xl": "Stream Deck XL",
+      "serial:A00WA6261J4HRK": "Desk (Stream Deck +)"
+    },
+    "EnterOnly": false,
+    "Epoch": 1,
+    "Subdued": false,
+    "ID": "streamdeck.profile",
+    "Label": "Device Layout",
+    "Group": "Stream Deck Configurator",
+    "Kind": "selection",
+    "Value": "model:plus-xl",
+    "Status": "",
+    "Icon": "",
+    "Options": [
+      "model:plus-xl",
+      "model:plus",
+      "model:xl",
+      "model:mk2",
+      "model:neo",
+      "serial:A00WA6261J4HRK"
+    ],
+    "Operations": [
+      "set"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 1,
+    "Subdued": false,
+    "ID": "streamdeck.region-add",
+    "Label": "Add Region",
+    "Group": "Stream Deck Configurator",
+    "Kind": "text",
+    "Value": "",
+    "Status": "",
+    "Icon": "",
+    "Options": null,
+    "Operations": [
+      "set"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 1,
+    "Subdued": false,
+    "ID": "streamdeck.region-clip",
+    "Label": "Region Overflow",
+    "Group": "Stream Deck Configurator",
+    "Kind": "text",
+    "Value": "",
+    "Status": "",
+    "Icon": "",
+    "Options": null,
+    "Operations": [
+      "set"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 1,
+    "Subdued": false,
+    "ID": "streamdeck.region-remove",
+    "Label": "Remove Region",
+    "Group": "Stream Deck Configurator",
+    "Kind": "text",
+    "Value": "",
+    "Status": "",
+    "Icon": "",
+    "Options": null,
+    "Operations": [
+      "set"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 1,
+    "Subdued": false,
+    "ID": "streamdeck.region-source",
+    "Label": "Region Source",
+    "Group": "Stream Deck Configurator",
+    "Kind": "text",
+    "Value": "",
+    "Status": "",
+    "Icon": "",
+    "Options": null,
+    "Operations": [
+      "set"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Auto",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "streamdeck.reset-focus",
+    "Label": "Reset Focus",
+    "Group": "Stream Deck Pages",
+    "Kind": "command",
+    "Value": "",
+    "Status": "",
+    "Icon": "focus-reset",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 1,
+    "Subdued": false,
+    "ID": "streamdeck.save",
+    "Label": "Save Layout",
+    "Group": "Stream Deck Configurator",
+    "Kind": "command",
+    "Value": "",
+    "Status": "",
+    "Icon": "",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Down",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": true,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "streamdeck.scroll-down",
+    "Label": "Scroll Down",
+    "Group": "Stream Deck Pages",
+    "Kind": "command",
+    "Value": "1/1",
+    "Status": "",
+    "Icon": "deck-down",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Up",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": true,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "streamdeck.scroll-up",
+    "Label": "Scroll Up",
+    "Group": "Stream Deck Pages",
+    "Kind": "command",
+    "Value": "1/1",
+    "Status": "",
+    "Icon": "deck-up",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 1,
+    "Subdued": false,
+    "ID": "streamdeck.shared",
+    "Label": "Shared Across Pages",
+    "Group": "Stream Deck Configurator",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "",
+    "Icon": "",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 1,
+    "Subdued": false,
+    "ID": "streamdeck.slot",
+    "Label": "Position",
+    "Group": "Stream Deck Configurator",
+    "Kind": "selection",
+    "Value": "Key 1",
+    "Status": "",
+    "Icon": "",
+    "Options": [
+      "Key 1",
+      "Key 2",
+      "Key 3",
+      "Key 4",
+      "Key 5",
+      "Key 6",
+      "Key 7",
+      "Key 8",
+      "Key 9",
+      "Key 10",
+      "Key 11",
+      "Key 12",
+      "Key 13",
+      "Key 14",
+      "Key 15",
+      "Key 16",
+      "Key 17",
+      "Key 18",
+      "Key 19",
+      "Key 20",
+      "Key 21",
+      "Key 22",
+      "Key 23",
+      "Key 24",
+      "Key 25",
+      "Key 26",
+      "Key 27",
+      "Key 28",
+      "Key 29",
+      "Key 30",
+      "Key 31",
+      "Key 32",
+      "Key 33",
+      "Key 34",
+      "Key 35",
+      "Key 36",
+      "Dial 1",
+      "Dial 2",
+      "Dial 3",
+      "Dial 4",
+      "Dial 5"
+    ],
+    "Operations": [
+      "set"
+    ],
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 1,
+    "Subdued": false,
+    "ID": "streamdeck.status",
+    "Label": "Layout Status",
+    "Group": "Stream Deck Configurator",
+    "Kind": "status",
+    "Value": "",
+    "Status": "",
+    "Icon": "",
+    "Options": null,
+    "Operations": null,
+    "Available": true,
+    "Revision": 1
+  }
+]
