@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"sound-snoofer/plugins/audio"
 	"sound-snoofer/snoofer"
 )
 
@@ -36,10 +35,12 @@ func outcomeWorker(t *testing.T) (*worker, *outcomePipe, context.Context) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	w := newWorker(snoofer.Services{Controls: snoofer.NewControls(), Live: true}, nil, configured, &fakeMic{known: true}, nil, http.DefaultClient, "")
+	w := newWorker(snoofer.Services{Controls: snoofer.NewControls(), Live: true}, nil, configured, nil, http.DefaultClient, "")
 	pipe := &outcomePipe{}
 	w.conn, w.generation, w.state = pipe, 1, stateReady
 	w.voice = voice{settingsKnown: true, channelKnown: true, channelID: "42", videoKnown: true, screenKnown: true}
+	attachMeetingFixture(t, w, ctx, nil)
+	w.reportMeetings(time.Unix(1000, 0))
 	return w, pipe, ctx
 }
 
@@ -208,19 +209,19 @@ func TestDiscordTimeoutDropAndWriteErrorAreUnknownWithoutReplay(t *testing.T) {
 }
 
 func TestDiscordCapturedConnectionAndChannelLifetimes(t *testing.T) {
-	for _, id := range []string{"discord.deafen", "discord.video", "discord.screenshare", "discord.leave", "discord.mute"} {
+	for _, id := range []string{"discord.deafen", "discord.screenshare", "discord.leave"} {
 		t.Run(id+"/connection", func(t *testing.T) {
 			w, pipe, ctx := outcomeWorker(t)
 			result := dispatchOutcome(t, w, ctx, id)
 			w.generation++
 			w.handle(ctx, <-w.requests, time.Unix(1000, 0))
 			expectOutcome(t, result, snoofer.Rejected)
-			if pipe.Len() != 0 || len(w.mic.(*fakeMic).requests) != 0 {
+			if pipe.Len() != 0 {
 				t.Fatal("stale connection caused an effect")
 			}
 		})
 	}
-	for _, id := range []string{"discord.video", "discord.screenshare", "discord.leave"} {
+	for _, id := range []string{"discord.screenshare", "discord.leave"} {
 		for _, published := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/channel-ABA/published=%t", id, published), func(t *testing.T) {
 				w, pipe, ctx := outcomeWorker(t)
@@ -283,7 +284,7 @@ func TestDiscordDeafenUsesCapturedDesiredValue(t *testing.T) {
 }
 
 func TestDiscordToggleOnlyRPCsRetainKnownAndUnknownState(t *testing.T) {
-	for _, id := range []string{"discord.video", "discord.screenshare"} {
+	for _, id := range []string{"discord.screenshare"} {
 		for _, mode := range []string{"known", "unknown", "changed-value", "became-known", "became-unknown"} {
 			t.Run(id+"/"+mode, func(t *testing.T) {
 				w, pipe, ctx := outcomeWorker(t)
@@ -392,87 +393,8 @@ func TestDiscordStopAfterSendIgnoresLateReply(t *testing.T) {
 	}
 }
 
-type delayedMic struct {
-	pref       audio.MicMute
-	desired    bool
-	revision   uint64
-	complete   snoofer.Completion
-	enqueueErr error
-}
-
-func (m *delayedMic) MicMute() audio.MicMute { return m.pref }
-func (m *delayedMic) SetMicMute(bool, string) error {
-	return errors.New("GUI used legacy mute adapter")
-}
-func (m *delayedMic) SetMicMuteWithResult(desired bool, origin string, revision uint64, complete snoofer.Completion) error {
-	m.desired, m.revision, m.complete = desired, revision, complete
-	return m.enqueueErr
-}
-
-func TestDiscordLinkedMuteCarriesCapturedRevisionAndDelayedError(t *testing.T) {
-	for _, status := range []snoofer.OutcomeStatus{snoofer.Processed, snoofer.Rejected, snoofer.Failed} {
-		t.Run(string(status), func(t *testing.T) {
-			w, pipe, ctx := outcomeWorker(t)
-			mic := &delayedMic{pref: audio.MicMute{Known: true, Revision: 12, Muted: false}}
-			w.mic = mic
-			result := dispatchOutcome(t, w, ctx, "discord.mute")
-			mic.pref = audio.MicMute{Known: true, Revision: 13, Muted: true}
-			w.handle(ctx, <-w.requests, time.Unix(1000, 0))
-			assertNoOutcome(t, result)
-			if !mic.desired || mic.revision != 12 || mic.complete == nil {
-				t.Fatal("linked mute recaptured newer audio preference", mic)
-			}
-			mic.complete(snoofer.Outcome{Status: status, Detail: "audio save boundary"})
-			if got := expectOutcome(t, result, status); got.Detail != "audio save boundary" {
-				t.Fatal(got)
-			}
-			mic.complete(snoofer.Outcome{Status: snoofer.Processed})
-			assertNoOutcome(t, result)
-			if pipe.Len() != 0 {
-				t.Fatal("GUI bypassed audio preference reconciliation")
-			}
-		})
-	}
-}
-
-func TestDiscordLinkedMutePublicationAndQueueRefusal(t *testing.T) {
-	w, _, ctx := outcomeWorker(t)
-	now := time.Unix(1000, 0)
-	mic := &delayedMic{pref: audio.MicMute{Known: true, Revision: 12}}
-	w.mic = mic
-	w.publish(ctx, now)
-	old := publishedRequest(t, w, "discord.mute")
-	mic.pref.Revision++
-	w.publish(ctx, now)
-	result := make(chan snoofer.Outcome, 4)
-	if err := w.services.Controls.DispatchWithResult(ctx, old, func(o snoofer.Outcome) { result <- o }); err == nil {
-		t.Fatal("old drawn linked mute recaptured audio revision")
-	}
-	expectOutcome(t, result, snoofer.Rejected)
-	mic.enqueueErr = errors.New("audio queue full")
-	queued := dispatchOutcome(t, w, ctx, "discord.mute")
-	w.handle(ctx, <-w.requests, now)
-	if got := expectOutcome(t, queued, snoofer.Rejected); got.Detail != "audio queue full" {
-		t.Fatal(got)
-	}
-}
-
-func TestDiscordLinkedMuteStopIgnoresLateAudioCompletion(t *testing.T) {
-	w, _, parent := outcomeWorker(t)
-	ctx, cancel := context.WithCancel(parent)
-	defer cancel()
-	mic := &delayedMic{pref: audio.MicMute{Known: true, Revision: 12}}
-	w.mic = mic
-	result := dispatchOutcome(t, w, ctx, "discord.mute")
-	w.handle(ctx, <-w.requests, time.Unix(1000, 0))
-	cancel()
-	expectOutcome(t, result, snoofer.Unknown)
-	mic.complete(snoofer.Outcome{Status: snoofer.Failed, Detail: "late save error"})
-	assertNoOutcome(t, result)
-}
-
 func TestDiscordToggleCannotUndoAnUnobservedRequest(t *testing.T) {
-	for _, id := range []string{"discord.video", "discord.screenshare"} {
+	for _, id := range []string{"discord.screenshare"} {
 		for _, phase := range []string{"queued", "replied", "observed-before-reply", "unknown"} {
 			t.Run(id+"/"+phase, func(t *testing.T) {
 				w, pipe, ctx := outcomeWorker(t)

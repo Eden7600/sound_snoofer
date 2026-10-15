@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"sound-snoofer/plugins/audio"
 	"sound-snoofer/snoofer"
 )
 
@@ -16,10 +15,6 @@ func (w *worker) observed(id string) string {
 	case "discord.deafen":
 		if v.settingsKnown {
 			return snoofer.OnOff(v.deaf)
-		}
-	case "discord.video":
-		if v.videoKnown {
-			return snoofer.OnOff(v.video)
 		}
 	case "discord.screenshare":
 		if v.screenKnown {
@@ -41,19 +36,25 @@ type command struct {
 	channelID       string
 	channelLifetime uint64
 	known, desired  bool
-	micRevision     uint64
+	targetRevision  uint64
 }
 
-func (w *worker) capture(r snoofer.Request, pref audio.MicMute) command {
+func (w *worker) capture(r snoofer.Request) command {
+	return w.captureTargets(r, w.meetingSnapshot())
+}
+
+func (w *worker) captureTargets(r snoofer.Request, targets snoofer.MeetingSnapshot) command {
 	c := command{request: r, complete: func(snoofer.Outcome) {}, generation: w.generation,
 		channelID: w.voice.channelID, channelLifetime: w.channelLifetime}
 	switch r.ID {
-	case "discord.mute":
-		c.known, c.desired, c.micRevision = pref.Known, !pref.Muted, pref.Revision
+	case "discord.mute", "discord.video":
+		target := targets.Mute
+		if r.ID == "discord.video" {
+			target = targets.Camera
+		}
+		c.known, c.desired, c.targetRevision = target.Known, !target.Value, target.Revision
 	case "discord.deafen":
 		c.known, c.desired = w.voice.settingsKnown, !w.voice.deaf
-	case "discord.video":
-		c.known, c.desired = w.voice.videoKnown, !w.voice.video
 	case "discord.screenshare":
 		c.known, c.desired = w.voice.screenKnown, !w.voice.screen
 	}
@@ -67,6 +68,10 @@ func (w *worker) handle(ctx context.Context, c command, now time.Time) {
 	reject := func(detail string) { c.complete(snoofer.Outcome{Status: snoofer.Rejected, Detail: detail}) }
 	if ctx.Err() != nil {
 		c.complete(snoofer.Outcome{Status: snoofer.Unknown, Detail: "Discord stopped before processing"})
+		return
+	}
+	if r.ID == "discord.mute" || r.ID == "discord.video" {
+		w.requestMeeting(ctx, c)
 		return
 	}
 	if c.generation != w.generation || w.conn == nil {
@@ -89,7 +94,7 @@ func (w *worker) handle(ctx context.Context, c command, now time.Time) {
 		return
 	}
 	switch r.ID {
-	case "discord.video", "discord.screenshare", "discord.leave":
+	case "discord.screenshare", "discord.leave":
 		if !w.voice.channelKnown || c.channelID == "" || c.channelID != w.voice.channelID || c.channelLifetime != w.channelLifetime {
 			reject("Discord call changed")
 			return
@@ -99,18 +104,6 @@ func (w *worker) handle(ctx context.Context, c command, now time.Time) {
 	var cmd, want string
 	args := map[string]any{}
 	switch r.ID {
-	case "discord.mute":
-		if !c.known {
-			reject("Mic mute preference unavailable")
-			return
-		}
-		// Reconciliation follows the preference; completion belongs to the audio save.
-		if err := w.mic.SetMicMuteWithResult(c.desired, "discord", c.micRevision, c.complete); err != nil {
-			w.notes[r.ID] = "Failed"
-			w.link.Fail(err.Error(), now)
-			reject(err.Error())
-		}
-		return
 	case "discord.deafen":
 		if !c.known || !w.voice.settingsKnown {
 			reject("Discord voice settings unavailable")
@@ -118,7 +111,7 @@ func (w *worker) handle(ctx context.Context, c command, now time.Time) {
 		}
 		cmd, want = "SET_VOICE_SETTINGS", snoofer.OnOff(c.desired)
 		args["deaf"] = c.desired
-	case "discord.video", "discord.screenshare":
+	case "discord.screenshare":
 		if _, pending := w.pending[r.ID]; pending {
 			reject("Discord toggle still pending")
 			return
@@ -129,12 +122,8 @@ func (w *worker) handle(ctx context.Context, c command, now time.Time) {
 				return
 			}
 		}
-		known, current := w.voice.videoKnown, w.voice.video
-		cmd = "TOGGLE_VIDEO"
-		if r.ID == "discord.screenshare" {
-			known, current = w.voice.screenKnown, w.voice.screen
-			cmd = "TOGGLE_SCREENSHARE"
-		}
+		known, current := w.voice.screenKnown, w.voice.screen
+		cmd = "TOGGLE_SCREENSHARE"
 		if known != c.known || (known && current == c.desired) {
 			reject("Discord toggle state changed")
 			return
@@ -185,10 +174,10 @@ func (w *worker) controlStatus(id, blocked string) string {
 }
 
 func (w *worker) controls(now time.Time) []snoofer.Control {
-	return w.controlsFor(now, w.mic.MicMute())
+	return w.controlsFor(now, w.meetingSnapshot())
 }
 
-func (w *worker) controlsFor(now time.Time, pref audio.MicMute) []snoofer.Control {
+func (w *worker) controlsFor(now time.Time, targets snoofer.MeetingSnapshot) []snoofer.Control {
 	reason := w.unavailable()
 	inCall := reason
 	if inCall == "" && (!w.voice.channelKnown || w.voice.channelID == "") {
@@ -206,8 +195,10 @@ func (w *worker) controlsFor(now time.Time, pref audio.MicMute) []snoofer.Contro
 	}
 	toggle := func(id, label, short, icon string, blocked string, known bool) snoofer.Control {
 		value := w.observed(id)
-		// Deafened is slashed headphones, drawn like a mute; camera off is a slashed camera.
-		icon += map[string]map[string]string{"discord.deafen": {"On": "-muted"}, "discord.video": {"Off": "-off"}}[id][value]
+		// Deafened is slashed headphones, drawn like a mute.
+		if id == "discord.deafen" && value == "On" {
+			icon += "-muted"
+		}
 		return snoofer.Control{ID: id, Label: label, ShortLabel: short, Group: "Discord", Kind: "toggle", Icon: icon, Value: value,
 			Status: w.controlStatus(id, blocked), Operations: []string{"press"}, Available: blocked == "" && known}
 	}
@@ -218,9 +209,11 @@ func (w *worker) controlsFor(now time.Time, pref audio.MicMute) []snoofer.Contro
 	controls := []snoofer.Control{
 		{ID: "discord.channel", Label: "Discord Channel", ShortLabel: "Channel", Group: "Discord", Kind: "status", Icon: "call",
 			Value: channel, Status: reason, Available: true},
-		w.muteControl(reason, pref),
+		w.sharedControl(snoofer.MeetingMute, targets.Mute, "discord.mute", "Mute", "mic-mute"),
+		w.actualMeetingControl(snoofer.MeetingMute, inCall),
+		w.actualMeetingControl(snoofer.MeetingCamera, inCall),
 		toggle("discord.deafen", "Discord Deafen", "Deafen", "discord-deafen", reason, w.voice.settingsKnown),
-		toggle("discord.video", "Discord Camera", "Camera", "discord-video", inCall, true),
+		w.sharedControl(snoofer.MeetingCamera, targets.Camera, "discord.video", "Camera", "discord-video"),
 		toggle("discord.screenshare", "Discord Screen Share", "Share", "screen-share", inCall, true),
 		{ID: "discord.leave", Label: "Leave Discord Call", ShortLabel: "Leave", Group: "Discord", Kind: "command", Icon: "call-leave",
 			Status: w.controlStatus("discord.leave", inCall), Operations: []string{"press"}, Available: inCall == ""},
@@ -232,10 +225,12 @@ func (w *worker) controlsFor(now time.Time, pref audio.MicMute) []snoofer.Contro
 		c := &controls[i]
 		c.Epoch = uint64(w.generation)
 		switch c.ID {
-		case "discord.video", "discord.screenshare", "discord.leave":
+		case "discord.screenshare", "discord.leave":
 			c.Epoch = w.channelLifetime
 		case "discord.mute":
-			c.Epoch = pref.Revision
+			c.Epoch = targets.Mute.Revision
+		case "discord.video":
+			c.Epoch = targets.Camera.Revision
 		}
 	}
 	return controls
@@ -276,11 +271,11 @@ func (w *worker) report(now time.Time) snoofer.Control {
 
 func (w *worker) publish(ctx context.Context, now time.Time) {
 	requests := w.requests
-	pref := w.mic.MicMute()
-	controls := w.controlsFor(now, pref)
+	targets := w.meetingSnapshot()
+	controls := w.controlsFor(now, targets)
 	commands := make(map[string]command, len(controls))
 	for _, control := range controls {
-		commands[control.ID] = w.capture(snoofer.Request{ID: control.ID}, pref)
+		commands[control.ID] = w.captureTargets(snoofer.Request{ID: control.ID}, targets)
 	}
 	lifetime := ctx
 	_ = w.services.Controls.Publish("discord", controls, func(ctx context.Context, r snoofer.Request) error {
@@ -298,19 +293,56 @@ func (w *worker) publish(ctx context.Context, now time.Time) {
 	})
 }
 
-// muteControl toggles the Mic mute preference that Discord mute follows. It
-// mirrors audio.mic-mute, so automatic deck layouts show only one of them.
-func (w *worker) muteControl(reason string, pref audio.MicMute) snoofer.Control {
-	c := snoofer.Control{ID: "discord.mute", Label: "Discord Mute", ShortLabel: "Mute", Group: "Discord", Kind: "toggle", Icon: "mic-mute",
-		Mirrors: "audio.mic-mute", Operations: []string{"press"}, Status: reason, Available: reason == "" && pref.Known}
-	if pref.Known {
-		c.Value = snoofer.OnOff(pref.Muted)
-		if pref.Muted {
-			c.Icon = "mic-mute-muted"
+// Compatibility bindings request the shared target; actual app state is separate.
+func (w *worker) sharedControl(property snoofer.MeetingProperty, target snoofer.MeetingTarget, id, label, icon string) snoofer.Control {
+	value := "N/A"
+	if target.Known {
+		value = snoofer.OnOff(target.Value)
+	}
+	if property == snoofer.MeetingMute && value == "On" {
+		icon += "-muted"
+	}
+	if property == snoofer.MeetingCamera && value == "Off" {
+		icon += "-off"
+	}
+	status := target.Status
+	if !w.services.Live {
+		status = "Preview"
+	}
+	return snoofer.Control{ID: id, Label: label, ShortLabel: label, Group: "Discord", Kind: "toggle", Icon: icon, Value: value, Status: status, Mirrors: "meetings." + string(property), Epoch: target.Revision, Operations: []string{"press"}, Available: w.services.Live && target.Known}
+}
+
+func (w *worker) actualMeetingControl(property snoofer.MeetingProperty, blocked string) snoofer.Control {
+	known, value := w.voice.settingsKnown, w.voice.mute
+	label, icon := "Discord Mute", "mic-mute"
+	if property == snoofer.MeetingCamera {
+		known, value = w.voice.videoKnown, w.voice.video
+		label, icon = "Discord Camera", "discord-video"
+	}
+	text := "N/A"
+	joined := w.conn != nil && w.state == stateReady && w.voice.channelKnown && w.voice.channelID != ""
+	if joined && known {
+		text = snoofer.OnOff(value)
+	}
+	status := blocked
+	id := meetingControlID(property)
+	if status == "" && !known {
+		status = "Unknown state"
+	}
+	if status == "" {
+		status = w.notes[id]
+		if w.meetingWrites[property] != nil {
+			status = "Pending"
 		}
 	}
-	if reason == "" {
-		c.Status = w.muteStatus(pref)
+	if property == snoofer.MeetingMute && w.voice.deaf && blocked == "" {
+		status = "Deafened"
 	}
-	return c
+	if property == snoofer.MeetingMute && text == "On" {
+		icon += "-muted"
+	}
+	if property == snoofer.MeetingCamera && text == "Off" {
+		icon += "-off"
+	}
+	return snoofer.Control{ID: id, Label: label, ShortLabel: label, Group: "Discord", Kind: "status", Icon: icon, Value: text, Status: status, SurfaceOnly: true, Available: true}
 }

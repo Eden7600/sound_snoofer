@@ -197,12 +197,13 @@ func newHarness(t *testing.T, settings Settings, live bool) *harness {
 		return json.Unmarshal(next, h.saved)
 	}}
 	raw, _ := json.Marshal(settings)
-	h.w = newWorker(services, raw, settings, h.mic, func() (io.ReadWriteCloser, string, error) {
+	h.w = newWorker(services, raw, settings, func() (io.ReadWriteCloser, string, error) {
 		h.dials++
 		client, server := net.Pipe()
 		h.peer.serve(server)
 		return client, `\\.\pipe\discord-ipc-0`, nil
 	}, tokens.Client(), tokens.URL)
+	attachMeetingFixture(t, h.w, ctx, h.mic)
 	t.Cleanup(func() {
 		cancel()
 		h.w.closeConn()
@@ -226,7 +227,7 @@ func (h *harness) settle() {
 }
 
 func (h *harness) press(id string) {
-	h.w.handle(h.ctx, h.w.capture(snoofer.Request{ID: id, Operation: "press"}, h.mic.MicMute()), h.now)
+	h.w.handle(h.ctx, h.w.capture(snoofer.Request{ID: id, Operation: "press"}), h.now)
 	h.cycle()
 }
 
@@ -289,7 +290,7 @@ func TestFirstUseApprovalSavesRefreshToken(t *testing.T) {
 	if c := h.control(t, "discord.connect"); !c.Available || h.w.state != stateUnauthorized {
 		t.Fatal("connect", c.Available, h.w.state)
 	}
-	if c := h.control(t, "discord.mute"); c.Available || c.Status != "Not connected" {
+	if c := h.control(t, "discord.call-mute"); c.Value != "N/A" || c.Status != "Not connected" {
 		t.Fatal(c.Available, c.Status)
 	}
 	h.press("discord.connect")
@@ -357,8 +358,9 @@ func TestWritesVerifiedOrFailed(t *testing.T) {
 	if c := h.control(t, "discord.mute"); c.Value != "On" || c.Status != "" {
 		t.Fatal("mute", c.Value, c.Status)
 	}
+	h.w.event(h.ctx, "VIDEO_STATE_UPDATE", raw(map[string]any{"active": false}), h.now)
 	h.press("discord.video")
-	if c := h.control(t, "discord.video"); c.Value != "On" || c.Status != "" {
+	if c := h.control(t, "discord.call-camera"); c.Value != "On" || c.Status != "" {
 		t.Fatal("video", c.Value, c.Status)
 	}
 	h.peer.frozen = true
@@ -375,7 +377,7 @@ func TestWritesVerifiedOrFailed(t *testing.T) {
 	if c := h.control(t, "discord.channel"); c.Value != "Not in a call" {
 		t.Fatal(c.Value)
 	}
-	for _, id := range []string{"discord.video", "discord.screenshare", "discord.leave"} {
+	for _, id := range []string{"discord.screenshare", "discord.leave"} {
 		if c := h.control(t, id); c.Available || c.Status != "Not in a call" {
 			t.Fatal(id, c.Available, c.Status)
 		}
@@ -418,20 +420,20 @@ func TestReconnectDoesNotReplay(t *testing.T) {
 func TestClosedAndSetup(t *testing.T) {
 	h := newHarness(t, Settings{}, true)
 	h.w.step(h.ctx, h.now)
-	if h.dials != 0 || h.control(t, "discord.mute").Status != "Setup needed" {
-		t.Fatal("setup", h.dials, h.control(t, "discord.mute").Status)
+	if h.dials != 0 || h.control(t, "discord.call-mute").Status != "Setup needed" {
+		t.Fatal("setup", h.dials, h.control(t, "discord.call-mute").Status)
 	}
 	h = newHarness(t, configured, true)
 	h.w.dial = func() (io.ReadWriteCloser, string, error) { return nil, "", errNoDiscord }
 	h.w.step(h.ctx, h.now)
-	if c := h.control(t, "discord.mute"); c.Status != "Discord closed" || h.control(t, "discord.app-client").Connection.LastError != "" {
+	if c := h.control(t, "discord.call-mute"); c.Status != "Discord closed" || h.control(t, "discord.app-client").Connection.LastError != "" {
 		t.Fatal(c.Status, h.control(t, "discord.app-client").Connection)
 	}
 }
 
 func TestStopJoinsHelpers(t *testing.T) {
 	services := snoofer.Services{Controls: snoofer.NewControls(), Live: true}
-	w := newWorker(services, nil, configured, &fakeMic{}, func() (io.ReadWriteCloser, string, error) { return nil, "", errNoDiscord }, http.DefaultClient, tokenURL)
+	w := newWorker(services, nil, configured, func() (io.ReadWriteCloser, string, error) { return nil, "", errNoDiscord }, http.DefaultClient, tokenURL)
 	i := start(context.Background(), w)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()

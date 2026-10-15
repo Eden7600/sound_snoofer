@@ -58,11 +58,19 @@ func Plugin() snoofer.Plugin {
 			if err := snoofer.DecodeSettings(raw, &settings); err != nil {
 				return nil, err
 			}
-			mic, ok := deps["audio"].(*audio.Instance)
+			_, ok := deps["audio"].(*audio.Instance)
 			if !ok {
 				return nil, fmt.Errorf("Discord mute needs the audio plugin")
 			}
-			w := newWorker(s, raw, settings, mic, dialPipe, http.DefaultClient, tokenURL)
+			if s.Meetings == nil {
+				return nil, errors.New("meeting state unavailable")
+			}
+			adapter, err := s.Meetings.Attach(ctx, "discord")
+			if err != nil {
+				return nil, err
+			}
+			w := newWorker(s, raw, settings, dialPipe, http.DefaultClient, tokenURL)
+			w.meetings = adapter
 			return start(ctx, w), nil
 		}}
 }
@@ -105,6 +113,9 @@ func start(ctx context.Context, w *worker) *instance {
 	go func() {
 		defer close(i.done)
 		defer w.services.Controls.Remove("discord")
+		if w.meetings != nil {
+			defer w.meetings.Close()
+		}
 		w.run(runCtx)
 	}()
 	return i
@@ -153,7 +164,6 @@ type worker struct {
 	services snoofer.Services
 	raw      json.RawMessage
 	settings Settings
-	mic      micMute
 	dial     func() (io.ReadWriteCloser, string, error)
 	client   *http.Client
 	endpoint string
@@ -168,26 +178,30 @@ type worker struct {
 	state      string
 	// exchanging marks a token request in flight. Only one runs: refresh tokens
 	// rotate, so a second request with the same token would be refused.
-	exchanging      bool
-	deadline        time.Time // Handshake deadline.
-	nextDial        time.Time
-	nextRefresh     time.Time
-	backoff         time.Duration
-	nonce           int
-	calls           map[string]call
-	access          string // In memory only.
-	voice           voice
-	channelLifetime uint64
-	pending         map[string]pendingWrite
-	notes           map[string]string
-	mute            muteLink
-	link            snoofer.ConnectionTracker
+	exchanging                   bool
+	deadline                     time.Time // Handshake deadline.
+	nextDial                     time.Time
+	nextRefresh                  time.Time
+	backoff                      time.Duration
+	nonce                        int
+	calls                        map[string]call
+	access                       string // In memory only.
+	voice                        voice
+	channelLifetime              uint64
+	pending                      map[string]pendingWrite
+	notes                        map[string]string
+	meetings                     *snoofer.MeetingAdapter
+	meetingWrites                map[snoofer.MeetingProperty]*meetingWrite
+	meetingReported              snoofer.MeetingPeer
+	meetingNewCall               bool
+	muteRevision, cameraRevision uint64
+	link                         snoofer.ConnectionTracker
 }
 
-func newWorker(s snoofer.Services, raw json.RawMessage, settings Settings, mic micMute, dial func() (io.ReadWriteCloser, string, error), client *http.Client, endpoint string) *worker {
-	w := &worker{services: s, raw: append(json.RawMessage(nil), raw...), settings: settings, mic: mic, dial: dial, client: client, endpoint: endpoint,
+func newWorker(s snoofer.Services, raw json.RawMessage, settings Settings, dial func() (io.ReadWriteCloser, string, error), client *http.Client, endpoint string) *worker {
+	w := &worker{services: s, raw: append(json.RawMessage(nil), raw...), settings: settings, dial: dial, client: client, endpoint: endpoint,
 		requests: make(chan command, 8), frames: make(chan incoming), tokens: make(chan tokenResult),
-		calls: map[string]call{}, pending: map[string]pendingWrite{}, notes: map[string]string{}, state: stateClosed}
+		calls: map[string]call{}, pending: map[string]pendingWrite{}, meetingWrites: map[snoofer.MeetingProperty]*meetingWrite{}, notes: map[string]string{}, state: stateClosed}
 	if !settings.configured() {
 		w.state = stateSetup
 	}
@@ -199,6 +213,10 @@ func (w *worker) run(ctx context.Context) {
 	defer ticker.Stop()
 	defer w.helpers.Wait()
 	defer w.closeConn()
+	var changed <-chan struct{}
+	if w.meetings != nil {
+		changed = w.meetings.Changed()
+	}
 	for {
 		w.step(ctx, time.Now())
 		w.publish(ctx, time.Now())
@@ -212,6 +230,7 @@ func (w *worker) run(ctx context.Context) {
 		case t := <-w.tokens:
 			w.tokenDone(ctx, t, time.Now())
 		case <-ticker.C:
+		case <-changed:
 		}
 	}
 }
@@ -234,7 +253,11 @@ func (w *worker) step(ctx context.Context, now time.Time) {
 		if now.After(c.deadline) {
 			delete(w.calls, nonce)
 			err := fmt.Errorf("Discord did not answer %s", c.purpose)
-			w.callFailed(c, err, now)
+			if c.purpose == "meeting" {
+				w.finishMeeting(snoofer.MeetingProperty(c.id), snoofer.Unknown, err.Error())
+			} else {
+				w.callFailed(c, err, now)
+			}
 			c.finish(snoofer.Unknown, err.Error())
 		}
 	}
@@ -247,7 +270,7 @@ func (w *worker) step(ctx context.Context, now time.Time) {
 			w.notes[id] = "Failed"
 		}
 	}
-	w.reconcileMute(now)
+	w.syncMeetings(now)
 }
 
 func (w *worker) connect(ctx context.Context, now time.Time) {
@@ -298,6 +321,8 @@ func (w *worker) drop(err error, now time.Time) {
 	w.pending = map[string]pendingWrite{}
 	w.voice = voice{}
 	w.channelLifetime++
+	w.meetingNewCall = false
+	w.reportMeetings(now)
 	w.access = ""
 	if err != nil && !errors.Is(err, io.EOF) {
 		w.link.Fail(err.Error(), now)
@@ -305,6 +330,7 @@ func (w *worker) drop(err error, now time.Time) {
 }
 
 func (w *worker) closeConn() {
+	w.finishMeetings("Discord connection closed before confirmation")
 	w.finishCalls("Discord connection closed before response")
 	if w.conn == nil {
 		return
@@ -399,6 +425,7 @@ func (w *worker) dispatch(ctx context.Context, m message, now time.Time) {
 }
 
 func (w *worker) event(ctx context.Context, evt string, data json.RawMessage, now time.Time) {
+	defer w.reportMeetings(now)
 	w.link.Activity(now)
 	switch evt {
 	case "READY":
@@ -460,6 +487,7 @@ func (w *worker) voiceSettings(data json.RawMessage) {
 
 func (w *worker) selectChannel(id, name string) {
 	if !w.voice.channelKnown || w.voice.channelID != id {
+		w.meetingNewCall = w.voice.channelKnown && id != ""
 		w.channelLifetime++
 		w.voice.videoKnown, w.voice.screenKnown = false, false
 	}
@@ -473,6 +501,7 @@ func (w *worker) leftChannel() {
 }
 
 func (w *worker) callDone(ctx context.Context, c call, data json.RawMessage, now time.Time) {
+	defer w.reportMeetings(now)
 	switch c.purpose {
 	case "authorize":
 		var granted struct {
@@ -533,12 +562,8 @@ func (w *worker) callFailed(c call, err error, now time.Time) {
 	case "write":
 		delete(w.pending, c.id)
 		w.notes[c.id] = "Failed"
-	case "mute":
-		if w.mute.writing != nil {
-			w.mute.failed = &failure{preference: w.mute.writing.want, discord: w.voice.mute}
-			w.mute.writing = nil
-		}
-		w.notes["discord.mute"] = "Failed"
+	case "meeting":
+		w.finishMeeting(snoofer.MeetingProperty(c.id), snoofer.Failed, err.Error())
 	case "subscribe", "channel":
 		// Optional state: the related control shows N/A.
 	}
