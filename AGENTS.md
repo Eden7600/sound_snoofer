@@ -112,6 +112,14 @@ provides more specific guidance. Explicit user instructions take precedence.
 
 Stop and commit frequently throughout every implementation session. The user reviews each commit as it lands and may return with suggestions. Commit completed, validated logical blocks that make sense independently for review; do not accumulate unrelated work until the end. Structure proposals, specifications and task lists around these commit-sized checkpoints. Report each completed commit and its validation. Never include unrelated user changes or generated runtime files.
 
+## Desktop control sessions
+
+Before each session of desktop GUI input or visible application launching, ask the
+user and wait for their go-ahead. State the intended duration, stop when that
+window ends, and tell the user when control is released. A previous session's
+approval does not authorize another session. Background source work may continue
+without taking desktop control.
+
 ## Commands
 
 All commits must use Conventional Commits: `type(scope): description`, with an
