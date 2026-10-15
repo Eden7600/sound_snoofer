@@ -113,6 +113,7 @@ type Request struct {
 	Revision         uint64
 	Operation, Value string
 	Delta            int
+	completion       *requestCompletion
 }
 
 type entry struct {

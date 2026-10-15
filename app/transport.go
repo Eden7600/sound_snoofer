@@ -7,6 +7,7 @@ import (
 	"io"
 	"maps"
 	"slices"
+	"sync"
 
 	"sound-snoofer/snoofer"
 )
@@ -14,7 +15,8 @@ import (
 // Frames are private to one inherited-pipe controls session. No commands are
 // replayed after disconnection; the worker still validates action revisions.
 type frame struct {
-	Version    uint64
+	Version    uint64                             `json:",omitempty"`
+	Result     *ActionResult                      `json:",omitempty"`
 	State      *ViewState                         `json:",omitempty"`
 	Focus      bool                               `json:",omitempty"`
 	Artwork    *map[string]string                 `json:",omitempty"`
@@ -87,12 +89,59 @@ func (s *viewSender) prepare(state ViewState, focus bool) ([]byte, error) {
 	return data, nil
 }
 
-func readActions(ctx context.Context, r io.Reader, actions chan<- UIAction) error {
+const actionCapacity = 16
+
+// A reply retains its original child session even after another child opens.
+// The lane is never closed; cancellation prevents late sends without panics.
+type actionSession struct {
+	ctx     context.Context
+	cancel  context.CancelFunc
+	replies chan ActionResult
+}
+
+func newActionSession(ctx context.Context, cancel context.CancelFunc) *actionSession {
+	return &actionSession{ctx: ctx, cancel: cancel, replies: make(chan ActionResult, actionCapacity)}
+}
+
+func (s *actionSession) completion(id string) snoofer.Completion {
+	var once sync.Once
+	return func(outcome snoofer.Outcome) {
+		once.Do(func() {
+			if s.ctx.Err() != nil {
+				return
+			}
+			result := ActionResult{ID: id, Status: outcome.Status, Detail: outcome.Detail}
+			select {
+			case s.replies <- result:
+			case <-s.ctx.Done():
+			default:
+				// A client can reserve only sixteen replies. Detach on a broken
+				// invariant so its outstanding calls become Unknown, never lost.
+				s.cancel()
+			}
+		})
+	}
+}
+
+func readActions(ctx context.Context, r io.Reader, actions chan<- UIAction, session *actionSession) error {
 	decoder := json.NewDecoder(r)
 	for {
 		var action UIAction
 		if err := decoder.Decode(&action); err != nil {
 			return err
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if action.ID != "" && session != nil {
+			action.session = session
+			action.complete = session.completion(action.ID)
+			select {
+			case actions <- action:
+			default:
+				action.reply(snoofer.Outcome{Status: snoofer.Rejected, Detail: "Controls busy; try again"})
+			}
+			continue
 		}
 		select {
 		case actions <- action:
@@ -133,11 +182,28 @@ func offer(ch chan []byte, data []byte) {
 	}
 }
 
-func writeFrames(ctx context.Context, w io.Writer, updates <-chan []byte) error {
+func writeFrames(ctx context.Context, w io.Writer, updates <-chan []byte, replies <-chan ActionResult) error {
+	encoder := json.NewEncoder(w)
 	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		// The bounded result lane has priority over a continuous telemetry stream.
+		select {
+		case result := <-replies:
+			if err := encoder.Encode(frame{Result: &result}); err != nil {
+				return err
+			}
+			continue
+		default:
+		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+		case result := <-replies:
+			if err := encoder.Encode(frame{Result: &result}); err != nil {
+				return err
+			}
 		case data, ok := <-updates:
 			if !ok {
 				return nil

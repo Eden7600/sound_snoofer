@@ -21,9 +21,25 @@ type ViewState struct {
 
 // UIAction is either semantic input or a core lifecycle operation.
 type UIAction struct {
+	ID           string `json:",omitempty"`
 	Request      *snoofer.Request
 	Kind, Plugin string
 	Enable       bool
+	complete     snoofer.Completion
+	session      *actionSession
+}
+
+// ActionResult belongs to one private controls-session action, never view state.
+type ActionResult struct {
+	ID     string
+	Status snoofer.OutcomeStatus
+	Detail string
+}
+
+func (a UIAction) reply(outcome snoofer.Outcome) {
+	if a.complete != nil {
+		a.complete(outcome)
+	}
 }
 
 // stopHost uses a bounded independent cleanup deadline after run cancellation.

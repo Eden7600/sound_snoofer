@@ -23,6 +23,7 @@ type controls struct {
 	input, output *os.File
 	closeOnce     sync.Once
 	view          viewSender // Used only by the tray goroutine that publishes.
+	session       *actionSession
 }
 
 func startControls(ctx context.Context, state ViewState, actions chan<- UIAction) (*controls, error) {
@@ -47,6 +48,7 @@ func startControls(ctx context.Context, state ViewState, actions chan<- UIAction
 	cmd.Stderr = io.Discard
 	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP | windows.DETACHED_PROCESS}
 	c := &controls{updates: make(chan []byte, 1), done: make(chan struct{}), cancel: cancel, command: cmd, input: parentIn, output: parentOut}
+	c.session = newActionSession(runCtx, cancel)
 	err = cmd.Start()
 	childIn.Close()
 	childOut.Close()
@@ -54,18 +56,19 @@ func startControls(ctx context.Context, state ViewState, actions chan<- UIAction
 		c.close()
 		return nil, err
 	}
+	stopClose := context.AfterFunc(runCtx, c.close)
 	// Pipe closure unblocks both I/O goroutines, including a stalled renderer.
 	var ioDone sync.WaitGroup
 	ioDone.Add(2)
 	go func() {
 		defer ioDone.Done()
 		// EOF and cancellation detach this session; they do not stop the actor.
-		_ = readActions(runCtx, parentIn, actions)
+		_ = readActions(runCtx, parentIn, actions, c.session)
 		c.close()
 	}()
 	go func() {
 		defer ioDone.Done()
-		_ = writeFrames(runCtx, parentOut, c.updates)
+		_ = writeFrames(runCtx, parentOut, c.updates, c.session.replies)
 		c.close()
 	}()
 	go func() {
@@ -73,6 +76,7 @@ func startControls(ctx context.Context, state ViewState, actions chan<- UIAction
 		_ = cmd.Wait()
 		c.close()
 		ioDone.Wait()
+		stopClose()
 		close(c.done)
 	}()
 	if err := c.publish(state); err != nil {

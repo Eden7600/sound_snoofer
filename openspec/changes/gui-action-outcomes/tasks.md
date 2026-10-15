@@ -5,9 +5,9 @@
 - [ ] 1.2 Add focused failing regressions for rapid Mic Mute → Playback Mute, queue-only acknowledgments, delayed dispatch errors and cross-screen attribution. Preserve existing test assertions and fixtures.
 
 ## 2. Correlated result transport
-- [ ] 2.1 Add private action/result types, optional claimed completion at registry dispatch, and sixteen pending Desktop.Send reservations without holding the state lock while waiting.
-- [ ] 2.2 Attach once-only replies to their exact controls session, add the noncoalescing reply lane and explicit downstream-queue rejection, and settle outstanding waits on disconnect without replay.
-- [ ] 2.3 Test out-of-order/duplicate replies, full desktop/tray/provider queues, full result lane, state flooding, concurrent state/animation reads, cancellation, legacy fixture cleanup and late replies after reopen. Run focused Go tests and commit this checkpoint.
+- [x] 2.1 Add private action/result types, optional claimed completion at registry dispatch, and sixteen pending Desktop.Send reservations without holding the state lock while waiting.
+- [x] 2.2 Attach once-only replies to their exact controls session, add the noncoalescing reply lane and explicit downstream-queue rejection, and settle outstanding waits on disconnect without replay.
+- [x] 2.3 Test out-of-order/duplicate replies, full desktop/tray/provider queues, full result lane, state flooding, concurrent state/animation reads, cancellation, legacy fixture cleanup and late replies after reopen. Run focused Go tests and commit this checkpoint.
 
 ## 3. Audio ordering and worker results
 - [ ] 3.1 Add failing tests for both rapid mute orders, same-preference ABA, reload/reset/lifetime invalidation, external StateToken changes and unchanged contextual stale guards.

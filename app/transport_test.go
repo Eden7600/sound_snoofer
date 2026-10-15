@@ -34,7 +34,7 @@ func TestGenericPrivateFrames(t *testing.T) {
 	action := UIAction{Request: &snoofer.Request{ID: "external.light", Revision: 9, Operation: "press"}}
 	data, _ = json.Marshal(action)
 	queue := make(chan UIAction, 1)
-	if err := readActions(context.Background(), bytes.NewReader(data), queue); !errors.Is(err, io.EOF) {
+	if err := readActions(context.Background(), bytes.NewReader(data), queue, nil); !errors.Is(err, io.EOF) {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(<-queue, action) {
@@ -44,7 +44,7 @@ func TestGenericPrivateFrames(t *testing.T) {
 func TestClosedAndCancelledTransport(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if err := readActions(ctx, bytes.NewBufferString("{}"), make(chan UIAction)); !errors.Is(err, context.Canceled) {
+	if err := readActions(ctx, bytes.NewBufferString("{}"), make(chan UIAction), nil); !errors.Is(err, context.Canceled) {
 		t.Fatal(err)
 	}
 	r, w := io.Pipe()
@@ -52,7 +52,7 @@ func TestClosedAndCancelledTransport(t *testing.T) {
 	defer w.Close()
 	updates := make(chan []byte, 1)
 	updates <- []byte("{}")
-	if err := writeFrames(context.Background(), w, updates); !errors.Is(err, io.ErrClosedPipe) {
+	if err := writeFrames(context.Background(), w, updates, nil); !errors.Is(err, io.ErrClosedPipe) {
 		t.Fatal(err)
 	}
 }

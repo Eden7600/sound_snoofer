@@ -7,7 +7,6 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
-	"errors"
 	"io/fs"
 	"net/http"
 	"os"
@@ -41,6 +40,7 @@ type Desktop struct {
 	animationVersion uint64
 	animations       map[string][]snoofer.ArtworkFrame // Replaced wholesale, like state.
 	actions          chan UIAction
+	pending          map[string]chan ActionResult
 	ctx              context.Context
 }
 
@@ -61,6 +61,14 @@ func (d *Desktop) State(sinceVersion uint64) *ViewUpdate {
 func (d *Desktop) applyFrame(f frame) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	if f.Result != nil {
+		if reply := d.pending[f.Result.ID]; reply != nil {
+			select {
+			case reply <- *f.Result:
+			default: // A duplicate cannot replace the first terminal result.
+			}
+		}
+	}
 	if f.State != nil {
 		if f.Version == 0 {
 			// The isolated native smoke still supplies complete, unversioned states.
@@ -84,17 +92,54 @@ func (d *Desktop) Animation(id string) []snoofer.ArtworkFrame {
 	defer d.mu.Unlock()
 	return d.animations[id]
 }
-func (d *Desktop) Send(action UIAction) error {
-	select {
-	case <-d.ctx.Done():
-		return errors.New("controls disconnected")
-	default:
+func (d *Desktop) Send(action UIAction) ActionResult {
+	result := func(status snoofer.OutcomeStatus, detail string) ActionResult {
+		return ActionResult{ID: action.ID, Status: status, Detail: detail}
 	}
+	if action.ID == "" {
+		return result(snoofer.Rejected, "Action ID required")
+	}
+	if d.ctx.Err() != nil {
+		return result(snoofer.Rejected, "Controls disconnected; action not sent")
+	}
+	d.mu.Lock()
+	if d.pending[action.ID] != nil {
+		d.mu.Unlock()
+		return result(snoofer.Rejected, "Action already pending")
+	}
+	if len(d.pending) >= actionCapacity {
+		d.mu.Unlock()
+		return result(snoofer.Rejected, "Controls busy; try again")
+	}
+	if d.pending == nil {
+		d.pending = make(map[string]chan ActionResult)
+	}
+	reply := make(chan ActionResult, 1)
+	d.pending[action.ID] = reply
+	d.mu.Unlock()
+	defer func() {
+		d.mu.Lock()
+		delete(d.pending, action.ID)
+		d.mu.Unlock()
+	}()
 	select {
 	case d.actions <- action:
-		return nil
+	case <-d.ctx.Done():
+		return result(snoofer.Rejected, "Controls disconnected; action not sent")
 	default:
-		return errors.New("controls busy; try again")
+		return result(snoofer.Rejected, "Controls busy; try again")
+	}
+	select {
+	case outcome := <-reply:
+		return outcome
+	case <-d.ctx.Done():
+		// Prefer a result already received before the session closed.
+		select {
+		case outcome := <-reply:
+			return outcome
+		default:
+			return result(snoofer.Unknown, "Controls disconnected before completion")
+		}
 	}
 }
 
@@ -109,7 +154,7 @@ func RunDesktop(ctx context.Context) error {
 	}
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	d := &Desktop{ctx: runCtx, actions: make(chan UIAction, 16)}
+	d := &Desktop{ctx: runCtx, actions: make(chan UIAction, actionCapacity)}
 	var workers sync.WaitGroup
 	err = wails.Run(&options.App{
 		Title: "Snoofer", Width: 1280, Height: 820, MinWidth: 800, MinHeight: 600,

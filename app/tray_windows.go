@@ -255,12 +255,20 @@ func Run(ctx context.Context, args []string, plugins ...snoofer.Plugin) error {
 				}
 				publish()
 			case a := <-actions:
+				if a.session != nil && a.session.ctx.Err() != nil {
+					break // A departed child cannot leave unstarted work for a new one.
+				}
 				if a.Request != nil {
-					if e := registry.Dispatch(runCtx, *a.Request); e != nil {
+					if a.complete != nil {
+						_ = registry.DispatchWithResult(runCtx, *a.Request, a.complete)
+					} else if e := registry.Dispatch(runCtx, *a.Request); e != nil {
 						notice = e.Error()
 					}
 					break
 				}
+				// Lifecycle completion adapters are separate from registry dispatch.
+				// Until claimed there, actor acceptance establishes only submission.
+				a.reply(snoofer.Outcome{Status: snoofer.Submitted, Detail: "Submitted"})
 				switch a.Kind {
 				case "open":
 					openUI()

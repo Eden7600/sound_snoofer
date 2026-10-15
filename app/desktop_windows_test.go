@@ -6,20 +6,20 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+
+	"sound-snoofer/snoofer"
 )
 
 func TestDesktopBoundedActions(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	d := Desktop{ctx: ctx, actions: make(chan UIAction, 1)}
-	if err := d.Send(UIAction{Kind: "retry"}); err != nil {
-		t.Fatal(err)
-	}
-	if err := d.Send(UIAction{Kind: "retry"}); err == nil {
+	d.actions <- UIAction{Kind: "retry"}
+	if got := d.Send(UIAction{ID: "full", Kind: "retry"}); got.Status != snoofer.Rejected {
 		t.Fatal("unbounded dispatch")
 	}
 	<-d.actions
 	cancel()
-	if err := d.Send(UIAction{Kind: "retry"}); err == nil {
+	if got := d.Send(UIAction{ID: "closed", Kind: "retry"}); got.Status != snoofer.Rejected {
 		t.Fatal("disconnected dispatch")
 	}
 }
