@@ -3,7 +3,7 @@
 // sends artwork as 128 px PNGs once per change, carries out Snoofer's
 // commands and answers the popup.
 if (typeof importScripts === "function" && !globalThis.SnooferLogic) importScripts("logic.js");
-const { PROTOCOL, DEFAULT_PORT, backoff, browserName, route, sessions, validPort } = globalThis.SnooferLogic;
+const { PROTOCOL, DEFAULT_PORT, backoff, browserName, route, sessions, validPort, meetBounded, meetOrigin, meetSender, meetState, meetCommand, meetResult } = globalThis.SnooferLogic;
 const api = globalThis.browser ?? chrome;
 
 const VERSION = api.runtime.getManifest().version;
@@ -19,6 +19,110 @@ let refused = ""; // Snoofer's reason for refusing this extension, if any.
 let attempts = 0;
 let retry = 0;
 let sendTimer = 0;
+let capabilitiesSeen = false, mediaEnabled = true, meetNegotiated = false, meetEnabled = false, meetTimer = 0;
+let nextMeet = 0n;
+const meetFrames = new Map(); // Verified top-frame ports; no page titles or call URLs.
+const meetPending = new Map(); // Request ID to exact socket/port/intent and bounded timer.
+
+function meetReply(ws, command, status, reason) {
+  if (connected && socket === ws) ws.send(JSON.stringify({ type: "meet-result", ...command, status, reason }));
+}
+function finishMeet(entry, status, reason) {
+  if (meetPending.get(entry.command.id) !== entry) return;
+  meetPending.delete(entry.command.id);
+  clearTimeout(entry.timer);
+  meetReply(entry.ws, entry.command, status, reason);
+}
+function removeMeet(frame) {
+  if (meetFrames.get(frame.tab) !== frame) return;
+  meetFrames.delete(frame.tab);
+  clearTimeout(frame.expiry);
+  for (const entry of [...meetPending.values()]) if (entry.frame === frame) finishMeet(entry, "unknown", "disconnected");
+  scheduleMeet();
+}
+function postMeet(frame, message) {
+  try { frame.port.postMessage(message); return true; }
+  catch { removeMeet(frame); return false; }
+}
+function enableMeet(value) {
+  if (meetEnabled === value) return;
+  meetEnabled = value;
+  for (const entry of [...meetPending.values()]) finishMeet(entry, "unknown", "stopped");
+  for (const frame of meetFrames.values()) {
+    clearTimeout(frame.expiry);
+    frame.report = null; frame.ready = false;
+    postMeet(frame, { type: "meet-config", instance: frame.instance, enabled: value });
+  }
+  scheduleMeet();
+}
+function sendMeet() {
+  if (!connected || !meetEnabled) return;
+  const now = performance.now();
+  const calls = [];
+  for (const frame of meetFrames.values()) {
+    if (frame.report && now - frame.at >= 3000) {
+      frame.report = null;
+      for (const entry of [...meetPending.values()]) if (entry.frame === frame) finishMeet(entry, "unknown", "disconnected");
+    }
+    if (frame.report) calls.push({ tab: frame.tab, instance: frame.instance, ...frame.report });
+  }
+  socket.send(JSON.stringify({ type: "meet-state", calls }));
+}
+function scheduleMeet() {
+  if (!meetEnabled || meetTimer) return;
+  meetTimer = setTimeout(() => { meetTimer = 0; sendMeet(); }, 200);
+}
+function admitMeet(p) {
+  if (!meetSender(p.sender) || (meetFrames.size >= 64 && !meetFrames.has(p.sender.tab.id)) || nextMeet >= 18446744073709551615n) {
+    p.disconnect(); return;
+  }
+  const tab = p.sender.tab.id;
+  const previous = meetFrames.get(tab);
+  if (previous) { postMeet(previous, { type: "meet-config", instance: previous.instance, enabled: false }); removeMeet(previous); }
+  const frame = { tab, instance: String(++nextMeet), port: p, document: p.sender.documentId, report: null, ready: false, sample: 0n, at: 0 };
+  meetFrames.set(tab, frame);
+  p.onMessage.addListener((message) => {
+    if (meetFrames.get(tab) !== frame || !meetSender(p.sender) || p.sender.documentId !== frame.document || !message || !meetBounded(message, 8192)) return;
+    if (!meetEnabled) return;
+    if (message.type === "meet-ready" && message.instance === frame.instance) { frame.ready = true; return; }
+    if (!frame.ready) return;
+    if (message.type === "meet-state") {
+      const report = meetState(message.report);
+      if (!report || BigInt(report.sample) <= frame.sample) return;
+      frame.sample = BigInt(report.sample); frame.at = performance.now(); frame.report = report;
+      clearTimeout(frame.expiry);
+      frame.expiry = setTimeout(() => {
+        if (meetFrames.get(tab) !== frame) return;
+        frame.report = null;
+        for (const entry of [...meetPending.values()]) if (entry.frame === frame) finishMeet(entry, "unknown", "disconnected");
+        sendMeet();
+      }, 3000);
+      scheduleMeet();
+    } else if (message.type === "meet-result" && meetBounded(message, 2048)) {
+      const entry = meetPending.get(message.id);
+      if (!entry || entry.frame !== frame || entry.ws !== socket) return;
+      const result = meetResult(message, entry.command);
+      if (result) finishMeet(entry, result.status, result.reason);
+    }
+  });
+  p.onDisconnect.addListener(() => removeMeet(frame));
+  postMeet(frame, { type: "meet-config", instance: frame.instance, enabled: meetEnabled });
+}
+function routeMeet(message, ws) {
+  if (!meetBounded(message, 2048)) return;
+  const command = meetCommand(message);
+  if (!command || meetPending.has(command.id)) return;
+  const reject = (reason) => meetReply(ws, command, "rejected", reason);
+  if (!meetEnabled) return reject("disabled");
+  const frame = meetFrames.get(command.tab);
+  if (!frame || !frame.ready || !meetSender(frame.port.sender) || frame.port.sender.documentId !== frame.document || frame.instance !== command.instance || !frame.report || performance.now() - frame.at >= 3000 || frame.report.call !== command.call || frame.report[command.control].revision !== command.revision) return reject("stale");
+  if (!frame.report[command.control].available) return reject("unavailable");
+  if (meetPending.size >= 8 || [...meetPending.values()].some((p) => p.frame === frame && p.command.call === command.call && p.command.control === command.control)) return reject("busy");
+  const entry = { command, frame, ws };
+  meetPending.set(command.id, entry);
+  entry.timer = setTimeout(() => finishMeet(entry, "unknown", "not-confirmed"), 5000);
+  postMeet(frame, { type: "meet-command", ...command });
+}
 
 function rememberTab(tab) {
   if (!tab || tab.id === undefined) return;
@@ -32,11 +136,15 @@ api.tabs.onUpdated.addListener((_id, change, tab) => {
 api.tabs.onRemoved.addListener((id) => {
   tabs.delete(id);
   for (const [key, frame] of frames) if (frame.tabId === id) frames.delete(key);
+  const meet = meetFrames.get(id);
+  if (meet) removeMeet(meet);
   schedule();
 });
 
 api.runtime.onConnect.addListener((p) => {
+  if (p.name === "meet") { admitMeet(p); return; }
   if (p.name !== "media" || !p.sender || !p.sender.tab) return;
+  if (meetOrigin(p.sender)) { p.disconnect(); return; }
   const tabId = p.sender.tab.id;
   const key = tabId + ":" + (p.sender.frameId || 0);
   let youtubeMusic = false;
@@ -98,7 +206,7 @@ function schedule() {
 }
 
 function send() {
-  if (!connected) return;
+  if (!connected || !mediaEnabled) return;
   const ws = socket;
   const list = sessions(frames, tabs);
   for (const s of list) {
@@ -127,6 +235,8 @@ function send() {
 
 function connect() {
   clearTimeout(retry);
+  enableMeet(false);
+  capabilitiesSeen = false; mediaEnabled = true; meetNegotiated = false;
   const ws = new WebSocket("ws://127.0.0.1:" + port + "/nowplaying");
   socket = ws;
   ws.onopen = () => {
@@ -135,7 +245,7 @@ function connect() {
     attempts = 0;
     refused = ""; // A refusal, if any, arrives right after hello.
     sentArt.clear(); // Snoofer starts with no artwork for this connection.
-    ws.send(JSON.stringify({ type: "hello", protocol: PROTOCOL, version: VERSION, browser: BROWSER }));
+    ws.send(JSON.stringify({ type: "hello", protocol: PROTOCOL, version: VERSION, browser: BROWSER, meet: 1 }));
     send();
   };
   ws.onmessage = (event) => {
@@ -147,17 +257,28 @@ function connect() {
       return;
     }
     if (!message || typeof message !== "object") return;
+    if (message.type === "capabilities") {
+      if (typeof message.mediaEnabled !== "boolean" || typeof message.meetEnabled !== "boolean") return;
+      const refresh = message.mediaEnabled && (!capabilitiesSeen || !mediaEnabled);
+      capabilitiesSeen = true; mediaEnabled = message.mediaEnabled;
+      meetNegotiated = message.meet === 1;
+      enableMeet(meetNegotiated && message.meetEnabled);
+      if (refresh) { sentArt.clear(); schedule(); }
+      return;
+    }
     if (message.type === "refused") {
       refused = String(message.reason || "Snoofer refused this extension");
       return;
     }
-    if (message.type !== "command") return;
+    if (message.type === "meet-command") { if (meetNegotiated) routeMeet(message, ws); return; }
+    if (message.type !== "command" || !mediaEnabled) return;
     const action = route(message, frames);
     if (action.kind === "mute") api.tabs.update(action.tabId, { muted: action.muted });
     if (action.kind === "frame") action.frame.port.postMessage(action.message);
   };
   ws.onclose = () => {
     if (socket !== ws) return; // Replaced after a port change.
+    enableMeet(false);
     connected = false;
     socket = null;
     // A refusal will not change until something is updated: retry slowly.
@@ -169,6 +290,11 @@ function connect() {
 setInterval(() => {
   if (connected) socket.send(JSON.stringify({ type: "ping" }));
 }, 20000);
+setInterval(() => {
+  if (!connected || !meetEnabled) return;
+  sendMeet();
+  for (const frame of meetFrames.values()) postMeet(frame, { type: "meet-observe" });
+}, 1000);
 
 api.storage.onChanged.addListener((changes, area) => {
   if (area !== "local" || !changes.port) return;
@@ -188,8 +314,12 @@ async function injectOpenTabs() {
   for (const tab of open) {
     const target = { tabId: tab.id, allFrames: true };
     try {
-      await api.scripting.executeScript({ target, files: ["page.js"], world: "MAIN" });
-      await api.scripting.executeScript({ target, files: ["bridge.js"] });
+      if (meetOrigin({ url: tab.url })) {
+        await api.scripting.executeScript({ target: { tabId: tab.id, frameIds: [0] }, files: ["logic.js", "meet.js"] });
+      } else {
+        await api.scripting.executeScript({ target, files: ["page.js"], world: "MAIN" });
+        await api.scripting.executeScript({ target, files: ["bridge.js"] });
+      }
     } catch {
       // Pages the browser protects (stores, settings) refuse injection.
     }

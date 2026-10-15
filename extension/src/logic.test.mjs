@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import "./logic.js";
 
 const { PROTOCOL, DEFAULT_PORT, backoff, browserName, route, sessions, validPort } = globalThis.SnooferLogic;
+const { meetCounter, meetState, meetCommand, meetResult } = globalThis.SnooferLogic;
 
 test("protocol and port match Snoofer", () => {
   assert.equal(PROTOCOL, 2);
@@ -125,4 +126,20 @@ test("unknown differs from old companion and reload blocks only page commands", 
   for (const flag of ["canNext", "canPrev", "canSeek"]) assert.equal(state[flag], false);
   for (const op of ["toggle", "next", "prev", "seek", "rate"]) assert.equal(route({ id: "7:0", instance: "f7", op, value: 1, track: "1:song", rating: "none" }, frames).kind, "stale");
   assert.equal(route({ id: "7:0", instance: "f7", op: "mute", value: 1 }, frames).kind, "mute");
+});
+
+test("Meet wire counters, booleans, reasons and exact result echo are bounded", () => {
+  assert.equal(meetCounter("18446744073709551615"), true);
+  for (const value of ["0", "01", "-1", "1.0", "18446744073709551616", 1]) assert.equal(meetCounter(value), false);
+  const c = { value: true, revision: "1", available: true, reason: "" };
+  const state = { sample: "1", call: "1", state: "joined", mic: c, camera: { ...c, value: false } };
+  assert.deepEqual(meetState(state), state);
+  for (const mic of [{ ...c, value: undefined }, { ...c, value: null }, { ...c, reason: "permission denied" }, { ...c, available: "true" }]) assert.equal(meetState({ ...state, mic }), null);
+  const command = { id: "1", tab: 0, instance: "1", call: "1", control: "mic", revision: "1", value: false };
+  assert.deepEqual(meetCommand(command), command);
+  assert.equal(meetCommand({ ...command, value: 0 }), null);
+  const result = { ...command, status: "observed", reason: "" };
+  assert.deepEqual(meetResult(result, command), result);
+  assert.equal(meetResult({ ...result, revision: "2" }, command), null);
+  assert.equal(meetResult({ ...result, status: "unknown", reason: "" }, command), null);
 });

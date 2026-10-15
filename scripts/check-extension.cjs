@@ -200,6 +200,7 @@ async function live(base) {
     assert.equal(after.sessions.filter((s) => s.title === "Song").length, 1, "injection duplicated the session");
     console.log("PASS: extension in Brave connects, reports the tab, runs toggle, next and mute, and re-injects into open tabs harmlessly");
     await ratings(context, fake, until);
+    await meetControls(context, fake, until);
   } finally {
     await context.close();
     fake.close();
@@ -271,4 +272,71 @@ navigator.mediaSession.metadata = new MediaMetadata({title: 'Fixture song', arti
   assert.deepEqual(errors, []);
   await page.close();
   console.log("PASS: isolated YouTube Music DOM and real extension bridge handle paused ratings, clear/switch, unknown state and stale track rejection");
+}
+
+// The Meet origin and all subresources are fulfilled locally in the temporary
+// headless profile. No real call, account, camera or microphone is involved.
+async function meetControls(context, fake, until) {
+  fake.send({ type: "capabilities", meet: 1, mediaEnabled: true, meetEnabled: true });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(String(error)));
+  await page.route("**/*", (route) => route.fulfill({ contentType: "text/html", body: `<!doctype html><title>Isolated Meet fixture</title>
+<div role="region" jsname="vNB5le"><button jsname="hw0c9" data-is-muted="true">Mic</button><button jsname="psRWwc" data-is-muted="true">Camera</button><button jsname="CQylAd">Leave</button></div>
+<script>
+window.meetClicks = {mic:0,camera:0};
+const wire = () => {
+  document.querySelector('button[jsname="hw0c9"]').onclick = function() { window.meetClicks.mic++; this.setAttribute('data-is-muted', String(this.getAttribute('data-is-muted') !== 'true')); };
+  document.querySelector('button[jsname="psRWwc"]').onclick = function() { window.meetClicks.camera++; if (!window.ignoreCamera) this.setAttribute('data-is-muted', String(this.getAttribute('data-is-muted') !== 'true')); };
+}; wire();
+window.replaceCall = () => { const old = document.querySelector('[role="region"]'); const replacement = old.cloneNode(true); old.replaceWith(replacement); wire(); };
+</script>` }));
+  await page.goto("https://meet.google.com/isolated-snoofer-fixture");
+  const joined = await until("isolated Meet joined state", (m) => m.type === "meet-state" && m.calls.some((c) => c.state === "joined" && c.mic.available && c.camera.available));
+  let call = joined.calls.find((c) => c.state === "joined");
+  assert.equal(await page.evaluate(() => window.__snooferMedia), undefined, "Meet must not install the generic Media page helper");
+  let request = 100;
+  const send = (control, value, target = call) => {
+    const id = String(++request);
+    fake.send({ type: "meet-command", id, tab: target.tab, instance: target.instance, call: target.call, control, revision: target[control].revision, value });
+    return id;
+  };
+  const result = (id) => until("Meet result " + id, (m) => m.type === "meet-result" && m.id === id);
+  const fresh = async (ready) => {
+    const state = await until("fresh Meet state", (m) => m.type === "meet-state" && m.calls.some((c) => c.tab === call.tab && ready(c)));
+    call = state.calls.find((c) => c.tab === call.tab); return call;
+  };
+  assert.equal(call.mic.value, true); assert.equal(call.camera.value, false);
+  assert.equal((await result(send("mic", true))).status, "observed");
+  assert.deepEqual(await page.evaluate(() => window.meetClicks), { mic: 0, camera: 0 });
+  assert.equal((await result(send("mic", false))).status, "observed");
+  await fresh((c) => c.mic.value === false);
+  assert.equal((await result(send("camera", true))).status, "observed");
+  await fresh((c) => c.camera.value === true);
+  assert.deepEqual(await page.evaluate(() => window.meetClicks), { mic: 1, camera: 1 });
+
+  const old = call;
+  await page.evaluate(() => window.replaceCall());
+  await fresh((c) => c.call !== old.call);
+  assert.equal((await result(send("mic", true, old))).status, "rejected");
+  assert.deepEqual(await page.evaluate(() => window.meetClicks), { mic: 1, camera: 1 });
+
+  await page.evaluate(() => { window.ignoreCamera = true; });
+  const uncertain = send("camera", false);
+  assert.equal((await result(uncertain)).status, "unknown");
+  assert.equal(await page.evaluate(() => window.meetClicks.camera), 2);
+  await page.waitForTimeout(500); assert.equal(await page.evaluate(() => window.meetClicks.camera), 2, "no replay after timeout");
+
+  fake.send({ type: "capabilities", meet: 1, mediaEnabled: true, meetEnabled: false });
+  await page.waitForTimeout(100);
+  assert.equal((await result(send("mic", true))).reason, "disabled");
+  fake.send({ type: "capabilities", meet: 1, mediaEnabled: true, meetEnabled: true });
+  const previousSample = call.sample;
+  await fresh((c) => BigInt(c.sample) > BigInt(previousSample));
+  assert.deepEqual(await page.evaluate(() => window.meetClicks), { mic: 1, camera: 2 });
+  await page.evaluate(() => { document.querySelector('[role="region"]').removeAttribute('role'); document.querySelector('button[jsname="CQylAd"]').remove(); });
+  await fresh((c) => c.state === "prejoin" && !c.mic.available && !c.camera.available);
+  assert.deepEqual(errors, []);
+  await page.close();
+  console.log("PASS: isolated Meet DOM/runtime bridge confirms one-shot mic/camera changes, rejects stale calls, expires uncertain results and excludes prejoin without replay");
 }

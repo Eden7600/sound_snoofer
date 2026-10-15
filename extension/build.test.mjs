@@ -15,6 +15,9 @@ test("manifests differ only where the browsers do", () => {
     assert.equal(m.manifest_version, 3);
     assert.deepEqual(m.permissions, ["tabs", "storage", "scripting"]);
     assert.equal(m.content_scripts[0].world, "MAIN");
+    assert.deepEqual(m.content_scripts[0].exclude_matches, ["https://meet.google.com/*"]);
+    assert.deepEqual(m.content_scripts[1].exclude_matches, ["https://meet.google.com/*"]);
+    assert.deepEqual(m.content_scripts[2], { matches: ["https://meet.google.com/*"], js: ["logic.js", "meet.js"], run_at: "document_start", all_frames: false });
     assert.doesNotMatch(m.content_security_policy.extension_pages, /upgrade-insecure-requests/);
     delete m.background;
     delete m.browser_specific_settings;
@@ -29,7 +32,7 @@ test("build writes complete folders without tests", () => {
     build(out);
     for (const browser of ["chrome", "firefox"]) {
       const files = readdirSync(join(out, browser)).sort();
-      assert.deepEqual(files, ["background.js", "bridge.js", "icons", "logic.js", "manifest.json", "page.js", "popup.html", "popup.js"]);
+      assert.deepEqual(files, ["background.js", "bridge.js", "icons", "logic.js", "manifest.json", "meet.js", "page.js", "popup.html", "popup.js"]);
       const m = JSON.parse(readFileSync(join(out, browser, "manifest.json"), "utf8"));
       for (const icon of Object.values(m.icons)) assert.ok(existsSync(join(out, browser, icon)), icon);
     }

@@ -123,5 +123,46 @@
     return Number.isInteger(port) && port >= 1024 && port <= 65535 ? port : 0;
   }
 
-  globalThis.SnooferLogic = { PROTOCOL, DEFAULT_PORT, browserName, sessions, route, backoff, validPort };
+  const meetCounter = (v) => typeof v === "string" && /^[1-9][0-9]{0,19}$/.test(v) && BigInt(v) <= 18446744073709551615n;
+  const meetBounded = (v, bytes) => new TextEncoder().encode(JSON.stringify(v)).length <= bytes;
+  function meetOrigin(sender) {
+    if (sender?.origin === "https://meet.google.com") return true;
+    try { return new URL(sender?.url).origin === "https://meet.google.com"; } catch { return false; }
+  }
+  function meetSender(sender) {
+    try {
+      return sender?.frameId === 0 && Number.isSafeInteger(sender.tab?.id) && sender.tab.id >= 0 &&
+        new URL(sender.url).origin === "https://meet.google.com" &&
+        (sender.origin === undefined || sender.origin === "https://meet.google.com");
+    } catch { return false; }
+  }
+  function meetState(value) {
+    if (!value || !["joined", "prejoin", "unknown"].includes(value.state) || !meetCounter(value.sample) ||
+        (value.state === "joined" ? !meetCounter(value.call) : value.call !== "")) return null;
+    const result = { sample: value.sample, call: value.call, state: value.state };
+    for (const name of ["mic", "camera"]) {
+      const c = value[name];
+      if (!c || (typeof c.value !== "boolean" && c.value !== null) || typeof c.available !== "boolean" || !meetCounter(c.revision) ||
+          !["", "unknown", "unavailable", "not-in-call", "reload-required"].includes(c.reason) ||
+          (c.available ? value.state !== "joined" || c.value === null || c.reason !== "" : c.reason === "")) return null;
+      result[name] = { value: c.value, revision: c.revision, available: c.available, reason: c.reason };
+    }
+    return result;
+  }
+  function meetCommand(value) {
+    if (!value || !meetCounter(value.id) || !Number.isSafeInteger(value.tab) || value.tab < 0 ||
+        !meetCounter(value.instance) || !meetCounter(value.call) || !meetCounter(value.revision) ||
+        !["mic", "camera"].includes(value.control) || typeof value.value !== "boolean") return null;
+    const { id, tab, instance, call, control, revision, value: desired } = value;
+    return { id, tab, instance, call, control, revision, value: desired };
+  }
+  function meetResult(value, command) {
+    const echo = meetCommand(value);
+    if (!echo || Object.keys(echo).some((key) => echo[key] !== command[key])) return null;
+    const reasons = { observed: [""], rejected: ["stale", "unavailable", "busy", "disabled"], unknown: ["not-confirmed", "disconnected", "stopped"] };
+    if (!Object.hasOwn(reasons, value.status) || !reasons[value.status].includes(value.reason)) return null;
+    return { ...echo, status: value.status, reason: value.reason };
+  }
+
+  globalThis.SnooferLogic = { PROTOCOL, DEFAULT_PORT, browserName, sessions, route, backoff, validPort, meetCounter, meetBounded, meetOrigin, meetSender, meetState, meetCommand, meetResult };
 })();

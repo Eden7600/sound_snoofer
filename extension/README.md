@@ -19,6 +19,12 @@ Protocol 2 requires a matching Snoofer version; the popup explains which side ne
 
 On YouTube Music, bind **Like Track** and **Dislike Track** in the Deck editor. They follow Snoofer's selected media session. Press an inactive rating to select it, or the active rating to clear it. The keys show the observed page state, including changes while paused; unknown or unsupported player state cannot be rated. This uses the signed-in page's current player controls, so website changes can make ratings unavailable. No Google API setup is needed.
 
+Version 1.3.0 also supports Google Meet mic mute and camera controls with a host that advertises the Meet capability. Enable Google Meet in Snoofer, choose its call in Meetings when required, and bind its controls through the Deck editor. The observed Brave layout is the initial supported candidate; prejoin and ambiguous, hidden or unavailable controls cannot be changed. Website changes or a suspended tab can make controls unavailable. Meet mute is separate from Discord, global Mic Mute and browser output mute. Reconnection reads state and never restores microphone or camera activation.
+
+Meet uses an isolated extension script and sends only bounded call/control state and local tab identity to Snoofer, without meeting URLs, codes, titles, participants or media. Existing permissions are unchanged. New and old host/extension combinations remain Media-compatible on protocol 2; Meet requires both sides to support capability 1. Reload existing Meet tabs after updating. No separate account or pairing setup is added; the localhost connection retains its existing same-user local-software trust boundary.
+
+This companion excludes exact `https://meet.google.com` frames from generic Media reports and transport, so call media does not become a competing music target or expose its title through that path. Other sites, Windows media sessions and older companions keep their existing behavior.
+
 `../scripts/check-extension.cjs` checks the page script in Chrome. It also runs the built extension end to end in Brave against a stand-in bridge.
 
 ## Layout
@@ -27,6 +33,7 @@ On YouTube Music, bind **Like Track** and **Dislike Track** in the Deck editor. 
 |---|---|
 | `src/page.js` | Page-world content script: finds `<audio>`/`<video>` and the page's media session, reports state and runs commands. |
 | `src/bridge.js` | Isolated-world content script: relays between `page.js` and the background. |
+| `src/meet.js` | Isolated-world Meet adapter: reads joined-call controls and confirms one explicit action through its current runtime port. |
 | `src/background.js` | Keeps the WebSocket to Snoofer, merges reports into sessions, sends artwork and runs commands. |
 | `src/logic.js` | Pure helpers shared by the background and popup, tested with Node. |
 | `src/popup.*` | Toolbar popup: connection status, site access (Firefox) and the Snoofer port. |
@@ -45,4 +52,4 @@ On YouTube Music, bind **Like Track** and **Dislike Track** in the Deck editor. 
 - **Firefox Add-ons:** upload `dist/snoofer-media-firefox-<version>.zip`.
   - **Add-on ID:** `snoofer-media@sound-snoofer` (`GECKO_ID` in `build.mjs`). It is permanent after the first upload; change it before then if you want another.
   - **Data collection:** none is declared, because data goes only to the local Snoofer app.
-- **Protocol:** the message format is `PROTOCOL` in `src/logic.js` and `protocol` in `plugins/nowplaying/bridge.go`. Change both together. Snoofer refuses a mismatch, and the popup says which side to update.
+- **Protocol:** the message format is `PROTOCOL` in `src/logic.js` and `protocol` in `internal/browserbridge/bridge.go`. Change both together. Snoofer refuses a mismatch, and the popup says which side to update.

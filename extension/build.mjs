@@ -29,8 +29,9 @@ function base() {
     // No upgrade-insecure-requests: the only connection is ws://127.0.0.1.
     content_security_policy: { extension_pages: "script-src 'self'; object-src 'self'" },
     content_scripts: [
-      { matches: ["<all_urls>"], js: ["page.js"], run_at: "document_start", all_frames: true, world: "MAIN" },
-      { matches: ["<all_urls>"], js: ["bridge.js"], run_at: "document_start", all_frames: true },
+      { matches: ["<all_urls>"], exclude_matches: ["https://meet.google.com/*"], js: ["page.js"], run_at: "document_start", all_frames: true, world: "MAIN" },
+      { matches: ["<all_urls>"], exclude_matches: ["https://meet.google.com/*"], js: ["bridge.js"], run_at: "document_start", all_frames: true },
+      { matches: ["https://meet.google.com/*"], js: ["logic.js", "meet.js"], run_at: "document_start", all_frames: false },
     ],
   };
 }
