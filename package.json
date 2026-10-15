@@ -4,10 +4,13 @@
   "scripts": {
     "spec": "openspec",
     "spec:check": "openspec validate --all --strict --no-interactive",
-    "css": "tailwindcss -i app/web/tailwind.css -o app/web/dist/app.css --minify"
+    "css": "tailwindcss -i app/web/tailwind.css -o app/web/dist/app.css --minify",
+    "test:gui": "playwright test -c app/web/test"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@fission-ai/openspec": "1.14.0",
+    "@playwright/test": "1.62.1",
     "@tailwindcss/cli": "4.3.3",
     "lucide-static": "1.52.0",
     "playwright": "1.62.1",
