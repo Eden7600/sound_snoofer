@@ -961,8 +961,8 @@ function buildDeck(){
   };
   updaters.push(()=>{
    const view=c("streamdeck.preview")?.ViewData;if(!view)return;
-   const slot=dial?view.Dials[index-K]:view.Keys[index],item=c(slot.Control);
-   if(!slot)return;
+   const slot=dial?view.Dials[index-K]:view.Keys[index];
+   if(!slot)return;const item=c(slot.Control);
    b.setAttribute("aria-pressed",String(view.Selected===index));
    const region=slot.Region??-1,inRange=rangeKeys(deckRange).includes(index);
    b.dataset.region=String(region>=0);b.dataset.range=String(inRange);
@@ -1255,7 +1255,7 @@ async function poll(){
   if(!window.go?.app?.Desktop)throw new Error("Desktop connection unavailable");
   const next=await window.go.app.Desktop.State();receive(next);
  }catch(error){showError(error);update();}
- // Meters need a faster refresh than the rest of the GUI.
- setTimeout(poll,screen==="audio"||screen==="soundboard"||screen==="appaudio"||screen==="media"?100:200);
+ // finally: a throwing render must not stop polling. Meters need a faster refresh.
+ finally{setTimeout(poll,screen==="audio"||screen==="soundboard"||screen==="appaudio"||screen==="media"?100:200);}
 }
 poll();
