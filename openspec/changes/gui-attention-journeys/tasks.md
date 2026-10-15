@@ -1,0 +1,23 @@
+# Tasks
+
+- [x] 1. Review this complete plan against current lifecycle, provider publications and GUI
+  ownership. Strictly validate before implementation; coordinate overlapping files with the
+  action outcomes and state preservation changes.
+- [ ] 2. Commit checkpoint: add typed lifecycle snapshot and PluginStates wire field; retain
+  status text. Cover missing/disabled/starting/running/failed, dependency failures, snapshots and
+  failure text matching healthy labels. Update fixture/test types and transport coverage.
+- [ ] 3. Commit checkpoint: add narrow provider attention metadata and tests, preserving action
+  identity and existing error lifetimes. Cover every producer in the design, metadata-only
+  delivery/revision behavior and recovery; regenerate audio/deck fixtures and run drift checks.
+- [ ] 4. Commit checkpoint: unify the eight plugin screen gates and Plugins recovery actions.
+  Cover exact Enable selection and confirmation, cancellation, missing/starting/failed states,
+  lifecycle transitions without navigation, busy/reconnect refusal and healthy empty content.
+- [ ] 5. Commit checkpoint: add sidebar classification/mapping and accessible markers. Cover
+  each positive source and the negative cases listed in the design; verify marker-to-screen
+  keyboard journeys and no dispatch from navigation. Keep the header transient-only.
+- [ ] 6. Update UI contract/audit status; run Go tests/vet for affected packages, strict frontend
+  gates, model/full GUI tests within 60 seconds, axe and layout checks at both viewport sizes,
+  then strict OpenSpec validation. Inspect screenshots before marking this task done.
+- [ ] 7. Root-coordinated canonical build and packaged WebView2 acceptance for marker visibility,
+  plugin gates, keyboard navigation and confirmation cancellation; restore the previous launch.
+  Do not exercise real plugin enable/restart or hardware writes merely to produce a screenshot.
