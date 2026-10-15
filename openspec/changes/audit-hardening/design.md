@@ -31,3 +31,30 @@ The light queue gets an epoch, incremented by `resetGroupDials`. `sendLight` cap
 
 ## 25. Same-origin replacement
 Firefox extension origins are random per install, so the extension ID cannot be pinned. Instead, a connection records its `Origin`. A newer hello for the same browser replaces the current connection only if the origins match; otherwise it is refused with a visible reason. An extension reload keeps its origin, so reconnecting still works.
+
+## Observed shutdown deadline diagnostic
+During the 2026-10-15 canonical-build attempt, production host PID 70268 exceeded
+the graceful-stop wait. Its owned error dialog said only `context deadline exceeded`;
+the process exited after the user dismissed the dialog. No force termination was
+used. The recently connected Plus and Plus XL are context, not a confirmed cause.
+
+`app.stopHost` already supplies a five-second cleanup context. `Host.Stop` cancels
+the workers and awaits each instance in reverse dependency order. Instance-returned
+errors include the plugin ID, but the host's own `ctx.Done()` branch appends only
+`ctx.Err()`, losing the currently awaited ID. Wrap that branch with the same plugin
+context using `%w` before joining earlier failures. The message identifies the
+awaited cleanup, not a proven internal deadlock or hardware cause.
+
+Extend the existing deterministic `TestStopDeadline`: hold a fake instance until
+the test releases it, expire the stop context, and require both the plugin ID and
+`errors.Is(err, context.DeadlineExceeded)`. Also retain an earlier sentinel cleanup
+error through `errors.Join`. Release every fake after the assertion. Keep existing
+successful shutdown and reverse-order tests. No native calls or process manipulation
+are needed for these regressions.
+
+This checkpoint changes diagnostic context only: no timeout increase, skipped join,
+force termination, error-dialog change, HID change or automatic restart. After the
+source checkpoint, root coordinates the canonical build and graceful-stop recheck
+with the previous launch configuration. Record a successful stop or the named
+failure; investigate any reproduced plugin problem separately before claiming its
+cause or repair. The initial failed stop remains failed evidence.

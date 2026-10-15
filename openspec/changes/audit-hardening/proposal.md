@@ -10,6 +10,11 @@ The repository audit ([docs/repo-audit.md](../../../docs/repo-audit.md) and [doc
 - **24:** changing Hue room resets the write queue while a write is in flight.
 - **25:** any installed extension can evict the browser bridge.
 
+During native acceptance on 2026-10-15, graceful shutdown reached its deadline and
+showed only `context deadline exceeded`. The host remained in its error dialog until
+the user dismissed it normally. Two Stream Decks were connected, but the error did
+not identify the awaited plugin; the underlying cause is unconfirmed.
+
 Findings 14, 15 and 26 are handled elsewhere:
 - **14** gets its own change.
 - **15** and **26** overlap the planned GUI changes (`gui-action-outcomes`, `gui-state-preservation`) and are resolved there.
@@ -23,7 +28,10 @@ Findings 14, 15 and 26 are handled elsewhere:
 - **23:** a deck path that fails to open is reported even while another deck runs; its temporary path report is retired when that path opens or disappears.
 - **24:** a Hue light-write result from before a room change is ignored.
 - **25:** a newer bridge connection replaces a live one only when it comes from the same extension origin.
+- **Shutdown diagnostic follow-up:** include the plugin being awaited when the host's
+  shutdown deadline expires, preserving error identity and prior cleanup failures.
+  Keep shutdown order, deadlines, error-dialog behavior and build refusal unchanged.
 
 ## Impact
-- **Code:** `app/web/app.js`, `internal/mediasessions/native`, `scripts/build*.ps1`, `internal/voicemeeter/callback`, `internal/streamdeck`, `plugins/streamdeck`, `plugins/hue`, `plugins/nowplaying`.
+- **Code:** `app/web/app.js`, `internal/mediasessions/native`, `scripts/build*.ps1`, `internal/voicemeeter/callback`, `internal/streamdeck`, `plugins/streamdeck`, `plugins/hue`, `plugins/nowplaying`, `snoofer/plugin.go`.
 - **Invariants:** unchanged. Stale-action rejection is strengthened (16). No uncertain command is retried.

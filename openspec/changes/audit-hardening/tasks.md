@@ -10,6 +10,16 @@
 - [x] 8. `fix(hue)`: ignore light-write results from before a room change; test.
 - [x] 9. `fix(nowplaying)`: replace bridge connections only from the same origin; test.
 - [x] 10. Validate: gofmt, `go test ./...`, `go vet ./...`, GUI check, OpenSpec strict validation, canonical build.
+- [ ] 10a. `fix(host)`: add plugin context to the host deadline branch without changing
+  cleanup policy. First extend the held-instance timeout regression to fail on the
+  missing ID and cover preserved context identity plus earlier cleanup errors; then
+  apply the narrow fix, run focused lifecycle tests/vet and strict validation, and
+  commit the diagnostic checkpoint before a coordinated live recheck.
 
 ## Acceptance
 - [ ] 11. On hardware: restart Voicemeeter while Snoofer runs and confirm the monitor stays enabled; press a deck key once right after connecting it; connect two decks with one refused and see its error; freeze a media player and confirm Now Playing keeps updating.
+- [ ] 12. Root coordinates the canonical build and graceful shutdown recheck with the
+  prior host launch configuration. Preserve the original anonymous timeout as failed
+  evidence; record success or the named awaited plugin without force termination or
+  claiming the two connected decks caused it. Any underlying repair needs its own
+  confirmed evidence and reviewed scope.

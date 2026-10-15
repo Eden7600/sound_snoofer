@@ -83,3 +83,19 @@ A browser bridge connection SHALL be replaced only by a connection from the same
 #### Scenario: Other extension connects
 - **WHEN** another extension connects with the same browser name while the bridge is connected
 - **THEN** it is refused, and the existing connection stays
+
+### Requirement: Shutdown deadline failures identify the awaited plugin
+When the host's cleanup deadline expires while awaiting a plugin, the returned
+error SHALL identify that plugin, retain the context error for `errors.Is`, and
+preserve any earlier cleanup failures. The diagnostic SHALL NOT change shutdown
+order, deadlines, error presentation, build refusal or process termination policy.
+
+#### Scenario: A plugin exceeds the host cleanup deadline
+- **WHEN** the host deadline expires while a plugin's Stop call has not completed
+- **THEN** the returned error identifies the awaited plugin
+- **AND** `errors.Is` still recognizes `context.DeadlineExceeded`
+
+#### Scenario: Another plugin already reported a cleanup failure
+- **WHEN** one plugin reports an error before the deadline expires awaiting another
+- **THEN** the returned error retains both the earlier failure and the named timeout
+- **AND** no successful cleanup or confirmed hardware cause is inferred from the diagnostic
