@@ -31,7 +31,7 @@ Each changed `Patch.asio[k]` operation gates input strip `k/2`, for any `k`. An 
 The controller gains an optional `BeforeTapePlay func() error`, called in `Tape` right before it routes the tape for a new playback, after the recorder state has been read. The worker sets it to the existing ownership save. Pause, resume and recording commands no longer save. Save still precedes the routing write.
 
 ## 9. Audio settings validation
-`applyEdit` runs `config.LoadChoices` with the edited configuration and the saved choices before saving. If the result reports a `StateError`, the edit is refused with that error and nothing is saved.
+`applyEdit` runs `config.LoadChoices` with the edited configuration and the saved choices before saving. If the result reports a `StateError` that the running configuration did not, the edit is refused with that error and nothing is saved. Choices that were already broken stay editable, so the user can repair the configuration.
 
 ## 10. GUI poll
 `poll` reschedules in `finally`. The deck slot updater checks `!slot` before reading `slot.Control`.

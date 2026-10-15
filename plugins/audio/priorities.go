@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -275,7 +276,7 @@ func (i *Instance) runEdits(ctx context.Context) {
 
 func (i *Instance) applyEdit(edit editRequest) error {
 	i.mu.Lock()
-	settings, raw := i.settings, i.raw
+	settings, raw, current := i.settings, i.raw, i.running
 	i.mu.Unlock()
 	edited, err := editConfig(settings.Config, edit)
 	if err != nil {
@@ -292,6 +293,11 @@ func (i *Instance) applyEdit(edit editRequest) error {
 	running, err := i.prepare(settings)
 	if err != nil {
 		return err
+	}
+	// The worker reloads with the saved choices; refuse an edit that breaks them,
+	// such as removing the selected microphone. Choices already broken stay editable.
+	if after := config.LoadChoices(i.statePath, running).StateError; after != "" && config.LoadChoices(i.statePath, current).StateError == "" {
+		return errors.New(after)
 	}
 	if err := i.saveSettings("audio", raw, next); err != nil {
 		return err

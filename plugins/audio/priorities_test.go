@@ -256,3 +256,23 @@ func TestPriorityViewReadiness(t *testing.T) {
 		t.Fatal("view shares the configuration's activity")
 	}
 }
+
+func TestEditBreakingSavedChoicesIsRefused(t *testing.T) {
+	saves := 0
+	i := editInstance(t, func(string, json.RawMessage, json.RawMessage) error { saves++; return nil })
+	i.statePath = t.TempDir() + "/audio"
+	intent := i.running.VoiceIntent()
+	mics := i.running.Studio.Mics()
+	intent.Source = mics[0].ID
+	loaded := config.LoadChoices(i.statePath, i.running)
+	if _, err := config.SaveIntent(i.statePath, loaded, intent, loaded.StateToken); err != nil {
+		t.Fatal(err)
+	}
+	remove, _ := json.Marshal(config.PriorityEdit{List: config.ListMics, Op: "remove", Index: 0})
+	if err := i.applyEdit(editRequest{control: "audio.priority-edit", value: string(remove)}); err == nil || saves != 0 {
+		t.Fatal("edit breaking saved choices was saved", err, saves)
+	}
+	if len(i.running.Studio.Mics()) != len(mics) {
+		t.Fatal("refused edit changed the running configuration")
+	}
+}
