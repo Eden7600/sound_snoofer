@@ -106,3 +106,53 @@ expires before the refusal and unaffected-deck observations, record incomplete
 acceptance instead of inferring success. Record real sharing-error, GUI, physical
 input and recovery evidence separately. This completes only the refused-second-deck
 component of task 11; frozen-player acceptance remains separate.
+
+## Installed WMP feasibility for existing media acceptance
+Before planning a frozen-player exercise for task 11, check whether the installed
+legacy Windows Media Player exposes a genuine Windows SMTC session. This is an
+incremental acceptance method, not a new runtime feature or completion of the
+frozen-player or gui-action-outcomes task 6.3 checks.
+
+After this plan is committed, create one small, finite silent PCM WAV with a unique
+name in the coordinating chat's scratch directory. Root must obtain the user's
+fresh permission before every computer-control session, including this launch and
+cleanup window; earlier sessions do not authorize another one. Record existing
+wmplayer process identities and native session identities first. If WMP is already
+running, stop this route rather than risk reusing or closing the user's player.
+During the approved window, root opens only the installed
+C:\Program Files\Windows Media Player\wmplayer.exe with the scratch WAV. Verify
+the resulting new player by executable path, PID and start time. If launch reuses
+another process, ownership cannot be established, or setup, authentication or a
+security prompt appears, stop the route without configuring or accepting prompts.
+
+Use the existing read-only TestNativeSessions probe with SNOOFER_MEDIA_PROBE set to
+the canonical bin/snoofer-media.dll, a fresh test run and a 15-second Go timeout.
+Allow at most 30 seconds for discovery/observation. Identify a newly appearing
+Windows session belonging to WMP and the uniquely named WAV, retaining its native
+source/instance identity and playback metadata as evidence. The live Media screen
+may corroborate that identity during the same approved window. Existing Brave or
+browser-bridge sessions do not establish WMP support. Do not change Now Playing
+focus, send media commands, pause existing media or alter player/audio settings.
+If no attributable native WMP session appears, record the route as unavailable and
+stop; do not install a player or substitute a custom SMTC fixture.
+
+After the probe, root closes only the verified newly owned player normally and
+confirms its exit, then removes only the uniquely owned WAV. If normal close does
+not finish, report the remaining owned process/file for coordinated cleanup rather
+than force termination or broader process cleanup. Preserve Snoofer's launch
+configuration and all pre-existing players. This step introduces no debugger,
+suspension helper, process freeze or alternate application build.
+
+A successful session proves only that a candidate exists. Windows may answer
+metadata or command requests from cached state even when a player is unresponsive;
+freezing it would not guarantee a pending WinRT operation. Displayed timeline
+interpolation also does not prove fresh provider updates. Existing deterministic
+timeout and command-call-count tests remain the no-replay evidence; one state
+change after a future resume would not distinguish an original queued command from
+a replay. Keep task 11's frozen-player component and task 6.3's uncertain one-shot
+acceptance open until their separate observations are actually obtained. Plan any
+further freeze/resume method only after this feasibility result is reviewed.
+
+Microsoft's legacy WMP command-line documentation supports opening a local file;
+it does not establish SMTC support for this installation:
+https://learn.microsoft.com/en-us/previous-versions/windows/desktop/wmp/command-line-parameters

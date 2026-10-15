@@ -55,3 +55,15 @@ Voicemeeter absent is separately pending in audit-reliability-fixes task 16.
   operation, release the holder, and verify normal recovery/temporary-error removal.
   Confirm helper exit and restored host configuration even on unsuccessful setup.
   Record the component result without completing task 11's frozen-player check.
+
+## Conditional installed-player feasibility
+- [ ] 18. After this plan is committed, create one uniquely owned scratch silent
+  WAV. In a newly user-approved computer-control session, root launches the
+  installed WMP only if no existing player would be reused, verifies ownership of
+  the new process, and checks for an attributable Windows SMTC session using the
+  existing read-only native probe with bounded observation. Stop on absent SMTC,
+  setup/authentication/security prompts or uncertain ownership; configure nothing.
+  Close only the owned new player normally, confirm exit and remove only its WAV.
+  Preserve existing media playback, focus, configuration and processes. Record
+  feasibility only: no debugger/freeze helper or build, and no completion of task
+  11's frozen-player or gui-action-outcomes 6.3's uncertain/no-replay acceptance.
