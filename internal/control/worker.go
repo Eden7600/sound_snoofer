@@ -469,30 +469,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		}
 		state.Intent = cfg.VoiceIntent()
 		state.ActiveIntent = routing.ProfileConfig(planning(), state.Snapshot).VoiceIntent()
-		state.VRSourceOptions = []string{"auto", "off"}
-		if cfg.VR != nil {
-			for _, h := range cfg.VR.Headsets {
-				state.VRSourceOptions = append(state.VRSourceOptions, "vr:"+h.ID)
-			}
-			vrSnapshot := state.Snapshot
-			vrSnapshot.SteamVR = &model.ProcessStatus{Known: true, Running: true}
-			vrConfig := cfg
-			vrConfig.ProfileRunning = true
-			if cfg.Policy != nil {
-				if policy := cfg.Policy(); policy != nil {
-					studio := *cfg.Studio
-					studio.Playback = slices.Clone(studio.Playback)
-					for _, candidate := range policy.Playback {
-						if candidate.Driver != "normal" {
-							studio.Playback = append(studio.Playback, candidate)
-						}
-					}
-					vrConfig.Studio = &studio
-				}
-			}
-			state.VRSourceOptions = append(state.VRSourceOptions, cfg.Studio.MicrophoneIDs()...)
-			state.VROutputOptions = routing.PlaybackOptions(vrConfig, vrSnapshot)
-		}
+		state.VRSourceOptions, state.VROutputOptions = vrOptions(cfg, state.Snapshot)
 		if cfg.Profiles != nil {
 			profile := "Normal"
 			if cfg.Policy != nil {
@@ -756,17 +733,29 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 						e = next.Validate(candidateConfig)
 					}
 				}
-				if e == nil {
-					if action.Kind == editRule && ((EditsRow(action, "source") && next.Source != "off") || (EditsRow(action, "output") && next.PlaybackDevice != "")) {
+				if e == nil && action.Kind == editRule {
+					// The plugin sends profile-prefixed rows; bare rows remain for older callers.
+					source := (EditsRow(action, "source") || EditsRow(action, "normal-source")) && next.Source != "off"
+					output := (EditsRow(action, "output") || EditsRow(action, "normal-output")) && next.PlaybackDevice != ""
+					vrSource := EditsRow(action, "vr-profile-source") && next.VRProfile != nil && next.VRProfile.Source != "off"
+					vrOutput := EditsRow(action, "vr-profile-output") && next.VRProfile != nil && next.VRProfile.Playback != ""
+					if source || output || vrSource || vrOutput {
 						if backend == nil {
 							e = fmt.Errorf("device observation unavailable")
 						} else {
 							var snapshot model.Snapshot
 							snapshot, e = backend.Snapshot()
-							if e == nil && EditsRow(action, "source") && !slices.Contains(routing.MicrophoneOptions(candidateConfig, snapshot), next.Source) {
-								e = fmt.Errorf("microphone is no longer connected")
+							var vrSources, vrOutputs []string
+							if vrSource || vrOutput {
+								vrSources, vrOutputs = vrOptions(candidateConfig, snapshot)
 							}
-							if e == nil && EditsRow(action, "output") && !slices.Contains(routing.PlaybackOptions(candidateConfig, snapshot), next.PlaybackDevice) {
+							switch {
+							case e != nil:
+							case source && !slices.Contains(routing.MicrophoneOptions(candidateConfig, snapshot), next.Source),
+								vrSource && !slices.Contains(vrSources, next.VRProfile.Source):
+								e = fmt.Errorf("microphone is no longer connected")
+							case output && !slices.Contains(routing.PlaybackOptions(candidateConfig, snapshot), next.PlaybackDevice),
+								vrOutput && !slices.Contains(vrOutputs, next.VRProfile.Playback):
 								e = fmt.Errorf("playback device is no longer connected")
 							}
 						}
@@ -982,4 +971,33 @@ func (o *observed) RestartEngine() error {
 		return fmt.Errorf("engine restart unavailable")
 	}
 	return b.RestartEngine()
+}
+
+// vrOptions lists the VR profile's selectable sources and playback devices, as
+// they would be with SteamVR running and the policy's VR playback candidates.
+func vrOptions(cfg config.Config, snapshot model.Snapshot) (sources, outputs []string) {
+	sources = []string{"auto", "off"}
+	if cfg.VR == nil {
+		return sources, nil
+	}
+	for _, h := range cfg.VR.Headsets {
+		sources = append(sources, "vr:"+h.ID)
+	}
+	snapshot.SteamVR = &model.ProcessStatus{Known: true, Running: true}
+	vrConfig := cfg
+	vrConfig.ProfileRunning = true
+	if cfg.Policy != nil {
+		if policy := cfg.Policy(); policy != nil {
+			studio := *cfg.Studio
+			studio.Playback = slices.Clone(studio.Playback)
+			for _, candidate := range policy.Playback {
+				if candidate.Driver != "normal" {
+					studio.Playback = append(studio.Playback, candidate)
+				}
+			}
+			vrConfig.Studio = &studio
+		}
+	}
+	sources = append(sources, cfg.Studio.MicrophoneIDs()...)
+	return sources, routing.PlaybackOptions(vrConfig, snapshot)
 }
