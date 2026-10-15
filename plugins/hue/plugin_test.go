@@ -572,3 +572,17 @@ func TestPairedBridgeReconnectsWithoutDiscovery(t *testing.T) {
 	waitFor(t, func() bool { return bridge.streamCount() == 1 })
 	h.value("hue.status", "Connected")
 }
+
+func TestRefusedEventStreamBacksOff(t *testing.T) {
+	bridge := newFakeBridge(t, "b1", studio()...)
+	bridge.set(func(b *fakeBridge) { b.refuseStreams = true })
+	startHarness(t, bridge, paired(bridge, "room-1"), true)
+	time.Sleep(2 * time.Second)
+	var tries int
+	bridge.set(func(b *fakeBridge) { tries = b.streamTries })
+	// Backing off to retryMax makes about 9 attempts in 2 s; resetting after
+	// every resource load retried about 20 times.
+	if tries < 3 || tries > 14 {
+		t.Fatalf("%d stream attempts in 2 s", tries)
+	}
+}

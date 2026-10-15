@@ -11,7 +11,7 @@
 - [x] 9. `fix(audio)`: save tape ownership only before tape playback starts; test pausing a recording with saved choices unwritable.
 - [x] 10. `fix(audio)`: refuse audio settings edits whose saved choices would not load; test.
 - [x] 11. `fix(gui)`: reschedule polling after render errors; guard missing deck slots (verified by the GUI check; a render-error regression test belongs to `gui-test-harness`).
-- [ ] 12. `fix(hue)`: reset backoff on the first stream message; cancel a client's stream on close; tests.
+- [x] 12. `fix(hue)`: reset backoff on the first stream message; cancel a client's stream on close; tests.
 - [ ] 13. `fix(discord)`: run one token exchange at a time; test.
 - [ ] 14. `fix(nowplaying)`: stop after the listener closes; retry a busy port; test.
 - [ ] 15. Validate: gofmt, `go test ./...`, `go vet ./...`, `node --test`, GUI check, OpenSpec strict validation, canonical build.

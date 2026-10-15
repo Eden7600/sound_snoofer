@@ -126,7 +126,6 @@ func (w *worker) syncConnected(ctx context.Context, generation int, conn *websoc
 	w.sync.conn = conn
 	w.sync.connects++
 	w.sync.diagnostic = ""
-	w.sync.retryDelay = 0
 	w.syncRead(ctx, generation, conn)
 }
 
@@ -152,6 +151,7 @@ func (w *worker) syncRead(ctx context.Context, generation int, conn *websocket.C
 			}
 			apply := func(ctx context.Context) {
 				if generation == w.sync.generation {
+					w.sync.retryDelay = 0 // Reset only once the connection delivers.
 					w.syncObserve(ctx, message.Data)
 				}
 			}

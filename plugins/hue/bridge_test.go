@@ -17,16 +17,18 @@ type fakeBridge struct {
 	*httptest.Server
 	t *testing.T
 
-	mu          sync.Mutex
-	id          string
-	key         string
-	linkPressed bool
-	throttle    int // Number of upcoming PUTs answered with 429.
-	ignorePuts  bool
-	resources   map[string]resource
-	extra       []json.RawMessage // Raw resources in shapes the typed model cannot express.
-	puts        []string
-	streams     []chan string
+	mu            sync.Mutex
+	id            string
+	key           string
+	linkPressed   bool
+	throttle      int // Number of upcoming PUTs answered with 429.
+	ignorePuts    bool
+	resources     map[string]resource
+	extra         []json.RawMessage // Raw resources in shapes the typed model cannot express.
+	puts          []string
+	streams       []chan string
+	refuseStreams bool // Answer event-stream requests with 503.
+	streamTries   int
 }
 
 func newFakeBridge(t *testing.T, id string, items ...resource) *fakeBridge {
@@ -209,6 +211,14 @@ func (b *fakeBridge) update(items ...resource) {
 }
 
 func (b *fakeBridge) stream(w http.ResponseWriter, r *http.Request) {
+	b.mu.Lock()
+	b.streamTries++
+	refuse := b.refuseStreams
+	b.mu.Unlock()
+	if refuse {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
 	messages := make(chan string, 64)
 	b.mu.Lock()
 	b.streams = append(b.streams, messages)

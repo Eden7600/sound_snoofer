@@ -299,7 +299,6 @@ func (w *worker) onConnected(ctx context.Context, generation int, target bridgeT
 	w.model = newModel(items)
 	w.status = "Connected"
 	w.diagnostic = ""
-	w.retryDelay = 0
 	w.observe()
 	w.follow(ctx, generation, client)
 }
@@ -310,6 +309,8 @@ func (w *worker) follow(ctx context.Context, generation int, client *Client) {
 		err := client.Events(ctx, func(events []event) error {
 			apply := func(context.Context) {
 				if generation == w.generation && w.connected {
+					// Only a delivering stream proves the link; one that fails at once keeps backing off.
+					w.retryDelay = 0
 					w.model.apply(events)
 					w.bridgeLink.Activity(time.Now())
 					w.observe()

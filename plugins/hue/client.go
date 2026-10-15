@@ -152,11 +152,18 @@ type Client struct {
 	key      string
 	requests *http.Client
 	stream   *http.Client
+	// done ends the event stream when the client closes; idle-connection
+	// cleanup alone leaves a live stream running.
+	done   context.Context
+	cancel context.CancelFunc
 }
 
 func newClient(address, pin, key string) *Client {
 	transport := &http.Transport{TLSClientConfig: pinnedTLS(pin, nil), MaxIdleConnsPerHost: 2}
+	done, cancel := context.WithCancel(context.Background())
 	return &Client{
+		done:     done,
+		cancel:   cancel,
 		base:     "https://" + address,
 		key:      key,
 		requests: &http.Client{Transport: transport, Timeout: requestTimeout},
@@ -164,7 +171,10 @@ func newClient(address, pin, key string) *Client {
 	}
 }
 
-func (c *Client) close() { c.requests.CloseIdleConnections() }
+func (c *Client) close() {
+	c.cancel()
+	c.requests.CloseIdleConnections()
+}
 
 func (c *Client) do(ctx context.Context, method, path string, body any) (*http.Response, error) {
 	var reader io.Reader
@@ -266,6 +276,9 @@ type event struct {
 // Events follows the bridge event stream, calling handle for each message,
 // until the stream ends or ctx is canceled.
 func (c *Client) Events(ctx context.Context, handle func([]event) error) error {
+	ctx, stop := context.WithCancel(ctx)
+	defer stop()
+	defer context.AfterFunc(c.done, stop)()
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/eventstream/clip/v2", nil)
 	if err != nil {
 		return err

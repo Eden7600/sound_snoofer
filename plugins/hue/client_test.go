@@ -237,3 +237,19 @@ func TestLiveDiscovery(t *testing.T) {
 	}
 	t.Log("bridges:", addresses)
 }
+
+func TestCloseEndsTheEventStream(t *testing.T) {
+	bridge := newFakeBridge(t, "b1", studio()...)
+	client := newClient(bridge.address(), bridge.fingerprint(), bridge.key)
+	done := make(chan error, 1)
+	go func() {
+		done <- client.Events(context.Background(), func([]event) error { return nil })
+	}()
+	waitFor(t, func() bool { return bridge.streamCount() == 1 })
+	client.close()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("closed client kept its event stream")
+	}
+}
