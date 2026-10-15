@@ -1,10 +1,7 @@
 package config
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"regexp"
 	"strings"
@@ -82,26 +79,14 @@ func Load(path string) (Config, error) {
 }
 func Decode(b []byte) (Config, error) {
 	c := Config{PollMS: 1000, DebounceMS: 1000, VerifyMS: 5000}
-	// Reject duplicate keys as well as unknown fields; ambiguous config is never applied.
-	if err := uniqueKeys(json.NewDecoder(bytes.NewReader(b))); err != nil {
-		return c, err
-	}
-	d := json.NewDecoder(bytes.NewReader(b))
-	d.DisallowUnknownFields()
-	if err := d.Decode(&c); err != nil {
+	if err := storage.Decode(b, &c); err != nil {
 		return c, fmt.Errorf("configuration: %w", err)
-	}
-	var extra any
-	if err := d.Decode(&extra); err != io.EOF {
-		return c, fmt.Errorf("configuration must contain exactly one JSON object")
 	}
 	if err := c.Validate(); err != nil {
 		return c, err
 	}
 	return c, nil
 }
-
-func uniqueKeys(d *json.Decoder) error { return storage.UniqueKeys(d) }
 
 func (c *Config) Validate() error {
 	if c.Profiles != nil {

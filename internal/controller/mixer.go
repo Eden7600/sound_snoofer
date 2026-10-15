@@ -14,6 +14,7 @@ import (
 	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/model"
 	"sound-snoofer/internal/routing"
+	"sound-snoofer/internal/storage"
 )
 
 // ErrMixerPending blocks dependent routes while native mute readback catches up.
@@ -71,7 +72,7 @@ func (m *Mixer) save() error {
 	if m.Path == "" {
 		return nil
 	}
-	return config.WriteJournal(m.Path, m.Owned)
+	return storage.WriteJournal(m.Path, m.Owned)
 }
 
 // Reconcile establishes new mutes before routing, then releases obsolete ownership only after routes settle.

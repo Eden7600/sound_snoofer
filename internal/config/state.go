@@ -1,15 +1,14 @@
 package config
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
 	"sound-snoofer/internal/ownership"
+	"sound-snoofer/internal/storage"
 )
 
 func stateBytes(path string) ([]byte, string, error) {
@@ -41,26 +40,15 @@ func LoadChoices(path string, c Config) Config {
 	b, token, e := stateBytes(path)
 	c.StateToken = token
 	if e == nil && b != nil {
-		e = uniqueKeys(json.NewDecoder(bytes.NewReader(b)))
+		var i Intent
+		e = storage.Decode(b, &i)
 		if e == nil {
-			var i Intent
-			d := json.NewDecoder(bytes.NewReader(b))
-			d.DisallowUnknownFields()
-			e = d.Decode(&i)
-			if e == nil {
-				var extra any
-				if d.Decode(&extra) != io.EOF {
-					e = fmt.Errorf("saved choices must contain one object")
-				}
-			}
-			if e == nil {
-				i.normalizeSource()
-				i.NormalizeRehearsal()
-				e = i.Validate(c)
-			}
-			if e == nil {
-				c.Intent = &i
-			}
+			i.normalizeSource()
+			i.NormalizeRehearsal()
+			e = i.Validate(c)
+		}
+		if e == nil {
+			c.Intent = &i
 		}
 	}
 	if e != nil {
@@ -99,7 +87,7 @@ func SaveIntent(path string, c Config, i *Intent, expected string) (string, erro
 		return "", e
 	}
 	b = append(b, '\n')
-	if e = replaceBytes(absolute+".state.json", b); e != nil {
+	if e = storage.Replace(absolute+".state.json", b); e != nil {
 		return "", e
 	}
 	return fmt.Sprintf("%x", sha256.Sum256(b)), nil

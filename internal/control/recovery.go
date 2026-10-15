@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"sound-snoofer/internal/config"
 	"sound-snoofer/internal/model"
+	"sound-snoofer/internal/storage"
 )
 
 type recoveryJournal struct {
@@ -69,7 +69,7 @@ func (r *recovery) restart(b interface{ RestartEngine() error }, live bool, now 
 		return fmt.Errorf("too many restart requests; wait ten minutes")
 	}
 	recent = append(recent, now)
-	if err := config.WriteJournal(r.path, recoveryJournal{Attempts: recent, Uncertain: true}); err != nil {
+	if err := storage.WriteJournal(r.path, recoveryJournal{Attempts: recent, Uncertain: true}); err != nil {
 		return err
 	}
 	r.attempts = recent
@@ -81,7 +81,7 @@ func (r *recovery) restart(b interface{ RestartEngine() error }, live bool, now 
 		return err
 	}
 	r.blocked = false
-	if err := config.WriteJournal(r.path, recoveryJournal{Attempts: r.attempts}); err != nil {
+	if err := storage.WriteJournal(r.path, recoveryJournal{Attempts: r.attempts}); err != nil {
 		r.blocked = true
 		r.err = err
 		r.status = "Restart submitted; recovery journal failed; manual attention required"
@@ -103,7 +103,7 @@ func (r *recovery) observe(s model.Snapshot, now time.Time) string {
 			r.clearSamples++
 			r.verifyBuffers, r.verifySynced = cb.Buffers, cb.Synced
 			if r.clearSamples >= 2 {
-				if err := config.WriteJournal(r.path, recoveryJournal{Attempts: r.attempts}); err != nil {
+				if err := storage.WriteJournal(r.path, recoveryJournal{Attempts: r.attempts}); err != nil {
 					r.err = err
 				} else {
 					r.blocked = false

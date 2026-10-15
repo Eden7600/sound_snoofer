@@ -9,7 +9,7 @@
 - [x] 2. `refactor(control)`: remove write-only publication fields and unused presentation helpers;
   preserve acknowledgement/batch plumbing and meaningful worker tests, including
   single-edit persistence failure, stale selection/restart rejection, feedback and latency.
-- [ ] 3. `test(storage)`: add the strict `Decode` table and valid/default/null cases; consolidate
+- [x] 3. `test(storage)`: add the strict `Decode` table and valid/default/null cases; consolidate
   config/saved-choice decoding and direct journal/storage callers while retaining normalization,
   validation, state tokens, contextual errors and failed-load behavior.
 - [ ] 4. `refactor(go)`: share bus-number parsing with existing caller strictness, replace
