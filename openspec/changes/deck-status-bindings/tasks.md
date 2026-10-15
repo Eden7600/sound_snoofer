@@ -2,7 +2,7 @@
 
 - [x] 1. `docs(deck)`: review and commit this focused plan before implementation; wait for
   `gui-typescript-modules` to land.
-- [ ] 2. `fix(deck)`: add the shared Go compatibility rule, inert status input and focused
+- [x] 2. `fix(deck)`: add the shared Go compatibility rule, inert status input and focused
   regressions for validation, startup with audio present, editor options and fake hardware
   input. Retain missing-provider, geometry, save and stale-input checks.
 - [ ] 3. `fix(gui)`: align TypeScript compatibility and model/deck tests; update the UI contract's

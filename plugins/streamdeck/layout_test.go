@@ -34,10 +34,37 @@ func TestPages(t *testing.T) {
 	}
 }
 func TestBindingCompatibility(t *testing.T) {
-	l := Layout{Home: "a", Pages: []Page{{ID: "a", Name: "A"}}}
-	l.Pages[0].Dials[0] = Binding{Control: "p.command"}
-	if l.Validate([]snoofer.Control{{ID: "p.command", Operations: []string{"press"}}}) == nil {
-		t.Fatal("command bound to dial")
+	for _, tt := range []struct {
+		name      string
+		control   snoofer.Control
+		key, dial bool
+	}{
+		{"status", snoofer.Control{Kind: "status"}, true, false},
+		{"status with operations", snoofer.Control{Kind: "status", Operations: []string{"press", "adjust"}}, true, false},
+		{"hidden status", snoofer.Control{Kind: "status", Hidden: true}, true, false},
+		{"text", snoofer.Control{Kind: "text", Operations: []string{"press", "set", "adjust"}}, false, false},
+		{"command", snoofer.Control{Kind: "command", Operations: []string{"press"}}, true, false},
+		{"selection", snoofer.Control{Kind: "selection", Operations: []string{"set"}}, true, false},
+		{"gain", snoofer.Control{Kind: "numeric", Operations: []string{"adjust"}}, false, true},
+		{"gain with mute", snoofer.Control{Kind: "numeric", Operations: []string{"press", "adjust"}}, true, true},
+		{"connection", snoofer.Control{Kind: "connection"}, false, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.control.ID = "p.control"
+			for _, dial := range []bool{false, true} {
+				l := Layout{Home: "a", Pages: []Page{{ID: "a", Name: "A"}}}
+				want := tt.key
+				if dial {
+					l.Pages[0].Dials[0] = Binding{Control: tt.control.ID}
+					want = tt.dial
+				} else {
+					l.Pages[0].Keys[0] = Binding{Control: tt.control.ID}
+				}
+				if err := l.Validate([]snoofer.Control{tt.control}); (err == nil) != want {
+					t.Fatalf("dial=%v: valid=%v, want %v: %v", dial, err == nil, want, err)
+				}
+			}
+		})
 	}
 }
 

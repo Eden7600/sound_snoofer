@@ -192,6 +192,21 @@ func (l *Layout) remove(id string) error {
 	return nil
 }
 
+// bindingCompatible is shared by layout validation and editor choices.
+// Status controls occupy keys for display only, regardless of advertised actions.
+func bindingCompatible(c snoofer.Control, dial bool) bool {
+	if c.Kind == "text" {
+		return false
+	}
+	if c.Kind == "status" {
+		return !dial
+	}
+	if dial {
+		return slices.Contains(c.Operations, "adjust")
+	}
+	return slices.Contains(c.Operations, "press") || slices.Contains(c.Operations, "set")
+}
+
 // Validate rejects collisions and incompatible controls; missing providers remain valid.
 func (l Layout) Validate(controls []snoofer.Control) error {
 	if len(l.Pages) == 0 || l.index(l.Home) < 0 {
@@ -222,11 +237,7 @@ func (l Layout) Validate(controls []snoofer.Control) error {
 				if c.Kind == "text" {
 					return fmt.Errorf("%s needs text entry and has no deck position", c.Label)
 				}
-				op := "press"
-				if dial {
-					op = "adjust"
-				}
-				if !slices.Contains(c.Operations, op) && !(!dial && slices.Contains(c.Operations, "set")) {
+				if !bindingCompatible(c, dial) {
 					return fmt.Errorf("%s does not support this position", c.Label)
 				}
 			}

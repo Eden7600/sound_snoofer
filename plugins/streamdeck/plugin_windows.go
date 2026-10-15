@@ -364,10 +364,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 				if strings.HasPrefix(c.ID, "streamdeck.") && !strings.HasPrefix(c.ID, gotoPrefix) && !strings.HasPrefix(c.ID, scrollPrefix) && c.ID != resetFocusID {
 					continue
 				}
-				if c.Kind == "text" {
-					continue // Text entry has no deck position.
-				}
-				if (slot < sh.keys && (slices.Contains(c.Operations, "press") || slices.Contains(c.Operations, "set"))) || (slot >= sh.keys && slices.Contains(c.Operations, "adjust")) {
+				if bindingCompatible(c, slot >= sh.keys) {
 					ids = append(ids, c.ID)
 				}
 			}
@@ -708,6 +705,9 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 				if c.ID == resetFocusID {
 					resetFocus()
 					continue
+				}
+				if c.Kind == "status" {
+					continue // Display-only keys never create actions or pending holds.
 				}
 				r := snoofer.Request{ID: c.ID, Revision: c.Revision, Operation: "press"}
 				if event.Encoder < 0 && slices.Contains(c.Operations, "hold") {
