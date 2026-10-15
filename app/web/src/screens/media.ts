@@ -52,6 +52,7 @@ function mediaCard(id: string, parent: HTMLElement) {
     play = iconButton("play", "Play or Pause", () => press(id)),
     next = iconButton("skip-forward", "Next", () => press("nowplaying.next", id));
   const mute = button("Mute", () => press("nowplaying.mute", id), ui.toggle + " " + ui.small);
+  let playIcon = "play";
   play.dataset.part = "play";
   mute.dataset.part = "mute";
   viewKey(prev, id, "previous");
@@ -83,7 +84,11 @@ function mediaCard(id: string, parent: HTMLElement) {
     artist.hidden = !artist.textContent;
     source.textContent = s.App || "";
     card.dataset.focused = String(!!s.Focused);
-    play.replaceChildren(icon(s.Status === "Playing" ? "pause" : "play", "size-4 shrink-0"));
+    const nextPlayIcon = s.Status === "Playing" ? "pause" : "play";
+    if (nextPlayIcon !== playIcon) {
+      play.replaceChildren(icon(nextPlayIcon, "size-4 shrink-0"));
+      playIcon = nextPlayIcon;
+    }
     play.setAttribute("aria-label", (s.Status === "Playing" ? "Pause " : "Play ") + (s.Title || s.App || ""));
     seek.hidden = times.hidden = !s.DurationMs;
     seek.max = String(s.DurationMs || 0);

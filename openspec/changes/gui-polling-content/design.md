@@ -15,11 +15,15 @@ playback progress independently. Do not freeze an entire card or add a helper AP
 
 Focused tests select actual text in App Audio More, advance polling and relative
 time, and assert selection survives while Heard changes. Changed device/process
-details must still refresh. A Media test proves unchanged polling/metadata retains
-the same SVG, a playback transition updates icon and accessible label, and clicking
-still dispatches exactly one request. Existing progress and state-preservation
-tests remain relevant. Run new regressions before the source fix and retain the
-failure evidence, then run focused tests and frontend gates/full browser suite.
+details must still refresh. A Media test proves unchanged polling retains
+the same SVG through nonstructural artist/album updates, a playback transition
+updates icon and accessible label, and clicking still dispatches exactly one
+request. Existing progress and state-preservation
+tests remain relevant. A real title change also changes the control label and may
+rebuild the card under the existing layout key; do not change that policy or claim
+SVG identity across structural rebuilds. Run new regressions before the source fix
+and retain the failure evidence, then run focused tests and frontend gates/full
+browser suite.
 
 This enforces the existing stable-live-update contract. Preserve layout and visual
 classes; inspect the affected screens at the normal and minimum viewport through

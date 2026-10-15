@@ -15,11 +15,12 @@ Changed values SHALL remain visible using the existing labels and placeholders.
 - **THEN** the affected detail text refreshes without replacing unrelated rows
 
 ### Requirement: Media retains its transport icon until playback state changes
-Media SHALL replace a play/pause icon only when its displayed state changes while
-continuing to update metadata, accessible labels, progress and action availability.
+Within an existing card, Media SHALL replace a play/pause icon only when its
+displayed state changes while continuing to update metadata, accessible labels,
+progress and action availability.
 
-#### Scenario: Session receives an unchanged poll or new title
-- **WHEN** the playback state is unchanged across polling or a metadata update
+#### Scenario: Session receives an unchanged poll or nonstructural metadata update
+- **WHEN** the playback state is unchanged across polling or an artist/album update that does not rebuild the card
 - **THEN** the existing play/pause SVG remains attached
 - **AND** current labels and playback progress remain live
 

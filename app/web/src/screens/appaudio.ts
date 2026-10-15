@@ -99,6 +99,11 @@ function appStrip(id: string, parent: HTMLElement) {
   hide.dataset.part = "hide";
   viewKey(hide, id, initial.Label, "hide");
   const details = el("dl", "mt-3 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-1 text-[12px] text-muted");
+  const detailValues = ["Programs", "Devices", "Processes", "Sessions", "Rule", "Heard"].map((label) => {
+    const value = el("dd", "whitespace-pre-wrap break-all text-ink");
+    details.append(el("dt", "", label), value);
+    return value;
+  });
   more.append(renameRow, combineRow, el("div", ui.actions + " mt-2"), details);
   more.children[3]?.append(hide);
   // Rules naming programs into this app (its rename, combined programs);
@@ -151,16 +156,17 @@ function appStrip(id: string, parent: HTMLElement) {
     for (const b of [renameApply, combineApply, hide, rename, combine]) b.disabled ||= closed;
     renameApply.disabled ||= !rename.value.trim();
     combineApply.disabled ||= !combine.value;
-    details.replaceChildren();
-    for (const [label, text] of [
-      ["Programs", (a.Executables || []).join("\n")],
-      ["Devices", (a.Devices || []).join("\n")],
-      ["Processes", (a.PIDs || []).join(", ")],
-      ["Sessions", String(a.Sessions || 0)],
-      ["Rule", a.Rule || "None"],
-      ["Heard", a.LastHeard ? relativeTime(a.LastHeard) : "Not yet"],
-    ]) {
-      details.append(el("dt", "", label), el("dd", "whitespace-pre-wrap break-all text-ink", text || "—"));
+    const detailText = [
+      (a.Executables || []).join("\n"),
+      (a.Devices || []).join("\n"),
+      (a.PIDs || []).join(", "),
+      String(a.Sessions || 0),
+      a.Rule || "None",
+      a.LastHeard ? relativeTime(a.LastHeard) : "Not yet",
+    ];
+    for (const [n, node] of detailValues.entries()) {
+      const text = detailText[n] || "—";
+      if (node.textContent !== text) node.textContent = text;
     }
   });
 }
