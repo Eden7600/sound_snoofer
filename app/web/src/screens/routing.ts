@@ -4,6 +4,7 @@ import { request, press } from "../host.ts";
 import { display } from "../model.ts";
 import { commitSelect } from "../select.ts";
 import { viewKey } from "../view-state.ts";
+import { registerDraft } from "../draft.ts";
 import type { PriorityView, PriorityEntry, PrioritySuggestion, MicView, OutputSlotView } from "./routing-types.ts";
 
 // priorityEdit sends one change to a device priority list; Snoofer validates,
@@ -15,12 +16,19 @@ let drawnConfig = "";
 function routingKey<T extends HTMLElement>(node: T, ...parts: Array<string | number>) {
   return viewKey(node, "routing", drawnConfig, ...parts);
 }
-function listEdit(id: string, value: string) {
+function listEdit(id: string, value: string, revision?: number) {
   const control = c(id);
-  request(control, "set", value, 0, control?.Value === drawnConfig ? control.Revision : 0);
+  request(control, "set", value, 0, control?.Value === drawnConfig ? (revision ?? control.Revision) : 0);
 }
-function priorityEdit(list: string, op: string, index = 0, value = "", field = "") {
-  listEdit("audio.priority-edit", JSON.stringify({ list, op, index, value, field }));
+function priorityEdit(list: string, op: string, index = 0, value = "", field = "", revision?: number) {
+  listEdit("audio.priority-edit", JSON.stringify({ list, op, index, value, field }), revision);
+}
+function formRevision(id: string, ...drafts: Array<ReturnType<typeof registerDraft>>) {
+  const current = c(id)?.Revision;
+  return drafts.map((draft) => draft.revision).find((revision) => revision !== current) ?? current;
+}
+function deviceIdentity(device: PrioritySuggestion | undefined) {
+  return device && JSON.stringify([device.Driver, device.ID || device.Exact || device.Name]);
 }
 function editable() {
   return !appState.pending && !!c("audio.priority-edit")?.Available;
@@ -41,26 +49,32 @@ function matchBadge(entry: PriorityEntry, missing = "No match") {
 function patternField(
   value: string | undefined,
   label: string,
-  apply: (value: string) => void,
+  apply: (value: string, revision?: number) => void,
   key: Array<string | number>,
 ) {
   const wrap = el("div", "flex min-w-[min(100%,16rem)] flex-1 gap-[7px]"),
     input = el("input", "min-w-0 flex-1 font-mono text-xs"),
-    b = button("Apply", () => apply(input.value), ui.small);
+    b = button("Apply", () => apply(input.value, draft.revision), ui.small);
   input.type = "text";
   input.value = String(value);
   input.setAttribute("aria-label", label);
   input.spellcheck = false;
   routingKey(input, ...key, "field");
   routingKey(b, ...key, "apply");
+  const draft = registerDraft(input, {
+    observed: () => String(value),
+    revision: () => c("audio.priority-edit")?.Revision,
+    refresh: () => sync(),
+  });
   input.onkeydown = (e) => {
     if (e.key === "Enter") b.click();
     if (e.key === "Escape") {
-      input.value = String(value);
+      draft.cancel();
       input.blur();
     }
   };
   const sync = () => {
+    draft.sync();
     b.disabled = !editable() || input.value === value;
     input.disabled = !editable();
   };
@@ -179,7 +193,7 @@ function candidateRows(
       : patternField(
           entry.Pattern,
           title + " " + (n + 1) + " pattern",
-          (value) => priorityEdit(list, "set", n, value, "pattern"),
+          (value, revision) => priorityEdit(list, "set", n, value, "pattern", revision),
           [list, n, "pattern"],
         );
     field.classList.remove("min-w-[min(100%,16rem)]");
@@ -205,26 +219,32 @@ function textField(
   value: string,
   label: string,
   max: number,
-  apply: (value: string) => void,
+  apply: (value: string, revision?: number) => void,
   key: Array<string | number>,
 ) {
   const wrap = el("div", "flex min-w-[min(100%,12rem)] flex-1 gap-[7px]"),
     input = el("input", "min-w-0 flex-1"),
-    b = button("Apply", () => apply(input.value.trim()), ui.small);
+    b = button("Apply", () => apply(input.value.trim(), draft.revision), ui.small);
   input.type = "text";
   input.value = value;
   input.maxLength = max;
   routingKey(input, ...key, "field");
   routingKey(b, ...key, "apply");
   input.setAttribute("aria-label", label);
+  const draft = registerDraft(input, {
+    observed: () => value,
+    revision: () => c("audio.priority-edit")?.Revision,
+    refresh: () => sync(),
+  });
   input.onkeydown = (e) => {
     if (e.key === "Enter") b.click();
     if (e.key === "Escape") {
-      input.value = value;
+      draft.cancel();
       input.blur();
     }
   };
   const sync = () => {
+    draft.sync();
     b.hidden = input.value.trim() === value;
     b.disabled = !editable() || !input.value.trim() || b.hidden;
     input.disabled = !editable();
@@ -250,11 +270,13 @@ function micsCard(parent: HTMLElement, view: Partial<PriorityView>) {
         : badge(m.Option ? "Ready" : "Unavailable");
     state.dataset.part = "mic-state";
     row.append(
-      textField(m.Name, "Microphone " + (n + 1) + " name", 16, (v) => priorityEdit("mics", "set", n, v, "name"), [
-        "mics",
-        m.ID,
-        "name",
-      ]),
+      textField(
+        m.Name,
+        "Microphone " + (n + 1) + " name",
+        16,
+        (v, revision) => priorityEdit("mics", "set", n, v, "name", revision),
+        ["mics", m.ID, "name"],
+      ),
       micSource(m, n, view),
       readyToggle(m, n),
       state,
@@ -293,7 +315,14 @@ function micsCard(parent: HTMLElement, view: Partial<PriorityView>) {
       o.value = String(n);
       kind.append(o);
     });
+    const nameDraft = registerDraft(name, { revision: () => c("audio.priority-edit")?.Revision, refresh: update });
+    const sourceDraft = registerDraft(kind, {
+      revision: () => c("audio.priority-edit")?.Revision,
+      refresh: update,
+      choiceIdentity: (value) => (value === "" ? "interface" : deviceIdentity(devices[Number(value)])),
+    });
     const added = () => {
+      if (kind.selectedIndex < 0) return null;
       if (kind.value === "") return { name: name.value.trim() };
       const s = devices[Number(kind.value)];
       if (!s) return null;
@@ -307,7 +336,15 @@ function micsCard(parent: HTMLElement, view: Partial<PriorityView>) {
         "Add Microphone",
         () => {
           const value = added();
-          if (name.value.trim() && value) priorityEdit("mics", "add", 0, JSON.stringify(value));
+          if (name.value.trim() && value)
+            priorityEdit(
+              "mics",
+              "add",
+              0,
+              JSON.stringify(value),
+              "",
+              formRevision("audio.priority-edit", nameDraft, sourceDraft),
+            );
         },
         ui.small,
       ),
@@ -318,8 +355,9 @@ function micsCard(parent: HTMLElement, view: Partial<PriorityView>) {
     };
     name.addEventListener("input", update);
     updaters.push(() => {
+      nameDraft.sync();
       name.disabled = kind.disabled = !editable();
-      b.disabled = !editable() || !name.value.trim();
+      b.disabled = !editable() || !name.value.trim() || !added();
     });
     routingKey(b, "new-mic", "add");
     add.append(name, kind, b);
@@ -481,7 +519,7 @@ function interfaceCard(parent: HTMLElement, view: Partial<PriorityView>) {
         : patternField(
             entry.ASIOPattern,
             "Interface " + (n + 1) + " driver pattern",
-            (v) => priorityEdit("interfaces", "set", n, v, "asio_pattern"),
+            (v, revision) => priorityEdit("interfaces", "set", n, v, "asio_pattern", revision),
             ["interfaces", n, "asio_pattern"],
           ),
     );
@@ -492,7 +530,7 @@ function interfaceCard(parent: HTMLElement, view: Partial<PriorityView>) {
         : patternField(
             entry.PresencePattern,
             "Interface " + (n + 1) + " presence pattern",
-            (v) => priorityEdit("interfaces", "set", n, v, "presence_pattern"),
+            (v, revision) => priorityEdit("interfaces", "set", n, v, "presence_pattern", revision),
             ["interfaces", n, "presence_pattern"],
           ),
     );
@@ -532,8 +570,19 @@ function interfaceCard(parent: HTMLElement, view: Partial<PriorityView>) {
       o.value = String(n);
       input.append(o);
     });
+    const driverDraft = registerDraft(driver, {
+      revision: () => c("audio.priority-edit")?.Revision,
+      refresh: update,
+      choiceIdentity: (value) => deviceIdentity(drivers[Number(value)]),
+    });
+    const inputDraft = registerDraft(input, {
+      revision: () => c("audio.priority-edit")?.Revision,
+      refresh: update,
+      choiceIdentity: (value) => deviceIdentity(inputs[Number(value)]),
+    });
     // Both are saved by identity when Snoofer knows it, else as exact patterns.
     const added = () => {
+      if (driver.selectedIndex < 0 || input.selectedIndex < 0) return null;
       const d = drivers[Number(driver.value)],
         p = inputs[Number(input.value)];
       if (!d || !p) return null;
@@ -548,14 +597,23 @@ function interfaceCard(parent: HTMLElement, view: Partial<PriorityView>) {
         "Add",
         () => {
           const value = added();
-          if (value) priorityEdit("interfaces", "add", 0, JSON.stringify(value));
+          if (value)
+            priorityEdit(
+              "interfaces",
+              "add",
+              0,
+              JSON.stringify(value),
+              "",
+              formRevision("audio.priority-edit", driverDraft, inputDraft),
+            );
         },
         ui.small,
       ),
       "plus",
     );
     updaters.push(() => {
-      b.disabled = driver.disabled = input.disabled = !editable();
+      driver.disabled = input.disabled = !editable();
+      b.disabled = !editable() || !added();
     });
     routingKey(b, "new-interface", "add");
     add.append(el("h3", ui.stripTitle + " mb-0 basis-full", "Add Interface"), driver, input, b);
@@ -585,12 +643,20 @@ function micPriorityCard(parent: HTMLElement, view: Partial<PriorityView>) {
       o.value = id;
       select.append(o);
     }
+    const draft = registerDraft(select, { revision: () => c("audio.priority-edit")?.Revision, refresh: update });
     const b = withIcon(
-      button("Add", () => priorityEdit("microphones", "add", 0, select.value), ui.small),
+      button(
+        "Add",
+        () => {
+          if (select.selectedIndex >= 0) priorityEdit("microphones", "add", 0, select.value, "", draft.revision);
+        },
+        ui.small,
+      ),
       "plus",
     );
     updaters.push(() => {
-      b.disabled = select.disabled = !editable();
+      select.disabled = !editable();
+      b.disabled = !editable() || select.selectedIndex < 0;
     });
     routingKey(b, "microphones", "add");
     add.append(select, b);
@@ -615,8 +681,8 @@ const sourceIcons: Record<string, string> = {
 };
 const outputTones: Record<string, string> = { "In use": "active", "No output": "attention" };
 // outputEdit adds, renames, re-assigns or removes an output slot by ID.
-function outputEdit(op: string, id: string, value = "") {
-  listEdit("audio.output-edit", JSON.stringify({ op, id, value }));
+function outputEdit(op: string, id: string, value = "", revision?: number) {
+  listEdit("audio.output-edit", JSON.stringify({ op, id, value }), revision);
 }
 // routeCell is one source-to-destination switch; pressing it toggles (or
 // cycles Monitor on Playback). Moving focus never dispatches.
@@ -727,7 +793,12 @@ function outputsCard(parent: HTMLElement, view: Partial<PriorityView>) {
     rename.value = slot.Label;
     rename.maxLength = 16;
     rename.setAttribute("aria-label", "Rename " + slot.Label);
-    const apply = button("Rename", () => outputEdit("rename", slotID, rename.value.trim()), ui.small),
+    const draft = registerDraft(rename, {
+      observed: () => slot.Label,
+      revision: () => c("audio.output-edit")?.Revision,
+      refresh: update,
+    });
+    const apply = button("Rename", () => outputEdit("rename", slotID, rename.value.trim(), draft.revision), ui.small),
       remove = iconButton("trash-2", "Remove " + slot.Label, () => outputEdit("remove", slotID));
     remove.classList.add(ui.danger);
     routingKey(apply, "output", slotID, "rename");
@@ -740,6 +811,7 @@ function outputsCard(parent: HTMLElement, view: Partial<PriorityView>) {
     tools.append(el("div", "text-sm font-semibold", slot.Label), device, renameRow);
     editors.append(tools);
     updaters.push(() => {
+      draft.sync();
       for (const n of [device, rename, remove]) n.disabled = !editableOutputs();
       apply.disabled = !editableOutputs() || !rename.value.trim() || rename.value.trim() === slot.Label;
     });
@@ -791,17 +863,25 @@ function outputsCard(parent: HTMLElement, view: Partial<PriorityView>) {
       o.value = String(n);
       device.append(o);
     });
+    const nameDraft = registerDraft(name, { revision: () => c("audio.output-edit")?.Revision, refresh: update });
+    const deviceDraft = registerDraft(device, {
+      revision: () => c("audio.output-edit")?.Revision,
+      refresh: update,
+      choiceIdentity: (value) => (value === "" ? "none" : deviceIdentity(devices[Number(value)])),
+    });
     const added = () => {
+      if (device.selectedIndex < 0) return null;
+      if (device.value === "") return { name: name.value.trim() };
       const d = devices[Number(device.value)];
-      return d
-        ? { name: name.value.trim(), device: d.Name, ...(d.ID ? { device_id: d.ID } : {}) }
-        : { name: name.value.trim() };
+      return d ? { name: name.value.trim(), device: d.Name, ...(d.ID ? { device_id: d.ID } : {}) } : null;
     };
     const b = withIcon(
       button(
         "Add Output",
         () => {
-          if (name.value.trim()) outputEdit("add", "", JSON.stringify(added()));
+          const value = added();
+          if (name.value.trim() && value)
+            outputEdit("add", "", JSON.stringify(value), formRevision("audio.output-edit", nameDraft, deviceDraft));
         },
         ui.small,
       ),
@@ -811,8 +891,9 @@ function outputsCard(parent: HTMLElement, view: Partial<PriorityView>) {
       if (e.key === "Enter") b.click();
     };
     updaters.push(() => {
+      nameDraft.sync();
       name.disabled = device.disabled = !editableOutputs();
-      b.disabled = !editableOutputs() || !name.value.trim();
+      b.disabled = !editableOutputs() || !name.value.trim() || !added();
     });
     name.addEventListener("input", update);
     routingKey(b, "new-output", "add");

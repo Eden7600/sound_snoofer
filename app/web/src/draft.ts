@@ -4,6 +4,7 @@ interface Snapshot {
   revision: number | undefined;
   submitted: string | undefined;
   submissionContext: string | undefined;
+  choiceIdentity: string | undefined;
   selection?: [number | null, number | null, "forward" | "backward" | "none" | null];
 }
 interface Options {
@@ -12,6 +13,7 @@ interface Options {
   refresh?: () => void;
   submissionContext?: () => string;
   completed?: (submitted: string, context: string | undefined) => boolean;
+  choiceIdentity?: (value: string) => string | undefined;
 }
 const bindings = new WeakMap<HTMLElement, ReturnType<typeof registerDraft>>();
 
@@ -20,6 +22,12 @@ const bindings = new WeakMap<HTMLElement, ReturnType<typeof registerDraft>>();
 export function registerDraft(input: Field, options: Options) {
   const choice = input instanceof HTMLSelectElement;
   const observed = options.observed || (() => "");
+  const choiceIdentity = () =>
+    input instanceof HTMLSelectElement && input.selectedIndex >= 0
+      ? options.choiceIdentity
+        ? options.choiceIdentity(input.value)
+        : input.value
+      : undefined;
   let dirty = false;
   let revision: number | undefined;
   let submitted: string | undefined;
@@ -70,6 +78,7 @@ export function registerDraft(input: Field, options: Options) {
         revision,
         submitted,
         submissionContext,
+        choiceIdentity: choiceIdentity(),
         ...(input instanceof HTMLInputElement
           ? { selection: [input.selectionStart, input.selectionEnd, input.selectionDirection] as Snapshot["selection"] }
           : {}),
@@ -82,7 +91,10 @@ export function registerDraft(input: Field, options: Options) {
       dirty = true;
       if (
         input instanceof HTMLSelectElement &&
-        ![...input.options].some((option) => option.value === snapshot.value && !option.disabled)
+        (snapshot.choiceIdentity === undefined ||
+          ![...input.options].some((option) => option.value === snapshot.value && !option.disabled) ||
+          (options.choiceIdentity ? options.choiceIdentity(snapshot.value) : snapshot.value) !==
+            snapshot.choiceIdentity)
       ) {
         input.selectedIndex = -1;
         revision = undefined;
