@@ -37,6 +37,7 @@ func guiState(t *testing.T, live bool) (control.State, *Instance) {
 	}
 	i.running = cfg
 	s := priorityState()
+	s.MicMuteGeneration, s.PlaybackMuteGeneration = 1, 1
 	s.Intent = cfg.VoiceIntent()
 	s.Intent.PauseSends = true
 	s.Intent.Recording.MicEnabled = true

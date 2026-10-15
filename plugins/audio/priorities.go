@@ -206,8 +206,7 @@ func buildPriorityView(cfg config.Config, s control.State) priorityView {
 	return view
 }
 
-// priorityControls publishes the view and the edit control. The edit value
-// changes with every saved or failed edit, so a GUI waiting on it settles.
+// priorityControls publishes a view and edit controls from one settings snapshot.
 func (i *Instance) priorityControls(s control.State) []snoofer.Control {
 	i.mu.Lock()
 	cfg, raw, editErr := i.running, i.raw, i.editErr
@@ -230,7 +229,20 @@ func (i *Instance) priorityControls(s control.State) []snoofer.Control {
 }
 
 // editRequest is a queued settings edit: the edit control and its JSON value.
-type editRequest struct{ control, value string }
+type editRequest struct {
+	control, value string
+	expected       string // Exact published settings; indices must never rebase onto a newer list.
+	complete       snoofer.Completion
+}
+
+// editRejection distinguishes a refused edit from a failed save.
+type editRejection struct{ error }
+
+func (edit editRequest) finish(result snoofer.Outcome) {
+	if edit.complete != nil {
+		edit.complete(result)
+	}
+}
 
 // queueEdit hands an edit to the edit goroutine; requests must not block
 // control dispatch on file writes.
@@ -249,11 +261,28 @@ func (i *Instance) queueEdit(ctx context.Context, edit editRequest) error {
 // applied through the worker's reload; failures leave the running
 // configuration unchanged and are reported on the edit control.
 func (i *Instance) runEdits(ctx context.Context) {
+	defer func() {
+		for {
+			select {
+			case edit, ok := <-i.edits:
+				if !ok {
+					return
+				}
+				edit.finish(snoofer.Outcome{Status: snoofer.Unknown, Detail: "Audio stopped before reload"})
+			default:
+				return
+			}
+		}
+	}()
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case edit := <-i.edits:
+			if ctx.Err() != nil {
+				edit.finish(snoofer.Outcome{Status: snoofer.Unknown, Detail: "Audio stopped before save"})
+				return
+			}
 			err := i.applyEdit(edit)
 			i.mu.Lock()
 			i.editErr = ""
@@ -263,11 +292,23 @@ func (i *Instance) runEdits(ctx context.Context) {
 			i.mu.Unlock()
 			// A failure shows on the next published state.
 			if err != nil {
+				status := snoofer.Failed
+				var rejected editRejection
+				if errors.As(err, &rejected) {
+					status = snoofer.Rejected
+				}
+				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+					status = snoofer.Unknown
+				}
+				edit.finish(snoofer.Outcome{Status: status, Detail: err.Error()})
 				continue
 			}
+			reload := control.Reload
+			reload.Complete = edit.complete
 			select {
-			case i.actions <- control.Reload:
+			case i.actions <- reload:
 			case <-ctx.Done():
+				edit.finish(snoofer.Outcome{Status: snoofer.Unknown, Detail: "Audio stopped before reload"})
 				return
 			}
 		}
@@ -278,26 +319,29 @@ func (i *Instance) applyEdit(edit editRequest) error {
 	i.mu.Lock()
 	settings, raw, current := i.settings, i.raw, i.running
 	i.mu.Unlock()
+	if edit.expected != string(raw) {
+		return editRejection{errors.New("audio settings changed; try again")}
+	}
 	edited, err := editConfig(settings.Config, edit)
 	if err != nil {
-		return err
+		return editRejection{err}
 	}
 	settings.Config = edited
 	next, err := json.Marshal(settings)
 	if err != nil {
-		return err
+		return editRejection{err}
 	}
 	if err := validateSettings(next); err != nil {
-		return err
+		return editRejection{err}
 	}
 	running, err := i.prepare(settings)
 	if err != nil {
-		return err
+		return editRejection{err}
 	}
 	// The worker reloads with the saved choices; refuse an edit that breaks them,
 	// such as removing the selected microphone. Choices already broken stay editable.
 	if after := config.LoadChoices(i.statePath, running).StateError; after != "" && config.LoadChoices(i.statePath, current).StateError == "" {
-		return errors.New(after)
+		return editRejection{errors.New(after)}
 	}
 	if err := i.saveSettings("audio", raw, next); err != nil {
 		return err

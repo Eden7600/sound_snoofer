@@ -10,10 +10,10 @@
 - [x] 2.3 Test out-of-order/duplicate replies, full desktop/tray/provider queues, full result lane, state flooding, concurrent state/animation reads, cancellation, legacy fixture cleanup and late replies after reopen. Run focused Go tests and commit this checkpoint.
 
 ## 3. Audio ordering and worker results
-- [ ] 3.1 Add failing tests for both rapid mute orders, same-preference ABA, reload/reset/lifetime invalidation, external StateToken changes and unchanged contextual stale guards.
-- [ ] 3.2 Add worker-owned generations only for the two explicit global mute controls; capture explicit booleans/generations, advance them on every relevant mutation/boundary, and preserve registry revision plus save-before-apply CAS.
-- [ ] 3.3 Carry explicit completion through audio queue, worker branches, priority/output save→reload and audio-linked GUI adapters. Settle cancellation/stop/duplicate legacy paths without parsing Notice text or using GUI IDs as acknowledgment origins.
-- [ ] 3.4 Test delayed stale/save/reload/native errors, queue saturation, provider stop, and no replay of uncertain recorder/restart commands. Run focused audio/control tests and commit this checkpoint.
+- [x] 3.1 Add failing tests for both rapid mute orders, same-preference ABA, reload/reset/lifetime invalidation, external StateToken changes and unchanged contextual stale guards.
+- [x] 3.2 Add worker-owned generations only for the two explicit global mute controls; capture explicit booleans/generations, advance them on every relevant mutation/boundary, and preserve registry revision plus save-before-apply CAS.
+- [x] 3.3 Carry explicit completion through audio queue, worker branches, priority/output save→reload and audio-linked GUI adapters. Settle cancellation/stop/duplicate legacy paths without parsing Notice text or using GUI IDs as acknowledgment origins.
+- [x] 3.4 Test delayed stale/save/reload/native errors, queue saturation, provider stop, and no replay of uncertain recorder/restart commands. Run focused audio/control tests and commit this checkpoint.
 
 ## 4. Provider target capture and completion boundaries
 - [ ] 4.1 Add and verify Stream Deck editor, App Audio, Now Playing, Windows Media and AEC adapters according to the design matrix. Capture mutable semantic targets and reject changed/unavailable/recreated contexts before side effects. Commit the validated group.

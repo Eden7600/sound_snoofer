@@ -70,7 +70,7 @@ func TestOutputEdits(t *testing.T) {
 	i := editInstance(t, func(string, json.RawMessage, json.RawMessage) error { return nil })
 	edit := func(e config.OutputEdit) error {
 		value, _ := json.Marshal(e)
-		return i.applyEdit(editRequest{control: "audio.output-edit", value: string(value)})
+		return i.applyEdit(editRequest{expected: string(i.raw), control: "audio.output-edit", value: string(value)})
 	}
 	added, _ := json.Marshal(config.Output{Name: "Monitor output", Device: "Speakers (Arena)"})
 	if err := edit(config.OutputEdit{Op: "add", Value: string(added)}); err != nil {

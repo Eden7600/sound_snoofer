@@ -14,6 +14,7 @@ import (
 	"sound-snoofer/internal/routing"
 	"sound-snoofer/internal/voicemeeter"
 	"sound-snoofer/internal/windowsaudio"
+	"sound-snoofer/snoofer"
 )
 
 type Client interface {
@@ -83,6 +84,9 @@ type State struct {
 	NoticeUntil   time.Time
 	Snapshot      model.Snapshot
 	Plan          *routing.Plan
+
+	// Generations are separate only for the two global mute preferences.
+	MicMuteGeneration, PlaybackMuteGeneration uint64
 }
 
 type ActionKind int
@@ -102,6 +106,9 @@ const (
 )
 
 type Action struct {
+	// Complete reports the worker boundary; native observation remains in State.
+	Complete snoofer.Completion `json:"-"`
+
 	ResetGain bool
 	Origin    string
 	Target    string
@@ -114,6 +121,8 @@ type Action struct {
 	Kind       ActionKind
 	Row, Value string
 	Revision   uint64
+
+	MuteGeneration uint64
 }
 
 var ToggleLive = Action{Kind: toggleLive}
@@ -203,6 +212,19 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 	defer runtime.UnlockOSThread()
 	defer close(done)
 	defer close(states)
+	defer func() {
+		for {
+			select {
+			case action, ok := <-actions:
+				if !ok {
+					return
+				}
+				action.finish(snoofer.Outcome{Status: snoofer.Unknown, Detail: "Audio stopped before completion"})
+			default:
+				return
+			}
+		}
+	}()
 	var cleanupError error
 	defer func() {
 		if deps.OnStop != nil {
@@ -235,6 +257,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		deps.Load = config.LoadEffective
 	}
 	revision := uint64(1)
+	mutes := newMuteGenerations(cfg.VoiceIntent())
 	var release func()
 	var ctl *controller.Controller
 	var backend *observed
@@ -271,37 +294,38 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		}
 		defaultCancel()
 	}()
-	setLive := func(enable bool) {
+	setLive := func(enable bool) error {
 		if enable == state.Live {
-			return
+			return nil
 		}
 		if enable {
 			if cfg.StateError != "" {
 				state.SetNotice(cfg.StateError, NoticeError, time.Now())
-				return
+				return errors.New(cfg.StateError)
 			}
 			r, e := deps.Acquire()
 			if e != nil {
 				state.SetNotice(e.Error(), NoticeError, time.Now())
-				return
+				return e
 			}
 			release = r
 		} else if release != nil {
 			if err := configureCallback(false); err != nil {
 				state.SetNotice(err.Error(), NoticeError, time.Now())
-				return
+				return err
 			}
 			if err := revokeDefaults(); err != nil {
 				state.SetNotice(err.Error(), NoticeError, time.Now())
-				return
+				return err
 			}
 			release()
 			release = nil
 		}
 		state.Live = enable
 		state.SetNotice("", NoticeSuccess, time.Now())
+		return nil
 	}
-	setLive(live)
+	_ = setLive(live) // Initial failures remain visible in State.
 	defer func() {
 		if backend != nil {
 			if err := backend.Close(); err != nil {
@@ -436,6 +460,8 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 			state.OutputOptions = routing.PlaybackOptions(planning(), state.Snapshot)
 		}
 		state.Intent = cfg.VoiceIntent()
+		mutes.update(state.Intent, false)
+		state.MicMuteGeneration, state.PlaybackMuteGeneration = mutes.mic, mutes.playback
 		state.ActiveIntent = routing.ProfileConfig(planning(), state.Snapshot).VoiceIntent()
 		state.VRSourceOptions, state.VROutputOptions = vrOptions(cfg, state.Snapshot)
 		if cfg.Profiles != nil {
@@ -511,6 +537,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		if deps.Prepare != nil {
 			cfg = deps.Prepare(cfg)
 		}
+		mutes.update(cfg.VoiceIntent(), false)
 		pollAt := time.Now().Add(delay)
 		timer := time.NewTimer(delay)
 		select {
@@ -533,16 +560,19 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 			continue
 		case action := <-actions:
 			if ctx.Err() != nil {
+				action.finish(snoofer.Outcome{Status: snoofer.Unknown, Detail: "Audio stopped before completion"})
 				timer.Stop()
 				return
 			}
 			timer.Stop()
 			if action.Origin != "" && action.ID != 0 {
 				if seen[action.Origin] >= action.ID {
+					action.finish(snoofer.Outcome{Status: snoofer.Rejected, Detail: "Duplicate audio command"})
 					publish()
 					continue
 				}
 				if len(seen) >= 16 && seen[action.Origin] == 0 {
+					action.finish(snoofer.Outcome{Status: snoofer.Rejected, Detail: "Audio origin capacity full"})
 					continue
 				}
 				seen[action.Origin] = action.ID
@@ -554,21 +584,31 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 			if action.Origin != "" {
 				state.EditError = ""
 			}
+			result := snoofer.Outcome{Status: snoofer.Processed, Detail: "Processed"}
+			reject := func(detail string) {
+				result = snoofer.Outcome{Status: snoofer.Rejected, Detail: detail}
+				state.SetNotice(detail, NoticeError, time.Now())
+			}
+			fail := func(err error) {
+				result = failedOutcome(err)
+				state.SetNotice(err.Error(), NoticeError, time.Now())
+			}
 			noticeRevision := state.noticeRevision
 			state.actionFeedback(action, NoticePending, time.Now())
 			switch action.Kind {
 			case restartEngine:
 				if action.Revision != revision || (action.Confirm && (!state.RestartConfirmation || confirmRevision != revision)) {
-					state.SetNotice("Stale restart command; inspect status and try again", NoticeError, time.Now())
+					reject("Stale restart command; inspect status and try again")
 					break
 				}
 				if !state.Live {
-					state.SetNotice("Preview: engine restart not sent", NoticeSuccess, time.Now())
+					result = snoofer.Outcome{Status: snoofer.Rejected, Detail: "Preview: engine restart not sent"}
+					state.SetNotice(result.Detail, NoticeSuccess, time.Now())
 					break
 				}
 				state.RestartConfirmation = false
 				if ctl == nil || backend == nil {
-					state.SetNotice("Audio unavailable", NoticeError, time.Now())
+					reject("Audio unavailable")
 					break
 				}
 				recorder, err := backend.Recorder()
@@ -576,45 +616,48 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 					if !action.Confirm {
 						state.RestartConfirmation = true
 						confirmRevision = revision
-						state.SetNotice("Restart interrupts audio and may interrupt recording; select Confirm restart", NoticeError, time.Now())
+						reject("Restart interrupts audio and may interrupt recording; select Confirm restart")
 						break
 					}
 				}
 				err = recovery.restart(backend, state.Live, time.Now())
 				if err != nil {
-					state.SetNotice(err.Error(), NoticeError, time.Now())
+					fail(err)
 				} else {
 					revision++
-					state.SetNotice("Audio engine restart submitted", NoticePending, time.Now())
+					result = snoofer.Outcome{Status: snoofer.Submitted, Detail: "Audio engine restart submitted"}
+					state.SetNotice(result.Detail, NoticePending, time.Now())
 				}
 			case gain:
-				var err error
 				if recovery.pending || action.Revision != revision {
-					err = fmt.Errorf("gain pending or target revision changed")
-				} else if ctl == nil {
-					err = fmt.Errorf("audio unavailable")
+					reject("gain pending or target revision changed")
+					break
+				}
+				if ctl == nil {
+					reject("Audio unavailable")
+					break
+				}
+				var err error
+				if action.ResetGain {
+					err = ctl.ResetGain(ctx, action.Target, action.Identity, state.Live)
 				} else {
-					if action.ResetGain {
-						err = ctl.ResetGain(ctx, action.Target, action.Identity, state.Live)
-					} else {
-						err = ctl.Gain(ctx, action.Target, action.Identity, action.Delta, state.Live)
-					}
+					err = ctl.Gain(ctx, action.Target, action.Identity, action.Delta, state.Live)
 				}
 				if err != nil {
-					state.SetNotice(err.Error(), NoticeError, time.Now())
+					fail(err)
 				}
 
 			case startRecording, stopRecording, playSnippet, tape:
 				if recovery.pending {
-					state.SetNotice("Audio recovery in progress; transport not submitted", NoticeError, time.Now())
+					reject("Audio recovery in progress; transport not submitted")
 					break
 				}
 				if action.Revision != revision {
-					state.SetNotice("Stale recording command; inspect status and try again", NoticeError, time.Now())
+					reject("Stale recording command; inspect status and try again")
 					break
 				}
 				if ctl == nil {
-					state.SetNotice("Recorder unavailable", NoticeError, time.Now())
+					reject("Recorder unavailable")
 					break
 				}
 				state.SetNotice("Recorder pending", NoticePending, time.Now())
@@ -628,7 +671,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 					e = ctl.Record(ctx, action.Kind == startRecording, state.Live)
 				}
 				if e != nil {
-					state.SetNotice("Recorder: "+e.Error(), NoticeError, time.Now())
+					fail(fmt.Errorf("Recorder: %w", e))
 				} else {
 					state.SetNotice("Recorder verified", NoticeSuccess, time.Now())
 				}
@@ -636,9 +679,12 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				revision++
 			case toggleLive:
 				revision++
-				setLive(!state.Live)
+				if err := setLive(!state.Live); err != nil {
+					fail(err)
+				}
 				reset()
 			case reload:
+				mutes.update(cfg.VoiceIntent(), true)
 				updated, e := deps.Load(path)
 				if e == nil && updated.StateError != "" {
 					e = fmt.Errorf("%s", updated.StateError)
@@ -647,14 +693,15 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 					e = updated.ValidateEdition(backend.snapshot.Edition)
 				}
 				if e != nil {
-					state.SetNotice("Config reload failed: "+e.Error(), NoticeError, time.Now())
+					fail(fmt.Errorf("Config reload failed: %w", e))
 				} else {
 					if e := revokeDefaults(); e != nil {
-						state.SetNotice(e.Error(), NoticeError, time.Now())
+						fail(e)
 						break
 					}
 					cfg = updated
 					revision++
+					result.Detail = "Reloaded"
 					state.SetNotice("Reloaded", NoticeSuccess, time.Now())
 					reset()
 				}
@@ -663,15 +710,18 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 					state.EditAck = action.ID
 					state.EditError = ""
 				}
-				if action.Revision != revision {
+				if (action.MuteGeneration == 0 && action.Revision != revision) || (action.MuteGeneration != 0 && !mutes.matches(action)) {
 					state.EditError = "Stale rule command; try again"
-					state.SetNotice("Stale rule command; try again", NoticeError, time.Now())
+					reject("Stale rule command; try again")
 					break
+				}
+				if action.Kind == resetChoices {
+					mutes.update(cfg.VoiceIntent(), true)
 				}
 				next := cfg.VoiceIntent()
 				if next == nil {
 					state.EditError = "No voice profile configured"
-					state.SetNotice("No voice profile configured", NoticeError, time.Now())
+					reject("No voice profile configured")
 					break
 				}
 				var e error
@@ -732,6 +782,9 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 				if e == nil {
 					var token string
 					token, e = deps.Save(path, candidateConfig, next, candidateConfig.StateToken)
+					if e != nil {
+						result = failedOutcome(e)
+					}
 					if e == nil {
 						var revokeErr error
 						if old := cfg.VoiceIntent(); old != nil && old.ProtectDefaults && !next.ProtectDefaults {
@@ -741,6 +794,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 						cfg.Intent = next
 						cfg.StateToken = token
 						cfg.StateError = ""
+						result.Detail = "Saved"
 						revision++
 						reset()
 						if state.Live {
@@ -749,16 +803,20 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 							state.SetNotice("Saved · Preview", NoticeSuccess, time.Now())
 						}
 						if revokeErr != nil {
-							state.SetNotice("Saved; "+revokeErr.Error(), NoticeError, time.Now())
+							fail(fmt.Errorf("Saved; %w", revokeErr))
 						}
 					}
 				}
 				if e != nil {
 					state.EditError = e.Error()
+					if result.Status == snoofer.Processed {
+						result = snoofer.Outcome{Status: snoofer.Rejected, Detail: e.Error()}
+					}
 					state.SetNotice("Rule change rejected: "+e.Error(), NoticeError, time.Now())
 				}
 			case refresh:
 			}
+			action.finish(result)
 			resultKind := NoticeSuccess
 			if state.noticeRevision != noticeRevision && state.NoticeKind == NoticeError {
 				resultKind = NoticeError
@@ -968,4 +1026,18 @@ func vrOptions(cfg config.Config, snapshot model.Snapshot) (sources, outputs []s
 	}
 	sources = append(sources, cfg.Studio.MicrophoneIDs()...)
 	return sources, routing.PlaybackOptions(vrConfig, snapshot)
+}
+
+func (a Action) finish(result snoofer.Outcome) {
+	if a.Complete != nil {
+		a.Complete(result)
+	}
+}
+
+func failedOutcome(err error) snoofer.Outcome {
+	status := snoofer.Failed
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		status = snoofer.Unknown
+	}
+	return snoofer.Outcome{Status: status, Detail: err.Error()}
 }

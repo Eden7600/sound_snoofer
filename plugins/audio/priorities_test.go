@@ -120,7 +120,7 @@ func TestPriorityEditSavesThenReloads(t *testing.T) {
 	})
 	original := i.raw
 	value, _ := json.Marshal(config.PriorityEdit{List: config.ListPlayback, Op: "move", Index: 1, Value: "up"})
-	if err := i.applyEdit(editRequest{control: "audio.priority-edit", value: string(value)}); err != nil {
+	if err := i.applyEdit(editRequest{expected: string(i.raw), control: "audio.priority-edit", value: string(value)}); err != nil {
 		t.Fatal(err)
 	}
 	if string(expected) != string(original) || saved == nil {
@@ -147,12 +147,12 @@ func TestRefusedPriorityEdits(t *testing.T) {
 	})
 	before := i.running.Studio.Playback[0].Pattern
 	bad, _ := json.Marshal(config.PriorityEdit{List: config.ListPlayback, Op: "set", Field: "pattern", Value: "(unclosed"})
-	if err := i.applyEdit(editRequest{control: "audio.priority-edit", value: string(bad)}); err == nil || saves != 0 {
+	if err := i.applyEdit(editRequest{expected: string(i.raw), control: "audio.priority-edit", value: string(bad)}); err == nil || saves != 0 {
 		t.Fatal("invalid pattern saved", err, saves)
 	}
 	failSave = true
 	move, _ := json.Marshal(config.PriorityEdit{List: config.ListPlayback, Op: "move", Index: 1, Value: "up"})
-	if err := i.applyEdit(editRequest{control: "audio.priority-edit", value: string(move)}); err == nil || !strings.Contains(err.Error(), "reload") {
+	if err := i.applyEdit(editRequest{expected: string(i.raw), control: "audio.priority-edit", value: string(move)}); err == nil || !strings.Contains(err.Error(), "reload") {
 		t.Fatal("stale save accepted", err)
 	}
 	if i.running.Studio.Playback[0].Pattern != before {
@@ -168,8 +168,8 @@ func TestEditGoroutineReloadsOnlyAfterSave(t *testing.T) {
 	defer func() { cancel(); <-done }()
 	bad, _ := json.Marshal(config.PriorityEdit{List: config.ListPlayback, Op: "remove", Index: 9})
 	good, _ := json.Marshal(config.PriorityEdit{List: config.ListPlayback, Op: "remove", Index: 0})
-	i.edits <- editRequest{control: "audio.priority-edit", value: string(bad)}
-	i.edits <- editRequest{control: "audio.priority-edit", value: string(good)}
+	i.edits <- editRequest{expected: string(i.raw), control: "audio.priority-edit", value: string(bad)}
+	i.edits <- editRequest{expected: string(i.raw), control: "audio.priority-edit", value: string(good)}
 	if a := <-i.actions; a.Kind != control.Reload.Kind {
 		t.Fatal(a)
 	}
@@ -220,7 +220,7 @@ func TestOutputDeviceByIdentity(t *testing.T) {
 	i := editInstance(t, func(string, json.RawMessage, json.RawMessage) error { return nil })
 	edit := func(e config.OutputEdit) error {
 		value, _ := json.Marshal(e)
-		return i.applyEdit(editRequest{control: "audio.output-edit", value: string(value)})
+		return i.applyEdit(editRequest{expected: string(i.raw), control: "audio.output-edit", value: string(value)})
 	}
 	if err := edit(config.OutputEdit{Op: "add", Value: `{"name":"Music"}`}); err != nil {
 		t.Fatal(err)
@@ -269,7 +269,7 @@ func TestEditBreakingSavedChoicesIsRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 	remove, _ := json.Marshal(config.PriorityEdit{List: config.ListMics, Op: "remove", Index: 0})
-	if err := i.applyEdit(editRequest{control: "audio.priority-edit", value: string(remove)}); err == nil || saves != 0 {
+	if err := i.applyEdit(editRequest{expected: string(i.raw), control: "audio.priority-edit", value: string(remove)}); err == nil || saves != 0 {
 		t.Fatal("edit breaking saved choices was saved", err, saves)
 	}
 	if len(i.running.Studio.Mics()) != len(mics) {

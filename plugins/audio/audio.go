@@ -49,6 +49,7 @@ type Instance struct {
 	stopError              error
 	policy                 *config.ProfilePolicy
 	cancel                 context.CancelFunc
+	ctx                    context.Context // Provider lifetime for claimed worker completions.
 	done                   chan struct{}
 	actions                chan control.Action
 	mu                     sync.Mutex
@@ -139,7 +140,7 @@ func start(ctx context.Context, services snoofer.Services, raw json.RawMessage, 
 		}
 	}
 	runCtx, cancel := context.WithCancel(ctx)
-	i.cancel = cancel
+	i.cancel, i.ctx = cancel, runCtx
 	states := make(chan control.State, 1)
 	workerDone := make(chan struct{})
 	started := make(chan error, 1)
@@ -204,15 +205,18 @@ func start(ctx context.Context, services snoofer.Services, raw json.RawMessage, 
 			snapshot := s
 			published := append(controls(snapshot), slotControls(snapshot)...)
 			published = append(published, i.priorityControls(snapshot)...)
+			// The exact settings that produced this view, captured before registry dispatch.
+			editSettings := i.viewRaw
 			published = append(published, reports.reports(snapshot, time.Now())...)
 			_ = services.Controls.Publish("audio", published, func(ctx context.Context, r snoofer.Request) error {
 				if r.ID == "audio.priority-edit" || r.ID == "audio.output-edit" {
-					return i.queueEdit(ctx, editRequest{control: r.ID, value: r.Value})
+					return i.queueEdit(ctx, editRequest{control: r.ID, value: r.Value, expected: editSettings, complete: r.ClaimCompletion(runCtx)})
 				}
 				action, err := action(snapshot, r)
 				if err != nil {
 					return err
 				}
+				action.Complete = r.ClaimCompletion(runCtx)
 				if action.Kind == control.Gain {
 					action.Delta *= gainStep
 				}
@@ -442,6 +446,10 @@ func controls(s control.State) []snoofer.Control {
 		out[n].SurfaceOnly = out[n].Group == "Transport" || out[n].Group == "Bindings" || out[n].Group == "Diagnostics" || out[n].ID == "audio.playback-device" || out[n].ID == "audio.mic-device"
 		key := strings.TrimPrefix(out[n].ID, "audio.")
 		switch key {
+		case "mic-mute":
+			out[n].Epoch = s.MicMuteGeneration
+		case "speaker-mute":
+			out[n].Epoch = s.PlaybackMuteGeneration
 		case "source", "normal-source", "vr-profile-source":
 			out[n].OptionLabels = map[string]string{"auto": "Automatic", "off": "Off"}
 			for id, label := range s.ChoiceLabels {
@@ -542,6 +550,11 @@ func action(s control.State, r snoofer.Request) (control.Action, error) {
 		}
 	}
 	a := control.Action{Origin: "snoofer", Revision: s.Revision, Kind: control.Edit, Row: key, Value: r.Value}
+	if key == "mic-mute" {
+		a.MuteGeneration = s.MicMuteGeneration
+	} else if key == "speaker-mute" {
+		a.MuteGeneration = s.PlaybackMuteGeneration
+	}
 	if strings.HasPrefix(key, "gain-") {
 		target := strings.TrimPrefix(key, "gain-")
 		if r.Operation == "adjust" {
@@ -588,7 +601,8 @@ func action(s control.State, r snoofer.Request) (control.Action, error) {
 		}
 		return a, nil
 	case "speaker-mute":
-		return control.ToggleMute(s, key), nil
+		a.Value = control.ToggleMute(s, key).Value
+		return a, nil
 	}
 	if r.Operation == "press" {
 		for _, c := range controls(s) {

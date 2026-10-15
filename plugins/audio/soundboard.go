@@ -125,6 +125,7 @@ func (i *Instance) SoundboardVolume() (snoofer.Control, func(context.Context, sn
 			return fmt.Errorf("unsupported volume operation")
 		}
 		a := action
+		a.Complete = r.ClaimCompletion(i.ctx)
 		a.ResetGain = r.Operation == "press"
 		a.Delta = float32(r.Delta)
 		select {

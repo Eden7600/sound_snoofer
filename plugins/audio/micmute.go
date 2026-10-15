@@ -6,13 +6,15 @@ import (
 
 	"sound-snoofer/internal/control"
 	"sound-snoofer/internal/routing"
+	"sound-snoofer/snoofer"
 )
 
 // MicMute is the Mic mute preference and how far Voicemeeter has applied it.
 type MicMute struct {
-	Known   bool // A preference is loaded.
-	Muted   bool // The preference.
-	Applied bool // Voicemeeter reads back the preference, or has nothing to mute.
+	Revision uint64 // Captured worker revision for a linked GUI action.
+	Known    bool   // A preference is loaded.
+	Muted    bool   // The preference.
+	Applied  bool   // Voicemeeter reads back the preference, or has nothing to mute.
 }
 
 // MicMute reports the current Mic mute preference.
@@ -27,7 +29,7 @@ func (i *Instance) MicMute() MicMute {
 	parameters, _, _ := routing.MuteTargets(s.Intent, s.Plan, "mic-mute")
 	observed, _ := control.ObserveMute(s, "mic-mute")
 	applied := len(parameters) == 0 || (observed.Known && !observed.Pending && observed.Muted == s.Intent.MicMuted)
-	return MicMute{Known: true, Muted: s.Intent.MicMuted, Applied: applied}
+	return MicMute{Revision: s.Revision, Known: true, Muted: s.Intent.MicMuted, Applied: applied}
 }
 
 // SetMicMute requests a Mic mute preference through the audio worker, as
@@ -37,7 +39,13 @@ func (i *Instance) SetMicMute(muted bool, origin string) error {
 	i.mu.Lock()
 	revision := i.state.Revision
 	i.mu.Unlock()
-	a := control.Action{Origin: origin, Revision: revision, Kind: control.Edit, Row: "mic-mute", Value: strconv.FormatBool(muted)}
+	return i.SetMicMuteWithResult(muted, origin, revision, nil)
+}
+
+// SetMicMuteWithResult retains the caller's captured revision and reports the save boundary.
+// Linked mute never opts into the explicit global controls' independent policy.
+func (i *Instance) SetMicMuteWithResult(muted bool, origin string, revision uint64, complete snoofer.Completion) error {
+	a := control.Action{Origin: origin, Revision: revision, Kind: control.Edit, Row: "mic-mute", Value: strconv.FormatBool(muted), Complete: complete}
 	select {
 	case i.actions <- a:
 		return nil
