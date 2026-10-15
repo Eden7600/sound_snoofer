@@ -53,6 +53,13 @@ SHALL retain their exact transport identity and explicit single-action guards.
 - **WHEN** intent, call lifetime, known state or control revision changes before a write
 - **THEN** obsolete unsent work is rejected or canceled without retargeting
 
+#### Scenario: Retired uncertainty reaches the source-history bound
+- **WHEN** 128 active or unresolved source slots are retained for a provider
+- **THEN** excess new slots are refused with a visible diagnostic without evicting
+  unresolved fences into automatic replay
+- **AND** absent calls are still retired and admitted calls refreshed, so departed
+  calls cannot keep an old camera period alive
+
 #### Scenario: Discord deafen or unknown camera
 - **WHEN** Discord reports synthetic mute while deafened or unknown camera state
 - **THEN** synthetic mute is excluded from shared adoption and unknown camera cannot

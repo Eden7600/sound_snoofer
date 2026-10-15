@@ -119,3 +119,12 @@ GUI uses those readouts; aliases may mirror the corresponding shared controls.
 The host supplies the Meetings display label alongside registered plugin labels,
 so shared controls are named consistently in binding selection and Diagnostics.
 It does not add a separate enable/disable plugin or alter provider gates.
+
+## Bounded source history
+Retain at most 128 active and retired source slots per provider (a report itself
+contains at most 64). Prune departed slots once no pending work or unresolved
+uncertainty remains. Never evict an unresolved fence just to admit a new slot.
+If the bound is reached, retire absent peers and refresh admitted peers from the
+current report, refuse only excess new slots, and report the capacity error. This
+must not retain vanished calls in the camera period. Fresh shared intent may
+clear retired fences and reclaim their history; reconnect alone may not.
