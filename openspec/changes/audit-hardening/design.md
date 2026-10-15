@@ -67,3 +67,42 @@ cause or repair. The initial failed stop remains failed evidence.
 
 ## Initial-report diagnostic probe
 Before the first-input repair, the session ignored current-report query and decode failures; its fallback intentionally consumed the first valid key report. The confirmed Plus XL first-press failure requires distinguishing refused, malformed and valid initial reports. Add a separate SNOOFER_DECK_BASELINE_PROBE opt-in test that discovers and opens supported decks, logs the current-input result and bounded raw report prefix, and validates a fresh Decoder against successful reports. It issues no image, feature, key or media writes and never runs in default tests. Root runs it with the production host gracefully stopped and a disposable go test timeout, then restores the same host configuration. A hung native query may time out that isolated test process; never terminate the production audio host. The probe is evidence only and does not change runtime behavior. Specify any resulting repair before implementing it.
+
+## Opt-in second-deck refusal acceptance
+Exercise the existing per-path open-error behavior against two real decks using a
+temporary external holder, without changing production code or default tests. The
+helper lives in the coordinating chat's scratch directory and runs only on explicit
+invocation with a selected serial. Use existing HID discovery/model/serial metadata
+helpers, through a scratch Go test overlay if convenient. Resolve exactly one known
+deck serial to its verified supported model and exact HID path; ambiguous or missing
+matches abort. Close discovery handles before acquiring the hold. Do not claim that
+holding an arbitrary collection represents refusal of the intended deck.
+
+Root records the canonical host launch configuration, stops that host normally with
+scripts/stop.ps1 and waits for successful exit. The holder opens only the verified
+path with GENERIC_READ, sharing mode 0 and OPEN_EXISTING. Its non-inheritable handle
+issues no input reads, output writes, feature reports or current-input queries.
+Require an immediate second open using production access/share flags to fail with
+Win32 ERROR_SHARING_VIOLATION (32); close that second handle if it unexpectedly opens
+and report unsuccessful setup. A metadata-only access-0 handle is not sufficient
+proof of exclusivity. Failure to acquire the hold aborts without closing unrelated
+applications, disabling devices or broadening the target.
+
+The holder has a checked explicit release signal and a hard lifetime of at most 90
+seconds from acquisition. It owns the handle through defer/finally and closes it on
+release, deadline and every error path. Log acquisition, verified refusal and release;
+the coordinating shell must remain free to restore the host and signal release. Use
+no unbounded interactive wait or inherited handle. This is an opt-in acceptance tool,
+not a permanent hook, alternate application build or change to HID sharing policy.
+
+While the hold is active, root starts the existing canonical executable with the same
+configuration. Verify that the selected path's connection error appears while the
+other serial remains connected and responds to a known non-destructive physical
+control. Then release the holder, confirm its clean exit and observe normal rescan
+recovery: the selected serial connects, its temporary path error disappears and the
+other deck remains usable. Cleanup always releases the hold and restores/verifies
+the prior host configuration; never force-terminate the audio host. If the deadline
+expires before the refusal and unaffected-deck observations, record incomplete
+acceptance instead of inferring success. Record real sharing-error, GUI, physical
+input and recovery evidence separately. This completes only the refused-second-deck
+component of task 11; frozen-player acceptance remains separate.

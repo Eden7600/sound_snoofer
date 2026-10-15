@@ -43,3 +43,15 @@ error. Voicemeeter/Recorder retained the actual disconnect-gap error as history.
 the real Voicemeeter process-restart component. First Deck key/dial presses are already verified
 in task 15; a refused second Deck and frozen media-player acceptance remain open. Startup with
 Voicemeeter absent is separately pending in audit-reliability-fixes task 16.
+
+## Second-deck refusal acceptance helper
+- [ ] 16. Prepare the explicitly invoked scratch-only HID holder after this plan is
+  committed: resolve one verified serial/model/path, acquire a read-only exclusive
+  handle without report I/O, prove Win32 sharing error 32, and guarantee explicit
+  release plus an at-most-90-second deadline and handle cleanup. No production or
+  default-test behavior changes.
+- [ ] 17. Root coordinates graceful stop and same-config canonical host restart with
+  the holder active; observe the refused path error and the other deck's physical
+  operation, release the holder, and verify normal recovery/temporary-error removal.
+  Confirm helper exit and restored host configuration even on unsuccessful setup.
+  Record the component result without completing task 11's frozen-player check.
