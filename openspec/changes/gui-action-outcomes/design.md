@@ -280,3 +280,19 @@ and personal configuration. The user has lifted the temporary running-app restri
 coordinating agent schedules canonical build/restart, WebView2 and real-device checks after stable
 source checkpoints. Keep each unperformed check open. Do not treat source-served browser tests
 as native acceptance.
+
+### Live delayed-native-error acceptance
+Use the normal Soundboard GUI and production Media Foundation decoder with one disposable,
+uniquely named regular `.mp3` containing invalid media. First verify Soundboard is idle and
+ready. Create the new file without replacing any existing file in the configured clip folder;
+its unique identity must have no normalized cache. Wait for the normal catalogue refresh and
+press the clip once. The catalogue checks extension and file metadata, so unchanged input
+reaches the asynchronous native normalization path without a test hook or configuration edit.
+
+Count this check only when the originating Soundboard action reports Failed with the actual
+Media Foundation normalization HRESULT. A stale/readiness refusal or file/cache I/O error
+does not establish native decoder failure. No playback should start. This verifies a native
+error returned after enqueue; it need not exceed the GUI timeout and does not verify Unknown,
+an uncertain one-shot or no replay. Remove only the exact disposable file afterward and
+confirm its catalogue entry disappears. Preserve user media, configuration and current
+audio choices throughout; leave the other task 6.3 checks open.
