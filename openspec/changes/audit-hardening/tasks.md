@@ -4,7 +4,7 @@
 - [x] 2. `fix(gui)`: send priority and output edits from older lists as stale; GUI check (a targeted browser regression test belongs to `gui-test-harness`).
 - [ ] 3. `fix(nowplaying)`: bound WinRT media calls; build the media helper.
 - [x] 4. `fix(build)`: stage all selected companions/models/licenses until esbuild, Tailwind and Go succeed; preserve the sole application output `bin/snoofer.exe`; repair neural-AEC setup; test failure/success/tagged paths and interrupted dependency recovery with isolated fake commands.
-- [ ] 5. `fix(voicemeeter)`: treat "no callback registered" as a clean stop; callback probe.
+- [x] 5. `fix(voicemeeter)`: treat "no callback registered" as a clean stop; callback probe.
 - [x] 6. `fix(deck)`: seed the key baseline from the current input report.
 - [ ] 7. `fix(deck)`: report every deck path that fails to open; retire temporary path reports on recovery/removal; surface and report-lifecycle tests.
 - [x] 8. `fix(hue)`: ignore light-write results from before a room change; test.

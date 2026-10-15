@@ -55,7 +55,7 @@ __declspec(dllexport) long __stdcall SnooferStop(void) {
     if (unregistered != 0 && unregistered != 1) return unregistered;
     registered = 0;
     timing = release_timing();
-    return stopped ? stopped : timing;
+    return (stopped && stopped != -2) ? stopped : timing;
 }
 
 /* SnooferSetInsert installs (or, with nulls, removes) the insert stages used

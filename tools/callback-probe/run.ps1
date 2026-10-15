@@ -16,12 +16,16 @@ try {
 call "$vcvars" >nul
 if errorlevel 1 exit /b 1
 cl /nologo /W4 /WX /O2 /std:c11 /Fo.local\stall-probe\callback-probe.obj /Fe.local\stall-probe\callback-probe.exe tools\callback-probe\probe.c
+if errorlevel 1 exit /b 1
+cl /nologo /W4 /WX /O2 /std:c11 /Fo.local\stall-probe\stop-test.obj /Fe.local\stall-probe\stop-test.exe tools\callback-probe\stop_test.c
 "@ | Set-Content -LiteralPath $build
     & $env:ComSpec /d /c $build
     if ($LASTEXITCODE -ne 0) { throw 'Probe compilation failed. Check MSVC and Windows SDK installation.' }
     $exe = Join-Path $out 'callback-probe.exe'
     & $exe --self-test
     if ($LASTEXITCODE -ne 0) { throw 'Callback probe self-test failed; live capture refused.' }
+    & (Join-Path $out 'stop-test.exe')
+    if ($LASTEXITCODE -ne 0) { throw 'Callback stop self-test failed; live capture refused.' }
     if ($Observe -or $Paired) {
         $uninstall = Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\VB:Voicemeeter {17359A74-1236-5467}' -ErrorAction SilentlyContinue
         # Same installation discovery source as the Go adapter.

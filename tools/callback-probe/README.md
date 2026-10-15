@@ -15,7 +15,7 @@ The output-insert callback copies samples unchanged and counts callbacks, synchr
 
 Compare captures during confirmed healthy silence, audible playback and a reproduced stall. `buffers` counts cumulative buffer callbacks, `synced` counts callbacks whose SDK synchronization flag equals one. Counts advancing do not prove physical audio output, and zero callbacks do not prove an engine stall without a healthy baseline and successful registration/start. `invalid` or `unknown` abort observation; malformed buffers cannot be safely passed through and make the run invalid. `change` is a stream-change notification, not independently a fault.
 
-The executable supports `--self-test` without loading the native DLL. Its checks cover x64 layout, bitwise sample preservation, aliased buffers, synchronization counters, malformed input and lifecycle events. The runner compiles with warnings as errors and executes these checks before any live run.
+The executable supports `--self-test` without loading the native DLL. Its checks cover x64 layout, bitwise sample preservation, aliased buffers, synchronization counters, malformed input and lifecycle events. A separate stop self-test calls production SnooferStop with fake callbacks, covering an already-unregistered callback, stop errors, unregister failure and repeated stop. It does not load Voicemeeter. The runner compiles with warnings as errors and executes these checks before any live run.
 
 ABI and semantics: https://github.com/vburel2018/Voicemeeter-SDK/blob/main/VoicemeeterRemote.h and https://download.vb-audio.com/Download_CABLE/VoicemeeterRemoteAPI.pdf (pages 21â€“26).
 
@@ -34,7 +34,7 @@ $env:SNOOFER_PROBE_MONITOR = Join-Path $pwd 'bin/snoofer-audio-monitor.dll'
 ```
 
 The deployed monitor owns registration. Neural processing observes input channels
-0/1 and output channels 0–7; original input samples are restored, including aliased
+0/1 and output channels 0ï¿½7; original input samples are restored, including aliased
 buffers. No audio is saved. The probe requires Active at the end and verifies
 duplicate start refusal, repeated stop, and restoration of prior process power
 policy. Unset the three environment variables afterward and restore Snoofer.
