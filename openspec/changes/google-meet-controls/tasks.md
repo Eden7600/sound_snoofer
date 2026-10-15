@@ -68,9 +68,8 @@ admission/injection; other sites retain their existing media behavior.
 
 The user wants Meet combined into the controls already on the Meetings page,
 instead of a new page. Existing keys are Discord-specific; only Discord mute
-currently links to global Mic Mute. The intended behavior when Discord and Meet
-are both active remains to be clarified: one selected call/app, both together,
-or separate controls on the same page. Do not infer fan-out or unmute linking.
+currently links to global Mic Mute. The user resolved this as universal bidirectional mute/camera targets.
+Implementation and verification now follow ../universal-meeting-state/tasks.md.
 
 - [ ] 8. Resolve that control behavior, amend the design/UI contract before any
   behavior change, implement and verify the requested Meetings integration, then

@@ -140,26 +140,34 @@ Lights screen: setup banner only while something needs doing (Enable, Pair with 
 ![Lights screen](design/gui-lights.png)
 
 ## Meetings
-Meetings shows independent Discord and Google Meet cards. Each card uses its own
-plugin lifecycle gate, so one provider being Off, Starting or failed never hides
-the other. Google Meet shows the observed call, a Call selector, Mute and Camera.
-Mute On means Meet's local mic is muted; Camera On means Meet reports its camera
-on. Unknown is unavailable and never shown as Off. Actions retain the existing
-Sending/result feedback; pending does not replace observed state. Call choices use
-browser and tab number, without meeting names or codes. Losing the selected call
-requires explicit reselection and never falls back to another call.
+Meetings exposes one shared Mute and Camera target for all compatible joined calls.
+Mute On means the shared muted intent; Camera On means the shared camera-on intent.
+Use the existing mic/camera symbols and terse labels. Target values remain visible
+while Pending or Not confirmed; target acceptance is distinct from all apps having
+observed that state. Unknown is N/A, never Off. Camera is unavailable without a
+known eligible call state and is discarded when the last compatible call ends.
 
-Meet controls do not change global or Discord mute. When available audio state
-shows upstream inhibition, the Meet card separately displays Source muted or Mic
-Stack off; local unmute is not a claim that audio reaches the call. Reuse the mic
-and camera symbols for bindable Meet controls, keep call status readable, and
-leave all default and personal deck positions unchanged. Third-Party Apps owns
-Meet connection diagnostics; Plugins owns lifecycle actions.
+Discord and Google Meet cards retain independent lifecycle gates and show actual
+per-app state. One provider being Off, Starting or failed never hides the other or
+the shared controls. The Meet Call selector is for its observed details; it does
+not limit universal synchronization to one tab. Call choices use browser and tab
+number without meeting names or codes. Source muted/Mic Stack off remains distinct
+from app-local state. Third-party Apps owns connection diagnostics; Plugins owns
+lifecycle actions.
 
-Discord card: the voice channel (or Not in a call) under the title, the setup hint while credentials are missing, Connect while Discord needs approval, then Mute, Deafen, Camera, Screen share and Leave call; Camera, Screen share and Leave need a call. Discord mute is the Mic mute preference, so its key reuses the mic symbol and mirrors Mic mute in automatic layouts. The Meetings deck page puts the call on row 1, with Leave alone at c9; Home reaches it in one press. Deck symbols: a video camera for Discord camera (slashed and neutral while off), headphones for Deafen (slashed and red while deafened), a screen with a rising arrow for Share, and a hung-up handset for Leave. Selection keys show option labels.
+Changing mute/camera in a compatible app updates shared intent and the other apps.
+Snoofer's saved Mic Mute remains the durable mute authority when audio is available;
+audio-absent operation uses runtime mute intent. Discord deafening retains its
+existing synthetic-mute exception. Discord-only Deafen, Screen Share and Leave Call
+remain local to Discord. Its setup/Connect affordances remain unchanged.
 
+Existing saved Discord/Meet mute and camera bindings request shared intent. The
+user's Plus XL Meetings Mute/Camera positions remain, now targeting shared controls;
+Leave stays apart at c9. Do not change shipped defaults or smaller deck layouts.
+
+Historical Discord-only renderer references (the current shared surface is verified
+by automated layouts and native previews):
 ![Meetings keys](design/meetings.png)
-
 ![Meetings screen](design/gui-meetings.png)
 
 ## Third-party apps
@@ -168,6 +176,11 @@ One card per connection report, grouped by plugin: app name, state badge, endpoi
 ![Third-party apps](design/gui-apps.png)
 
 ## Personal layout
+User amendment 2026-10-15: Plus XL Home Like at r1c9 and Dislike at r2c9 supersede
+the older assignments listed below. Apply only these requested positions and the
+shared Meetings Mute/Camera bindings during the approved live session. Smaller
+decks remain unchanged for later redesign.
+
 Positions are row/column (r1c1 top-left). Home: Open controls at r4c5; Sync, Mode, Intensity and Brightness (press toggles the room) at r1c6–c9; Motion at r2c9; go-to Meetings, Soundboard and Lights at r4c6, r4c8 and r4c9. Lights: Room, Brightness, Motion, Sort, Sync, Mode, Intensity at r1c1–c7, room scenes region r2–r4. Soundboard: clips region r1–r4 c1–c8, Overlap r1c9, Stop r4c9. Meetings: Mute, Deafen, Camera and Share at r1c1–c4, Leave at r1c9. Chosen rooms: Cody Office. Dials: Playback (1), Mic (2), Brightness (5) on Home; Playback (1), Saturation (2), Decor (3), Mixed (4), Brightness (5) on Lights; Playback and Mic on Meetings; 3 and 4 unassigned; dial 6 is pagination. Soundboard dial 1 is Volume. This is a user-owned layout choice; do not relocate it during builds or overwrite other users' layouts.
 
 ## Routing

@@ -30,3 +30,6 @@ placement request; it does not authorize unrelated layout migration.
 On the smaller Plus, the corresponding r1c4/r2c4 slots currently hold Record and
 Go to Meetings. Whether to replace these or limit the request to Plus XL is
 awaiting the user's answer. No live layout has been changed.
+
+Placement resolved: apply only to Plus XL. Smaller-deck layouts remain unchanged
+for a later redesign; no Record or Meetings shortcut is replaced there.

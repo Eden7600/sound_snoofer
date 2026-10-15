@@ -1,5 +1,10 @@
 # Google Meet controls
 
+The user superseded the independent/selected-only mute and camera policy on
+2026-10-15 with [universal meeting state](../universal-meeting-state/design.md).
+The transport and DOM safety contract remains; that follow-up owns shared intent,
+all-call synchronization and the requested personal placement.
+
 ## Status
 
 The transport/source design and approved disposable-call feasibility checkpoint
