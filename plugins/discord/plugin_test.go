@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -145,8 +146,15 @@ func (d *fakeDiscord) received() []string {
 // tokenServer issues rotating tokens; refresh token "bad" is invalid.
 func tokenServer(t *testing.T) *httptest.Server {
 	t.Helper()
+	// Refresh tokens rotate and are single-use, like Discord's.
+	var mu sync.Mutex
+	used := map[string]bool{}
+	next := 2
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = r.ParseForm()
+		mu.Lock()
+		defer mu.Unlock()
+		refresh := r.Form.Get("refresh_token")
 		if r.Form.Get("client_secret") != "secret" {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
@@ -154,11 +162,13 @@ func tokenServer(t *testing.T) *httptest.Server {
 		switch {
 		case r.Form.Get("grant_type") == "authorization_code" && r.Form.Get("code") == "abc" && r.Form.Get("redirect_uri") == "http://127.0.0.1":
 			_, _ = io.WriteString(w, `{"access_token":"A1","refresh_token":"R1"}`)
-		case r.Form.Get("grant_type") == "refresh_token" && r.Form.Get("refresh_token") == "bad":
+		case r.Form.Get("grant_type") == "refresh_token" && (refresh == "bad" || used[refresh]):
 			w.WriteHeader(http.StatusBadRequest)
 			_, _ = io.WriteString(w, `{"error":"invalid_grant"}`)
 		case r.Form.Get("grant_type") == "refresh_token":
-			_, _ = io.WriteString(w, `{"access_token":"A2","refresh_token":"R2"}`)
+			used[refresh] = true
+			fmt.Fprintf(w, `{"access_token":"A%d","refresh_token":"R%d"}`, next, next)
+			next++
 		default:
 			w.WriteHeader(http.StatusBadRequest)
 		}
@@ -450,4 +460,34 @@ func (m *fakeMic) SetMicMute(muted bool, origin string) error {
 		m.muted = muted
 	}
 	return nil
+}
+
+// A pipe that reconnects while a refresh is in flight must not start a second
+// exchange with the same single-use token, which would erase the saved one.
+func TestReconnectDuringRefreshKeepsToken(t *testing.T) {
+	saved := configured
+	saved.RefreshToken = "R1"
+	h := newHarness(t, saved, true)
+	until := func(state string) {
+		t.Helper()
+		for h.w.state != state {
+			select {
+			case in := <-h.w.frames:
+				h.w.receive(h.ctx, in, h.now)
+			case <-time.After(2 * time.Second):
+				t.Fatal("never reached", state, "; at", h.w.state)
+			}
+		}
+	}
+	h.w.step(h.ctx, h.now)
+	until(stateExchanging) // The refresh is in flight; its result is not read yet.
+	_ = h.peer.conn.Close()
+	until(stateClosed)
+	h.now = h.now.Add(redial)
+	h.w.step(h.ctx, h.now)
+	until(stateExchanging)
+	h.settle()
+	if h.w.state != stateReady || h.saved.RefreshToken != "R2" {
+		t.Fatal("state", h.w.state, "saved token", h.saved.RefreshToken)
+	}
 }

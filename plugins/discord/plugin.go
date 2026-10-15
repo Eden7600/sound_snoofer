@@ -137,9 +137,8 @@ type incoming struct {
 }
 
 type tokenResult struct {
-	generation int
-	t          tokens
-	err        error
+	t   tokens
+	err error
 }
 
 // voice is Discord's state as last reported.
@@ -168,10 +167,13 @@ type worker struct {
 	tokens   chan tokenResult
 	helpers  sync.WaitGroup // Reader and token goroutines.
 
-	conn        io.ReadWriteCloser
-	pipeName    string
-	generation  int
-	state       string
+	conn       io.ReadWriteCloser
+	pipeName   string
+	generation int
+	state      string
+	// exchanging marks a token request in flight. Only one runs: refresh tokens
+	// rotate, so a second request with the same token would be refused.
+	exchanging  bool
 	deadline    time.Time // Handshake deadline.
 	nextDial    time.Time
 	nextRefresh time.Time
@@ -515,19 +517,24 @@ func (w *worker) callFailed(c call, err error, now time.Time) {
 // or from the saved refresh token when code is empty.
 func (w *worker) startExchange(ctx context.Context, code string) {
 	w.state = stateExchanging
-	settings, generation := w.settings, w.generation
+	if w.exchanging {
+		return // The running request's result serves the current connection.
+	}
+	w.exchanging = true
+	settings := w.settings
 	w.helpers.Add(1)
 	go func() {
 		defer w.helpers.Done()
 		t, err := exchange(ctx, w.client, w.endpoint, settings, code)
 		select {
-		case w.tokens <- tokenResult{generation: generation, t: t, err: err}:
+		case w.tokens <- tokenResult{t: t, err: err}:
 		case <-ctx.Done():
 		}
 	}()
 }
 
 func (w *worker) tokenDone(ctx context.Context, r tokenResult, now time.Time) {
+	w.exchanging = false
 	switch {
 	case errors.Is(r.err, errInvalidGrant):
 		w.saveRefresh("", now)
@@ -539,7 +546,7 @@ func (w *worker) tokenDone(ctx context.Context, r tokenResult, now time.Time) {
 	case r.err != nil:
 		w.link.Fail(r.err.Error(), now)
 		w.backoff = min(max(2*w.backoff, redial), maxBackoff)
-		if w.conn != nil && r.generation == w.generation {
+		if w.conn != nil && w.state == stateExchanging {
 			w.state = stateRetrying
 			w.nextRefresh = now.Add(w.backoff)
 		}
@@ -549,7 +556,7 @@ func (w *worker) tokenDone(ctx context.Context, r tokenResult, now time.Time) {
 	if r.t.Refresh != "" {
 		w.saveRefresh(r.t.Refresh, now)
 	}
-	if w.conn == nil || r.generation != w.generation {
+	if w.conn == nil || w.state != stateExchanging {
 		return
 	}
 	w.access = r.t.Access
