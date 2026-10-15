@@ -18,10 +18,12 @@
 
 ## Acceptance
 - [ ] 11. On hardware: restart Voicemeeter while Snoofer runs and confirm the monitor stays enabled; press a deck key once right after connecting it; connect two decks with one refused and see its error; freeze a media player and confirm Now Playing keeps updating.
-- [ ] 12. Root coordinates the canonical build and graceful shutdown recheck with the
+- [x] 12. Root coordinates the canonical build and graceful shutdown recheck with the
   prior host launch configuration. Preserve the original anonymous timeout as failed
   evidence; record success or the named awaited plugin without force termination or
   claiming the two connected decks caused it. Any underlying repair needs its own
   confirmed evidence and reviewed scope.
 
-- [ ] 13. Add the explicitly opted-in native initial-input probe; run default package tests and strict validation, then coordinate the read-only hardware probe with the host stopped. Record query/decode results for Plus and Plus XL and restore the same host configuration. Do not mark first-key acceptance complete from a probe.
+- [x] 13. Add the explicitly opted-in native initial-input probe; run default package tests and strict validation, then coordinate the read-only hardware probe with the host stopped. Record query/decode results for Plus and Plus XL and restore the same host configuration. Do not mark first-key acceptance complete from a probe.
+
+Probe evidence, 2026-10-15: Plus (0084) and Plus XL (00C6) both returned 512-byte input reports beginning 01 00 00 00 with zero payload. Decoder rejected them as invalid key count. The XL returned the same report with its unbound key 8 held. The real XL first Play press after reconnect did nothing; the second worked (user report). This is failed first-key acceptance, not a successful baseline. The read-only probes ran in 0.03 s; default Stream Deck tests pass. Logs: .local/deck-baseline-probe.log and .local/deck-baseline-held-probe.log.
