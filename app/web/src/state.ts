@@ -1,6 +1,6 @@
 import { updateNavigationAttention } from "./attention.ts";
 import type { Control, ViewState, Widget } from "./types.ts";
-import { $, button, ui, badge, tc } from "./dom.ts";
+import { $, button, ui, badge, tc, el } from "./dom.ts";
 import { display, tone } from "./model.ts";
 import { syncDraft } from "./draft.ts";
 import { renderConfirmation } from "./confirmation.ts";
@@ -58,6 +58,7 @@ export function refreshNotice() {
   node.replaceChildren();
   if (message) {
     node.append(
+      el("span", "min-w-0 flex-1", message),
       button(
         "Dismiss",
         () => {
@@ -65,9 +66,8 @@ export function refreshNotice() {
           appState.dismissedNotice = appState.state.Notice;
           refreshNotice();
         },
-        ui.small + " float-right ml-3",
+        ui.small + " shrink-0",
       ),
-      document.createTextNode(message),
     );
   }
 }

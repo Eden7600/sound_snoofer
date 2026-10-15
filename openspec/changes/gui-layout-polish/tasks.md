@@ -21,5 +21,7 @@ PID 63004 also closed via EOF with exit code 0 and zero actions. The normal cano
 passed after the diagnostic DevTools attempt; production is restored as PID 48916 with the
 previous bin/snoofer.json configuration. Physical acceptance remains separate.
 
-- [ ] 9. Shared-notice checkpoint: reproduce the floated Dismiss misalignment with short/multiline geometry checks at both sizes, replace the float with a contained centered row, update the UI contract, and pass focused layout, dismissal/focus, recovery and frontend checks.
+- [x] 9. Shared-notice checkpoint: reproduce the floated Dismiss misalignment with short/multiline geometry checks at both sizes, replace the float with a contained centered row, update the UI contract, and pass focused layout, dismissal/focus, recovery and frontend checks.
 - [ ] 10. Coordinate canonical packaging and inspect short/wrapped shared notices in WebView2; restore the prior host configuration and record the native result.
+
+Task 9 verification: both focused geometry cases failed on the old float with a 6px center offset. The corrected short and wrapped notices pass at both sizes; 16 focused layout/focus/dismissal/recovery tests pass, and the full suite passes 295 tests in 42.1 s. TypeScript, ESLint and Prettier pass. Rendered short/wrapped screenshots were inspected.
