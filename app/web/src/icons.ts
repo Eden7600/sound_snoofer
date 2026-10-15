@@ -101,7 +101,8 @@ const icons: Record<string,string> = {
  "route": "<circle cx=\"6\" cy=\"19\" r=\"3\" /><path d=\"M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15\" /><circle cx=\"18\" cy=\"5\" r=\"3\" />",
  "trash-2": "<path d=\"M10 11v6\" /><path d=\"M14 11v6\" /><path d=\"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6\" /><path d=\"M3 6h18\" /><path d=\"M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\" />",
  "speaker": "<rect width=\"16\" height=\"20\" x=\"4\" y=\"2\" rx=\"2\" /><path d=\"M12 6h.01\" /><circle cx=\"12\" cy=\"14\" r=\"4\" /><path d=\"M12 14h.01\" />",
- "cassette-tape": "<rect width=\"20\" height=\"16\" x=\"2\" y=\"4\" rx=\"2\" /><circle cx=\"8\" cy=\"10\" r=\"2\" /><path d=\"M8 12h8\" /><circle cx=\"16\" cy=\"10\" r=\"2\" /><path d=\"m6 20 .7-2.9A1.4 1.4 0 0 1 8.1 16h7.8a1.4 1.4 0 0 1 1.4 1l.7 3\" />"
+ "cassette-tape": "<rect width=\"20\" height=\"16\" x=\"2\" y=\"4\" rx=\"2\" /><circle cx=\"8\" cy=\"10\" r=\"2\" /><path d=\"M8 12h8\" /><circle cx=\"16\" cy=\"10\" r=\"2\" /><path d=\"m6 20 .7-2.9A1.4 1.4 0 0 1 8.1 16h7.8a1.4 1.4 0 0 1 1.4 1l.7 3\" />",
+ "triangle-alert": "<path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3\" /><path d=\"M12 9v4\" /><path d=\"M12 17h.01\" />"
 };
 
 // icon returns an inline Lucide SVG that inherits the text color. Pass complete
