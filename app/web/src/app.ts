@@ -14,7 +14,7 @@ import { buildLights } from "./screens/lights.ts";
 import { buildAppAudio } from "./screens/appaudio.ts";
 import { buildMeetings } from "./screens/meetings.ts";
 import { buildMedia } from "./screens/media.ts";
-import { buildDeck } from "./screens/deck.ts";
+import { buildDeck, clearDeckRange, deckGeometry } from "./screens/deck.ts";
 import { buildPlugins } from "./screens/plugins.ts";
 import { buildApps } from "./screens/apps.ts";
 import { buildDiagnostics } from "./screens/diagnostics.ts";
@@ -93,6 +93,7 @@ function layoutKey() {
       : null,
     appState.screen === "deck"
       ? [
+          deckGeometry(),
           c<DeckView>("streamdeck.preview")?.ViewData?.Selected,
           c("streamdeck.page")?.Value,
           c("streamdeck.profile")?.Value,
@@ -171,6 +172,7 @@ for (const b of document.querySelectorAll<HTMLButtonElement>("[data-screen]")) {
   b.className = ui.nav;
   b.prepend(icon(navIcons[target] || "circle", "size-5 shrink-0"));
   b.onclick = () => {
+    clearDeckRange();
     appState.screen = target;
     signature = "";
     receive(appState.state);

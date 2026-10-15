@@ -6,7 +6,7 @@
   structural builds. Add failing regressions for App Audio More, Lights Other Rooms, Deck Page
   Options/binding search and Soundboard search, stable control focus and removed-target fallback.
   Verify restored filtering, both viewport sizes and no action during restoration.
-- [ ] 3. Commit checkpoint: retain dirty explicit-commit fields and form choices with their edit
+- [x] 3. Commit checkpoint: retain dirty explicit-commit fields and form choices with their edit
   identity/revision. Cover unfocused drafts, unchanged-target rebuilds, removed options, renamed
   apps, deck page/profile/serial/slot boundaries and reordered Routing lists. Keep focused select
   deferral, dropdown cancellation and stale revision-zero behavior; verify deferred rebuilds after

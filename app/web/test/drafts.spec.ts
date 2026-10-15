@@ -113,33 +113,35 @@ test("remembered-deck text does not transfer to another serial", async ({ gui })
   expect(await gui.sent()).toEqual([]);
 });
 
-test("New Page clears only after a new matching page is observed, even for duplicate names", async ({ gui }) => {
-  await pageName(gui);
-  const input = gui.page.getByRole("textbox", { name: "New Page", exact: true });
-  await gui.update(() => {
-    const desktop = window.go?.app?.Desktop;
-    if (!desktop) throw new Error("desktop missing");
-    desktop.Send = async (action) => {
-      window.sent.push(action);
-    };
+for (const label of ["Home", " Home "]) {
+  test(`New Page ${JSON.stringify(label)} clears only after a new exact matching page is observed`, async ({ gui }) => {
+    await pageName(gui);
+    const input = gui.page.getByRole("textbox", { name: "New Page", exact: true });
+    await gui.update(() => {
+      const desktop = window.go?.app?.Desktop;
+      if (!desktop) throw new Error("desktop missing");
+      desktop.Send = async (action) => {
+        window.sent.push(action);
+      };
+    });
+    await input.fill(label);
+    await input.press("Enter");
+    await gui.update(() => {
+      window.ctl("streamdeck.add").Revision++;
+    });
+    await gui.settled();
+    await rebuild(gui);
+    await expect(input).toHaveValue(label);
+    await gui.update((label) => {
+      const page = window.ctl("streamdeck.page");
+      (page.Options ??= []).push("page-new");
+      (page.OptionLabels ??= {})["page-new"] = label;
+      page.Value = "page-new";
+    }, label);
+    await expect(gui.page.locator("#field-streamdeck\\.add")).toHaveValue("");
+    expect(await gui.sent()).toHaveLength(1);
   });
-  await input.fill(" Home ");
-  await input.press("Enter");
-  await gui.update(() => {
-    window.ctl("streamdeck.add").Revision++;
-  });
-  await gui.settled();
-  await rebuild(gui);
-  await expect(input).toHaveValue(" Home ");
-  await gui.update(() => {
-    const page = window.ctl("streamdeck.page");
-    (page.Options ??= []).push("page-new");
-    (page.OptionLabels ??= {})["page-new"] = "Home";
-    page.Value = "page-new";
-  });
-  await expect(gui.page.locator("#field-streamdeck\\.add")).toHaveValue("");
-  expect(await gui.sent()).toHaveLength(1);
-});
+}
 
 test("App Audio Rename and Combine survive unrelated changes with the captured edit revision", async ({ gui }) => {
   await gui.open();

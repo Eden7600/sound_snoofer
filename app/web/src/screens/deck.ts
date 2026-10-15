@@ -5,9 +5,12 @@ import { control, command } from "../widgets.ts";
 import { compatible, gridMove } from "../model.ts";
 import type { DeckView } from "./deck-types.ts";
 import { viewKey, preserveSearch } from "../view-state.ts";
+import { registerDraft } from "../draft.ts";
 
 interface DeckRange {
-  page?: string;
+  context?: string;
+  selected?: number;
+  awaitingSelection?: boolean;
   anchor: number;
   end: number;
   dials?: boolean;
@@ -15,8 +18,46 @@ interface DeckRange {
 
 // deckRange is the GUI-local key rectangle, or dial span (dials: true, slot
 // indexes after the keys), for creating regions; selecting it never
-// dispatches anything. It resets when the edited page changes.
+// dispatches anything. Its indices belong to one editor context and geometry.
 let deckRange: DeckRange | null = null;
+export function clearDeckRange() {
+  deckRange = null;
+}
+export function deckGeometry() {
+  const view = c<DeckView>("streamdeck.preview")?.ViewData;
+  return view && [view.Model, view.Columns, view.Keys.length, view.Dials.length, view.Reserved, view.NavDial];
+}
+function rangeContext() {
+  return JSON.stringify([
+    c("streamdeck.profile")?.Value,
+    c("streamdeck.page")?.Value,
+    c("streamdeck.shared")?.Value,
+    deckGeometry(),
+  ]);
+}
+function startRange(index: number, dials: boolean, select: boolean) {
+  deckRange = {
+    context: rangeContext(),
+    selected: c<DeckView>("streamdeck.preview")?.ViewData?.Selected,
+    awaitingSelection: select,
+    anchor: index,
+    end: index,
+    dials,
+  };
+}
+function validateRange() {
+  if (!deckRange) return;
+  if (deckRange.context !== rangeContext()) {
+    clearDeckRange();
+    return;
+  }
+  const selected = c<DeckView>("streamdeck.preview")?.ViewData?.Selected;
+  // A normal click also asks the provider to select the anchor; accept that one response.
+  if (deckRange.awaitingSelection && selected === deckRange.anchor) {
+    deckRange.selected = selected;
+    deckRange.awaitingSelection = false;
+  } else if (selected !== deckRange.selected) clearDeckRange();
+}
 // deckShape is the edited layout's grid: key count, columns and dial count.
 function deckShape() {
   const v = c<DeckView>("streamdeck.preview")?.ViewData;
@@ -57,9 +98,12 @@ function regionKeysLabel(first: number, last: number) {
 export function buildDeck() {
   const preview = c<DeckView>("streamdeck.preview");
   if (!preview?.ViewData) {
+    clearDeckRange();
     empty(root, "Stream Deck is disabled or its editor is not ready.");
     return;
   }
+  validateRange();
+  updaters.push(validateRange);
   const toolbar = el("div", ui.toolbar);
   const selectors = el("div", ui.grid + " col-span-full flex-1");
   toolbar.append(selectors);
@@ -113,12 +157,7 @@ export function buildDeck() {
           update();
           return;
         }
-        deckRange = {
-          page: c("streamdeck.page")?.Value,
-          anchor: index,
-          end: index,
-          dials: dial,
-        };
+        startRange(index, dial, true);
         request(c("streamdeck.slot"), "set", (dial ? "Dial " : "Key ") + (dial ? index - K + 1 : index + 1));
       },
       dial ? dialClass : keyClass,
@@ -142,13 +181,8 @@ export function buildDeck() {
       if (!e.key.startsWith("Arrow")) return;
       e.preventDefault();
       if (e.shiftKey) {
-        if (!deckRange || !!deckRange.dials !== dial)
-          deckRange = {
-            page: c("streamdeck.page")?.Value,
-            anchor: index,
-            end: index,
-            dials: dial,
-          };
+        if (!deckRange || !!deckRange.dials !== dial) startRange(index, dial, false);
+        if (!deckRange) return;
         deckRange.end = dial
           ? K + gridMove(deckRange.end - K, e.key, D, D)
           : gridMove(deckRange.end, e.key, columns, K);
@@ -470,20 +504,28 @@ function regionsPanel(parent: HTMLElement) {
     create = button(
       "",
       () => {
-        if (!deckRange) return;
-        request(c("streamdeck.region-add"), "set", deckRange.anchor + "," + deckRange.end + "," + source.value);
+        validateRange();
+        if (!deckRange || source.selectedIndex < 0) return;
+        request(
+          c("streamdeck.region-add"),
+          "set",
+          deckRange.anchor + "," + deckRange.end + "," + source.value,
+          0,
+          sourceDraft.revision,
+        );
         deckRange = null;
       },
       ui.primary,
     );
   source.setAttribute("aria-label", "New Region Source");
   create.dataset.part = "add-region";
-  viewKey(source, ...context, "new-region-source");
-  viewKey(create, ...context, "add-region");
+  const addContext = [...context, c("streamdeck.shared")?.Value || "", JSON.stringify(deckGeometry()), view.Selected];
+  viewKey(source, ...addContext, "new-region-source");
+  viewKey(create, ...addContext, "add-region");
+  const sourceDraft = registerDraft(source, { revision: () => c("streamdeck.region-add")?.Revision, refresh: update });
   add.append(source, create);
   card.append(add);
   updaters.push(() => {
-    if (deckRange && deckRange.page !== c("streamdeck.page")?.Value) deckRange = null;
     const keysInRange = rangeKeys(deckRange),
       current = c<DeckView>("streamdeck.preview")?.ViewData;
     const K = deckShape().keys;
@@ -494,7 +536,7 @@ function regionsPanel(parent: HTMLElement) {
           ? regionDialsLabel(deckRange.anchor - K, deckRange.end - K)
           : regionKeysLabel(deckRange.anchor, deckRange.end))
       : "Add Region";
-    create.disabled = !!appState.pending || !deckRange || overlaps || !collections.length;
+    create.disabled = !!appState.pending || !deckRange || overlaps || !collections.length || source.selectedIndex < 0;
     create.title = overlaps ? "The selection overlaps a region" : !deckRange ? "Select keys or dials first" : "";
     source.disabled = !collections.length;
   });

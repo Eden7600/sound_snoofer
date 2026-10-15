@@ -93,9 +93,7 @@ export function control(id: string, parent: HTMLElement, label?: string, { layou
               if (!context) return false;
               const before = JSON.parse(context) as string[];
               const pages = c("streamdeck.page");
-              return !!pages?.Options?.some(
-                (page) => !before.includes(page) && pages.OptionLabels?.[page] === name.trim(),
-              );
+              return !!pages?.Options?.some((page) => !before.includes(page) && pages.OptionLabels?.[page] === name);
             },
           }
         : {}),
