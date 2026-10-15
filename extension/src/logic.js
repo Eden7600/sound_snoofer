@@ -27,6 +27,20 @@
     }
   }
 
+  // Reports come from page scripts, so every field is coerced to its type.
+  const text = (v) => (typeof v === "string" ? v : "");
+  const count = (v) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0);
+
+  // webUrl keeps http(s) URLs only: artwork is fetched, and other schemes must not be.
+  function webUrl(url) {
+    try {
+      const protocol = new URL(url).protocol;
+      return protocol === "http:" || protocol === "https:" ? url : "";
+    } catch {
+      return "";
+    }
+  }
+
   // sessions builds Snoofer's session list. frames maps "tab:frame" to
   // {tabId, report}; tabs maps tab IDs to {title, url, muted, favIconUrl}.
   // artKey names the artwork; the background adds the image only when the key
@@ -41,15 +55,15 @@
         id,
         tab: frame.tabId,
         site: site(tab.url || ""),
-        title: r.title || tab.title || "",
-        artist: r.artist || "",
-        album: r.album || "",
-        artKey: r.artwork || tab.favIconUrl || "",
+        title: text(r.title) || text(tab.title),
+        artist: text(r.artist),
+        album: text(r.album),
+        artKey: webUrl(text(r.artwork)) || webUrl(text(tab.favIconUrl)),
         state: r.state === "playing" ? "playing" : "paused",
-        positionMs: r.positionMs || 0,
-        durationMs: r.durationMs || 0,
-        updatedMs: r.at || 0,
-        rate: r.rate || 1,
+        positionMs: count(r.positionMs),
+        durationMs: count(r.durationMs),
+        updatedMs: count(r.at),
+        rate: count(r.rate) || 1,
         canNext: !!r.canNext,
         canPrev: !!r.canPrev,
         canSeek: !!r.canSeek,

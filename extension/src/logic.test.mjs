@@ -44,6 +44,21 @@ test("sessions merge frame reports with tab details", () => {
   assert.equal(list[1].state, "paused");
 });
 
+test("sessions coerce page-supplied fields and keep only web artwork", () => {
+  const frames = new Map([
+    ["1:0", { tabId: 1, report: { present: true, title: {}, artist: 5, positionMs: "x", rate: -2, artwork: "file:///C:/secret.png" } }],
+    ["2:0", { tabId: 2, report: { present: true, artwork: "javascript:alert(1)" } }],
+  ]);
+  const tabs = new Map([[1, { title: "Tab" }], [2, { favIconUrl: "https://site/favicon.ico" }]]);
+  const [first, second] = sessions(frames, tabs);
+  assert.equal(first.title, "Tab");
+  assert.equal(first.artist, "");
+  assert.equal(first.positionMs, 0);
+  assert.equal(first.rate, 1);
+  assert.equal(first.artKey, "");
+  assert.equal(second.artKey, "https://site/favicon.ico");
+});
+
 test("commands route to frames or the tabs API", () => {
   const port = {};
   const frames = new Map([["7:0", { tabId: 7, port }]]);

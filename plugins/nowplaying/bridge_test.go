@@ -186,3 +186,16 @@ func TestBridgeSessionsCommandsAndReplacement(t *testing.T) {
 		return len(v.Browsers) == 0 && strings.Contains(v.Bridge.Refused, "at most") && len(v.Sessions) == 1 && v.Sessions[0].Source == "windows"
 	})
 }
+
+func TestBridgeSkipsMalformedReports(t *testing.T) {
+	r := startBridgeRig(t)
+	ws := r.connect("moz-extension://x", "Firefox", protocol)
+	r.wait("connected", func(v statusView) bool { return len(v.Browsers) == 1 })
+	if err := ws.WriteMessage(websocket.TextMessage, []byte(`{"type":"sessions","sessions":[{"title":{}}]}`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := ws.WriteJSON(report{Type: "sessions", Sessions: []browserSession{{ID: "7:0", Tab: 7, Site: "youtube.com", Title: "Video", State: "playing"}}}); err != nil {
+		t.Fatal(err)
+	}
+	r.wait("session after malformed report", func(v statusView) bool { return len(v.Browsers) == 1 && len(v.Sessions) == 1 })
+}

@@ -65,7 +65,8 @@ api.runtime.onMessage.addListener((message, _sender, reply) => {
 
 // thumbnail draws artwork into a 64 px square PNG, as base64.
 async function thumbnail(url) {
-  const response = await fetch(url);
+  // Page-chosen URLs: never send the user's cookies with them.
+  const response = await fetch(url, { credentials: "omit" });
   if (!response.ok) throw new Error(String(response.status));
   const bitmap = await createImageBitmap(await response.blob());
   const canvas = new OffscreenCanvas(128, 128);

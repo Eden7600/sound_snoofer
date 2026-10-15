@@ -236,7 +236,7 @@ func (b *bridge) serve(w http.ResponseWriter, r *http.Request) {
 		}
 		var m report
 		if err := json.Unmarshal(data, &m); err != nil {
-			return
+			continue // Any page can send a malformed report; it must not drop every tab.
 		}
 		if m.Type != "sessions" {
 			continue // Pings only keep the connection and worker alive.
