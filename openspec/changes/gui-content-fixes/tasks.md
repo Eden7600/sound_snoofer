@@ -23,8 +23,16 @@ with its focused checks; retain unrelated GUI defects and user changes.
   inspect native-size deck renderer output for affected option labels.
 - [x] 6a. Bound the Binding listbox height after the combined geometry check exposed label-driven
   overlap with Save/Discard at 1280×820; retain wrapped labels and native scrolling, verify both sizes.
-- [ ] 7. Validate: frontend type/lint/format/model/browser checks, provider fixture drift,
+- [x] 7. Validate: frontend type/lint/format/model/browser checks, provider fixture drift,
   `go test ./...`, `go vet ./...`, OpenSpec strict validation, canonical build and packaged desktop
   smoke; inspect affected screens at both viewport sizes and restore the prior host launch.
 
 Hardware behavior is unchanged and hardware acceptance is not claimed by these checks.
+
+2026-10-15 acceptance: prior shared source gates, canonical builds/native smoke and
+Audio/Routing/Deck inspection at both sizes are recorded in docs/gui-audit.md. Compact
+Plugins/Third-Party Apps inspection and the later 1280×820 fixture now cover their headings,
+labels and cards at both top and bottom. Wide fixture PID 63004 emitted zero actions and
+closed via EOF with exit code 0. The diagnostic DevTools build passed after the prior host
+stopped normally. The subsequent normal canonical build passed and restored production as
+PID 48916 with --config bin/snoofer.json. No native recovery fault was injected.

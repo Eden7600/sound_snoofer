@@ -8,7 +8,14 @@
   confirmation; cover Escape/Alt+Up/outside-click popup cancellation and subsequent editing.
   Update the UI contract and audit status. The held-Tab probe recorded in design.md establishes
   why native confirmation cannot use a click-detail, focus or timing heuristic.
-- [ ] 4. Run complete frontend/GUI checks, canonical build and isolated native Processing/Monitor
-  acceptance, then restore the previous host launch. Focused browser checks and frontend gates pass;
-  canonical/native acceptance now waits for stable provider/frontend integration.
+- [x] 4. Run complete frontend/GUI checks, canonical build and isolated native Processing/Monitor
+  acceptance, then restore the previous host launch. Source gates, canonical builds and all
+  specified native dropdown paths pass; the normal host is restored with its previous config.
   Record hardware acceptance separately.
+
+2026-10-15 native acceptance: closed browsing/typeahead cancellation and explicit Enter
+commitment pass; popup Enter/Tab commit once, while Escape/Alt+Up/outside-panel click restore
+the observed selection without dispatch. On normal-build fixture PID 42296, the user clicked
+Monitor Pre to Post and exactly one request was captured: audio.normal-monitor, revision 36,
+operation set, value post; action ID fuiquf-1ajyeq0-acfk1b-1. Production is restored as
+PID 48916 with --config bin/snoofer.json. These isolated requests do not claim audio effects.
