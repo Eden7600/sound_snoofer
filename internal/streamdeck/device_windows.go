@@ -6,9 +6,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"golang.org/x/sys/windows"
 	"time"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 var hid = windows.NewLazySystemDLL("hid.dll")
@@ -97,6 +98,18 @@ func openDevice(path string) (*device, error) {
 	}
 	return d, nil
 }
+
+// inputReport reads the current key state once; normal input uses overlapped reads.
+func (d *device) inputReport() ([]byte, error) {
+	report := make([]byte, d.input)
+	report[0] = 1
+	r, _, err := hid.NewProc("HidD_GetInputReport").Call(uintptr(d.handle), uintptr(unsafe.Pointer(&report[0])), uintptr(len(report)))
+	if r == 0 {
+		return nil, fmt.Errorf("read Stream Deck current input: %w", err)
+	}
+	return report, nil
+}
+
 func (d *device) describe() deckInfo {
 	return deckInfo{input: d.input, output: d.output, serial: d.serial, model: d.model, product: d.product}
 }

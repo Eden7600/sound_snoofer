@@ -23,6 +23,7 @@ type Surface struct {
 
 // hidDeck is an open deck as a session uses it; tests replace the HID device.
 type hidDeck interface {
+	inputReport() ([]byte, error)
 	io(ctx context.Context, b []byte, write bool) (int, error)
 	setBrightness(percent int) error
 	close()
@@ -168,6 +169,11 @@ func surfaceSession(parent context.Context, d hidDeck, id string, latest Frame, 
 	go func() {
 		defer wg.Done()
 		decoder := Decoder{Model: info.model}
+		if report, err := d.inputReport(); err == nil {
+			// Seed current keys without emitting edges. Refused or malformed reports
+			// leave the first normal input report as the baseline, as before.
+			_, _ = decoder.Decode(report)
+		}
 		for ctx.Err() == nil {
 			b := make([]byte, info.input)
 			n, err := d.io(ctx, b, false)

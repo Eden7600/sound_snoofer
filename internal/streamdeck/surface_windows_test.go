@@ -45,12 +45,13 @@ func TestAbsentDiscoveryIgnoresFrameBurst(t *testing.T) {
 
 // fakeDeck is an open deck whose input and failures the test supplies.
 type fakeDeck struct {
-	info   deckInfo
-	input  chan []byte
-	fail   chan error
-	mu     sync.Mutex
-	writes int
-	closed bool
+	info    deckInfo
+	initial []byte
+	input   chan []byte
+	fail    chan error
+	mu      sync.Mutex
+	writes  int
+	closed  bool
 }
 
 func newFakeDeck(serial, model string) *fakeDeck {
@@ -75,6 +76,12 @@ func (f *fakeDeck) io(ctx context.Context, b []byte, write bool) (int, error) {
 	case <-time.After(50 * time.Millisecond):
 		return 0, context.DeadlineExceeded
 	}
+}
+func (f *fakeDeck) inputReport() ([]byte, error) {
+	if f.initial == nil {
+		return nil, errors.New("current input unavailable")
+	}
+	return f.initial, nil
 }
 func (f *fakeDeck) setBrightness(int) error { return nil }
 func (f *fakeDeck) describe() deckInfo      { return f.info }
