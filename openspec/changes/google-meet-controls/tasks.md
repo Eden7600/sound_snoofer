@@ -63,3 +63,19 @@ Leave, push-to-talk and automatic meeting modes are follow-ups, not completion t
 
 Task 4 also verifies the exact-origin exclusion from generic browser Media
 admission/injection; other sites retain their existing media behavior.
+
+## Requested Meetings integration — 2026-10-15
+
+The user wants Meet combined into the controls already on the Meetings page,
+instead of a new page. Existing keys are Discord-specific; only Discord mute
+currently links to global Mic Mute. The intended behavior when Discord and Meet
+are both active remains to be clarified: one selected call/app, both together,
+or separate controls on the same page. Do not infer fan-out or unmute linking.
+
+- [ ] 8. Resolve that control behavior, amend the design/UI contract before any
+  behavior change, implement and verify the requested Meetings integration, then
+  apply the explicitly chosen personal layout during an approved live session.
+
+Desktop acceptance is deferred at the user's request. No new page or live layout
+change was made. This follow-up supersedes the earlier statement that placement
+is outside scope only for the user's explicitly requested personal assignments.

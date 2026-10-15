@@ -17,3 +17,16 @@ Each numbered implementation block is a reviewable commit. Planning does not mar
 - [ ] 8. Verify browsing while music plays, song transitions, switching focused sessions, two YouTube Music tabs, page reload and bridge reconnect. Each first press works once, old actions never rate another track, and no rating is replayed. Record versions, results, cleanup and remaining website compatibility limits.
 
 Automated implementation checkpoint: [validation.md](validation.md). Live tasks 7–8 remain unchecked.
+
+## Requested personal placement — 2026-10-15
+
+The user deferred desktop acceptance and requested Like at Home's top-right key,
+with Dislike immediately below. On the Plus XL these are r1c9/r2c9 (zero-based
+indices 8/17); both are currently empty in the inspected saved layout. Apply this
+to the personal layout during the next approved live session, preserving all
+other assignments and shipped defaults. This supersedes the earlier lack of a
+placement request; it does not authorize unrelated layout migration.
+
+On the smaller Plus, the corresponding r1c4/r2c4 slots currently hold Record and
+Go to Meetings. Whether to replace these or limit the request to Plus XL is
+awaiting the user's answer. No live layout has been changed.
