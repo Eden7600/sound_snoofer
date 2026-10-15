@@ -1,9 +1,24 @@
 package streamdeck
 
 import (
-	"sound-snoofer/snoofer"
+	"encoding/json"
+	"strings"
 	"testing"
+
+	"sound-snoofer/snoofer"
 )
+
+func TestEditorViewWithoutDialsPublishesEmptyList(t *testing.T) {
+	l := DefaultLayoutFor("mk2")
+	view := editorView(l, l.Pages[0].ID, 0, false, nil, nil)
+	data, err := json.Marshal(view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(view.Keys) != 15 || !strings.Contains(string(data), `"Dials":[]`) {
+		t.Fatalf("keys %d, view %s", len(view.Keys), data)
+	}
+}
 
 func TestEditorPreviewOwnership(t *testing.T) {
 	l := DefaultLayout()

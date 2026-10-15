@@ -61,6 +61,8 @@ func editorView(draft Layout, page string, selected int, dirty bool, controls []
 	}
 	view := EditorView{Selected: selected, Dirty: dirty, Home: draft.Home == page, Model: model, Columns: sh.columns, Reserved: sh.pagesKey,
 		NavDial: sh.dials > 0, Decks: decks}
+	// Empty, never nil: models without dials still publish [] to the GUI.
+	view.Keys, view.Dials = make([]EditorSlot, 0, sh.keys), make([]EditorSlot, 0, sh.dials)
 	base := draft.Pages[draft.index(page)]
 	expanded := draft.expanded(controls)
 	effective := expanded.effective(page)

@@ -2,7 +2,7 @@
 Numbers match [docs/repo-audit.md](../../../docs/repo-audit.md).
 
 ## 1. Deck editor lists
-`editorView` initialises `view.Keys` and `view.Dials` with `make([]EditorSlot, 0, n)`, so JSON carries `[]` instead of `null`. The GUI fixture gains a model with `Dials: null`, so a regression in either layer fails the browser check.
+`editorView` initialises `view.Keys` and `view.Dials` with `make([]EditorSlot, 0, n)`, so JSON carries `[]` instead of `null`. A Go test marshals the view for a model without dials and requires `"Dials":[]`.
 
 ## 2. Disconnected device rows
 The plugin sends `normal-source`, `normal-output`, `vr-profile-source` and `vr-profile-output`. The worker checks those rows:
