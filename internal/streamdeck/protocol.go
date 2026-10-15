@@ -12,8 +12,8 @@ const Vendor = 0x0fd9
 const Keys = 36
 const Encoders = 6
 
-// Event is input, a connection or a failure from a deck. Device identifies
-// the deck: its serial, or "path:" and its HID path when it has none. An
+// Event is input, a connection, a failure or retirement of a temporary path report.
+// Device identifies the deck: its serial, or "path:" and its HID path when it has none. An
 // Error without a Device is a discovery failure or no deck at all.
 type Event struct {
 	Generation uint64
@@ -22,6 +22,7 @@ type Event struct {
 	Model      string // Model ID.
 	Product    uint16 // USB product ID.
 	Connected  bool
+	Retired    bool // Remove a temporary HID-path open-error report.
 	Binding    string
 	Key        int
 	Encoder    int

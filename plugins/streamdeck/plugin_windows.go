@@ -597,6 +597,13 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					return
 				}
 				now := time.Now()
+				if event.Retired {
+					if l := links[event.Device]; strings.HasPrefix(event.Device, "path:") && l != nil && !l.connected && l.serial == "" {
+						delete(links, event.Device)
+					}
+					publish()
+					continue
+				}
 				if event.Error != "" {
 					if event.Device == "" {
 						discovery.failed(event.Error, now)

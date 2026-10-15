@@ -89,18 +89,56 @@ func (s *Surface) run(ctx context.Context, discoverPaths func() ([]string, error
 	defer close(s.done)
 	defer close(s.events)
 	defer sessions.Wait()
-	running := map[string]bool{} // HID paths with a session.
+	running := map[string]bool{}      // HID paths with a session.
+	openErrors := map[string]string{} // Temporary failures, deduplicated by HID path.
+	retire := func(path string) bool {
+		if _, failed := openErrors[path]; !failed {
+			return true
+		}
+		select {
+		case s.events <- Event{Device: deckID("", path), Retired: true}:
+			delete(openErrors, path)
+			return true
+		case <-ctx.Done():
+			return false
+		}
+	}
 	ended := make(chan string)
 	for ctx.Err() == nil {
 		paths, err := discoverPaths()
+		if err == nil {
+			// A failed enumeration is not evidence that a path disappeared.
+			present := map[string]bool{}
+			for _, path := range paths {
+				present[path] = true
+			}
+			for path := range openErrors {
+				if !present[path] && !retire(path) {
+					return
+				}
+			}
+		}
 		for _, path := range paths {
 			if running[path] {
 				continue
 			}
 			d, openErr := open(path)
 			if openErr != nil {
-				err = openErr
+				message := openErr.Error()
+				if previous, known := openErrors[path]; !known || previous != message {
+					select {
+					case s.events <- Event{Device: deckID("", path), Error: message}:
+						openErrors[path] = message
+					case <-ctx.Done():
+						return
+					}
+				}
 				continue
+			}
+			// Retire before connecting: a serial-less session reuses this path ID.
+			if !retire(path) {
+				d.close()
+				return
 			}
 			info := d.describe()
 			id := deckID(info.serial, path)

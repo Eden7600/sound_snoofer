@@ -6,7 +6,7 @@
 - [x] 4. `fix(build)`: stage all selected companions/models/licenses until esbuild, Tailwind and Go succeed; preserve the sole application output `bin/snoofer.exe`; repair neural-AEC setup; test failure/success/tagged paths and interrupted dependency recovery with isolated fake commands.
 - [x] 5. `fix(voicemeeter)`: treat "no callback registered" as a clean stop; callback probe.
 - [x] 6. `fix(deck)`: seed the key baseline from the current input report.
-- [ ] 7. `fix(deck)`: report every deck path that fails to open; retire temporary path reports on recovery/removal; surface and report-lifecycle tests.
+- [x] 7. `fix(deck)`: report every deck path that fails to open; retire temporary path reports on recovery/removal; surface and report-lifecycle tests.
 - [x] 8. `fix(hue)`: ignore light-write results from before a room change; test.
 - [x] 9. `fix(nowplaying)`: replace bridge connections only from the same origin; test.
 - [ ] 10. Validate: gofmt, `go test ./...`, `go vet ./...`, GUI check, OpenSpec strict validation, canonical build.
