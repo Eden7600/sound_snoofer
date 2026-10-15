@@ -5,6 +5,7 @@ package streamdeck
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -104,8 +105,17 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 	events, deviceDone := hardwareSurface.Events(), hardwareSurface.Done()
 	go func() {
 		defer close(i.done)
+		defer cancel()
 		defer s.Controls.Remove("streamdeck")
-		commands := make(chan snoofer.Request, 8)
+		type command struct {
+			request    snoofer.Request
+			epoch      uint64
+			deck       *deckState
+			generation uint64
+			resets     []snoofer.Request
+			complete   snoofer.Completion
+		}
+		commands := make(chan command, 8)
 		// Editor state: target is the layout being edited; until the user
 		// picks one (chosen) it follows the first deck to connect.
 		target := modelTarget + plusXLModel
@@ -164,6 +174,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 		}
 		// edit switches the editor to a target; callers check dirty first.
 		edit := func(next string) {
+			editorEpoch++
 			target = next
 			draft = editorLayout().clone()
 			editPage = draft.Home
@@ -200,6 +211,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 				return err
 			}
 			settings, raw = next, data
+			editorEpoch++
 			for _, d := range decks {
 				d.generation++
 			}
@@ -310,6 +322,8 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			}
 			return frame, metered
 		}
+		var navigationDeck *deckState
+		var navigationGeneration, navigationEpoch uint64
 		publish := func() {
 			all := s.Controls.Snapshot()
 			base := map[string]snoofer.Control{}
@@ -513,13 +527,27 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					}
 				}
 			}
-			// The go-to and scroll keys describe the focused deck.
-			if d := focused(); d != nil {
+			// A recreated or newly focused deck is a different navigation target.
+			d := focused()
+			var generation uint64
+			if d != nil {
+				generation = d.generation
+			}
+			if d != navigationDeck || generation != navigationGeneration {
+				navigationDeck, navigationGeneration = d, generation
+				navigationEpoch++
+			}
+			if d != nil {
 				list = append(list, gotoControls(layoutOf(d), d.displayedPage.ID)...)
 				list = append(list, scrollControls(d.displayed, d.displayedPage.ID)...)
 			} else {
 				list = append(list, gotoControls(settings.Layout, settings.Layout.Home)...)
 				list = append(list, scrollControls(settings.Layout.expanded(all), settings.Layout.Home)...)
+			}
+			for n := range list {
+				if strings.HasPrefix(list[n].ID, gotoPrefix) || strings.HasPrefix(list[n].ID, scrollPrefix) {
+					list[n].Epoch = navigationEpoch
+				}
 			}
 			list = append(list, resetFocusControl())
 			known := map[string]bool{}
@@ -540,9 +568,20 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 				}
 				list = append(list, l.report(reportID(id), settings.Devices[l.serial].Name, display, now))
 			}
+			epoch := editorEpoch
+			resets := []snoofer.Request{}
+			for _, c := range all {
+				if c.Available && slices.Contains(c.Operations, "reset") {
+					resets = append(resets, snoofer.Request{ID: c.ID, Revision: c.Revision, Operation: "reset"})
+				}
+			}
 			_ = s.Controls.Publish("streamdeck", list, func(ctx context.Context, r snoofer.Request) error {
+				if err := runCtx.Err(); err != nil {
+					return err
+				}
+				cmd := command{request: r, epoch: epoch, deck: d, generation: generation, resets: resets, complete: r.ClaimCompletion(runCtx)}
 				select {
-				case commands <- r:
+				case commands <- cmd:
 					return nil
 				case <-ctx.Done():
 					return ctx.Err()
@@ -727,7 +766,8 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					r.Value = c.Options[(n+1)%len(c.Options)]
 				}
 				dispatch(r)
-			case r := <-commands:
+			case cmd := <-commands:
+				r := cmd.request
 				if runCtx.Err() != nil {
 					<-deviceDone
 					return
@@ -739,37 +779,62 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 						break
 					}
 				}
-				if !current {
+				navigation := strings.HasPrefix(r.ID, gotoPrefix) || strings.HasPrefix(r.ID, scrollPrefix)
+				if !current || (!navigation && r.ID != resetFocusID && cmd.epoch != editorEpoch) {
 					status, statusAttention = "Editor changed; try again", snoofer.AttentionCritical
+					cmd.complete(snoofer.Outcome{Status: snoofer.Rejected, Detail: status})
+					publish()
+					continue
+				}
+				if navigation && (cmd.deck == nil || focused() != cmd.deck || decks[cmd.deck.id] != cmd.deck || cmd.deck.generation != cmd.generation) {
+					cmd.complete(snoofer.Outcome{Status: snoofer.Rejected, Detail: "Deck changed or unavailable; try again"})
 					continue
 				}
 				if page, ok := strings.CutPrefix(r.ID, gotoPrefix); ok {
 					// Switches the focused deck only; the layout and Home are unchanged.
-					if d := focused(); d != nil && layoutOf(d).index(page) >= 0 {
-						show(d, page)
+					if layoutOf(cmd.deck).index(page) < 0 {
+						cmd.complete(snoofer.Outcome{Status: snoofer.Rejected, Detail: "Page unavailable"})
+					} else {
+						show(cmd.deck, page)
+						cmd.complete(snoofer.Outcome{Status: snoofer.Processed, Detail: "Page selected"})
 						publish()
 					}
 					continue
 				}
 				if r.ID == scrollPrefix+"up" || r.ID == scrollPrefix+"down" {
-					if d := focused(); d != nil {
-						d.page = d.displayed.scroll(d.page, scrollDelta(r.ID))
-						d.generation++
-						publish()
-					}
+					d := cmd.deck
+					d.page = d.displayed.scroll(d.page, scrollDelta(r.ID))
+					d.generation++
+					cmd.complete(snoofer.Outcome{Status: snoofer.Processed, Detail: "Set selected"})
+					publish()
 					continue
 				}
 				if r.ID == resetFocusID {
-					resetFocus()
+					var resetErr error
+					for _, reset := range cmd.resets {
+						resetErr = errors.Join(resetErr, s.Controls.Dispatch(runCtx, reset))
+					}
+					result := snoofer.Outcome{Status: snoofer.Submitted, Detail: "Reset requested"}
+					if resetErr != nil {
+						status, statusAttention = resetErr.Error(), snoofer.AttentionCritical
+						result = snoofer.Outcome{Status: snoofer.Failed, Detail: resetErr.Error()}
+					}
+					cmd.complete(result)
 					continue
 				}
 				editorEpoch++
 				n := draft.index(editPage)
 				if n < 0 {
+					cmd.complete(snoofer.Outcome{Status: snoofer.Rejected, Detail: "Page unavailable"})
 					continue
 				}
 				sh := draft.shape()
 				err := error(nil)
+				saving := false
+				persist := func(next Settings) error {
+					saving = true
+					return save(next)
+				}
 				switch strings.TrimPrefix(r.ID, "streamdeck.") {
 				case "profile":
 					serial, isSerial := strings.CutPrefix(r.Value, serialTarget)
@@ -891,7 +956,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					} else {
 						next.Models[model] = draft.clone()
 					}
-					err = save(next)
+					err = persist(next)
 					if err == nil {
 						dirty = false
 						status, statusAttention = "Saved", ""
@@ -911,7 +976,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					known := next.Devices[editDeck]
 					known.Name = strings.TrimSpace(r.Value)
 					next.Devices[editDeck] = known
-					err = save(next)
+					err = persist(next)
 				case "deck-own", "deck-forget":
 					forget := r.ID == "streamdeck.deck-forget"
 					editing := target == serialTarget+editDeck
@@ -933,7 +998,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 						default:
 							next.Serials[editDeck] = settings.modelLayout(model).clone().forModel(model)
 						}
-						if err = save(next); err != nil {
+						if err = persist(next); err != nil {
 							break
 						}
 						if !forget && !own {
@@ -950,11 +1015,23 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					}
 					next := settings.clone()
 					next.Paging = r.Value
-					err = save(next)
+					err = persist(next)
+				}
+				result := snoofer.Outcome{Status: snoofer.Processed, Detail: "Editor updated"}
+				if saving {
+					result.Detail = "Saved"
 				}
 				if err != nil {
 					status, statusAttention = err.Error(), snoofer.AttentionCritical
+					result = snoofer.Outcome{Status: snoofer.Rejected, Detail: err.Error()}
+					if saving {
+						result.Status = snoofer.Failed
+					}
+					if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+						result.Status = snoofer.Unknown
+					}
 				}
+				cmd.complete(result)
 				publish()
 			}
 		}
