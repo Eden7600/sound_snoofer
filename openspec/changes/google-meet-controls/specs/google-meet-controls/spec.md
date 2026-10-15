@@ -230,6 +230,9 @@ tab's freshness. Three seconds without a newly sampled report SHALL make that ta
 unavailable, independent of reports from other tabs. Joined-root loss/replacement
 SHALL invalidate the call epoch; control-node loss/replacement SHALL invalidate
 that control revision even if its next observed value is unchanged.
+Each control SHALL also report a separate bounded identity counter that changes
+only with control-node lifetime, allowing shared-state consumers to baseline
+replacement without mistaking it for a local value edit.
 
 #### Scenario: Another tab continues reporting while the selected tab is suspended
 
@@ -242,6 +245,8 @@ that control revision even if its next observed value is unchanged.
 - **WHEN** a new DOM node replaces the captured mic or camera control
 - **THEN** the old revision is invalid before another action can click the replacement
 - **AND** the replacement needs a fresh observed control state
+- **AND** its separate observation identity changes even if the same node was
+  removed and reinserted between reads
 
 ### Requirement: Meet documents do not enter the companion Media publisher
 The new companion SHALL exclude exact https://meet.google.com documents from its

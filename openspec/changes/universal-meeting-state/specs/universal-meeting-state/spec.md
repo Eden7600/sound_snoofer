@@ -24,6 +24,17 @@ compatible joined call, with provider observations and intent distinguished.
 The shared coordinator SHALL be the only reconciliation authority. Providers
 SHALL retain their exact transport identity and explicit single-action guards.
 
+#### Scenario: A Meet control node is replaced
+- **WHEN** a fresh report carries a different per-control identity, including a
+  removal and reinsertion between observations
+- **THEN** its observed value establishes a new baseline rather than a shared edit
+- **AND** existing revision guards invalidate commands captured before replacement
+
+#### Scenario: An older Meet report omits control identity
+- **WHEN** the observation identity is missing or zero
+- **THEN** its actual value remains readable but unavailable for universal
+  adoption/application, without guessing identity from a state revision
+
 #### Scenario: Audio save failure
 - **WHEN** adoption of an external mute change cannot be saved to audio's preference
 - **THEN** Snoofer reports failure and does not claim or propagate an unsaved target

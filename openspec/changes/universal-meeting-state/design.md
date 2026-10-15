@@ -46,6 +46,16 @@ external value change received by Snoofer wins; no cross-app wall-clock comparis
 or claim to know the last physical click. Meet reports cannot distinguish all
 manual, host-imposed and delayed effects; document that observation limit.
 
+Meet reports a separate positive uint64-string `identity` for each mic/camera
+control node lifetime. It stays stable through value/availability changes and
+advances on node loss/replacement, including same-batch removal/reinsertion.
+The provider carries this as `MeetingValue.Identity`; a changed identity establishes
+a baseline rather than an external edit. Existing revision checks still protect
+commands. This is an additive observation field, with no transport, protocol-version
+or command-format change. Older observations with omitted or zero identity remain
+readable diagnostics but are unavailable for universal adoption/application. An
+unsupported or malformed identity cannot be inferred from value or revision.
+
 Every outgoing operation captures the shared intent revision and exact peer/control
 revision with an explicit desired value. Recheck before transport I/O; perform zero
 actions when already equal, at most one otherwise. Cancel obsolete unsent work.
@@ -105,3 +115,7 @@ Compatibility bindings display the shared target they toggle. SurfaceOnly status
 `discord.call-mute`, `discord.call-camera`, `googlemeet.call-mute` and
 `googlemeet.call-camera` expose actual app state without competing actions. The
 GUI uses those readouts; aliases may mirror the corresponding shared controls.
+
+The host supplies the Meetings display label alongside registered plugin labels,
+so shared controls are named consistently in binding selection and Diagnostics.
+It does not add a separate enable/disable plugin or alter provider gates.

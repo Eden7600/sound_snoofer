@@ -29,5 +29,6 @@ revision, readback, preview and bounded-lifecycle safeguards remain.
 ## Impact
 Shared state/services, audio preference registration, Discord and Meet adapters,
 Meetings GUI and fixtures, native control previews, specifications and tests.
-Browser companion wire protocol remains unchanged. Live acceptance is deferred
+Meet observations gain an additive control identity counter; browser transport,
+protocol version and command format remain unchanged. Live acceptance is deferred
 by the user; background implementation and automated checks may proceed.

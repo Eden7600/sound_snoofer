@@ -15,6 +15,7 @@ const (
 )
 
 type MeetingValue struct {
+    Identity uint64 // Control node incarnation; changes establish a baseline.
     Known bool
     Value bool
     Available bool
@@ -54,6 +55,11 @@ func (a *MeetingAdapter) Next() (MeetingCommand, bool)
 func (a *MeetingAdapter) Close()
 // Removes exactly this attachment, cancels its commands; nonblocking, idempotent.
 ```
+
+Meet supplies a nonzero `Identity` independently of value/availability revisions.
+An identity change establishes a baseline. Providers without replaceable control
+nodes may retain zero; Meet observations lacking identity are unavailable for
+universal synchronization while their observed values remain readable.
 
 Each adapter reports actual value changes as its worker receives them, not a
 coalesced periodic summary that can omit an On→Off→On sequence. Repeated samples
@@ -168,7 +174,8 @@ next known joined observation starts a new baseline; do not restore old Camera O
 - Meet adapter: report all current joined calls, stable per-browser/tab IDs and
   exact lifetimes; shared actions cover every compatible call, not only selected.
 - Parent: GUI/deck shared controls, documentation/acceptance and saved Plus XL
-  Like/Dislike placements. Extension wire format stays unchanged.
+  Like/Dislike placements. Meet adds observation identity; transport and command
+  formats stay unchanged.
 
 The host creates `NewMeetings(controls *Controls, live bool) *Meetings` when no
 instance was supplied through Services. Construction is inert; `Start(context.Context)

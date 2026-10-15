@@ -183,7 +183,7 @@ Meet state is a full list for this browser. The background, not the page, adds
 `tab` and `instance` from admitted runtime ports:
 
 ```json
-{"type":"meet-state","calls":[{"tab":7,"instance":"42","sample":"29","call":"3","state":"joined","mic":{"value":true,"revision":"8","available":true,"reason":""},"camera":{"value":false,"revision":"5","available":true,"reason":""}}]}
+{"type":"meet-state","calls":[{"tab":7,"instance":"42","sample":"29","call":"3","state":"joined","mic":{"value":true,"identity":"1","revision":"8","available":true,"reason":""},"camera":{"value":false,"identity":"1","revision":"5","available":true,"reason":""}}]}
 ```
 
 - `tab`: nonnegative safe integer. Duplicate tabs in one full list are invalid.
@@ -200,6 +200,11 @@ Meet state is a full list for this browser. The background, not the page, adds
 - `value`: required boolean or JSON null. For mic, true means muted; for camera,
   true means on. Missing is invalid, not false. `available` is a required boolean;
   true requires a joined call, known value and supported actionable control.
+- `identity`: positive uint64 decimal control-node lifetime counter string, at most
+  20 characters. Value/availability changes preserve it; node loss/replacement and
+  same-batch removal/reinsertion advance it. Omitted or zero identity from older
+  helpers is accepted only for readable diagnostics, not universal synchronization.
+  Malformed/overflow identity is rejected. Commands retain their existing format.
 - `revision`: nonzero uint64 decimal counter string, at most 20 characters. The isolated
   adapter advances each control's revision on every observed value/availability
   transition, including changes back to a prior value. Heartbeats do not advance it.
@@ -379,7 +384,7 @@ membership, publishing changes promptly. Background-requested heartbeat reads
 rebuild the same bounded observation from the live DOM; an isolated-world timer or
 cached last report is not freshness proof. Root loss or replacement ends the joined
 call epoch; reacquisition starts a fresh epoch even within the same document.
-Control node replacement/loss advances that control's revision even if its next
+Control node replacement/loss advances its separate identity and control revision even if its next
 value is identical. Every observed value/availability transition also advances the
 revision, including change away and back. Before acting, synchronously reread the
 same nodes, epoch, revision, availability and explicit desired value. Invalidate
