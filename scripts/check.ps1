@@ -9,7 +9,13 @@ try {
 
     & $goPath test ./... -timeout 30s
     if ($LASTEXITCODE -ne 0) { throw "Tests failed" }
-    node --test app/web/model.test.mjs
+    & npm run --silent typecheck
+    if ($LASTEXITCODE -ne 0) { throw "GUI type-check failed" }
+    & npm run --silent lint:gui
+    if ($LASTEXITCODE -ne 0) { throw "GUI lint failed" }
+    & npm run --silent format:gui
+    if ($LASTEXITCODE -ne 0) { throw "GUI format check failed" }
+    & npm run --silent test:model
     if ($LASTEXITCODE -ne 0) { throw "GUI model tests failed" }
     # Browser GUI suite: installed Chrome, never a browser download.
     npx playwright test -c app/web/test

@@ -16,7 +16,7 @@ The controls window has Audio, Soundboard, Stream Deck, Plugins and Diagnostics 
 
 ## Build and validate
 
-The GUI uses the installed Microsoft WebView2 runtime. HTML/CSS/JavaScript assets are embedded in snoofer.exe; no separate server is required. The stylesheet is Tailwind CSS compiled at build time, so builds need Node.js: run `npm ci` once, after which scripts/build.ps1 runs `npm run css` itself. Icons are vendored from Lucide (`node scripts/vendor-icons.cjs` regenerates app/web/icons.mjs). Use the Go version in go.mod. Default audio builds require installed MSVC x64 tools and the Windows SDK for the callback companion; core-only builds do not. Do not redistribute Voicemeeter's vendor DLL.
+The GUI uses the installed Microsoft WebView2 runtime. HTML/CSS/JavaScript assets are embedded in snoofer.exe; no separate server is required. Builds need Node.js: run `npm ci` once, after which scripts/build.ps1 runs `npm run build:gui` to bundle the TypeScript screens and compile Tailwind CSS. Both generated assets must be present and nonempty before Go embeds them. Icons are vendored from Lucide (`node scripts/vendor-icons.cjs` regenerates app/web/src/icons.ts). Use the Go version in go.mod. Default audio builds require installed MSVC x64 tools and the Windows SDK for the callback companion; core-only builds do not. Do not redistribute Voicemeeter's vendor DLL.
 
 ```powershell
 .\scripts\build.ps1
@@ -27,7 +27,7 @@ The GUI uses the installed Microsoft WebView2 runtime. HTML/CSS/JavaScript asset
 .\bin\snoofer.exe --check --config .\bin\snoofer.json
 ```
 
-`check.ps1` always runs the browser GUI suite (`npm run test:gui`, Playwright Test in app/web/test) against the installed Chrome. The optional `-GUI` switch adds the native smoke test of the packaged WebView2 window through Windows UI Automation. Run `npm ci` once for development dependencies. No browser download is performed by these scripts.
+`check.ps1` runs strict TypeScript checking, ESLint, Prettier and model tests (`npm run typecheck`, `lint:gui`, `format:gui` and `test:model`) before the browser GUI suite (`npm run test:gui`, Playwright Test in app/web/test) against the installed Chrome. The optional `-GUI` switch adds the native smoke test of the packaged WebView2 window through Windows UI Automation. Run `npm ci` once for development dependencies. No browser download is performed by these scripts.
 
 Keep `snoofer-audio-monitor.dll` beside audio-enabled executables and `snoofer-soundboard.dll` beside soundboard-enabled executables. Build scripts use the Windows GUI subsystem to avoid a blank terminal. Before replacement, scripts/build.ps1 calls scripts/stop.ps1 to request normal tray shutdown and wait for cleanup. A timeout aborts the build without killing the host. You can also run scripts/stop.ps1 directly.
 

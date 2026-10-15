@@ -3,8 +3,8 @@
    theme tokens and plain element defaults; it defines no component classes. */
 @import "tailwindcss" source(none);
 @source "./index.html";
-@source "./app.js";
-@source "./icons.mjs";
+@source "./src/**/*.ts";
+
 
 @theme {
   --font-sans: "Segoe UI", sans-serif;
