@@ -325,24 +325,31 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 	recovery := newRecovery(path)
 	var stream callbackStream
 	mixer := &controller.Mixer{Path: path + ".mutes.json"}
-	// runTape runs one tape command. Play first saves tape-routing ownership
-	// (save before apply), since it routes the tape to the Playback bus.
+	// saveTapeOwnership saves tape-routing ownership before Play first routes the
+	// tape to the Playback bus (save before apply). The controller calls it only
+	// when Play starts tape playback, so pausing a recording never depends on it.
+	saveTapeOwnership := func() error {
+		i := cfg.VoiceIntent()
+		if i == nil || i.Recording == nil || i.Recording.TapeRoutingManaged {
+			return nil
+		}
+		if cfg.StateError != "" {
+			return fmt.Errorf("reset or repair saved choices first")
+		}
+		i.Recording.TapeRoutingManaged = true
+		token, e := deps.Save(path, cfg, i, cfg.StateToken)
+		if e != nil {
+			return e
+		}
+		cfg.Intent, cfg.StateToken = i, token
+		ctl.Config = planning()
+		return nil
+	}
+	// runTape runs one tape command.
 	runTape := func(target string) error {
 		command, ok := tapeCommands[target]
 		if !ok {
 			return fmt.Errorf("unknown tape command %q", target)
-		}
-		if i := cfg.VoiceIntent(); command == controller.TapePlayPause && i != nil && i.Recording != nil && !i.Recording.TapeRoutingManaged {
-			if cfg.StateError != "" {
-				return fmt.Errorf("reset or repair saved choices first")
-			}
-			i.Recording.TapeRoutingManaged = true
-			token, e := deps.Save(path, cfg, i, cfg.StateToken)
-			if e != nil {
-				return e
-			}
-			cfg.Intent, cfg.StateToken = i, token
-			ctl.Config = planning()
 		}
 		return ctl.Tape(ctx, command, state.Live)
 	}
@@ -354,7 +361,7 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		prepared := ctl != nil && ctl.RecorderPrepared
 		listening := ctl != nil && ctl.TapeListening
 		paused := ctl != nil && ctl.TapePaused
-		ctl = &controller.Controller{Mixer: mixer, RecorderPrepared: prepared, TapeListening: listening, TapePaused: paused, Backend: backend, Config: cfg, Clock: controller.RealClock{}, Emit: func(e controller.Event) {
+		ctl = &controller.Controller{Mixer: mixer, RecorderPrepared: prepared, TapeListening: listening, TapePaused: paused, BeforeTapePlay: saveTapeOwnership, Backend: backend, Config: cfg, Clock: controller.RealClock{}, Emit: func(e controller.Event) {
 			if e.Kind == "error" {
 				state.Error = e.Message
 			}

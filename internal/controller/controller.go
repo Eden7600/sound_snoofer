@@ -64,6 +64,9 @@ type Controller struct {
 	// knowledge: a second stop, Play, Record or any observed state other
 	// than Stopped clears it.
 	TapePaused bool
+	// BeforeTapePlay, when set, runs once Tape has decided to start tape playback
+	// and before it routes the tape; the owner saves tape-routing ownership there.
+	BeforeTapePlay func() error
 	// SilentMics are microphone options the owner latched silent; planning
 	// skips them for Auto when activity metering is configured.
 	SilentMics []string

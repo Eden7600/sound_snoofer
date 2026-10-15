@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -202,5 +203,33 @@ func TestTapeRespectsPausedSendsAndRehearsal(t *testing.T) {
 	c.Config.Intent.Recording.ToVST = true
 	if err := c.Tape(ctx, TapePlayPause, true); err == nil || !strings.Contains(err.Error(), "VST") {
 		t.Fatal(err)
+	}
+}
+
+func TestTapeOwnershipHookRunsOnlyBeforePlayback(t *testing.T) {
+	ctx := context.Background()
+	c, b := recorderController(t)
+	calls := 0
+	c.BeforeTapePlay = func() error {
+		calls++
+		return fmt.Errorf("saved choices unwritable")
+	}
+	if err := c.Record(ctx, true, true); err != nil {
+		t.Fatal(err)
+	}
+	// Pausing and resuming a recording never needs the ownership save.
+	if err := c.Tape(ctx, TapePlayPause, true); err != nil || b.r.State() != "Paused" {
+		t.Fatal("pause recording", err, b.r.State())
+	}
+	if err := c.Tape(ctx, TapePlayPause, true); err != nil || b.r.State() != "Recording" {
+		t.Fatal("resume recording", err, b.r.State())
+	}
+	if err := c.Tape(ctx, TapeStop, true); err != nil || calls != 0 {
+		t.Fatal("end recording", err, calls)
+	}
+	// Starting playback saves first; a failed save routes and plays nothing.
+	writes := len(b.writesRecorder)
+	if err := c.Tape(ctx, TapePlayPause, true); err == nil || calls != 1 || len(b.writesRecorder) != writes {
+		t.Fatal("playback without ownership save", err, calls, b.writesRecorder[writes:])
 	}
 }

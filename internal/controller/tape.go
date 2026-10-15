@@ -114,6 +114,11 @@ func (c *Controller) Tape(ctx context.Context, command TapeCommand, live bool) e
 	if i.Recording.ToVST {
 		return fmt.Errorf("Recording to VST is on; use the rehearsal snippet")
 	}
+	if c.BeforeTapePlay != nil {
+		if e := c.BeforeTapePlay(); e != nil {
+			return e
+		}
+	}
 	if e := c.routeTape(ctx, b, r); e != nil {
 		return e
 	}
