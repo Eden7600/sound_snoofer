@@ -16,7 +16,7 @@ Findings 14, 15 and 26 are handled elsewhere:
 
 ## What Changes
 - **16:** priority and output edits drawn from an older configuration are sent as stale.
-- **17:** every WinRT media call waits at most 2 s. A timed-out call is cancelled and reported as an error.
+- **17:** each asynchronous WinRT media operation waits at most 2 s; synchronous property reads are unchanged. A timed-out call is cancelled and reported as an error.
 - **18:** native companions build into a fresh staging folder and reach `bin/` only after esbuild, Tailwind and the Go build succeed. Preparation and compilation failures preserve deployed files; deployment I/O failures are reported without a rollback guarantee. The only application output remains `bin/snoofer.exe`. Neural-AEC setup repairs a wrong checkout and a partial CMake extraction.
 - **21:** `SnooferStop` treats Voicemeeter's "no callback registered" (-2) as clean.
 - **22:** a deck session reads the current key state when it opens, so the first report is compared with real state.

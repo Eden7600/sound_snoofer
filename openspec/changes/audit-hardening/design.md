@@ -7,7 +7,7 @@ A control's revision changes whenever any of its fields change, such as an error
 Deck region controls carry no list identity on the host (their revision changes only with availability), so pinning them gains nothing; they are left unchanged.
 
 ## 17. Bounded media calls
-A helper waits for each WinRT async operation for up to 2 s. If the operation is still running, the helper cancels it and throws `HRESULT_FROM_WIN32(ERROR_TIMEOUT)`, which the existing handlers return. In a snapshot, a session whose metadata times out is reported without metadata, as other metadata failures already are. Synchronous property reads are unchanged.
+A helper waits for each WinRT async operation for up to 2 s. If the operation is still running, the helper cancels it and throws `HRESULT_FROM_WIN32(ERROR_TIMEOUT)`, which the existing handlers return. In a snapshot, a session whose metadata times out is reported without metadata, as other metadata failures already are. Synchronous property reads are unchanged. Use the shared helper for all async waits, including manager startup and artwork. Own the new MS handle until manager startup succeeds so timeout/failure releases it before apartment cleanup. A small native self-test covers completed, failed, cancelled and timed-out operations without a live player; compile the production helper with the canonical media companion build.
 
 ## 18. Build staging
 - `build.ps1` keeps graceful shutdown and deployed-file lock checks, then recreates its repository-owned `.local/stage`. Every selected companion, including Soundboard, writes there through `OutputDirectory`; models and licenses are staged too. Existing tag conditions stay unchanged. Only files produced by this build are published; excluded companions and unrelated `bin/` files are not removed.
@@ -18,7 +18,7 @@ A helper waits for each WinRT async operation for up to 2 s. If the operation is
 - Verify orchestration in an isolated temporary repository with fake compiler/package-manager/helper commands: native/asset/Go compile failures preserve deployed sentinels; success publishes the selected files and models/licenses; a later tagged build cannot publish stale staging files; deployment copy failure reports failure. Dependency setup checks cover an interrupted extraction and wrong/missing checkout revisions without network or hardware.
 
 ## 21. Clean stop
-`SnooferStop` returns `timing` when `AudioCallbackStop` returns -2, which Voicemeeter documents as "no callback registered". Other non-zero results still mark the cleanup as uncertain.
+`SnooferStop` returns `timing` when `AudioCallbackStop` returns -2, which Voicemeeter documents as "no callback registered". Other non-zero results still mark the cleanup as uncertain. Extend the existing callback probe runner with a native self-test of production SnooferStop using fake stop/unregister callbacks. Cover clean stop and -2 with unregister 0/1, other stop errors, unregister failure retaining ownership and repeated stop. No live callback registration is needed.
 
 ## 22. Initial key state
 Before its first read, a deck session asks the HID driver for the current input report (`HidD_GetInputReport`, report 1) and decodes it as the baseline. If the device refuses, behaviour is unchanged. A later identical report produces no events, so a deck that also reports on open is unaffected.

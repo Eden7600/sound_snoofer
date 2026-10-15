@@ -7,7 +7,7 @@ Priority and output-slot edits SHALL be rejected as stale when the configuration
 - **THEN** the edit is rejected as stale
 
 ### Requirement: Media calls are bounded
-Each call into a media application SHALL time out after 2 seconds.
+Each asynchronous WinRT media operation SHALL stop waiting after 2 seconds, request cancellation and return a timeout error if it is still running. Synchronous property reads remain unchanged; a multi-operation snapshot has no aggregate two-second deadline.
 
 #### Scenario: Frozen player
 - **WHEN** a media application stops answering
