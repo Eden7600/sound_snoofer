@@ -283,8 +283,9 @@ is not confirmation. Use only the observed DOM contract below and revalidate it 
 The background captures the socket reference and runtime port for each command.
 It must never forward an old port's result onto a new socket or reconnect request.
 Port loss before routing is rejected; after possible dispatch it is unknown.
-Do not retain unsent commands for reconnect. Duplicate request IDs are rejected
-before clicking while pending; no retry path resends completed commands.
+Do not retain unsent commands for reconnect. Duplicate request IDs while pending are ignored without a second click or result;
+the original request retains its bounded completion. A different ID on a reserved
+control is rejected as busy. No retry path resends completed commands.
 
 Map `observed` to `Processed` ("Meet state observed"), `rejected` to `Rejected`,
 and `unknown` to `Unknown`. A successful socket write leaves the completion pending;
