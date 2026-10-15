@@ -20,19 +20,6 @@ func (s *State) SetNotice(text string, kind NoticeKind, now time.Time) {
 	}
 }
 
-func (s State) NoticeAt(now time.Time) string {
-	if s.StateError != "" {
-		return s.StateError
-	}
-	if s.Error != "" {
-		return s.Error
-	}
-	if !s.NoticeUntil.IsZero() && !now.Before(s.NoticeUntil) {
-		return ""
-	}
-	return s.Notice
-}
-
 func (s *State) ResolveNotice(now time.Time) {
 	if s.RecoveryPending || s.NoticeKind != NoticePending || s.Plan == nil || s.Error != "" || s.StateError != "" {
 		return

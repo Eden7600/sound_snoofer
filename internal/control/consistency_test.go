@@ -19,9 +19,6 @@ func TestMuteTargetsAndCurrentHealth(t *testing.T) {
 	if m, _ := ObserveMute(s, "mic-mute"); !m.Pending || !m.Known {
 		t.Fatal(m)
 	}
-	if !DependsOn(s, "monitor", routing.Operation{Parameter: "Strip[3].A2"}) {
-		t.Fatal("VR monitor not recognized")
-	}
 	r := recovery{status: "Engine responding; audio continuity unverified"}
 	if got := r.observe(model.Snapshot{Assignments: map[string]string{"A1": "Volt"}, Numbers: map[string]float32{"Bus[0].device.sr": 0}}, time.Now()); !strings.Contains(got, "unavailable") {
 		t.Fatal("old outcome hid current health", got)

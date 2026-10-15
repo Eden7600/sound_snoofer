@@ -6,7 +6,7 @@
   thumbnail and `onOff` deferrals.
 
 ## Implementation checkpoints
-- [ ] 2. `refactor(control)`: remove write-only publication fields and unused presentation helpers;
+- [x] 2. `refactor(control)`: remove write-only publication fields and unused presentation helpers;
   preserve acknowledgement/batch plumbing and meaningful worker tests, including
   single-edit persistence failure, stale selection/restart rejection, feedback and latency.
 - [ ] 3. `test(storage)`: add the strict `Decode` table and valid/default/null cases; consolidate

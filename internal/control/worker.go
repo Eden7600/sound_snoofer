@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"runtime"
 	"slices"
-	"strings"
 	"time"
 
 	"sound-snoofer/internal/config"
@@ -44,24 +43,19 @@ type State struct {
 	VRConfigured                     bool
 	Feedback                         map[string]Feedback
 	noticeRevision                   uint64
-	// ObservedAt advances only on successful native snapshots; PublishedAt tracks worker progress.
-	ObservedAt                          time.Time
-	PublishedAt                         time.Time
-	ConfigPath                          string
-	ChoiceLabels                        map[string]string
-	VRMicAvailable, VRPlaybackAvailable bool
-	DefaultKind                         windowsaudio.StatusKind
-	DefaultsDetail                      windowsaudio.Result // Latest full defaults observation, for diagnostics.
-	Remote                              model.RemoteInfo    // Native Remote API identity, for diagnostics.
-	Stalled                             bool                // A qualified callback stall: the engine is not processing audio.
-	RecoveryOutcome                     string
-	RecoveryPending                     bool
-	VRMic                               string
-	VRPlayback                          string
-	Acks                                map[string]Ack
-	Health                              string
-	Defaults                            string
-	RestartConfirmation                 bool
+	// ObservedAt advances only on successful native snapshots.
+	ObservedAt          time.Time
+	ChoiceLabels        map[string]string
+	DefaultKind         windowsaudio.StatusKind
+	DefaultsDetail      windowsaudio.Result // Latest full defaults observation, for diagnostics.
+	Remote              model.RemoteInfo    // Native Remote API identity, for diagnostics.
+	Stalled             bool                // A qualified callback stall: the engine is not processing audio.
+	RecoveryOutcome     string
+	RecoveryPending     bool
+	Acks                map[string]Ack
+	Health              string
+	Defaults            string
+	RestartConfirmation bool
 
 	// Insert is the insert hook the callback is registered with (nil when none)
 	// after applying request InsertGeneration. A failed change leaves both as
@@ -89,11 +83,6 @@ type State struct {
 	NoticeUntil   time.Time
 	Snapshot      model.Snapshot
 	Plan          *routing.Plan
-}
-
-// NeedsAttention reports an active diagnostic without parsing its presentation text.
-func (s State) NeedsAttention() bool {
-	return s.Error != "" || s.StateError != "" || (s.Notice != "" && s.NoticeKind == NoticeError)
 }
 
 type ActionKind int
@@ -401,8 +390,6 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 	publish := func() {
 		sampleLevels() // Routing observations may change the meter's source.
 		state.pruneFeedback(time.Now())
-		state.PublishedAt = time.Now()
-		state.ConfigPath = path
 		state.ChoiceLabels = map[string]string{}
 		if cfg.Studio != nil {
 			for _, m := range cfg.Studio.Mics() {
@@ -447,32 +434,6 @@ func Work(ctx context.Context, cfg config.Config, path, dll string, live bool, d
 		if state.Connected {
 			state.MicOptions = routing.MicrophoneOptions(planning(), state.Snapshot)
 			state.OutputOptions = routing.PlaybackOptions(planning(), state.Snapshot)
-		}
-		state.VRMicAvailable = false
-		state.VRPlaybackAvailable = false
-		state.VRMic = "No eligible headset mic"
-		state.VRPlayback = "No eligible headset playback"
-		for _, option := range state.MicOptions {
-			if strings.HasPrefix(option, "vr:") {
-				state.VRMic = "Available"
-				state.VRMicAvailable = true
-				break
-			}
-		}
-		if cfg.VR == nil || len(cfg.VR.Headsets) == 0 {
-			state.VRMic = "Configure headset matchers"
-			state.VRPlayback = "Configure headset matchers"
-		} else {
-			for _, d := range routing.VRDevices(planning(), state.Snapshot).Devices {
-				if d.Available && d.Direction == "output" && d.Driver == "wdm" {
-					for _, h := range cfg.VR.Headsets {
-						if h.PlaybackRegex != nil && h.PlaybackRegex.MatchString(d.Name) {
-							state.VRPlayback = "Available"
-							state.VRPlaybackAvailable = true
-						}
-					}
-				}
-			}
 		}
 		state.Intent = cfg.VoiceIntent()
 		state.ActiveIntent = routing.ProfileConfig(planning(), state.Snapshot).VoiceIntent()
