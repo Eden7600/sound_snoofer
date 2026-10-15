@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"sound-snoofer/snoofer"
 )
 
 func normalizedName(c clip) string {
@@ -151,9 +153,14 @@ type preparation struct {
 	loop      bool // The requested clip was held: play it as a loop.
 	done      chan normalizedClip
 	cancel    context.CancelFunc
+	complete  snoofer.Completion
 }
 
 func (p *preparation) replace(c *clip) {
+	if p.complete != nil {
+		p.complete(snoofer.Outcome{Status: snoofer.Rejected, Detail: "Cancelled before playback"})
+		p.complete = nil
+	}
 	p.requested = c
 	if p.cancel != nil {
 		p.cancel()
@@ -177,9 +184,14 @@ func (p *preparation) finish(result normalizedClip) bool {
 		return false
 	}
 	p.requested = nil
+	p.complete = nil
 	return true
 }
 func (p *preparation) close() error {
+	if p.complete != nil {
+		p.complete(snoofer.Outcome{Status: snoofer.Unknown, Detail: "Soundboard stopped before completion"})
+		p.complete = nil
+	}
 	p.replace(nil)
 	if p.done == nil {
 		return nil

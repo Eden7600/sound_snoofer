@@ -31,9 +31,12 @@ type instance struct {
 	err    error
 }
 type command struct {
-	clip          *clip
-	loop          bool // A held clip repeats until stopped.
-	toggleOverlap bool
+	clip               *clip
+	loop               bool // A held clip repeats until stopped.
+	toggleOverlap      bool
+	overlap            bool
+	settingsGeneration uint64
+	complete           snoofer.Completion
 }
 
 // Plugin returns inert metadata; disabled plugins allocate no playback resources.
@@ -56,7 +59,25 @@ func validate(raw json.RawMessage) error {
 	}
 	return nil
 }
+
+type soundboardAudio interface {
+	SetSoundboardRoutes(*audio.SoundboardRoutes) error
+	SoundboardReady() error
+	SoundboardVolume() (snoofer.Control, func(context.Context, snoofer.Request) error)
+}
+
 func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps map[string]snoofer.Instance) (snoofer.Instance, error) {
+	audioPlugin, ok := deps["audio"].(*audio.Instance)
+	if !ok {
+		return nil, fmt.Errorf("audio dependency unavailable")
+	}
+	return startWithPlayback(ctx, s, raw, audioPlugin, func(library, renderer string) (clipPlayer, error) {
+		return voicemeeter.OpenClipPlayer(library, renderer)
+	}, voicemeeter.NormalizeClip)
+}
+
+func startWithPlayback(ctx context.Context, s snoofer.Services, raw json.RawMessage, audioPlugin soundboardAudio,
+	open func(string, string) (clipPlayer, error), decode func(context.Context, string, string, string) error) (snoofer.Instance, error) {
 	if err := validate(raw); err != nil {
 		return nil, err
 	}
@@ -66,10 +87,6 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 	}
 	// saved keeps the persisted form; settings.Folder is made absolute below.
 	saved := settings
-	audioPlugin, ok := deps["audio"].(*audio.Instance)
-	if !ok {
-		return nil, fmt.Errorf("audio dependency unavailable")
-	}
 	if !filepath.IsAbs(settings.Folder) {
 		settings.Folder = filepath.Join(filepath.Dir(s.Path), settings.Folder)
 	}
@@ -87,19 +104,20 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
 		defer close(i.done)
+		defer cancel()
 		defer s.Controls.Remove("soundboard")
 		defer func() { i.err = errors.Join(i.err, audioPlugin.SetSoundboardRoutes(nil)) }()
 		cacheFolder := filepath.Join(filepath.Dir(s.Path), "soundboard-cache", "peak-v1")
 		library := filepath.Join(filepath.Dir(exe), "snoofer-soundboard.dll")
 		prepare := func(ctx context.Context, c clip) (string, error) {
 			return prepareClip(ctx, c, cacheFolder, func(ctx context.Context, source, destination string) error {
-				return voicemeeter.NormalizeClip(ctx, library, source, destination)
+				return decode(ctx, library, source, destination)
 			})
 		}
 		pending := &preparation{}
 		defer func() { i.err = errors.Join(i.err, pending.close()) }()
 		voices := newVoicePool(func() (clipPlayer, error) {
-			return voicemeeter.OpenClipPlayer(library, settings.Renderer)
+			return open(library, settings.Renderer)
 		})
 		defer func() { i.err = errors.Join(i.err, voices.close()) }()
 		commands := make(chan command, 1)
@@ -112,13 +130,14 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 		failed, diagnostic := "", ""
 		var link snoofer.ConnectionTracker // Native playback health, apart from clip feedback.
 		lastClip := ""
+		var settingsGeneration uint64
 		publish := func() {
 			ready := audioPlugin.SoundboardReady()
 			note, attention := libraryStatus(s.Live, diagnostic, scanErr, ready, clips)
 			controls := []snoofer.Control{
 				{ID: "soundboard.status", Label: "Soundboard", Group: "Soundboard", Kind: "status", Value: note, Timers: voices.timers(), Attention: attention, Available: true},
 				{ID: "soundboard.stop", Label: "Stop Soundboard", ShortLabel: "Stop", Group: "Soundboard", Kind: "command", Icon: "soundboard-stop", Operations: []string{"press"}, Available: s.Live},
-				{ID: "soundboard.overlap", Label: "Overlap Clips", ShortLabel: "Overlap", Group: "Soundboard", Kind: "toggle", Icon: "soundboard-overlap", Value: onOff(settings.Overlap), Operations: []string{"press"}, Available: true},
+				{ID: "soundboard.overlap", Label: "Overlap Clips", ShortLabel: "Overlap", Group: "Soundboard", Kind: "toggle", Icon: "soundboard-overlap", Value: onOff(settings.Overlap), Operations: []string{"press"}, Available: s.SaveSettings != nil},
 			}
 			volume, volumeHandler := audioPlugin.SoundboardVolume()
 			controls = append(controls, volume, playbackReport(&link, s.Live, ready, voices.loaded(), settings.Renderer, lastClip, time.Now()))
@@ -139,11 +158,15 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 				}
 				controls = append(controls, snoofer.Control{Artwork: c.Artwork, Animation: c.Animation, ID: c.ID, Label: c.Label, Group: "Soundboard", Collection: "soundboard.clips", CollectionLabel: "Soundboard Clips", Kind: "command", Icon: "soundboard-play", Value: value, Status: status, Operations: []string{"press", "hold"}, Available: s.Live && ready == nil && scanErr == nil})
 			}
+			wantOverlap, capturedGeneration := !settings.Overlap, settingsGeneration
 			if err := s.Controls.Publish("soundboard", controls, func(ctx context.Context, r snoofer.Request) error {
 				if r.ID == volume.ID {
 					return volumeHandler(ctx, r)
 				}
-				cmd := command{toggleOverlap: r.ID == "soundboard.overlap"}
+				if err := runCtx.Err(); err != nil {
+					return err
+				}
+				cmd := command{toggleOverlap: r.ID == "soundboard.overlap", overlap: wantOverlap, settingsGeneration: capturedGeneration}
 				if r.ID != "soundboard.stop" && !cmd.toggleOverlap {
 					c, ok := byID[r.ID]
 					if !ok {
@@ -152,6 +175,7 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 					cmd.clip = &c
 					cmd.loop = r.Operation == "hold"
 				}
+				cmd.complete = r.ClaimCompletion(runCtx)
 				select {
 				case commands <- cmd:
 					return nil
@@ -194,19 +218,23 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 					}
 				}
 			case result := <-pending.done:
-				loop := pending.loop
+				loop, complete := pending.loop, pending.complete
 				if pending.finish(result) {
 					err := result.err
-					if err == nil {
+					status := snoofer.Failed
+					if runCtx.Err() != nil {
 						err = runCtx.Err()
+						status = snoofer.Unknown
 					}
 					if err == nil {
 						err = audioPlugin.SoundboardReady()
+						status = snoofer.Rejected
 					}
 					if err == nil {
 						err = result.clip.unchanged()
 					}
 					if err == nil {
+						status = snoofer.Failed
 						// Opening or starting a native graph failed: a playback fault.
 						length, _ := wavLength(result.path) // Zero when unknown: no timer.
 						if err = voices.play(result.clip.ID, result.path, length, settings.Overlap, loop); err != nil {
@@ -219,7 +247,9 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 					if err != nil {
 						failed = result.clip.ID
 						diagnostic = err.Error()
+						complete(snoofer.Outcome{Status: status, Detail: diagnostic})
 					} else {
+						complete(snoofer.Outcome{Status: snoofer.Processed, Detail: "Playback started"})
 						failed = ""
 					}
 				}
@@ -230,30 +260,30 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 				diagnostic = ""
 				failed = ""
 				if cmd.toggleOverlap {
+					if cmd.settingsGeneration != settingsGeneration || s.SaveSettings == nil {
+						cmd.complete(snoofer.Outcome{Status: snoofer.Rejected, Detail: "Soundboard settings changed"})
+						continue
+					}
 					next := saved
-					next.Overlap = !saved.Overlap
+					next.Overlap = cmd.overlap
 					data, err := json.Marshal(next)
 					if err == nil {
 						err = s.SaveSettings("soundboard", raw, data)
 					}
 					if err != nil {
 						diagnostic = err.Error()
+						cmd.complete(snoofer.Outcome{Status: snoofer.Failed, Detail: diagnostic})
 					} else {
 						raw, saved = data, next
 						settings.Overlap = next.Overlap
+						settingsGeneration++
+						cmd.complete(snoofer.Outcome{Status: snoofer.Processed, Detail: "Saved"})
 					}
 					publish()
 					continue
 				}
 				var err error
-				// A clip press with overlap keeps current voices; Stop or a
-				// replacing press silences everything first.
-				if cmd.clip == nil || !settings.Overlap {
-					err = voices.stopAll()
-				}
-				pending.replace(nil)
-				if cmd.clip != nil && err == nil {
-					failed = cmd.clip.ID
+				if cmd.clip != nil {
 					if !s.Live {
 						err = fmt.Errorf("preview does not play clips")
 					} else {
@@ -262,14 +292,26 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 					if err == nil {
 						err = cmd.clip.unchanged()
 					}
-					if err == nil {
-						pending.replace(cmd.clip)
-						pending.loop = cmd.loop
-						failed = ""
+					if err != nil {
+						failed, diagnostic = cmd.clip.ID, err.Error()
+						cmd.complete(snoofer.Outcome{Status: snoofer.Rejected, Detail: diagnostic})
+						publish()
+						continue
 					}
+				}
+				// Refuse a stale clip before stopping any existing playback.
+				pending.replace(nil)
+				if cmd.clip == nil || !settings.Overlap {
+					err = voices.stopAll()
 				}
 				if err != nil {
 					diagnostic = err.Error()
+					cmd.complete(snoofer.Outcome{Status: snoofer.Failed, Detail: diagnostic})
+				} else if cmd.clip == nil {
+					cmd.complete(snoofer.Outcome{Status: snoofer.Processed, Detail: "Playback stopped"})
+				} else {
+					pending.replace(cmd.clip)
+					pending.loop, pending.complete = cmd.loop, cmd.complete
 				}
 			}
 			pending.start(runCtx, prepare)
