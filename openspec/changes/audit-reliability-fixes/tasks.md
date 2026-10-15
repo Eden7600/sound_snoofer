@@ -14,7 +14,7 @@
 - [x] 12. `fix(hue)`: reset backoff on the first stream message; cancel a client's stream on close; tests.
 - [x] 13. `fix(discord)`: run one token exchange at a time; test.
 - [x] 14. `fix(nowplaying)`: stop after the listener closes; retry a busy port; test.
-- [ ] 15. Validate: gofmt, `go test ./...`, `go vet ./...`, `node --test`, GUI check, OpenSpec strict validation, canonical build.
+- [x] 15. Validate: gofmt, `go test ./...`, `go vet ./...`, `node --test`, GUI check, OpenSpec strict validation, canonical build. (`go test -race` needs cgo on this toolchain and was not run.)
 
 ## Acceptance
 - [ ] 16. On hardware: edit a Stream Deck Mini or MK.2 page; start Snoofer before Voicemeeter and confirm the callback registers once Voicemeeter runs; pause a recording from Snoofer; hold and release deck keys repeatedly with no phantom hold.
