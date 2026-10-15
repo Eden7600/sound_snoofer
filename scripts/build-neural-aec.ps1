@@ -1,6 +1,7 @@
 param([string]$OutputDirectory = 'bin')
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
+. (Join-Path $repo 'scripts/native-build.ps1')
 Push-Location $repo
 try {
     $cache = Join-Path $repo '.local/neural-aec'
@@ -84,14 +85,8 @@ try {
         Fetch "https://huggingface.co/LocalAI-io/LocalVQE/resolve/main/$name" $cached $models[$name]
         Copy-Item -LiteralPath $cached -Destination "$out/models/$name" -Force
     }
-    $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
-    $vs = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-    if (!$vs) { throw 'MSVC and Windows SDK required' }
-    $vcvars = Join-Path $vs 'VC/Auxiliary/Build/vcvars64.bat'
-    $lines = @('@echo off', "call `"$vcvars`" >nul", 'if errorlevel 1 exit /b 1')
+    $lines = @()
     $lines += "cl /nologo /c /O2 /MT /EHsc /std:c++20 /utf-8 /W4 /WX /DNOMINMAX /DWEBRTC_WIN /D_WIN32 /DWEBRTC_LIBRARY_IMPL /D_WINSOCKAPI_ /DNDEBUG /external:W0 /external:Ithird_party\webrtc-audio-processing\webrtc /external:Ithird_party\abseil-cpp /Iinternal\voicemeeter\callback /I`"$src\ggml`" /Fo`"$cache\neural.obj`" internal\aec\native\neural.cpp || exit /b 1"
     $lines += "link /nologo /DLL /OUT:`"$out\snoofer-neural-aec.dll`" /IMPLIB:`"$cache\snoofer-neural-aec.lib`" `"$cache\neural.obj`" `"$cache\build\Release\localvqe.lib`" .local\aec\webrtc-apm.lib winmm.lib || exit /b 1"
-    Set-Content "$cache/build-shim.cmd" $lines
-    & $env:ComSpec /d /c "$cache/build-shim.cmd"
-    if ($LASTEXITCODE) { throw 'Neural AEC bridge build failed' }
+    Invoke-MsvcBuild -CommandFile "$cache/build-shim.cmd" -Commands $lines -FailureMessage 'Neural AEC bridge build failed'
 } finally { Pop-Location }

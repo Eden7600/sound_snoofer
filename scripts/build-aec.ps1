@@ -5,6 +5,7 @@ param([string]$OutputDirectory = 'bin')
 # rebuilt only when a source is newer than the library.
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
+. (Join-Path $repo 'scripts/native-build.ps1')
 Push-Location $repo
 try {
     $w = 'third_party\webrtc-audio-processing\webrtc'
@@ -63,10 +64,6 @@ try {
         'strings\internal\memutil.cc', 'strings\internal\escaping.cc', 'strings\internal\utf8.cc'
     )
 
-    $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
-    $vs = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-    if (!$vs) { throw 'MSVC and the Windows SDK are required to build echo cancellation.' }
-    $vcvars = Join-Path $vs 'VC/Auxiliary/Build/vcvars64.bat'
     $out = [IO.Path]::GetFullPath((Join-Path $repo $OutputDirectory))
     $work = Join-Path $repo '.local/aec'
     New-Item -ItemType Directory -Force $work, $out | Out-Null
@@ -79,7 +76,7 @@ try {
     # Rebuild the third-party library only when a vendored source changed.
     $newest = (Get-ChildItem third_party -Recurse -File | Measure-Object LastWriteTime -Maximum).Maximum
     $rebuild = !(Test-Path $lib) -or (Get-Item $lib).LastWriteTime -lt $newest -or (Get-Item $lib).LastWriteTime -lt (Get-Item $PSCommandPath).LastWriteTime
-    $lines = @('@echo off', "call `"$vcvars`" >nul", 'if errorlevel 1 exit /b 1')
+    $lines = @()
     # compile emits one cl call per source directory, each into its own object
     # folder, because different directories reuse file names.
     $objects = @()
@@ -107,7 +104,5 @@ try {
     $lines += "cl /nologo /c /O2 /MT /EHsc /std:c++20 /Zc:__cplusplus /utf-8 /W4 /WX $defines /external:W0 /external:I$w /external:Ithird_party\abseil-cpp /Iinternal\voicemeeter\callback /Fo.local\aec\obj\shim\ internal\aec\native\aec.cpp || exit /b 1"
     $lines += "link /nologo /DLL /OUT:`"$out\snoofer-aec.dll`" /IMPLIB:.local\aec\snoofer-aec.lib .local\aec\obj\shim\aec.obj .local\aec\webrtc-apm.lib winmm.lib || exit /b 1"
     $build = Join-Path $work 'build.cmd'
-    Set-Content -LiteralPath $build -Value $lines
-    & $env:ComSpec /d /c $build
-    if ($LASTEXITCODE -ne 0) { throw 'Echo cancellation build failed; do not replace an in-use DLL.' }
+    Invoke-MsvcBuild -CommandFile $build -Commands $lines -FailureMessage 'Echo cancellation build failed; do not replace an in-use DLL.'
 } finally { Pop-Location }

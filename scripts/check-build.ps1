@@ -2,6 +2,7 @@
 $ErrorActionPreference = 'Stop'
 $sandbox = Join-Path ([IO.Path]::GetTempPath()) ('snoofer-build-check-' + [guid]::NewGuid())
 $sandbox = [IO.Path]::GetFullPath($sandbox)
+$originalProgramFiles = ${env:ProgramFiles(x86)}
 function Assert([bool]$condition, [string]$message) {
     if (!$condition) { throw $message }
 }
@@ -114,10 +115,14 @@ if ($name -eq 'neural-aec') {
         New-Item -ItemType Directory -Force "$repo/scripts" | Out-Null
         Copy-Item -LiteralPath "$PSScriptRoot/build-neural-aec.ps1" -Destination "$repo/scripts/build-neural-aec.ps1"
         Copy-Item -LiteralPath "$PSScriptRoot/build-soundboard.ps1" -Destination "$repo/scripts/build-soundboard.ps1"
+        Copy-Item -LiteralPath "$PSScriptRoot/native-build.ps1" -Destination "$repo/scripts/native-build.ps1"
+        ${env:ProgramFiles(x86)} = Join-Path $repo 'Program Files'
         $cache = Join-Path $repo '.local/neural-aec'
         $cmakeDirectory = Join-Path $cache 'cmake-3.31.6-windows-x86_64'
         $cmakePath = Join-Path $cmakeDirectory 'bin/cmake.exe'
         $vswherePath = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+        Put $vswherePath
+        Put "$repo/vs/VC/Auxiliary/Build/vcvars64.bat"
         $revision = 'f53063c9eb2a85f96479867d1dd911dc3bf6319b'
         $ggmlRevision = 'c044a8eeae2591faa0950c8b5e514cbc4bbfc4ca'
         $setup = @{ Head = 'wrong'; GGML = ''; Extracts = 0; Downloads = 0; Clones = 0; Fetches = 0; Checkouts = 0; Submodules = 0; FailExtract = $true }
@@ -170,7 +175,7 @@ if ($name -eq 'neural-aec') {
             $global:LASTEXITCODE = 0
             Put "$cache/build/bin/Release/localvqe.dll"
         }
-        Set-Item -LiteralPath "Function:$vswherePath" -Value { return "$repo/vs" }
+        Set-Item -LiteralPath "Function:$vswherePath" -Value { $global:LASTEXITCODE = 0; return "$repo/vs" }
         $nativeCommands = [Collections.Generic.List[string]]::new()
         Set-Item -LiteralPath "Function:$env:ComSpec" -Value {
             $nativeCommands.Add((Get-Content -LiteralPath $args[-1] -Raw))
@@ -210,8 +215,46 @@ if ($name -eq 'neural-aec') {
         $soundboardOutput = [IO.Path]::GetFullPath((Join-Path $repo '.local/soundboard-stage/snoofer-soundboard.dll'))
         Assert ($nativeCommands[-1].Contains('/Fe"' + $soundboardOutput + '"')) 'Soundboard did not use the requested output directory'
     }
+    & {
+        $repo = Join-Path $sandbox 'native setup with spaces'
+        ${env:ProgramFiles(x86)} = Join-Path $repo 'Program Files'
+        $vswherePath = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+        $vs = Join-Path $repo 'Visual Studio'
+        $vcvars = Join-Path $vs 'VC/Auxiliary/Build/vcvars64.bat'
+        $build = Join-Path $repo 'output with spaces/build.cmd'
+        $marker = Join-Path $repo 'output with spaces/compiled.txt'
+        Put $vswherePath
+        Put $vcvars "@echo off`r`nexit /b 0"
+        New-Item -ItemType Directory -Force (Split-Path $build -Parent) | Out-Null
+        Set-Item -LiteralPath "Function:$vswherePath" -Value { $global:LASTEXITCODE = 0; return $vs }
+        . "$PSScriptRoot/native-build.ps1"
+        function ExpectNativeFailure([string[]]$commands, [string]$expected) {
+            $failure = $null
+            try { Invoke-MsvcBuild -CommandFile $build -Commands $commands -FailureMessage 'Fixture build failed.' } catch { $failure = $_ }
+            Assert ($null -ne $failure -and $failure.ToString().Contains($expected)) "Unexpected native result: $failure"
+        }
+        $body = "echo compiled>`"$marker`""
+        Invoke-MsvcBuild -CommandFile $build -Commands $body -FailureMessage 'Fixture build failed.'
+        Assert (Test-Path -LiteralPath $marker) 'Paths with spaces did not execute the command body'
+        Remove-Item -LiteralPath $marker
+        Put $vcvars "@echo off`r`nexit /b 1"
+        ExpectNativeFailure $body 'Fixture build failed.'
+        Assert (!(Test-Path -LiteralPath $marker)) 'Failed vcvars setup ran the command body'
+        Put $vcvars "@echo off`r`nexit /b 0"
+        ExpectNativeFailure @('exit /b 7', $body) 'Fixture build failed.'
+        Assert (!(Test-Path -LiteralPath $marker)) 'Failed command continued the command body'
+        Set-Item -LiteralPath "Function:$vswherePath" -Value { $global:LASTEXITCODE = 1; return $vs }
+        ExpectNativeFailure $body 'No installed MSVC x64 toolchain'
+        Set-Item -LiteralPath "Function:$vswherePath" -Value { $global:LASTEXITCODE = 0; return $vs }
+        Remove-Item -LiteralPath $vcvars
+        ExpectNativeFailure $body 'MSVC environment setup is missing'
+        Remove-Item -LiteralPath $vswherePath
+        ExpectNativeFailure $body 'MSVC Build Tools discovery is missing'
+    }
+
     Write-Output 'Build staging and dependency recovery checks passed (fake tools; no build or network).'
 } finally {
+    ${env:ProgramFiles(x86)} = $originalProgramFiles
     $tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
     if (!$sandbox.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase) -or
         [IO.Path]::GetFileName($sandbox) -notlike 'snoofer-build-check-*') { throw 'Refusing cleanup outside the test sandbox.' }

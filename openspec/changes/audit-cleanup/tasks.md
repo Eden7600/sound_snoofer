@@ -17,7 +17,7 @@
   deadlines and retain plugin join tests.
 - [ ] 5. `refactor(dead-code)`: recheck and remove finding 30's confirmed unused members/helpers;
   preserve the renderer, media and child-process behavior covered by their remaining tests.
-- [ ] 6. `refactor(build)`: consolidate the six native toolchain setup sites after rebasing on
+- [x] 6. `refactor(build)`: consolidate the six native toolchain setup sites after rebasing on
   hardening; retain staging, output paths, compiler flags, media self-tests and failure context;
   run/update isolated fake-command build tests, including paths with spaces and setup failure.
 - [ ] 7. `refactor(native)`: share buffer shape/channel/copy primitives in the existing header;

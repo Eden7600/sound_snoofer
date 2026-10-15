@@ -1,26 +1,18 @@
 param([switch]$Observe, [switch]$Paired)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+. (Join-Path $repo 'scripts/native-build.ps1')
 Push-Location $repo
 try {
     $out = Join-Path $repo '.local/stall-probe'
     New-Item -ItemType Directory -Force $out | Out-Null
-    $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
-    if (!(Test-Path $vswhere)) { throw 'MSVC Build Tools with a Windows SDK are required.' }
-    $vs = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-    if (!$vs) { throw 'No installed MSVC x64 toolchain found.' }
-    $vcvars = Join-Path $vs 'VC/Auxiliary/Build/vcvars64.bat'
     $build = Join-Path $out 'build-callback.cmd'
-    @"
-@echo off
-call "$vcvars" >nul
-if errorlevel 1 exit /b 1
+    $commands = @"
 cl /nologo /W4 /WX /O2 /std:c11 /Fo.local\stall-probe\callback-probe.obj /Fe.local\stall-probe\callback-probe.exe tools\callback-probe\probe.c
 if errorlevel 1 exit /b 1
 cl /nologo /W4 /WX /O2 /std:c11 /Fo.local\stall-probe\stop-test.obj /Fe.local\stall-probe\stop-test.exe tools\callback-probe\stop_test.c
-"@ | Set-Content -LiteralPath $build
-    & $env:ComSpec /d /c $build
-    if ($LASTEXITCODE -ne 0) { throw 'Probe compilation failed. Check MSVC and Windows SDK installation.' }
+"@
+    Invoke-MsvcBuild -CommandFile $build -Commands $commands -FailureMessage 'Probe compilation failed. Check MSVC and Windows SDK installation.'
     $exe = Join-Path $out 'callback-probe.exe'
     & $exe --self-test
     if ($LASTEXITCODE -ne 0) { throw 'Callback probe self-test failed; live capture refused.' }
