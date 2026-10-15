@@ -10,5 +10,5 @@
   why native confirmation cannot use a click-detail, focus or timing heuristic.
 - [ ] 4. Run complete frontend/GUI checks, canonical build and isolated native Processing/Monitor
   acceptance, then restore the previous host launch. Focused browser checks and frontend gates pass;
-  canonical/native acceptance is deferred while the user prohibits running-host changes.
+  canonical/native acceptance now waits for stable provider/frontend integration.
   Record hardware acceptance separately.

@@ -22,8 +22,8 @@
   run/update isolated fake-command build tests, including paths with spaces and setup failure.
 - [x] 7. `refactor(native)`: share buffer shape/channel/copy primitives in the existing header;
   retain strict callback pointer validation; run isolated C/C++ buffer and callback self-tests.
-- [ ] 7a. Compile affected companions through the canonical build workflow after the user permits
-  running-host changes. Offline C/C++ primitive tests passed; companion compilation is deferred.
+- [ ] 7a. Compile affected companions through the coordinated canonical build after stable integration.
+  The running-host restriction is lifted. Offline C/C++ primitive tests passed; companion compilation remains open.
 
 ## Validation
 - [ ] 8. Run gofmt, focused and full Go tests/vet, frontend gates/GUI tests, OpenSpec strict
