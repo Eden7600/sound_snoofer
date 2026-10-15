@@ -1,5 +1,5 @@
 // The host's view state as the GUI receives it (app/state.go, snoofer.Control).
-// Loose where the GUI reads provider-specific ViewData.
+// Handwritten fixtures may omit default fields; provider ViewData is narrowed at each read.
 
 export interface Meter {
   Present?: boolean;
@@ -18,7 +18,7 @@ export interface Connection {
   Details?: { Label: string; Value: string }[];
 }
 
-export interface Control {
+export interface Control<T = unknown> {
   ID: string;
   Label: string;
   Kind: string;
@@ -41,8 +41,7 @@ export interface Control {
   CollectionLabel?: string;
   Order?: number;
   Connection?: Connection;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- provider-specific shapes
-  ViewData?: any;
+  ViewData?: T;
 }
 
 export interface Fixture {

@@ -1,0 +1,3 @@
+app/web/src/icons.ts
+app/web/test/fixtures/*.json
+app/web/dist/

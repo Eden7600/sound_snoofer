@@ -36,7 +36,8 @@ test.describe("Meetings", () => {
       window.fixture.Enabled.discord = false;
     });
     await page.getByRole("button", { name: "Enable Discord", exact: true }).click();
-    const action = (await gui.sent()).at(-1)!;
+    const action = (await gui.sent()).at(-1);
+    if (!action) throw new Error("expected Discord enable action");
     expect([action.Kind, action.Plugin, action.Enable]).toEqual(["selection", "discord", true]);
     await gui.update(() => {
       window.fixture.Enabled.discord = true;

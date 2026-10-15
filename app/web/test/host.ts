@@ -3,8 +3,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { test as base, expect, type Page } from "@playwright/test";
-import { studioFixture, type Variant } from "./fixtures";
-import type { Action, Animations, Fixture, Request } from "./types";
+import { studioFixture, type Variant } from "./fixtures/index.ts";
+import type { DeckView } from "../src/screens/deck-types.ts";
+import type { Action, Animations, Control, Fixture, Request } from "./types.ts";
 
 const repository = path.resolve(__dirname, "../../..");
 const web = path.join(repository, "app/web");
@@ -17,7 +18,7 @@ declare global {
     sent: Action[];
     copied: string[];
     // Finds a fixture control by ID (page side).
-    ctl: (id: string) => Fixture["Controls"][number];
+    ctl: <T = unknown>(id: string) => Control<T>;
   }
 }
 
@@ -37,10 +38,10 @@ function installHost([fixture, animations]: [Fixture, Animations]): void {
   window.animations = animations;
   window.sent = [];
   window.copied = [];
-  window.ctl = (id) => {
+  window.ctl = <T = unknown>(id: string): Control<T> => {
     const control = window.fixture.Controls.find((c) => c.ID === id);
     if (!control) throw new Error(`fixture has no ${id}`);
-    return control;
+    return control as Control<T>;
   };
   Object.defineProperty(navigator, "clipboard", {
     value: {
@@ -63,47 +64,66 @@ function installHost([fixture, animations]: [Fixture, Animations]): void {
       if (!r) return;
       const target = window.fixture.Controls.find((c) => c.ID === r.ID);
       const preview = window.fixture.Controls.find((c) => c.ID === "streamdeck.preview");
-      const view = preview?.ViewData;
+      const view = preview?.ViewData as DeckView | undefined;
       if (r.ID === "streamdeck.slot" && view) {
         const [kind, number] = r.Value.split(" ");
         view.Selected = Number(number) - 1 + (kind === "Dial" ? view.Keys.length : 0);
       }
       // shortcut: region math assumes + XL, use view geometry when adding other-model region edit scenarios.
       if (r.ID.startsWith("streamdeck.region-") && view && preview) {
-        const label = (source: string) => view.Collections.find((x: { ID: string }) => x.ID === source)?.Label || source;
+        const regions = (view.Regions ??= []);
+        const label = (source: string) => view.Collections?.find((x) => x.ID === source)?.Label || source;
         if (r.ID === "streamdeck.region-add") {
           const [first, last, source] = r.Value.split(",");
+          if (source === undefined) throw new Error("region-add requires a source");
           const dials = Number(first) >= 36;
-          view.Regions.push({
+          regions.push({
             Source: source,
-            Label: label(source!),
+            Label: label(source),
+            Stacked: "",
             First: Number(first) - (dials ? 36 : 0),
             Last: Number(last) - (dials ? 36 : 0),
             Dials: dials,
+            Legacy: false,
+            Clip: false,
           });
         }
         if (r.ID === "streamdeck.region-source") {
           const [i, source] = r.Value.split(",");
-          Object.assign(view.Regions[Number(i)], { Source: source, Label: label(source!) });
+          const region = regions[Number(i)];
+          if (!region || source === undefined) throw new Error("region-source requires a region and source");
+          Object.assign(region, { Source: source, Label: label(source) });
         }
         if (r.ID === "streamdeck.region-clip") {
           const [i, clip] = r.Value.split(",");
-          view.Regions[Number(i)].Clip = clip === "on";
+          const region = regions[Number(i)];
+          if (!region) throw new Error("region-clip requires a region");
+          region.Clip = clip === "on";
         }
-        if (r.ID === "streamdeck.region-remove") view.Regions.splice(Number(r.Value), 1);
+        if (r.ID === "streamdeck.region-remove") regions.splice(Number(r.Value), 1);
         // The fixture's collections overflow unless every region is clipped.
-        view.Sets = view.Regions.some((g: { Clip?: boolean }) => !g.Clip) ? 3 : 1;
+        view.Sets = regions.some((g) => !g.Clip) ? 3 : 1;
         for (const k of view.Keys) k.Region = -1;
         for (const d of view.Dials) d.Region = -1;
-        view.Regions.forEach((g: { Dials: boolean; First: number; Last: number }, n: number) => {
+        regions.forEach((g, n) => {
           if (g.Dials) {
-            for (let d = Math.min(g.First, g.Last); d <= Math.max(g.First, g.Last); d++) view.Dials[d].Region = n;
+            for (let d = Math.min(g.First, g.Last); d <= Math.max(g.First, g.Last); d++) {
+              const dial = view.Dials[d];
+              if (!dial) throw new Error("region references absent dial " + d);
+              dial.Region = n;
+            }
             return;
           }
-          const rows = [Math.floor(g.First / 9), Math.floor(g.Last / 9)].sort((a, b) => a - b);
-          const cols = [g.First % 9, g.Last % 9].sort((a, b) => a - b);
-          for (let row = rows[0]!; row <= rows[1]!; row++) {
-            for (let col = cols[0]!; col <= cols[1]!; col++) view.Keys[row * 9 + col].Region = n;
+          const firstRow = Math.floor(g.First / 9),
+            lastRow = Math.floor(g.Last / 9);
+          const firstCol = g.First % 9,
+            lastCol = g.Last % 9;
+          for (let row = Math.min(firstRow, lastRow); row <= Math.max(firstRow, lastRow); row++) {
+            for (let col = Math.min(firstCol, lastCol); col <= Math.max(firstCol, lastCol); col++) {
+              const key = view.Keys[row * 9 + col];
+              if (!key) throw new Error("region references absent key " + (row * 9 + col));
+              key.Region = n;
+            }
           }
         });
         view.Dirty = true;
@@ -119,8 +139,11 @@ function installHost([fixture, animations]: [Fixture, Animations]): void {
 
 export class Gui {
   readonly errors: string[] = [];
+  // update edits the page's fixture; the next poll delivers it.
+  readonly update: Page["evaluate"];
 
   constructor(readonly page: Page) {
+    this.update = page.evaluate.bind(page);
     page.on("pageerror", (error) => this.errors.push(String(error)));
   }
 
@@ -136,7 +159,10 @@ export class Gui {
           : path.join(web, url.pathname === "/" ? "index.html" : decodeURIComponent(url.pathname));
       if (!file.startsWith(web + path.sep) && !file.endsWith("tray.ico")) return route.fulfill({ status: 403 });
       if (!fs.existsSync(file)) return route.fulfill({ status: 404 });
-      return route.fulfill({ body: fs.readFileSync(file), contentType: types[path.extname(file)] ?? "application/octet-stream" });
+      return route.fulfill({
+        body: fs.readFileSync(file),
+        contentType: types[path.extname(file)] ?? "application/octet-stream",
+      });
     });
     await this.page.addInitScript(installHost, [fixture, animations] as [Fixture, Animations]);
     await this.page.goto(`${origin}/`);
@@ -146,11 +172,6 @@ export class Gui {
   // screen opens a screen from the sidebar.
   async screen(name: string): Promise<void> {
     await this.page.getByRole("navigation", { name: "Workspace" }).getByRole("button", { name, exact: true }).click();
-  }
-
-  // update edits the page's fixture; the next poll delivers it.
-  async update<T>(edit: (arg: T) => void, arg?: T): Promise<void> {
-    await this.page.evaluate(edit, arg as T);
   }
 
   sent(): Promise<Action[]> {
@@ -174,7 +195,7 @@ export class Gui {
   // sentValues decodes the JSON values of every request to a control.
   async sentValues(id: string): Promise<unknown[]> {
     const sent = await this.sent();
-    return sent.filter((a) => a.Request?.ID === id).map((a) => JSON.parse(a.Request!.Value));
+    return sent.flatMap((a) => (a.Request?.ID === id ? [JSON.parse(a.Request.Value) as unknown] : []));
   }
 
   // settled waits until the GUI accepts input again after a send.
@@ -184,7 +205,10 @@ export class Gui {
   }
 
   async noHorizontalScroll(): Promise<void> {
-    expect(await this.page.evaluate(() => document.documentElement.scrollWidth > innerWidth), "horizontal overflow").toBe(false);
+    expect(
+      await this.page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+      "horizontal overflow",
+    ).toBe(false);
   }
 }
 

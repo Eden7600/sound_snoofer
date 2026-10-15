@@ -11,7 +11,8 @@ test.describe("Soundboard", () => {
 
   test("search filters clips and animated artwork cycles", async ({ gui }) => {
     await gui.page.waitForFunction(
-      (dot) => (document.querySelector("[data-part=clip]:not([hidden]) img") as HTMLImageElement | null)?.src.endsWith(dot),
+      (dot) =>
+        (document.querySelector("[data-part=clip]:not([hidden]) img") as HTMLImageElement | null)?.src.endsWith(dot),
       dot,
     );
   });
@@ -19,7 +20,11 @@ test.describe("Soundboard", () => {
   test("a click plays once; a hold loops and swallows the click", async ({ gui }) => {
     const { page } = gui;
     const clip = page.locator("[data-part=clip]:visible");
-    const operations = async () => (await gui.sent()).map((a) => a.Request!.ID + ":" + a.Request!.Operation);
+    const operations = async () =>
+      (await gui.sent()).map((a) => {
+        if (!a.Request) throw new Error("expected a Soundboard request");
+        return a.Request.ID + ":" + a.Request.Operation;
+      });
     await clip.click();
     expect(await operations()).toEqual(["soundboard.clip-sadge:press"]);
     await expect(clip).toBeEnabled();

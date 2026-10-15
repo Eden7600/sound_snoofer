@@ -1,6 +1,7 @@
 import { expect, test, type Gui } from "./host";
+import type { AppAudioView } from "../src/screens/appaudio-types.ts";
 
-const edit = async (gui: Gui) => JSON.parse((await gui.last("appaudio.edit")).Value);
+const edit = async (gui: Gui): Promise<unknown> => JSON.parse((await gui.last("appaudio.edit")).Value);
 
 // Accept the last edit, as the host does after saving it.
 const accept = (gui: Gui) =>
@@ -16,7 +17,11 @@ test.describe("App Audio", () => {
   });
 
   test("lists picked and heard apps", async ({ gui }) => {
-    expect(await gui.page.locator("[data-part=app] h3").allTextContents()).toEqual(["Discord", "Google Chrome", "Spotify"]);
+    expect(await gui.page.locator("[data-part=app] h3").allTextContents()).toEqual([
+      "Discord",
+      "Google Chrome",
+      "Spotify",
+    ]);
     await expect(gui.page.getByRole("slider", { name: "Spotify volume" }), "closed app adjustable").toBeHidden();
   });
 
@@ -29,7 +34,9 @@ test.describe("App Audio", () => {
     expect(await edit(gui)).toEqual({ op: "recent", app: "recent", value: "30" });
     await gui.update(() => {
       const status = window.ctl("appaudio.status");
-      status.ViewData.RecentMinutes = 30;
+      const view = status.ViewData as AppAudioView | undefined;
+      if (!view) throw new Error("missing App Audio fixture view");
+      view.RecentMinutes = 30;
       status.Revision++;
       window.ctl("appaudio.edit").Revision++;
     });

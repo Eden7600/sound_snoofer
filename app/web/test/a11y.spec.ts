@@ -2,7 +2,19 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "./host";
 import { knownA11y } from "./known-a11y";
 
-const screens = ["Audio", "Routing", "Soundboard", "Lights", "App Audio", "Meetings", "Media", "Stream Deck", "Plugins", "Third-Party Apps", "Diagnostics"];
+const screens = [
+  "Audio",
+  "Routing",
+  "Soundboard",
+  "Lights",
+  "App Audio",
+  "Meetings",
+  "Media",
+  "Stream Deck",
+  "Plugins",
+  "Third-Party Apps",
+  "Diagnostics",
+];
 const wcagTags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 
 test("accessibility exceptions name a scanned screen and owning change", () => {
@@ -22,8 +34,9 @@ test("accessibility scanner detects an unlabeled control", async ({ gui }) => {
     content.prepend(input);
   });
   const results = await new AxeBuilder({ page: gui.page }).withTags(wcagTags).analyze();
-  expect(results.violations.find((violation) => violation.id === "label")?.nodes.map((node) => node.target))
-    .toContainEqual(["#a11y-regression"]);
+  expect(
+    results.violations.find((violation) => violation.id === "label")?.nodes.map((node) => node.target),
+  ).toContainEqual(["#a11y-regression"]);
 });
 
 for (const screen of screens) {
@@ -33,15 +46,20 @@ for (const screen of screens) {
     await gui.page.locator("#content details").evaluateAll((details) => {
       for (const detail of details) detail.setAttribute("open", "");
     });
-    const results = await new AxeBuilder({ page: gui.page })
-      .withTags(wcagTags)
-      .analyze();
+    const results = await new AxeBuilder({ page: gui.page }).withTags(wcagTags).analyze();
     await testInfo.attach("accessibility", { body: JSON.stringify(results, null, 2), contentType: "application/json" });
-    const actual = results.violations.flatMap((violation) =>
-      violation.nodes.map((node) => JSON.stringify({ rule: violation.id, target: node.target })),
-    ).sort();
-    const expected = knownA11y.filter((entry) => entry.screen === screen)
-      .map(({ rule, target }) => JSON.stringify({ rule, target })).sort();
-    expect(actual, "Update an exact exception only for a reviewed existing defect; remove exceptions when fixed").toEqual(expected);
+    const actual = results.violations
+      .flatMap((violation) =>
+        violation.nodes.map((node) => JSON.stringify({ rule: violation.id, target: node.target })),
+      )
+      .sort();
+    const expected = knownA11y
+      .filter((entry) => entry.screen === screen)
+      .map(({ rule, target }) => JSON.stringify({ rule, target }))
+      .sort();
+    expect(
+      actual,
+      "Update an exact exception only for a reviewed existing defect; remove exceptions when fixed",
+    ).toEqual(expected);
   });
 }

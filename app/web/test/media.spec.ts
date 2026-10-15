@@ -1,4 +1,5 @@
 import { expect, test } from "./host";
+import type { MediaView } from "../src/screens/media-types.ts";
 
 test.describe("Media", () => {
   test.beforeEach(async ({ gui }) => {
@@ -10,11 +11,17 @@ test.describe("Media", () => {
   test("sessions: the focused one offers its transport", async ({ gui }) => {
     const { page } = gui;
     expect(await page.locator("[data-part=media-session] h3").allTextContents()).toEqual(["Video A", "Song"]);
-    const [tab, song] = [page.locator("[data-part=media-session]").nth(0), page.locator("[data-part=media-session]").nth(1)];
+    const [tab, song] = [
+      page.locator("[data-part=media-session]").nth(0),
+      page.locator("[data-part=media-session]").nth(1),
+    ];
     await expect(tab).toHaveAttribute("data-focused", "true");
     await expect(tab.getByRole("button", { name: "Next" }), "focused card lacks Next").toBeVisible();
     await expect(song.getByRole("button", { name: "Next" }), "unfocused card shows Next").toBeHidden();
-    await expect(page.locator("[data-part=media-session] button", { hasText: "Focus" }), "Focus button still offered").toHaveCount(0);
+    await expect(
+      page.locator("[data-part=media-session] button", { hasText: "Focus" }),
+      "Focus button still offered",
+    ).toHaveCount(0);
   });
 
   test("play, seek and the slider follows the session", async ({ gui }) => {
@@ -29,7 +36,10 @@ test.describe("Media", () => {
     expect([r.ID, r.Operation, r.Value]).toEqual(["nowplaying.s-spotify", "set", "90000"]);
     // After a seek the slider follows the session again, even while focused.
     await gui.update(() => {
-      window.ctl("nowplaying.status").ViewData.Sessions[1].PositionMs = 120000;
+      const view = window.ctl("nowplaying.status").ViewData as MediaView | undefined;
+      const song = view?.Sessions?.[1];
+      if (!song) throw new Error("missing Spotify fixture session");
+      song.PositionMs = 120000;
     });
     await expect(page.locator("[data-part=seek]").nth(1)).toHaveValue("120000");
   });
@@ -37,7 +47,9 @@ test.describe("Media", () => {
   test("a playing session advances between polls", async ({ gui }) => {
     const seek = gui.page.locator("[data-part=media-session]").nth(0).locator("[data-part=seek]");
     const first = Number(await seek.inputValue());
-    await expect.poll(async () => Number(await seek.inputValue()), { timeout: 3000 }).toBeGreaterThanOrEqual(first + 1000);
+    await expect
+      .poll(async () => Number(await seek.inputValue()), { timeout: 3000 })
+      .toBeGreaterThanOrEqual(first + 1000);
   });
 
   test("mute and the extension card", async ({ gui }) => {

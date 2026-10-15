@@ -1,4 +1,4 @@
-import { expect, test } from "./host";
+import { expect, test } from "./host.ts";
 
 test.describe("Audio", () => {
   test.beforeEach(async ({ gui }) => {
@@ -8,7 +8,9 @@ test.describe("Audio", () => {
 
   test("shows live controls, strips and meters", async ({ gui }) => {
     const { page } = gui;
-    await page.waitForFunction(() => (document.querySelector("[data-part=brandmark]") as HTMLImageElement).naturalWidth > 0);
+    await page.waitForFunction(
+      () => (document.querySelector<HTMLImageElement>("[data-part=brandmark]")?.naturalWidth ?? 0) > 0,
+    );
     await expect(page.locator("[data-part=strip]")).toHaveCount(2);
     const live = page.locator("section", { has: page.getByRole("heading", { name: "Live Controls", exact: true }) });
     await expect(live.getByText("Engine", { exact: true }), "Audio screen lacks the Engine health row").toHaveCount(1);
@@ -20,7 +22,13 @@ test.describe("Audio", () => {
     await strip.locator("[data-part=peak]").waitFor();
     await expect(strip.getByText("LEVEL N/A"), "live meter shown as unavailable").toHaveCount(0);
     await expect(strip.getByText("-15.0 dBFS")).toHaveCount(1);
-    expect(await strip.locator("[data-part=position] > div").first().evaluate((e) => (e as HTMLElement).style.width), "gain position track").toBe("75%");
+    expect(
+      await strip
+        .locator("[data-part=position] > div")
+        .first()
+        .evaluate((e) => (e as HTMLElement).style.width),
+      "gain position track",
+    ).toBe("75%");
     for (const mark of ["-60", "-30", "-12", "-3", "0"]) {
       await expect(strip.getByText(mark, { exact: true }), "meter scale " + mark).toHaveCount(1);
     }
@@ -30,7 +38,9 @@ test.describe("Audio", () => {
   });
 
   test("shows recovery toggles with their status", async ({ gui }) => {
-    const recovery = gui.page.locator("section", { has: gui.page.getByRole("heading", { name: "Routing & Recovery" }) });
+    const recovery = gui.page.locator("section", {
+      has: gui.page.getByRole("heading", { name: "Routing & Recovery" }),
+    });
     await expect(recovery.getByText("Disable Send Manipulation")).toHaveCount(1);
     await expect(recovery.getByText("3 held")).toHaveCount(1);
   });
@@ -58,7 +68,11 @@ test.describe("Audio", () => {
     await expect(echo.getByText("Active", { exact: true }), "echo status value").toHaveCount(1);
     await expect(echo.getByText("−32 dB echo · 54 ms"), "echo status detail").toHaveCount(1);
     await expect(echo.getByLabel("Mode")).toHaveValue("auto");
-    expect(await echo.getByLabel("Strength").locator("option").allTextContents()).toEqual(["Strong", "Balanced", "Gentle"]);
+    expect(await echo.getByLabel("Strength").locator("option").allTextContents()).toEqual([
+      "Strong",
+      "Balanced",
+      "Gentle",
+    ]);
     expect(await echo.getByLabel("Engine").locator("option").allTextContents()).toEqual([
       "WebRTC AEC3",
       "LocalVQE Echo-Only",
@@ -85,7 +99,8 @@ test.describe("Audio", () => {
     await gui.update(() => {
       window.ctl("aec.retry").Available = true;
       window.ctl("aec.status").Value = "Error";
-      window.ctl("aec.status").Status = "Engine error (missing output callback); mic passes through; automatic retry pending";
+      window.ctl("aec.status").Status =
+        "Engine error (missing output callback); mic passes through; automatic retry pending";
     });
     await echo.getByRole("button", { name: "Retry", exact: true }).click();
     const retry = await gui.last("aec.retry");

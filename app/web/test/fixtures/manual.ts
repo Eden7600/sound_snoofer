@@ -7,8 +7,7 @@ import type { Animations, Control, Fixture } from "../types";
 const repository = path.resolve(__dirname, "../../../..");
 
 // A 1×1 PNG: the second frame of the animated clip.
-export const dot =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+export const dot = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 const sceneArt = fs.readFileSync(path.join(repository, "docs/design/hue-scene-art.png")).toString("base64");
 
 export function manualFixture(): { fixture: Fixture; animations: Animations } {
@@ -62,16 +61,32 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
     }
   }
   add("audio.record-mic", "Record Microphone", "toggle", "On", { Group: "Recording" });
-  add("audio.record-toggle", "Record", "command", "Stopped", { Group: "Transport", SurfaceOnly: true, Icon: "record-toggle" });
-  add("audio.tape-play", "Play Recording", "command", "Playing", { Group: "Transport", SurfaceOnly: true, Icon: "tape-pause" });
+  add("audio.record-toggle", "Record", "command", "Stopped", {
+    Group: "Transport",
+    SurfaceOnly: true,
+    Icon: "record-toggle",
+  });
+  add("audio.tape-play", "Play Recording", "command", "Playing", {
+    Group: "Transport",
+    SurfaceOnly: true,
+    Icon: "tape-pause",
+  });
   add("audio.tape-stop", "Stop Playback", "command", "", { Group: "Transport", SurfaceOnly: true, Icon: "tape-stop" });
-  add("audio.tape-rew", "Rewind", "command", "", { Group: "Transport", SurfaceOnly: true, Icon: "tape-rew", Available: false });
+  add("audio.tape-rew", "Rewind", "command", "", {
+    Group: "Transport",
+    SurfaceOnly: true,
+    Icon: "tape-rew",
+    Available: false,
+  });
   add("audio.tape-ff", "Fast-forward", "command", "", { Group: "Transport", SurfaceOnly: true, Icon: "tape-ff" });
   add("audio.auto-recover", "Automatic Recovery", "toggle", "On", { Group: "Shared Audio" });
   add("audio.pause-devices", "Disable Device Manipulation", "toggle", "Off", { Group: "Shared Audio" });
   add("audio.pause-sends", "Disable Send Manipulation", "toggle", "On", { Group: "Shared Audio", Status: "3 held" });
   add("audio.engine-restart", "Restart Audio Engine", "command", "", { Group: "Bindings", SurfaceOnly: true });
-  add("core.startup", "Start at Login", "toggle", "Off", { Group: "System", Status: "Disabled in Windows startup apps" });
+  add("core.startup", "Start at Login", "toggle", "Off", {
+    Group: "System",
+    Status: "Disabled in Windows startup apps",
+  });
   add("aec.mode", "Echo Cancellation", "selection", "auto", {
     Options: ["auto", "on", "off"],
     OptionLabels: { auto: "Auto", on: "On", off: "Off" },
@@ -92,7 +107,9 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
     OptionLabels: { strong: "Strong", balanced: "Balanced", gentle: "Gentle" },
     Icon: "echo",
   });
-  add("aec.timing", "Neural Timing", "status", "2.5 / 1.2 ms", { Status: "Peak worker / queue · gaps 3 · underruns 0" });
+  add("aec.timing", "Neural Timing", "status", "2.5 / 1.2 ms", {
+    Status: "Peak worker / queue · gaps 3 · underruns 0",
+  });
   add("aec.retry", "Retry Echo Cancellation", "command", "", { Available: false });
   add("aec.status", "Echo Cancellation Status", "status", "Active", { Status: "−32 dB echo · 54 ms", Icon: "echo" });
   add("soundboard.volume", "Volume", "numeric", "0.0 dB");
@@ -155,11 +172,23 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
     Available: false,
     Hidden: true,
   });
-  for (let n = 1; n <= 12; n++) add("hue.room-scene-" + n, "", "command", "", { Available: false, Group: "Hue Room Scenes" });
+  for (let n = 1; n <= 12; n++)
+    add("hue.room-scene-" + n, "", "command", "", { Available: false, Group: "Hue Room Scenes" });
 
   const ago = (seconds: number): string => new Date(Date.now() - seconds * 1000).toISOString();
   const report = (ID: string, Label: string, Group: string, Value: string, Connection: Control["Connection"]): void => {
-    controls.push({ ID, Label, Group, Kind: "connection", Value, Available: true, SurfaceOnly: true, Revision: 1, Operations: [], Connection });
+    controls.push({
+      ID,
+      Label,
+      Group,
+      Kind: "connection",
+      Value,
+      Available: true,
+      SurfaceOnly: true,
+      Revision: 1,
+      Operations: [],
+      Connection,
+    });
   };
   report("hue.app-bridge", "Hue Bridge", "Hue", "Connected", {
     State: "connected",
@@ -246,8 +275,22 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
           LastHeard: new Date().toISOString(),
         },
         { ID: "appaudio.app-spotify", Name: "Spotify", Picked: true, Open: false },
-        { ID: "appaudio.app-vm", Name: "Voicemeeter", Hidden: true, Open: true, Sessions: 1, Rule: "Excluded (voicemeeter*.exe)" },
-        { ID: "appaudio.app-hue", Name: "Hue Sync", Hidden: true, Open: true, Sessions: 1, Rule: "Excluded (huesync.exe)" },
+        {
+          ID: "appaudio.app-vm",
+          Name: "Voicemeeter",
+          Hidden: true,
+          Open: true,
+          Sessions: 1,
+          Rule: "Excluded (voicemeeter*.exe)",
+        },
+        {
+          ID: "appaudio.app-hue",
+          Name: "Hue Sync",
+          Hidden: true,
+          Open: true,
+          Sessions: 1,
+          Rule: "Excluded (huesync.exe)",
+        },
         { ID: "appaudio.app-rule", Name: "Launcher", Hidden: true, Open: true, Sessions: 1, Rule: "Hidden (launcher)" },
       ],
       Exclude: ["snoofer.exe", "voicemeeter*.exe", "audiodg.exe", "huesync.exe"],
@@ -256,7 +299,13 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
   add("appaudio.edit", "App Audio Edit", "text", "abc");
 
   // Routing: one interface, playback with an ambiguous entry, a webcam and the mic priority.
-  const suggestion = (Name: string, Driver: string, Exact: string, Device: string, ID = "") => ({ Name, Driver, Exact, Device, ID });
+  const suggestion = (Name: string, Driver: string, Exact: string, Device: string, ID = "") => ({
+    Name,
+    Driver,
+    Exact,
+    Device,
+    ID,
+  });
   add("audio.priorities", "Device Priorities", "status", "", {
     Group: "Routing",
     ViewData: {
@@ -272,7 +321,13 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
           },
         ],
         playback: [
-          { Driver: "wdm", DeviceID: "{airpods}", DeviceName: "Headphones (AirPods)", Matches: ["Headphones (AirPods Pro)"], InUse: true },
+          {
+            Driver: "wdm",
+            DeviceID: "{airpods}",
+            DeviceName: "Headphones (AirPods)",
+            Matches: ["Headphones (AirPods Pro)"],
+            InUse: true,
+          },
           { Driver: "wdm", Pattern: "(?i)steelseries.*arena", Matches: ["Speakers (Arena 7)", "Game (Arena 7)"] },
           { Driver: "asio", Pattern: "(?i)^Universal Audio Volt$", Matches: ["Universal Audio Volt"] },
         ],
@@ -283,11 +338,34 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
         ],
       },
       Suggestions: {
-        playback: [suggestion("Speakers (Realtek Audio)", "wdm", "(?i)^Speakers \\(Realtek Audio\\)$", "(?i)Realtek Audio", "{realtek}")],
-        "mic-devices:": [suggestion("Microphone (Realtek Audio)", "wdm", "(?i)^Microphone \\(Realtek Audio\\)$", "(?i)Realtek Audio", "{realtek-mic}")],
+        playback: [
+          suggestion(
+            "Speakers (Realtek Audio)",
+            "wdm",
+            "(?i)^Speakers \\(Realtek Audio\\)$",
+            "(?i)Realtek Audio",
+            "{realtek}",
+          ),
+        ],
+        "mic-devices:": [
+          suggestion(
+            "Microphone (Realtek Audio)",
+            "wdm",
+            "(?i)^Microphone \\(Realtek Audio\\)$",
+            "(?i)Realtek Audio",
+            "{realtek-mic}",
+          ),
+        ],
       },
       Drivers: [suggestion("Focusrite USB ASIO", "asio", "(?i)^Focusrite USB ASIO$", "", "{focusrite}")],
-      Inputs: [suggestion("Analogue 1 + 2 (Focusrite USB)", "wdm", "(?i)^Analogue 1 \\+ 2 \\(Focusrite USB\\)$", "(?i)Focusrite USB")],
+      Inputs: [
+        suggestion(
+          "Analogue 1 + 2 (Focusrite USB)",
+          "wdm",
+          "(?i)^Analogue 1 \\+ 2 \\(Focusrite USB\\)$",
+          "(?i)Focusrite USB",
+        ),
+      ],
       Microphones: ["desk", "lav", "webcam", "off"],
       Mics: [
         { ID: "desk", Name: "Desk", Silent: true },
@@ -297,7 +375,10 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
       Profiles: true,
       Activity: { Check: 2, SilenceDB: -70, SilentAfterS: 10 },
       // Outputs: Playback plus a Music slot; positions 2 and 3 are hidden.
-      OutputDevices: [suggestion("Speakers (Realtek Audio)", "wdm", "", "", "{realtek}"), suggestion("Speakers (Arena 7)", "wdm", "", "")],
+      OutputDevices: [
+        suggestion("Speakers (Realtek Audio)", "wdm", "", "", "{realtek}"),
+        suggestion("Speakers (Arena 7)", "wdm", "", ""),
+      ],
     },
   });
   add("audio.priority-edit", "Device Priority Edit", "text", "abc", { Group: "Routing" });
@@ -310,7 +391,11 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
     SurfaceOnly: true,
   });
   add("audio.output-edit", "Output Edit", "text", "abc", { Group: "Routing" });
-  add("audio.slot-1", "Music", "status", "In use", { Group: "Routing", Status: "Speakers (Arena 7)", ViewData: { ID: "music", Bus: "A3" } });
+  add("audio.slot-1", "Music", "status", "In use", {
+    Group: "Routing",
+    Status: "Speakers (Arena 7)",
+    ViewData: { ID: "music", Bus: "A3" },
+  });
   for (const [source, value, available] of [
     ["virtual:1", "On", true],
     ["virtual:2", "Off", false],
@@ -319,17 +404,31 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
     ["soundboard", "Off", true],
     ["tape", "On", true],
   ] as const) {
-    add("audio.slot-1:" + source, "Music " + source, "toggle", value, { Group: "Routing", Available: available, Hidden: !available });
+    add("audio.slot-1:" + source, "Music " + source, "toggle", value, {
+      Group: "Routing",
+      Available: available,
+      Hidden: !available,
+    });
   }
   for (const n of [2, 3]) {
     add("audio.slot-" + n, "Output " + n, "status", "", { Group: "Routing", Available: false, Hidden: true });
     for (const source of ["virtual:1", "monitor", "soundboard", "tape"]) {
-      add("audio.slot-" + n + ":" + source, "Output " + n + " " + source, "toggle", "Off", { Group: "Routing", Available: false, Hidden: true });
+      add("audio.slot-" + n + ":" + source, "Output " + n + " " + source, "toggle", "Off", {
+        Group: "Routing",
+        Available: false,
+        Hidden: true,
+      });
     }
   }
 
   // Now playing: a focused YouTube tab and a paused Windows player.
-  const session = { Group: "Now Playing", Collection: "nowplaying.sessions", CollectionLabel: "Media Sessions", Icon: "media-play", Operations: ["press", "set"] };
+  const session = {
+    Group: "Now Playing",
+    Collection: "nowplaying.sessions",
+    CollectionLabel: "Media Sessions",
+    Icon: "media-play",
+    Operations: ["press", "set"],
+  };
   add("nowplaying.s-tab", "Video A", "command", "Playing", { ...session, ShortLabel: "Video A", Order: 1 });
   add("nowplaying.s-spotify", "Song", "command", "Paused", { ...session, ShortLabel: "Song", Order: 2 });
   for (const [id, label] of [

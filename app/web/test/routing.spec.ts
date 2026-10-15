@@ -1,4 +1,4 @@
-import { expect, test, type Gui } from "./host";
+import { expect, test, type Gui } from "./host.ts";
 
 const lastValue = async (gui: Gui, id: string): Promise<unknown> => JSON.parse((await gui.last(id)).Value);
 
@@ -16,7 +16,14 @@ test.describe("Routing", () => {
     await expect(outputs.locator("[data-part=output-slot]"), "hidden slot positions shown").toHaveCount(1);
     expect(await outputs.locator("tbody th").allTextContents()).toEqual(["Computer", "Monitor", "Soundboard", "Tape"]);
     // The Monitor cell shows the raw value "pre"; gui-content-fixes labels it (docs/gui-audit.md item 7).
-    expect(await outputs.locator("[data-part=route]").allTextContents()).toEqual(["On", "On", "pre", "Off", "Off", "On"]);
+    expect(await outputs.locator("[data-part=route]").allTextContents()).toEqual([
+      "On",
+      "On",
+      "pre",
+      "Off",
+      "Off",
+      "On",
+    ]);
   });
 
   test("routes dispatch on click, never on focus", async ({ gui }) => {
@@ -67,14 +74,23 @@ test.describe("Routing", () => {
     await expect(mics.locator("[data-part=mic]")).toHaveCount(3);
     await expect(mics.getByLabel("Microphone 2 name")).toHaveValue("Lavalier");
     await expect(mics.locator("[data-part=match]")).toHaveText("No match");
-    await expect(page.locator("[data-part=list-microphones]").getByText("Lavalier"), "priority shows configured names").toHaveCount(1);
-    expect(await page.locator("[data-part=list-microphones] [data-part=priority] [data-tone]").allTextContents()).toEqual(["In use", "Unavailable"]);
+    await expect(
+      page.locator("[data-part=list-microphones]").getByText("Lavalier"),
+      "priority shows configured names",
+    ).toHaveCount(1);
+    expect(
+      await page.locator("[data-part=list-microphones] [data-part=priority] [data-tone]").allTextContents(),
+    ).toEqual(["In use", "Unavailable"]);
   });
 
   test("suggestions add by identity", async ({ gui }) => {
     const playback = gui.page.locator("[data-part=list-playback]");
     // Pattern forms are Snoofer's generated ones.
-    expect(await playback.locator("[data-part=suggestions] button").allTextContents()).toEqual(["Add", "Exact Pattern", "Partial Pattern"]);
+    expect(await playback.locator("[data-part=suggestions] button").allTextContents()).toEqual([
+      "Add",
+      "Exact Pattern",
+      "Partial Pattern",
+    ]);
     await playback.getByRole("button", { name: "Add Speakers (Realtek Audio)", exact: true }).click();
     expect(await lastValue(gui, "audio.priority-edit")).toEqual({
       list: "playback",
@@ -110,14 +126,29 @@ test.describe("Routing", () => {
     const interfaces = gui.page.locator("[data-part=list-interfaces]");
     await expect(interfaces.getByLabel("Desk on interface 1")).toHaveValue("mono");
     await expect(interfaces.getByLabel("Desk channel for interface 1")).toHaveValue("1");
-    await expect(interfaces.getByLabel("Webcam on interface 1"), "device microphone offered interface channels").toHaveCount(0);
+    await expect(
+      interfaces.getByLabel("Webcam on interface 1"),
+      "device microphone offered interface channels",
+    ).toHaveCount(0);
     await interfaces.getByLabel("Lavalier on interface 1").selectOption("stereo");
-    expect(await lastValue(gui, "audio.priority-edit")).toEqual({ list: "interfaces", op: "set", index: 0, value: "2,3", field: "input:lav" });
+    expect(await lastValue(gui, "audio.priority-edit")).toEqual({
+      list: "interfaces",
+      op: "set",
+      index: 0,
+      value: "2,3",
+      field: "input:lav",
+    });
     await gui.settled();
     await interfaces.getByLabel("Desk channel for interface 1").fill("5");
     await interfaces.getByLabel("Desk channel for interface 1").press("Tab");
     await expect.poll(async () => (await gui.sentValues("audio.priority-edit")).length).toBe(2);
-    expect(await lastValue(gui, "audio.priority-edit")).toEqual({ list: "interfaces", op: "set", index: 0, value: "5", field: "input:desk" });
+    expect(await lastValue(gui, "audio.priority-edit")).toEqual({
+      list: "interfaces",
+      op: "set",
+      index: 0,
+      value: "5",
+      field: "input:desk",
+    });
   });
 
   test("microphone readiness and source", async ({ gui }) => {
@@ -125,7 +156,13 @@ test.describe("Routing", () => {
     expect(await mics.locator("[data-part=mic-state]").allTextContents()).toEqual(["Silent", "In use", "Unavailable"]);
     await expect(mics.getByRole("button", { name: "Lavalier always ready" })).toHaveAttribute("aria-pressed", "true");
     await mics.getByRole("button", { name: "Desk always ready" }).click();
-    expect(await lastValue(gui, "audio.priority-edit")).toEqual({ list: "mics", op: "set", index: 0, value: "true", field: "ready" });
+    expect(await lastValue(gui, "audio.priority-edit")).toEqual({
+      list: "mics",
+      op: "set",
+      index: 0,
+      value: "true",
+      field: "ready",
+    });
     await gui.settled();
     await expect(mics.getByLabel("Webcam source")).toHaveValue("current");
     await mics.getByLabel("Desk source").selectOption("Microphone (Realtek Audio)");
@@ -143,18 +180,36 @@ test.describe("Routing", () => {
     await expect(activity.getByLabel("Meter")).toHaveValue("2");
     await activity.getByLabel("Silent After (s)").fill("5");
     await activity.getByLabel("Silent After (s)").press("Tab");
-    expect(await lastValue(gui, "audio.priority-edit")).toEqual({ list: "activity", op: "set", index: 0, value: "5", field: "silent_after_s" });
+    expect(await lastValue(gui, "audio.priority-edit")).toEqual({
+      list: "activity",
+      op: "set",
+      index: 0,
+      value: "5",
+      field: "silent_after_s",
+    });
     await gui.settled();
     await activity.getByLabel("Meter").selectOption("0");
     await expect.poll(async () => (await gui.sentValues("audio.priority-edit")).length).toBe(2);
-    expect(await lastValue(gui, "audio.priority-edit")).toEqual({ list: "activity", op: "set", index: 0, value: "0", field: "check" });
+    expect(await lastValue(gui, "audio.priority-edit")).toEqual({
+      list: "activity",
+      op: "set",
+      index: 0,
+      value: "0",
+      field: "check",
+    });
   });
 
   test("a new microphone uses interface channels by default", async ({ gui }) => {
     const mics = gui.page.locator("[data-part=mics]");
     await mics.getByLabel("New Microphone Name").fill("Guest");
     await mics.getByRole("button", { name: "Add Microphone", exact: true }).click();
-    expect(await lastValue(gui, "audio.priority-edit")).toEqual({ list: "mics", op: "add", index: 0, value: JSON.stringify({ name: "Guest" }), field: "" });
+    expect(await lastValue(gui, "audio.priority-edit")).toEqual({
+      list: "mics",
+      op: "add",
+      index: 0,
+      value: JSON.stringify({ name: "Guest" }),
+      field: "",
+    });
   });
 
   test("edit errors show on the screen", async ({ gui }) => {

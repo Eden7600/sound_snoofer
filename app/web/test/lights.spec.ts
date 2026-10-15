@@ -1,4 +1,5 @@
 import { expect, test, type Gui } from "./host";
+import type { HueRoom } from "../src/screens/lights-types.ts";
 
 const scenes = (gui: Gui) => gui.page.locator("[data-part=room-scenes] [data-part=scene] strong");
 
@@ -14,7 +15,8 @@ test.describe("Lights", () => {
   test.describe("connected", () => {
     test.beforeEach(async ({ gui }) => {
       await gui.open((fixture) => {
-        const status = fixture.Controls.find((c) => c.ID === "hue.status")!;
+        const status = fixture.Controls.find((c) => c.ID === "hue.status");
+        if (!status) throw new Error("missing Hue fixture status");
         status.Value = "Connected";
         status.ViewData = null;
       });
@@ -87,18 +89,27 @@ test.describe("Lights", () => {
       await gui.update(() => {
         const rooms = window.ctl("hue.rooms");
         rooms.Value = "room-1";
-        rooms.ViewData[1].Chosen = false;
+        const view = rooms.ViewData as HueRoom[] | undefined;
+        const zone = view?.[1];
+        if (!zone) throw new Error("missing Hue fixture zone");
+        zone.Chosen = false;
         rooms.Revision++;
       });
       await expect(page.locator("[data-part=rooms] input[value=zone-1]")).not.toBeChecked();
-      const [room, zone] = [page.locator("[data-part=rooms] input").nth(0), page.locator("[data-part=rooms] input").nth(1)];
+      const [room, zone] = [
+        page.locator("[data-part=rooms] input").nth(0),
+        page.locator("[data-part=rooms] input").nth(1),
+      ];
       await expect(room).toBeDisabled();
       await expect(zone).toBeEnabled();
     });
 
     test("sync mode appears while syncing is possible", async ({ gui }) => {
       const { page } = gui;
-      await expect(page.getByRole("button", { name: "Games", exact: true }), "mode shown while not syncing").toBeHidden();
+      await expect(
+        page.getByRole("button", { name: "Games", exact: true }),
+        "mode shown while not syncing",
+      ).toBeHidden();
       await gui.update(() => {
         for (const id of ["hue.sync-mode", "hue.sync-intensity"]) {
           const control = window.ctl(id);

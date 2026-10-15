@@ -1,4 +1,4 @@
-import { expect, test } from "./host";
+import { expect, test } from "./host.ts";
 
 test("sidebar keyboard navigation visits every screen without dispatch", async ({ gui }) => {
   await gui.open();

@@ -1,7 +1,7 @@
 # Tasks
 
 - [x] 1. `docs(gui)`: specify the behavior-preserving TypeScript migration and validation.
-- [ ] 2. `build(gui)`: add pinned tooling and typed shared modules; preserve pure model tests and
+- [x] 2. `build(gui)`: add pinned tooling and typed shared modules; preserve pure model tests and
   reproducible icons; verify type/lint/format and model checks.
 - [ ] 3. `refactor(gui)`: extract the existing screen builders and provider view types in logical
   screen groups; verify strict checking and retain current behavior.

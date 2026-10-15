@@ -1,4 +1,5 @@
 import { expect, test, type Gui } from "./host";
+import type { DeckView } from "../src/screens/deck-types.ts";
 
 const request = async (gui: Gui): Promise<[string, string]> => {
   const r = await gui.last();
@@ -6,11 +7,16 @@ const request = async (gui: Gui): Promise<[string, string]> => {
 };
 
 // model replaces the edited layout's geometry, keeping the + XL bindings.
-async function model(gui: Gui, id: string, shape: { columns: number; reserved: number; nav: boolean; keys: number; dials: number }) {
+async function model(
+  gui: Gui,
+  id: string,
+  shape: { columns: number; reserved: number; nav: boolean; keys: number; dials: number },
+) {
   await gui.update(
     ([id, shape]) => {
       const preview = window.ctl("streamdeck.preview");
-      const v = preview.ViewData;
+      const v = preview.ViewData as DeckView | undefined;
+      if (!v) throw new Error("fixture has no deck view");
       Object.assign(v, {
         Model: id,
         Selected: 0,
@@ -32,7 +38,8 @@ async function model(gui: Gui, id: string, shape: { columns: number; reserved: n
 // Region-edit scenarios start with an empty page, while other tests use the generated layout.
 async function clearRegions(gui: Gui) {
   await gui.update(() => {
-    const view = window.ctl("streamdeck.preview").ViewData;
+    const view = window.ctl("streamdeck.preview").ViewData as DeckView | undefined;
+    if (!view) throw new Error("fixture has no deck view");
     view.Regions = [];
     for (const slot of [...view.Keys, ...view.Dials]) slot.Region = -1;
   });
@@ -48,7 +55,12 @@ test.describe("Stream Deck", () => {
   test("keys are numbered and arrow browsing sends nothing", async ({ gui }) => {
     const { page } = gui;
     await expect(page.getByLabel("Device", { exact: true }).locator("option")).toHaveText([
-      "Stream Deck + XL", "Stream Deck +", "Stream Deck XL", "Stream Deck MK.2", "Stream Deck Neo", "Desk (Stream Deck +)",
+      "Stream Deck + XL",
+      "Stream Deck +",
+      "Stream Deck XL",
+      "Stream Deck MK.2",
+      "Stream Deck Neo",
+      "Desk (Stream Deck +)",
     ]);
     await expect(page.locator("[data-part=deck-key]")).toHaveCount(36);
     await expect(page.locator("[data-part=deck-key] small").first(), "key numbers start at 1").toHaveText("1");
@@ -70,7 +82,9 @@ test.describe("Stream Deck", () => {
     await clearRegions(gui);
     await gui.update(() => {
       // Hue is still a hand-written provider; include its collection for the source-change scenario.
-      window.ctl("streamdeck.preview").ViewData.Collections.push({ ID: "hue.room-scenes", Label: "Scenes · Selected Room" });
+      const view = window.ctl("streamdeck.preview").ViewData as DeckView | undefined;
+      if (!view?.Collections) throw new Error("fixture has no deck collections");
+      view.Collections.push({ ID: "hue.room-scenes", Label: "Scenes · Selected Room" });
     });
     await page.getByRole("button", { name: /^Key 19: / }).click();
     await expect(page.locator("[data-part=inspector] [data-part=eyebrow]")).toHaveText("KEY 19");
@@ -96,7 +110,10 @@ test.describe("Stream Deck", () => {
     await gui.settled();
     // Overflow: the page shows its sets, and unchecking clips the region.
     await expect(page.locator("[data-part=page-sets]")).toHaveText("3 sets · page dial visits each");
-    await expect(page.getByRole("button", { name: "Make Home", exact: true }), "Make Home offered on Home").toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "Make Home", exact: true }),
+      "Make Home offered on Home",
+    ).toBeDisabled();
     const overflow = page.getByLabel("Region 1 Overflow");
     await expect(overflow, "new region does not overflow").toBeChecked();
     await overflow.uncheck();
@@ -105,10 +122,13 @@ test.describe("Stream Deck", () => {
     await expect(page.getByLabel("Region 1 Overflow")).not.toBeChecked();
     await gui.update(() => {
       const preview = window.ctl("streamdeck.preview");
-      const v = preview.ViewData;
-      v.Regions[0].Stacked = "Apps";
+      const v = preview.ViewData as DeckView | undefined;
+      if (!v) throw new Error("fixture has no deck view");
+      const region = v.Regions?.[0];
+      if (!region) throw new Error("fixture has no region");
+      region.Stacked = "Apps";
       v.Scrolls = true;
-      v.Regions[0].Clip = false;
+      region.Clip = false;
       v.Sets = 2;
       preview.Revision++;
     });
@@ -158,7 +178,9 @@ test.describe("Stream Deck", () => {
   test("a dirty layout saves", async ({ gui }) => {
     const { page } = gui;
     await gui.update(() => {
-      window.ctl("streamdeck.preview").ViewData.Dirty = true;
+      const view = window.ctl("streamdeck.preview").ViewData as DeckView | undefined;
+      if (!view) throw new Error("fixture has no deck view");
+      view.Dirty = true;
     });
     const save = page.getByRole("button", { name: "Save Layout", exact: true });
     await expect(save).toBeEnabled();
@@ -196,7 +218,10 @@ test.describe("Stream Deck", () => {
     await expect(decks.getByLabel("Paging")).toHaveValue("independent");
     page.once("dialog", (d) => d.dismiss());
     await decks.getByRole("button", { name: "Forget Deck", exact: true }).click();
-    expect((await gui.sent()).map((a) => a.Request?.ID), "Forget without confirmation").not.toContain("streamdeck.deck-forget");
+    expect(
+      (await gui.sent()).map((a) => a.Request?.ID),
+      "Forget without confirmation",
+    ).not.toContain("streamdeck.deck-forget");
     page.once("dialog", (d) => d.accept());
     await decks.getByRole("button", { name: "Forget Deck", exact: true }).click();
     expect((await gui.last()).ID).toBe("streamdeck.deck-forget");

@@ -5,15 +5,26 @@
     "spec": "openspec",
     "spec:check": "openspec validate --all --strict --no-interactive",
     "css": "tailwindcss -i app/web/tailwind.css -o app/web/dist/app.css --minify",
-    "test:gui": "playwright test -c app/web/test"
+    "test:gui": "playwright test -c app/web/test",
+    "typecheck": "tsc --noEmit",
+    "lint:gui": "eslint app/web/src app/web/test",
+    "format:gui": "prettier --check \"app/web/src/**/*.ts\" \"app/web/test/**/*.ts\" tsconfig.json eslint.config.mjs .prettierrc.json package.json",
+    "test:model": "node --test app/web/src/model.test.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
+    "@eslint/js": "10.0.1",
     "@fission-ai/openspec": "1.14.0",
     "@playwright/test": "1.62.1",
     "@tailwindcss/cli": "4.3.3",
+    "@types/node": "24.19.2",
+    "esbuild": "0.28.2",
+    "eslint": "10.12.0",
     "lucide-static": "1.52.0",
     "playwright": "1.62.1",
-    "tailwindcss": "4.3.3"
+    "prettier": "3.9.10",
+    "tailwindcss": "4.3.3",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.2"
   }
 }
