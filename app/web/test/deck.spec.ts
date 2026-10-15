@@ -124,6 +124,7 @@ test.describe("Stream Deck", () => {
     const { page } = gui;
     await clearRegions(gui);
     await page.getByRole("button", { name: /^Dial 3: / }).click();
+    await expect(page.locator("[data-part=inspector] [data-part=eyebrow]")).toHaveText("DIAL 3");
     await gui.settled();
     const before = (await gui.sent()).length;
     await page.getByRole("button", { name: /^Dial 5: / }).click({ modifiers: ["Shift"] });

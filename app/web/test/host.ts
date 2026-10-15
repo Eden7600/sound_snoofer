@@ -64,7 +64,11 @@ function installHost([fixture, animations]: [Fixture, Animations]): void {
       const target = window.fixture.Controls.find((c) => c.ID === r.ID);
       const preview = window.fixture.Controls.find((c) => c.ID === "streamdeck.preview");
       const view = preview?.ViewData;
-      if (r.ID === "streamdeck.slot" && view) view.Selected = Number(r.Value.split(" ")[1]) - 1;
+      if (r.ID === "streamdeck.slot" && view) {
+        const [kind, number] = r.Value.split(" ");
+        view.Selected = Number(number) - 1 + (kind === "Dial" ? view.Keys.length : 0);
+      }
+      // shortcut: region math assumes + XL, use view geometry when adding other-model region edit scenarios.
       if (r.ID.startsWith("streamdeck.region-") && view && preview) {
         const label = (source: string) => view.Collections.find((x: { ID: string }) => x.ID === source)?.Label || source;
         if (r.ID === "streamdeck.region-add") {
