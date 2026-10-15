@@ -554,6 +554,7 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
       googlemeet: "running",
     },
     PluginLabels: {
+      meetings: "Meetings",
       aec: "Echo Cancellation",
       audio: "Audio",
       soundboard: "Soundboard",

@@ -195,7 +195,7 @@ func Run(ctx context.Context, args []string, plugins ...snoofer.Plugin) error {
 				notice = e.Error()
 				current = cfg
 			}
-			latest = ViewState{Controls: registry.Snapshot(), Plugins: host.Status(), PluginStates: host.Lifecycle(), PluginLabels: map[string]string{}, Enabled: map[string]bool{}, Notice: notice, ConfigRevision: revision}
+			latest = ViewState{Controls: registry.Snapshot(), Plugins: host.Status(), PluginStates: host.Lifecycle(), PluginLabels: map[string]string{"meetings": "Meetings"}, Enabled: map[string]bool{}, Notice: notice, ConfigRevision: revision}
 			for _, p := range plugins {
 				latest.PluginLabels[p.ID] = p.Label
 				if _, ok := latest.Plugins[p.ID]; !ok {

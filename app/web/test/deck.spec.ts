@@ -110,6 +110,8 @@ test.describe("Stream Deck", () => {
     const binding = gui.page.getByLabel("Binding", { exact: true });
     await expect(binding.locator('option[value="audio.normal-mode"]')).toHaveText("Normal Processing · Audio");
     await expect(binding.locator('option[value="audio.vr-profile-mode"]')).toHaveText("VR Processing · Audio");
+    await expect(binding.locator('option[value="meetings.mute"]')).toHaveText("Mute · Meetings");
+    await expect(binding.locator('option[value="meetings.camera"]')).toHaveText("Camera · Meetings");
     const custom = binding.locator('option[value="appaudio.custom"]');
     await expect(custom).toHaveText("mY studio · App Audio");
     await expect(custom).toHaveAttribute("title", "appaudio.custom");

@@ -71,14 +71,18 @@ The halves work together. While syncing, the Brightness dial adjusts the sync br
 
 ## Meetings
 
-The Meetings screen holds the Discord card. The plugin is off until enabled there or on the Plugins page.
+The Meetings screen has shared Mute and Camera buttons, plus the actual state of each compatible app. Enable Discord and Google Meet independently from their cards or Plugins. The shared buttons are available as `meetings.mute` and `meetings.camera` in the Deck editor. Existing Discord and Meet mute/camera bindings request the same shared target.
+
+Changing mute or camera in a compatible call updates Snoofer and the other compatible calls. Mute uses the saved Mic Mute preference when Audio is running; without Audio, it lasts for the current Snoofer run. Camera lasts only while at least one compatible call remains. New calls inherit the current targets, including Camera On or Mute Off. When the last call ends, the camera target is discarded. Pending or Not confirmed means one or more changes have not been verified; the per-app readouts remain actual observations.
 
 Discord (`discord`): uses your own Discord application, because Discord only lets an application's owner and testers use voice control without approval.
 1. In the Discord Developer Portal, create an application. Under OAuth2, add the redirect `http://127.0.0.1` and copy the Client ID and Client Secret.
 2. With Snoofer stopped, set `client_id` and `client_secret` in the discord settings in snoofer.json (and `redirect_uri` if you registered a different redirect).
 3. Start Snoofer, open Meetings and press Connect, then approve Snoofer in Discord's popup. Snoofer saves a refresh token (`refresh_token`) and reconnects on its own afterwards; it never asks again unless you revoke access.
 
-The secret and token are credentials: keep snoofer.json private (it is ignored by git); they never appear in Diagnostics or Third-party apps. Discord mute follows Snoofer's Mic mute: muting in either place mutes both, and Snoofer's setting wins when Discord connects or you undeafen. Camera, Screen share and Leave call work while you are in a voice channel.
+The secret and token are credentials: keep snoofer.json private (it is ignored by git); they never appear in Diagnostics or Third-party apps. While Discord is deafened, its implied mute does not overwrite the shared mute target. On undeafen, the current target applies again. Deafen, Screen Share and Leave Call remain Discord-only. Discord camera is unavailable until Discord reports its actual state; Snoofer does not guess by toggling it.
+
+Google Meet (`googlemeet`) uses the [browser companion](../extension/README.md). Update the companion and reload existing Meet tabs, then enable Google Meet in Snoofer. Every fresh, joined compatible Meet call participates. The Call selector chooses which tab's actual state is displayed; it does not limit synchronization. Prejoin, unknown or unavailable controls cannot be changed. Reconnection reads current state; an uncertain command is not blindly repeated.
 
 ## Stream Deck layout
 
