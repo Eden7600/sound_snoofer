@@ -74,6 +74,28 @@ for (const [keys, outcome] of [
   });
 }
 
+test("unchanged notice polls preserve Dismiss focus until keyboard activation", async ({ gui }) => {
+  await gui.page.clock.install();
+  await gui.page.clock.pauseAt(new Date(Date.now() + 1000));
+  await gui.open((fixture) => {
+    fixture.Notice = "Control changed; try again";
+  });
+  await gui.update(() => {
+    window.liveMeters = false;
+  });
+  await gui.page.clock.runFor(250);
+  const notice = gui.page.getByRole("alert");
+  const dismiss = notice.getByRole("button", { name: "Dismiss" });
+  await dismiss.focus();
+  const before = await gui.page.evaluate(() => window.transport.unchanged);
+  await gui.page.clock.runFor(600);
+  expect(await gui.page.evaluate(() => window.transport.unchanged)).toBeGreaterThan(before);
+  await expect(dismiss).toBeFocused();
+  await gui.page.keyboard.press("Enter");
+  await expect(notice).toBeHidden();
+  expect(await gui.sent()).toEqual([]);
+});
+
 test("a dismissed host notice stays dismissed across screens and polling", async ({ gui }) => {
   await gui.open((fixture) => {
     fixture.Notice = "Control changed; try again";

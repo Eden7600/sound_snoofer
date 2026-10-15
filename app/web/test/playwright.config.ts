@@ -7,6 +7,7 @@ export default defineConfig({
   globalSetup: "./global-setup.ts",
   timeout: 15_000,
   fullyParallel: true,
+  workers: 4,
   forbidOnly: true,
   reporter: [["list"]],
   outputDir: "../../../.local/gui-test-results",

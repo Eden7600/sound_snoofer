@@ -47,9 +47,12 @@ export function showError(error: unknown) {
   appState.localError = String(error);
   refreshNotice();
 }
+let renderedNotice: string | undefined;
 export function refreshNotice() {
   const message =
     appState.localError || (appState.state.Notice !== appState.dismissedNotice ? appState.state.Notice : "");
+  if (message === renderedNotice) return;
+  renderedNotice = message;
   const node = $("#notice");
   node.hidden = !message;
   node.replaceChildren();
