@@ -7,7 +7,7 @@
 - [x] 5. `test(gui)`: port Soundboard, Lights, App Audio, Meetings, Media, Plugins, Apps and Diagnostics specs; remove `check-gui.cjs`; `check.ps1` runs the suite by default.
 - [x] 6. `test(audio)`: golden GUI fixtures from the audio provider (live and preview), with drift test; specs use them.
 - [x] 7. `test(deck)`: golden GUI fixture from the Stream Deck editor, with drift test; specs use it.
-- [ ] 8. `test(gui)`: keyboard journeys and cross-screen journeys.
+- [x] 8. `test(gui)`: keyboard journeys and cross-screen journeys.
 - [ ] 9. `test(gui)`: axe-core scans with recorded known violations.
 - [ ] 10. `test(gui)`: layout geometry at both viewports.
 - [ ] 11. Validate: full suite within the 60 s budget (record the time), each spec file alone, `go test ./...`, `go vet ./...`, `scripts/check.ps1`, OpenSpec strict validation.
