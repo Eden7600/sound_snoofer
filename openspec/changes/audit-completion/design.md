@@ -81,3 +81,9 @@ test must establish available room brightness before disconnecting Sync, then ke
 its immediate assertion that room brightness remains available. Waiting only for
 Sync Ready is not bridge readiness; waiting only after disconnect could conceal a
 real transient loss. This correction changes test setup only.
+
+The same Connected-publication ordering also affects
+TestEditorSaveAndInputGenerations: its first rendered frame precedes publication
+of the current handler. Apply the same connected-report precondition there before
+its first edit. Keep its failed-save status, unchanged active layout, successful
+save and stale input-generation assertions. This is part of task 5a.
