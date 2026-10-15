@@ -15,7 +15,9 @@ npm run package   # also dist/snoofer-media-<browser>-<version>.zip
 - **Chrome, Brave, Edge:** open `brave://extensions` (or `chrome://extensions`), turn on Developer mode, choose **Load unpacked** and pick `dist/chrome`. After rebuilding, press the extension's reload button.
 - **Firefox (128 or later):** open `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on** and pick `dist/firefox/manifest.json`. Then click the toolbar button and **Allow on all sites**; Firefox makes site access optional.
 
-Protocol 2 requires a matching Snoofer version; the popup explains which side needs updating. After upgrading the extension, refresh already-open media tabs if Next or Previous is unavailable. The new page helper cannot recover handlers registered before the upgrade; refreshing lets the page register them again.
+Protocol 2 requires a matching Snoofer version; the popup explains which side needs updating. After upgrading to 1.2.0, reload already-open media tabs once. Snoofer shows **Reload this tab** and leaves page playback and rating commands unavailable until then; tab mute remains available. The new page helper cannot recover the old helper's captured handlers. Reloading lets the page register them again without duplicate commands.
+
+On YouTube Music, bind **Like Track** and **Dislike Track** in the Deck editor. They follow Snoofer's selected media session. Press an inactive rating to select it, or the active rating to clear it. The keys show the observed page state, including changes while paused; unknown or unsupported player state cannot be rated. This uses the signed-in page's current player controls, so website changes can make ratings unavailable. No Google API setup is needed.
 
 `../scripts/check-extension.cjs` checks the page script in Chrome. It also runs the built extension end to end in Brave against a stand-in bridge.
 

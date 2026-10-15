@@ -6,17 +6,18 @@ import vm from "node:vm";
 test("updated bridge uses only versioned page events in already-open tabs", () => {
   const listeners = new Map(), reports = [], commands = [];
   let receive;
-  const context = vm.createContext({ __snooferBridge: true,
+  const context = vm.createContext({ __snooferBridge: 2,
     chrome: { runtime: { connect: () => ({ onMessage: { addListener: (f) => { receive = f; } },
       onDisconnect: { addListener() {} }, postMessage: (m) => reports.push(m) }) } },
     window: { addEventListener: (n, f) => listeners.set(n, f), dispatchEvent: (e) => commands.push(e) },
     CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } } });
   vm.runInContext(readFileSync(new URL("bridge.js", import.meta.url), "utf8"), context);
   assert.equal(listeners.has("snoofer-media:report"), false);
-  listeners.get("snoofer-media:report-v2")({ detail: JSON.stringify({ present: true }) });
+  assert.equal(listeners.has("snoofer-media:report-v2"), false);
+  listeners.get("snoofer-media:report-v3")({ detail: JSON.stringify({ present: true }) });
   assert.equal(reports.length, 1);
   receive({ op: "toggle", value: 0 });
-  assert.equal(commands[0].type, "snoofer-media:command-v2");
+  assert.equal(commands[0].type, "snoofer-media:command-v3");
   assert.equal(JSON.parse(commands[0].detail).value, 0);
 });
 
@@ -33,7 +34,7 @@ function replacedPort() {
     window: { addEventListener: (n,f) => listeners.set(n,f), dispatchEvent: (e) => commands.push(e) },
     CustomEvent: class { constructor(type,options) { this.type=type; this.detail=options.detail; } } });
   vm.runInContext(readFileSync(new URL("bridge.js",import.meta.url),"utf8"),context);
-  const report=() => listeners.get("snoofer-media:report-v2")({ detail: JSON.stringify({present:true}) });
+  const report=() => listeners.get("snoofer-media:report-v3")({ detail: JSON.stringify({present:true}) });
   report();
   const old=ports[0]; old.fail=true;
   report(); // A disconnected send fails before the queued disconnect callback runs.

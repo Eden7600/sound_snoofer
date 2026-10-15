@@ -4,8 +4,8 @@
 (() => {
   // Injection at install can run this again in the same world; one copy is
   // enough. A copy from an older install lives in another world.
-  if (globalThis.__snooferBridge === 2) return;
-  globalThis.__snooferBridge = 2;
+  if (globalThis.__snooferBridge === 3) return;
+  globalThis.__snooferBridge = 3;
   // A newer copy may be injected after an install or update; the old copy's
   // extension context is then gone and its sends fail, which is ignored.
   let port = null;
@@ -14,14 +14,14 @@
     port = current;
     current.onMessage.addListener((command) => {
       if (port !== current) return;
-      window.dispatchEvent(new CustomEvent("snoofer-media:command-v2", { detail: JSON.stringify(command) }));
+      window.dispatchEvent(new CustomEvent("snoofer-media:command-v3", { detail: JSON.stringify(command) }));
     });
     current.onDisconnect.addListener(() => {
       if (port !== current) return;
       port = null; // The worker restarted; the next report reconnects.
     });
   }
-  window.addEventListener("snoofer-media:report-v2", (e) => {
+  window.addEventListener("snoofer-media:report-v3", (e) => {
     if (typeof e.detail !== "string" || e.detail.length > 16384) return;
     try {
       if (!port) connect();

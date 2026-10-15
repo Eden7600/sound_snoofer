@@ -2,11 +2,13 @@
 // handlers. It reports this frame's media to bridge.js and runs commands from
 // it, both through window events carrying JSON strings.
 (() => {
-  if (window.__snooferMedia === 2) return;
-  window.__snooferMedia = 2;
+  if (window.__snooferMedia === 3) return;
+  const reloadRequired = !!window.__snooferMedia;
+  window.__snooferMedia = 3;
+  const youtubeMusic = location.origin === "https://music.youtube.com" && window.top === window;
   const handlers = new Map();
   const session = navigator.mediaSession;
-  if (session && typeof session.setActionHandler === "function") {
+  if (!reloadRequired && session && typeof session.setActionHandler === "function") {
     // Remember the page's handlers (for example YouTube's nexttrack) so
     // Snoofer can call them like the browser's own media controls do.
     const original = session.setActionHandler.bind(session);
@@ -30,7 +32,60 @@
       }
       if (!el.paused && !el.ended && (!best || (el.duration || 0) > (best.duration || 0))) best = el;
     }
-    return best || (lastPlayed && lastPlayed.isConnected ? lastPlayed : null);
+    if (best || (lastPlayed && lastPlayed.isConnected)) return best || lastPlayed;
+    // A paused YouTube Music player can predate injection without a play event.
+    if (youtubeMusic && session?.metadata) {
+      try {
+        const players = document.querySelectorAll("#movie_player");
+        const player = players.length === 1 ? players[0] : null;
+        const id = player?.getVideoData?.().video_id;
+        const videos = player?.querySelectorAll("video") || [];
+        if (typeof id === "string" && /^[A-Za-z0-9_-]{1,96}$/.test(id) && [0, 1, 2].includes(player.getPlayerState?.()) &&
+            !player.classList.contains("ad-showing") && videos.length === 1 && videos[0].isConnected) return videos[0];
+      } catch { /* A player being replaced is not an adoptable paused session. */ }
+    }
+    return null;
+  }
+
+  let playingIdentity = null;
+  let trackLifetime = 0n;
+  function ratingState() {
+    if (!youtubeMusic) return { wire: {} };
+    const unknown = { rating: "unknown", canRate: false };
+    try {
+      const players = document.querySelectorAll("#movie_player");
+      const renderers = document.querySelectorAll("ytmusic-player-bar #like-button-renderer");
+      const player = players.length === 1 ? players[0] : null;
+      const renderer = renderers.length === 1 ? renderers[0] : null;
+      const videos = player ? player.querySelectorAll("video") : [];
+      const el = active();
+      const id = player?.getVideoData?.().video_id;
+      if (reloadRequired || !player || !renderer || renderer.tagName !== "YTMUSIC-LIKE-BUTTON-RENDERER" ||
+          videos.length !== 1 || videos[0] !== el || !el?.isConnected ||
+          typeof id !== "string" || !/^[A-Za-z0-9_-]{1,96}$/.test(id) || renderer.data?.target?.videoId !== id ||
+          ![0, 1, 2].includes(player.getPlayerState?.()) || player.classList.contains("ad-showing")) {
+        playingIdentity = null;
+        return { wire: unknown };
+      }
+      if (!playingIdentity || playingIdentity.player !== player || playingIdentity.el !== el || playingIdentity.id !== id) {
+        playingIdentity = { player, el, id, track: (++trackLifetime).toString(36) + ":" + id };
+      }
+      const wire = { ...unknown, track: playingIdentity.track };
+      const likes = renderer.querySelectorAll(".like-button-wrapper button[aria-pressed]");
+      const dislikes = renderer.querySelectorAll(":scope > yt-button-shape > button[aria-pressed]");
+      const modal = [...document.querySelectorAll('dialog[open], [role="dialog"][aria-modal="true"]')].some((el) => el.getClientRects().length);
+      if (modal || renderer.data.likesAllowed !== true || likes.length !== 1 || dislikes.length !== 1) return { wire };
+      const like = likes[0], dislike = dislikes[0];
+      if ([like, dislike].some((button) => button.disabled || button.matches(":disabled") || button.getAttribute("aria-disabled") === "true")) return { wire };
+      const status = renderer.getAttribute("like-status");
+      const expected = { LIKE: ["like", "true", "false"], INDIFFERENT: ["none", "false", "false"], DISLIKE: ["dislike", "false", "true"] }[status];
+      if (!expected || status !== renderer.data.likeStatus || like.getAttribute("aria-pressed") !== expected[1] || dislike.getAttribute("aria-pressed") !== expected[2]) return { wire };
+      return { wire: { ...wire, rating: expected[0], canRate: true }, like, dislike };
+    } catch {
+      // Page-owned getters and transient replacements may be unreadable.
+      playingIdentity = null;
+      return { wire: unknown };
+    }
   }
 
   function artwork(metadata) {
@@ -66,9 +121,11 @@
       durationMs: Math.round(duration * 1000),
       rate: el ? el.playbackRate || 1 : 1,
       at: Date.now(),
-      canNext: handlers.has("nexttrack"),
-      canPrev: handlers.has("previoustrack"),
-      canSeek: handlers.has("seekto") || duration > 0,
+      canNext: !reloadRequired && handlers.has("nexttrack"),
+      canPrev: !reloadRequired && handlers.has("previoustrack"),
+      canSeek: !reloadRequired && (handlers.has("seekto") || duration > 0),
+      ...(reloadRequired ? { reloadRequired: true } : {}),
+      ...ratingState().wire,
     };
   }
 
@@ -81,7 +138,7 @@
     timer = setTimeout(() => {
       timer = 0;
       lastSent = Date.now();
-      window.dispatchEvent(new CustomEvent("snoofer-media:report-v2", { detail: JSON.stringify(state()) }));
+      window.dispatchEvent(new CustomEvent("snoofer-media:report-v3", { detail: JSON.stringify(state()) }));
     }, delay);
   }
 
@@ -89,6 +146,7 @@
     document.addEventListener(type, (e) => {
       if (!(e.target instanceof HTMLMediaElement)) return;
       elements.add(e.target);
+      if (type === "emptied") playingIdentity = null;
       if (type === "play" || type === "playing") lastPlayed = e.target;
       report(true);
     }, true);
@@ -111,7 +169,17 @@
     elements.add(el);
     if (!el.paused && !el.ended) lastPlayed = el;
   }
-  if (lastPlayed) report(true);
+  if (lastPlayed || session?.metadata) report(true);
+  if (youtubeMusic) {
+    let lastRating = "";
+    // Bounded polling includes paused data-only changes and player replacement.
+    setInterval(() => {
+      const current = JSON.stringify(ratingState().wire);
+      if (current !== lastRating) { lastRating = current; report(true); }
+      // The bridge reconnects on a fresh report even if a paused rating is stable.
+      else if (active() || session?.metadata) report(false);
+    }, 500);
+  }
 
   function call(action, details) {
     const handler = handlers.get(action);
@@ -120,15 +188,25 @@
     return true;
   }
 
-  window.addEventListener("snoofer-media:command-v2", (e) => {
+  window.addEventListener("snoofer-media:command-v3", (e) => {
     let command;
     try {
       command = JSON.parse(e.detail);
     } catch {
       return;
     }
+    if (!command || reloadRequired) return;
     const el = active();
     switch (command.op) {
+      case "rate": {
+        if (typeof command.track !== "string" || !command.track || command.track.length > 128 || !["none", "like", "dislike"].includes(command.rating)) return;
+        const current = ratingState();
+        if (!current.wire.canRate || current.wire.track !== command.track) return;
+        if (current.wire.rating === command.rating) break;
+        const desired = command.rating === "none" ? current.wire.rating : command.rating;
+        current[desired].click();
+        break;
+      }
       case "toggle":
         if (command.value !== 0 && command.value !== 1) return;
         if (command.value === 0) {

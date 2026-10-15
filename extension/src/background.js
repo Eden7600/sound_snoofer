@@ -11,7 +11,7 @@ const BROWSER = browserName(navigator.userAgentData && navigator.userAgentData.b
 const frames = new Map(); // "tab:frame" to {tabId, instance, port, report}.
 let nextFrame = 0n;
 const tabs = new Map(); // Tab ID to {title, url, muted, favIconUrl}.
-const sentArt = new Map(); // Session ID to the artwork key last sent.
+const sentArt = new Map(); // Session ID to current instance/key download and send state.
 let port = DEFAULT_PORT;
 let socket = null;
 let connected = false;
@@ -39,13 +39,21 @@ api.runtime.onConnect.addListener((p) => {
   if (p.name !== "media" || !p.sender || !p.sender.tab) return;
   const tabId = p.sender.tab.id;
   const key = tabId + ":" + (p.sender.frameId || 0);
+  let youtubeMusic = false;
+  try {
+    youtubeMusic = p.sender.frameId === 0 && new URL(p.sender.url).origin === "https://music.youtube.com" &&
+      (p.sender.origin === undefined || p.sender.origin === "https://music.youtube.com");
+  } catch { /* Missing or invalid sender identity cannot grant ratings. */ }
   rememberTab(p.sender.tab);
-  frames.set(key, { tabId, instance: String(++nextFrame), port: p, report: null });
+  frames.set(key, { tabId, instance: String(++nextFrame), youtubeMusic, port: p, report: null });
   p.onMessage.addListener((message) => {
     const frame = frames.get(key);
     if (!frame || frame.port !== p) return;
     try {
-      frame.report = JSON.parse(message.report);
+      if (typeof message?.report !== "string" || message.report.length > 16384) return;
+      const report = JSON.parse(message.report);
+      if (!report || typeof report !== "object" || Array.isArray(report)) return;
+      frame.report = report;
     } catch {
       return;
     }
@@ -85,23 +93,32 @@ function schedule() {
   if (sendTimer) return;
   sendTimer = setTimeout(() => {
     sendTimer = 0;
-    send().catch(() => {});
+    send();
   }, 200);
 }
 
-async function send() {
+function send() {
   if (!connected) return;
   const ws = socket;
   const list = sessions(frames, tabs);
   for (const s of list) {
-    if (s.artKey && sentArt.get(s.id) !== s.artKey) {
-      try {
-        s.art = await thumbnail(s.artKey);
-      } catch {
-        s.art = ""; // Unreadable artwork: Snoofer shows the play symbol.
+    let cached = sentArt.get(s.id);
+    if (!cached || cached.instance !== s.instance || cached.key !== s.artKey) {
+      cached = { instance: s.instance, key: s.artKey, ready: false, sent: false };
+      sentArt.set(s.id, cached);
+      if (s.artKey) {
+        const current = cached;
+        thumbnail(s.artKey).catch(() => "").then((art) => {
+          if (!connected || socket !== ws || sentArt.get(s.id) !== current) return;
+          current.art = art;
+          current.ready = true;
+          schedule(); // Rebuild from current reports; never resend this old snapshot.
+        });
       }
-      if (!connected || socket !== ws) return;
-      sentArt.set(s.id, s.artKey);
+    }
+    if (cached.ready && !cached.sent) {
+      s.art = cached.art;
+      cached.sent = true;
     }
   }
   for (const id of sentArt.keys()) if (!list.some((s) => s.id === id)) sentArt.delete(id);
@@ -119,7 +136,7 @@ function connect() {
     refused = ""; // A refusal, if any, arrives right after hello.
     sentArt.clear(); // Snoofer starts with no artwork for this connection.
     ws.send(JSON.stringify({ type: "hello", protocol: PROTOCOL, version: VERSION, browser: BROWSER }));
-    send().catch(() => {});
+    send();
   };
   ws.onmessage = (event) => {
     if (socket !== ws) return;
@@ -129,6 +146,7 @@ function connect() {
     } catch {
       return;
     }
+    if (!message || typeof message !== "object") return;
     if (message.type === "refused") {
       refused = String(message.reason || "Snoofer refused this extension");
       return;

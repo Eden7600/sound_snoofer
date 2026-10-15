@@ -94,3 +94,35 @@ test("mute carries the captured desired value even if tab state changes", () => 
   assert.deepEqual(route({ id: "7:0", instance: "current", op: "mute", value: 0 }, frames, tabs), { kind: "mute", tabId: 7, muted: false });
   assert.equal(route({ id: "7:0", instance: "current", op: "toggle" }, frames, tabs).kind, "invalid");
 });
+
+test("ratings require verified sender identity, bounded fields and current track", () => {
+  const frame = { tabId: 7, instance: "f7", youtubeMusic: true, report: { present: true, track: "1:song", rating: "like", canRate: true } };
+  const frames = new Map([["7:0", frame]]);
+  const command = { id: "7:0", instance: "f7", op: "rate", track: "1:song", rating: "none" };
+  assert.deepEqual(route(command, frames).message, { op: "rate", track: "1:song", rating: "none" });
+  assert.equal(route({ ...command, track: "old" }, frames).kind, "stale");
+  for (const extra of [{ rating: "unknown" }, { rating: 1 }, { track: "x".repeat(129) }, { track: "" }, { track: "x\n" }]) {
+    assert.equal(route({ ...command, ...extra }, frames).kind, "invalid");
+  }
+  for (const fields of [{ rating: "unknown" }, { canRate: false }, { track: "new" }, { track: "x".repeat(129) }, { rating: "LIKE" }, { canRate: "true" }, { present: false }, { present: "true" }]) {
+    const altered = new Map([["7:0", { ...frame, report: { ...frame.report, ...fields } }]]);
+    assert.equal(route(command, altered).kind, "stale");
+  }
+  frame.youtubeMusic = false;
+  assert.equal(sessions(frames, new Map())[0].rating, undefined);
+  assert.equal(route(command, frames).kind, "stale");
+});
+
+test("unknown differs from old companion and reload blocks only page commands", () => {
+  const frame = { tabId: 7, instance: "f7", youtubeMusic: true, report: { present: true } };
+  const frames = new Map([["7:0", frame]]);
+  assert.equal(sessions(frames, new Map())[0].rating, undefined);
+  frame.report.rating = "unknown"; frame.report.canRate = false;
+  assert.equal(sessions(frames, new Map())[0].rating, "unknown");
+  Object.assign(frame.report, { reloadRequired: true, canNext: true, canPrev: true, canSeek: true, rating: "like", track: "1:song", canRate: true });
+  const state = sessions(frames, new Map())[0];
+  assert.equal(state.reloadRequired, true); assert.equal(state.canRate, false);
+  for (const flag of ["canNext", "canPrev", "canSeek"]) assert.equal(state[flag], false);
+  for (const op of ["toggle", "next", "prev", "seek", "rate"]) assert.equal(route({ id: "7:0", instance: "f7", op, value: 1, track: "1:song", rating: "none" }, frames).kind, "stale");
+  assert.equal(route({ id: "7:0", instance: "f7", op: "mute", value: 1 }, frames).kind, "mute");
+});

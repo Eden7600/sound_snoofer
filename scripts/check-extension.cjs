@@ -46,13 +46,13 @@ navigator.mediaSession.setActionHandler("nexttrack", () => { window.nextCalls++;
     page.on("pageerror", (e) => errors.push(String(e)));
     await page.addInitScript(() => {
       window.reports = [];
-      window.addEventListener("snoofer-media:report-v2", (e) => window.reports.push(JSON.parse(e.detail)));
+      window.addEventListener("snoofer-media:report-v3", (e) => window.reports.push(JSON.parse(e.detail)));
     });
     await page.addInitScript(pageScript);
     const base = "http://127.0.0.1:" + server.address().port;
     await page.goto(base + "/");
     const last = () => page.evaluate(() => window.reports.at(-1));
-    const command = (c) => page.evaluate((c) => window.dispatchEvent(new CustomEvent("snoofer-media:command-v2", { detail: JSON.stringify(c) })), c);
+    const command = (c) => page.evaluate((c) => window.dispatchEvent(new CustomEvent("snoofer-media:command-v3", { detail: JSON.stringify(c) })), c);
 
     await page.evaluate(() => document.getElementById("a").play());
     await page.waitForFunction(() => window.reports.at(-1)?.state === "playing", null, { polling: 50 });
@@ -82,13 +82,13 @@ navigator.mediaSession.setActionHandler("nexttrack", () => { window.nextCalls++;
     await late.goto(base + "/");
     await late.evaluate(() => document.getElementById("a").play());
     await late.waitForFunction(() => !document.getElementById("a").paused, null, { polling: 50 });
-    await late.evaluate(() => { window.reports = []; window.addEventListener("snoofer-media:report-v2", (e) => window.reports.push(JSON.parse(e.detail))); });
+    await late.evaluate(() => { window.reports = []; window.addEventListener("snoofer-media:report-v3", (e) => window.reports.push(JSON.parse(e.detail))); });
     await late.evaluate(pageScript);
     await late.waitForFunction(() => window.reports.at(-1)?.state === "playing" && window.reports.at(-1)?.title === "Song", null, { polling: 50 });
 
     // A page with no media never reports.
     const quiet = await browser.newPage();
-    await quiet.addInitScript(() => { window.reports = []; window.addEventListener("snoofer-media:report-v2", (e) => window.reports.push(e.detail)); });
+    await quiet.addInitScript(() => { window.reports = []; window.addEventListener("snoofer-media:report-v3", (e) => window.reports.push(e.detail)); });
     await quiet.addInitScript(pageScript);
     await quiet.goto(base + "/quiet");
     await quiet.waitForTimeout(400);
@@ -199,9 +199,76 @@ async function live(base) {
     const after = await until("paused after injection", (m) => m.type === "sessions" && m.sessions.some((s) => s.id === session.id && s.state === "paused"));
     assert.equal(after.sessions.filter((s) => s.title === "Song").length, 1, "injection duplicated the session");
     console.log("PASS: extension in Brave connects, reports the tab, runs toggle, next and mute, and re-injects into open tabs harmlessly");
+    await ratings(context, fake, until);
   } finally {
     await context.close();
     fake.close();
     fs.rmSync(profile, { recursive: true, force: true });
   }
+}
+
+// The exact origin is intercepted in this fresh headless profile. Every request
+// is fulfilled locally; this fixture never reaches YouTube or an account.
+async function ratings(context, fake, until) {
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(String(error)));
+  await page.route("**/*", (route) => route.fulfill({ contentType: "text/html", body: `<!doctype html>
+<title>Isolated rating fixture</title><div id="movie_player"><video></video></div>
+<ytmusic-player-bar><ytmusic-like-button-renderer id="like-button-renderer" like-status="LIKE">
+  <div class="like-button-wrapper"><yt-button-shape><button aria-pressed="true">Localized like</button></yt-button-shape></div>
+  <yt-button-shape><button aria-pressed="false">Localized dislike</button></yt-button-shape>
+</ytmusic-like-button-renderer></ytmusic-player-bar>
+<script>
+const player = document.querySelector('#movie_player');
+const renderer = document.querySelector('#like-button-renderer');
+const like = renderer.querySelector('.like-button-wrapper button');
+const dislike = renderer.querySelector(':scope > yt-button-shape > button');
+window.clicks = 0;
+window.song = 'fixture-a';
+player.getVideoData = () => ({video_id: window.song});
+player.getPlayerState = () => 2;
+renderer.data = {target: {videoId: window.song}, likeStatus: 'LIKE', likesAllowed: true};
+window.setRating = (status) => {
+  renderer.setAttribute('like-status', status); renderer.data.likeStatus = status;
+  like.setAttribute('aria-pressed', String(status === 'LIKE'));
+  dislike.setAttribute('aria-pressed', String(status === 'DISLIKE'));
+};
+like.onclick = () => { window.clicks++; setRating(renderer.data.likeStatus === 'LIKE' ? 'INDIFFERENT' : 'LIKE'); };
+dislike.onclick = () => { window.clicks++; setRating(renderer.data.likeStatus === 'DISLIKE' ? 'INDIFFERENT' : 'DISLIKE'); };
+window.setSong = (id) => { window.song = id; renderer.data.target.videoId = id; };
+navigator.mediaSession.metadata = new MediaMetadata({title: 'Fixture song', artist: 'Fixture artist'});
+</script>` }));
+  await page.goto("https://music.youtube.com/isolated-snoofer-fixture");
+  const initial = await until("paused rating fixture", (m) => m.type === "sessions" && m.sessions.some((s) => s.title === "Fixture song" && s.canRate && s.rating === "like"));
+  const session = initial.sessions.find((s) => s.title === "Fixture song");
+  assert.equal(session.state, "paused");
+  const send = (rating, track = session.track) => fake.send({ type: "command", id: session.id, instance: session.instance, op: "rate", track, rating });
+  send("none");
+  await until("cleared rating", (m) => m.type === "sessions" && m.sessions.some((s) => s.id === session.id && s.rating === "none"));
+  send("dislike");
+  await until("disliked rating", (m) => m.type === "sessions" && m.sessions.some((s) => s.id === session.id && s.rating === "dislike"));
+  assert.equal(await page.evaluate(() => window.clicks), 2);
+  fake.messages.length = 0;
+  await page.evaluate(() => window.setRating("LIKE"));
+  await until("paused manual rating", (m) => m.type === "sessions" && m.sessions.some((s) => s.id === session.id && s.rating === "like" && s.state === "paused"));
+  send("like");
+  await page.waitForTimeout(300);
+  assert.equal(await page.evaluate(() => window.clicks), 2, "already desired rating is a no-op");
+
+  fake.messages.length = 0;
+  await page.evaluate(() => document.querySelector('.like-button-wrapper button').setAttribute('aria-pressed', 'false'));
+  await until("inconsistent rating", (m) => m.type === "sessions" && m.sessions.some((s) => s.id === session.id && s.rating === "unknown" && !s.canRate));
+  send("none"); await page.waitForTimeout(300);
+  assert.equal(await page.evaluate(() => window.clicks), 2);
+  await page.evaluate(() => { window.setRating("LIKE"); window.setSong("fixture-b"); });
+  const changed = await until("same-title replacement track", (m) => m.type === "sessions" && m.sessions.some((s) => s.id === session.id && s.canRate && s.track !== session.track));
+  const second = changed.sessions.find((s) => s.id === session.id);
+  send("none"); await page.waitForTimeout(300);
+  assert.equal(await page.evaluate(() => window.clicks), 2, "stale track cannot click");
+  send("none", second.track);
+  await page.waitForFunction(() => window.clicks === 3);
+  assert.deepEqual(errors, []);
+  await page.close();
+  console.log("PASS: isolated YouTube Music DOM and real extension bridge handle paused ratings, clear/switch, unknown state and stale track rejection");
 }

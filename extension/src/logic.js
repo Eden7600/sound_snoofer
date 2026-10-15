@@ -30,6 +30,19 @@
   // Reports come from page scripts, so every field is coerced to its type.
   const text = (v) => (typeof v === "string" ? v : "");
   const count = (v) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0);
+  const validTrack = (v) => typeof v === "string" && /^[\x21-\x7e]{1,128}$/.test(v);
+  const ratings = ["none", "like", "dislike"];
+
+  function ratingFields(frame) {
+    const r = frame.report || {};
+    if (!frame.youtubeMusic || r.present !== true || r.rating === undefined) return {};
+    const known = ratings.includes(r.rating);
+    return {
+      ...(validTrack(r.track) ? { track: r.track } : {}),
+      rating: known && typeof r.canRate === "boolean" ? r.rating : "unknown",
+      canRate: known && r.canRate === true && validTrack(r.track) && r.reloadRequired !== true,
+    };
+  }
 
   // webUrl keeps http(s) URLs only: artwork is fetched, and other schemes must not be.
   function webUrl(url) {
@@ -65,10 +78,12 @@
         durationMs: count(r.durationMs),
         updatedMs: count(r.at),
         rate: count(r.rate) || 1,
-        canNext: !!r.canNext,
-        canPrev: !!r.canPrev,
-        canSeek: !!r.canSeek,
+        canNext: r.reloadRequired !== true && !!r.canNext,
+        canPrev: r.reloadRequired !== true && !!r.canPrev,
+        canSeek: r.reloadRequired !== true && !!r.canSeek,
         muted: !!tab.muted,
+        ...(r.reloadRequired === true ? { reloadRequired: true } : {}),
+        ...ratingFields(frame),
       });
     }
     out.sort((a, b) => a.id.localeCompare(b.id));
@@ -78,12 +93,20 @@
   // route decides how a command from Snoofer is carried out: tab mute through
   // the tabs API, everything else by the frame that reported the session.
   function route(command, frames) {
+    if (!command || typeof command !== "object") return { kind: "invalid" };
     const frame = frames.get(command.id);
     if (!frame) return { kind: "missing" };
     if (typeof command.instance !== "string" || !command.instance || command.instance.length > 64 || command.instance !== frame.instance) return { kind: "stale" };
     if (["toggle", "mute"].includes(command.op) && command.value !== 0 && command.value !== 1) return { kind: "invalid" };
     if (command.op === "mute") {
       return { kind: "mute", tabId: frame.tabId, muted: command.value === 1 };
+    }
+    if (frame.report?.reloadRequired === true) return { kind: "stale" };
+    if (command.op === "rate") {
+      if (!validTrack(command.track) || !ratings.includes(command.rating)) return { kind: "invalid" };
+      const current = ratingFields(frame);
+      if (!current.canRate || current.track !== command.track) return { kind: "stale" };
+      return { kind: "frame", frame, message: { op: "rate", track: command.track, rating: command.rating } };
     }
     if (!["toggle", "next", "prev", "seek"].includes(command.op)) return { kind: "invalid" };
     return { kind: "frame", frame, message: { op: command.op, value: command.value || 0 } };
