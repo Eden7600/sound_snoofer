@@ -114,3 +114,26 @@ commit `237a8ee`. Numbering continues from that file.
       publishes later. Found by the GUI fixture generator (`gui-test-harness`).
     - **Fix:** Accept status controls on keys (they render state), or validate only positions
       that the user edits.
+
+33. **Healthy output-slot keys show Error on the physical deck**
+    (`plugins/audio/outputs.go:45-47`, `plugins/streamdeck/meter.go:39-46,62-73`,
+    `plugins/streamdeck/plugin_windows.go:285-287`)
+    - **Problem:** Output slots publish their state in `Value` (for example `In use`)
+      and the device name in `Status`. The hardware path calls `bindingTile`, which
+      substitutes that descriptive `Status` for the value, then `controlTile` maps
+      every unrecognised nonempty status to `Error`. The fixed audio fixture's healthy
+      Music slot therefore renders a red Error key instead of In use. This predates
+      the display-only binding fix; accepting those bindings makes it consistently
+      reachable with audio-first startup.
+    - **Evidence:** A scratch Go overlay passed the generated audio fixture through
+      the real `bindingTile` and native 112px renderer. `audio.slot-1` became
+      `Tile{Label: "Music", Value: "Error"}` despite its provider value being In use.
+      Playback Device retained its scrolling device name; absent slots stayed blank.
+      The existing `TestRoutingPresentation` supplies label/value strings directly,
+      so it bypasses the faulty conversion.
+    - **Fix:** Preserve the destination's state word while treating its device name
+      as descriptive detail. Cover the actual provider-to-tile path, including In use,
+      Disconnected, No output and hidden slots, and inspect native-size output. Preserve
+      genuine pending, unavailable and error semantics on other controls; do not simply
+      ignore every status string. Specify this separately from `deck-status-bindings`,
+      whose design intentionally retains existing rendering.
