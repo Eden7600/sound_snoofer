@@ -32,10 +32,15 @@ export function control(id: string, parent: HTMLElement, label?: string, { layou
     layout === "stack"
       ? "block py-3 border-t border-[#25323e] first:border-t-0 first:pt-0"
       : layout === "bare"
-        ? "flex items-center justify-between gap-[18px]"
+        ? hideLabel
+          ? "flex items-center justify-between gap-[18px]"
+          : "flex items-center justify-start gap-2"
         : "flex items-center justify-between gap-[18px] border-t border-[#25323e] py-3 first:border-t-0 first:pt-0 last:pb-0 max-[850px]:gap-2.5";
   const row = el("div", rowClass),
-    caption = el("div", layout === "stack" ? "mb-[7px]" : "min-w-0 flex-1"),
+    caption = el(
+      "div",
+      layout === "stack" ? "mb-[7px]" : layout === "bare" && !hideLabel ? "min-w-0" : "min-w-0 flex-1",
+    ),
     title = el("label", hideLabel ? "sr-only" : layout === "stack" ? "block" : "", label || initial.Label),
     note = el("small", "mt-1 block text-[11px] break-words");
   row.dataset.part = "row";
@@ -154,13 +159,14 @@ export function meterBar() {
   bar.dataset.part = "meter";
   peakMark.dataset.part = "peak";
   bar.append(unlit, signal, peakMark);
-  const scale = el("div", "relative mt-1 h-3 text-[10px] text-muted tabular-nums");
+  const scale = el("div", "@container relative mt-1 h-3 text-[10px] text-muted tabular-nums");
   for (const db of [-60, -30, -12, -3, 0]) {
     const mark = el(
       "span",
       "absolute " + (db === -60 ? "" : db === 0 ? "-translate-x-full" : "-translate-x-1/2"),
       String(db),
     );
+    if (db === -3) mark.classList.add("hidden", "@min-[400px]:block");
     mark.style.left = ((db + 60) / 60) * 100 + "%";
     scale.append(mark);
   }

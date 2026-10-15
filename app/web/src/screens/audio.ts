@@ -9,12 +9,13 @@ export function buildAudio() {
     empty(root, "Audio is disabled. Enable it in Plugins.");
     return;
   }
-  const grid = el("div", ui.grid);
+  const grid = el("div", ui.grid + " items-start");
   root.append(grid);
   const live = panel("Live Controls", grid, "col-span-full"),
-    top = el("div", "mb-5 grid grid-cols-3 gap-5"),
+    top = el("div", "my-5 flex flex-wrap items-center gap-x-6 gap-y-3"),
     strips = el("div", "grid grid-cols-2 gap-5 max-[850px]:gap-[9px]");
   control("audio.health", live, "Engine");
+  control("audio.interface", live, "Interface");
   live.append(top);
   control("audio.mic-stack", top, "Mic Stack", { layout: "bare" });
   control("audio.mic-mute", top, "Mic Mute", { layout: "bare" });
@@ -22,7 +23,6 @@ export function buildAudio() {
   live.append(strips);
   mixer("audio.gain-mic", strips, "MICROPHONE");
   mixer("audio.gain-playback", strips, "PLAYBACK");
-  control("audio.interface", live, "Interface");
   const used = new Set([
     "audio.health",
     "audio.mic-stack",

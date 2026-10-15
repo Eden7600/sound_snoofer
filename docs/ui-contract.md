@@ -173,4 +173,6 @@ Neural Timing shows lifetime peak worker-packet / queue-wait milliseconds, inclu
 
 Diagnostics keeps Startup and the Engine health row with restart actions. Current Notices groups full statuses by plugin name, summarizes repeated Normal-profile VR override once, and leaves known descriptive device/echo/timing detail on its owning screen. Unrecognized warnings and failures remain visible, including unavailable controls. Copy Notices copies the displayed context and details; its local feedback survives polling. Ordinary audio settings remain on Audio.
 
+Audio cards use their content height. Engine and Interface appear together above the live switches and gain strips, with each live switch beside its label. GUI meter scales retain -60, -30, -12 and 0; the -3 label appears only when the strip has at least 400px available, preventing crowded labels without changing signal colors or exact readings.
+
 Automatic rebuilds of the current GUI screen preserve registered search filters, expanded sections, focus and scroll by stable target identity. Provider values continue to refresh. Removed or disabled focus targets fall back to screen content, and open dialogs keep their focus. Navigation starts a fresh screen view.
