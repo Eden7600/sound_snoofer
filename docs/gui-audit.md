@@ -10,8 +10,9 @@ Screenshots were reviewed at 1280×820 and 800×600 using the browser fixture.
 ## Current status
 
 The audit is **not complete**. The harness and TypeScript split are complete, and the content,
-dropdown, reconnect and screen-layout fixes have landed in source. Action feedback,
-state preservation and plugin recovery are being completed in separate reviewed checkpoints.
+dropdown, reconnect, screen-layout, draft/dialog and plugin-recovery checkpoints have landed
+in source. Cross-layer action feedback is still being integrated; final shared gates and
+packaged acceptance remain open.
 The findings below retain their original audit wording and old source references;
 current implementation lives in `app/web/src`.
 
@@ -22,9 +23,9 @@ current implementation lives in `app/web/src`.
 | `gui-dropdown-commit`: 2 | Complete; closed browsing stages locally, native popup confirmation/cancellation retained | Final packaged WebView2 keyboard acceptance |
 | `gui-connection-recovery`: 5 | Complete; separate reconnect banner, bounded backoff, no replay | Final packaged reconnect acceptance |
 | `gui-layout-polish`: 10–13 and meter/search parts of 14 | Complete screen checkpoints: Diagnostics, Audio, Routing, Deck and Soundboard; both sizes inspected | Final shared gates and packaged acceptance |
-| `gui-state-preservation`: 3, 6 | Focus, scroll, details and search committed; explicit drafts/context validation and styled confirmations in progress | Complete draft/dialog checkpoints and packaged journeys |
-| `gui-action-outcomes`: 1, 4 | Correlated bounded session-result transport committed; audio ordering, provider completion, local feedback and lifecycle identity in progress | Complete cross-layer integration before deploying this protocol |
-| `gui-attention-journeys`: remaining 14 | Typed plugin lifecycle committed; attention publication, gates and navigation markers in progress | Provider/GUI regressions and packaged recovery journeys |
+| `gui-state-preservation`: 3, 6 | Focus, scroll, details/search, explicit drafts/context checks and styled confirmations committed | Final shared gates and packaged journeys |
+| `gui-action-outcomes`: 1, 4 | Transport, independent global mute ordering, host proposal identity and Audio/AEC/App Audio/Stream Deck/Windows Media outcomes committed; remaining provider adapters and frontend integration in progress | Complete all provider boundaries and local feedback, then full gates and native acceptance before deployment |
+| `gui-attention-journeys`: remaining 14 | Typed lifecycle, provider attention metadata, shared gates and sidebar markers committed | Final shared gates and packaged recovery journeys |
 | `view-state-transport`, repository hardening/cleanup | Source checkpoints committed; versioned/coalesced state transport and native cleanup tested offline | Canonical build, final gates and actual hardware acceptance |
 
 Recent focused runs include 53 Routing/keyboard/preservation/accessibility cases in 7.4 s and
@@ -37,8 +38,8 @@ canonical build and packaged acceptance, then restores the prior launch configur
 hardware task is complete merely because a fixture, browser screenshot or offline native test
 passes. The configured toolchain still cannot run the race detector without cgo.
 
-Execution continues through action outcomes, explicit drafts/dialogs and attention journeys,
-then shared source gates and native acceptance. Do not deploy the intermediate action-result
+Execution continues through the remaining action-outcome adapters and frontend integration,
+then shared source gates and native acceptance of all GUI changes. Do not deploy the intermediate action-result
 protocol before its frontend and provider integration is complete. The TypeScript-first order
 is satisfied; repository hardening is no longer waiting on that split.
 
@@ -146,18 +147,18 @@ fix has since landed; final packaged keyboard acceptance remains tracked separat
 
 ## Proposed changes
 
-Each change is its own OpenSpec change, split into commit-sized tasks with verification at each
-checkpoint. Prepare the `gui-test-harness` proposal first; prepare later proposals against the
-resulting code and tests. This audit does not change the UI contract or authorize implementation.
+Each change has its own reviewed OpenSpec design, split into commit-sized tasks with verification
+at each checkpoint. The change descriptions below retain the original scope; the status table
+and OpenSpec task lists track implementation and acceptance. The audit itself is a planning input;
+the user subsequently authorized implementation.
 
-Before or alongside the harness proposal, run a one-off WebView2 check of item 2 through the
-`__controls` route that `scripts/check-desktop.cjs` already uses. The result decides whether
-change 3 exists.
+The one-off WebView2 check through `__controls` confirmed item 2 during migration acceptance,
+so change 3 is required and its source fix has landed. Final packaged keyboard acceptance is open.
 
-Order (decided 2026-10-14): 1 → 4 → 2 → 3 (if confirmed) → 5 → 6 → 7 → 8 → 9. The harness lands
-first and protects the split. The split now comes before the content fixes as well, so that all
-later work is written once, in TypeScript, in its final location. The repository-audit
-`audit-hardening` change is paused until the split lands.
+Order (decided 2026-10-14): 1 → 4 → 2 → 3 → remaining GUI checkpoints → final shared gates →
+packaged/live acceptance. The harness and TypeScript prerequisites are satisfied. Independent
+GUI checkpoints have progressed alongside provider outcome work; `audit-hardening` resumed and
+its source checkpoints are committed. Remaining hardware acceptance stays separately tracked.
 
 1. **`gui-test-harness`.** Move to Playwright Test:
    - First port every existing assertion with no application behavior change. Keep the existing
@@ -188,7 +189,7 @@ later work is written once, in TypeScript, in its final location. The repository
 2. **`gui-content-fixes`.** Items 7–9, 15 and 16, including the Retry label:
    - Fix labels at the owning provider or presentation layer; keep IDs, bindings and saved values
      unchanged. Verify rendered labels with the provider-backed fixtures.
-3. **`gui-dropdown-commit`** (only if the WebView2 check confirms item 2). A small, early fix for
+3. **`gui-dropdown-commit`** (item 2 confirmed in WebView2). A small, early fix for
    a live-audio invariant breach:
    - Define browsing, explicit keyboard or pointer commitment, and Escape cancellation.
    - Apply a committed choice once. Distinguish live audio selections from deck draft edits, and
@@ -256,7 +257,7 @@ change 6 does not wait for the cross-layer design in change 5.
    the shared header's transient-only rule. Verify navigation from an attention marker and each
    disabled-plugin screen's enable/recovery path.
 
-## Open decisions
+## Decisions and deferred follow-up
 
 - Resolved in `gui-test-harness`: add `@playwright/test` 1.62.1 and `@axe-core/playwright`; the
   installed Chrome only, never a browser download. DOM geometry assertions plus screenshots as
@@ -265,7 +266,12 @@ change 6 does not wait for the cross-layer design in change 5.
   typescript-eslint and Prettier.
 - Follow-up from `gui-test-harness`: generate the fixtures that stay hand-written (Soundboard, Hue,
   App Audio, Now Playing, Discord, AEC, VR) once those providers have fixed-input entry points.
-- Resolve in `gui-action-outcomes`: choose the smallest ordering and outcome mechanism that
-  satisfies the rapid-click case while preserving stale checks and no-replay guarantees.
-- Resolve in `gui-typescript-modules`: confirm module boundaries against the resulting code and test needs.
-  Keep the extraction scoped to existing screens/widgets, with no frontend framework; esbuild is the only bundler.
+- Resolved in `gui-action-outcomes`: bounded session-local IDs and result lanes, per-control busy
+  reservations, captured provider targets and explicit Submitted/Processed/Rejected/Failed/Unknown
+  boundaries. Only the two global mute preferences have independent worker generations; all
+  contextual stale checks and no-replay rules remain. Frontend timeouts retain the reservation.
+- Resolved in `gui-typescript-modules`: one module per screen plus shared state, host binding,
+  widgets and model helpers. No frontend framework; esbuild is the only bundler.
+- Acceptance remains concrete: full isolated browser suite within 60 seconds, strict source gates,
+  canonical build, unchanged native smoke and packaged journeys at both sizes. Hardware-dependent
+  tasks remain unchecked when the necessary device or observable result is unavailable.
