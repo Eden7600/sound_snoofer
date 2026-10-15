@@ -115,6 +115,60 @@ played can explicitly say Cancelled before playback. Never infer not-applied fro
 error. Existing desired-state reconciliation, rate limiting and readback continue; this change
 adds no GUI-driven retries and does not replay one-shot scene, recorder, media or clip actions.
 
+### Now Playing source identities
+The current Windows `AppUserModelID` plus enumeration suffix and browser `tab:frame` keys name
+display/control slots, not source lifetimes. Keep those IDs and persisted settings unchanged.
+The adapter needs the following private identities before it can promise captured-target checks:
+
+- The native media companion adds an opaque string instance token to each snapshot session.
+  Reuse a token only for the same canonical COM `IUnknown` identity retained in the last successful
+  snapshot; hold the COM/session reference while comparing identities. New or previously absent
+  objects receive a fresh counter value. This prevents enumeration reorder and address reuse from
+  redirecting a command. Release retained references when a session leaves that snapshot and when
+  its handle closes. Keep only the current snapshot, not retired-session history. `MSCommand`
+  resolves the instance token; thumbnail lookup can retain the existing snapshot ID. Snapshot
+  buffer retries must not replace the committed session table until delivery succeeds. The Go
+  worker additionally captures its Windows-source generation so close/reopen invalidates queued
+  commands even if a new handle starts its counter over. Missing tokens from an older companion
+  make session commands unavailable; never fall back to enumeration IDs.
+- The bridge gives each accepted connection a monotonic generation. Reports and disconnects carry
+  it internally; the worker accepts reports only for the live connection and removes only the
+  matching stored generation. A queued command captures that generation and `send` checks it
+  before writing to that exact connection object, never a replacement found by browser name.
+  A replacement between this check and the write can fail or reach the old connection only.
+- The extension assigns an opaque string instance to each content-port connection. Reports and
+  commands include it, and routing checks it against the current frame before any action. An old
+  port cannot overwrite its replacement's report, and old WebSocket callbacks cannot act for the
+  current socket. This closes navigation/content-port replacement after host validation but before
+  extension routing. Connection generation plus frame instance distinguishes a background restart
+  even when its local counter resets. A tab-mute write still targets browser-tab state; the token
+  check is at extension dispatch, not an atomic guarantee against later browser navigation.
+
+Use the existing protocol-version refusal handshake to move the browser wire format from 1 to 2.
+Require bounded nonempty instance strings; incompatible extension/host pairs explicitly request
+an update instead of silently using the old command shape. In protocol 2, existing `toggle` and
+`mute` commands carry the captured desired boolean as `value` 0 or 1, including explicit zero.
+The extension applies that desired value; it does not invert a newer playback/tab state. Windows
+toggles likewise resolve to the existing Play/Pause operation before enqueueing. Keep next/previous
+and seek one-shot semantics and the existing same-target dial accumulator. The accumulator retains
+the captured source/session lifetime and discards obsolete work before its deferred seek.
+
+Session commands also retain the necessary published capabilities/context; focused aliases retain
+their focus generation. Settings capture the raw-settings identity and explicit desired value.
+Validate before work begins and classify known missing/changed targets as Rejected. A finite
+Windows call returns Processed or its explicit error; a browser write returns Submitted, with
+ambiguous write errors Unknown. Extension-side refusal after a successful socket write does not
+turn Submitted into observed success. Existing pending/readback status reports later uncertainty.
+Do not add a browser command-reply protocol, a new identity service or unbounded token history.
+
+Verify native identity reuse/reorder/removal using fake COM objects through the production helper,
+and Go/browser lifetime handling with isolated fake sources, loopback sockets and extension tests.
+Extend the existing media self-test build path; keep companion packaging and extension acceptance
+in the coordinated native checkpoint. No live player is needed for the isolated identity checks.
+The native helper and companion must compile under the existing MSVC `/W4 /WX` settings; Go and
+extension tests cannot establish that. If that toolchain is unavailable, record the exact blocked
+check and leave native validation open rather than install a replacement or claim completion.
+
 ## Two independent global mute preferences
 Only requests for `audio.mic-mute` and `audio.speaker-mute` receive the independent policy. The
 audio worker owns two monotonic generations in its immutable State. Publish the corresponding

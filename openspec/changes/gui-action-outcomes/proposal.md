@@ -23,13 +23,17 @@ one worker revision.
 - Capture mutable provider targets before enqueueing, report worker validation/save/native-call
   errors where a completion boundary exists, and explicitly report Submitted where existing
   coalescing or remote reconciliation cannot produce an individual completion.
+- Give Now Playing private native-session, bridge-connection and browser-frame lifetime tokens;
+  update its companion and extension protocol so queued commands cannot use recycled display IDs.
 - Give host enablement proposals identities and owners so confirm/cancel cannot affect a newer
   proposal. Preserve local confirmation tickets from `gui-state-preservation`.
 
 ## Impact
 Private GUI/pipe types and transport, registry dispatch's optional in-process completion path,
 audio actions/worker, the listed provider adapters, shared frontend action state/widgets and
-focused tests. Update the UI contract for local action feedback. Keep control IDs, persisted
+focused tests. Now Playing also touches the native media companion and its isolated self-test,
+Go media-session snapshot wire fields, and the browser extension's versioned report/command path.
+Update the UI contract for local action feedback. Keep control IDs, persisted
 settings, routing/recording invariants and existing Stream Deck command semantics. No new
 dependencies, durable job system, automatic action retries or general audio transaction layer.
 

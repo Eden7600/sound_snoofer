@@ -79,6 +79,41 @@ channel or device identity. Existing intentional same-target accumulators MAY re
 - **THEN** its old lifetime request is rejected even if its display label or position is reused
 - **AND** partial or ambiguous work already submitted is reported honestly rather than replayed
 
+### Requirement: Now Playing commands identify source lifetimes
+Now Playing SHALL preserve public control IDs while carrying private native-session,
+bridge-connection and browser-frame lifetime identities from publication through dispatch.
+Enumeration IDs, browser names and reused tab/frame IDs SHALL NOT substitute for those identities.
+Source replacement or missing identity SHALL refuse queued work before a known side effect.
+Captured playback and tab-mute toggles SHALL carry explicit desired values rather than invert a
+newer state. This requirement adds no automatic retry or browser command acknowledgment protocol.
+
+#### Scenario: Windows sessions reorder or disappear
+- **WHEN** sessions with the same app identifier reorder, disappear/reappear, or their source handle closes and reopens before queued work executes
+- **THEN** native instance tokens retain the same canonical COM identity only while its reference belongs to the current successful snapshot, and removed/recreated identities get new tokens
+- **AND** a queued command either reaches its captured instance or is rejected, never the current occupant of an enumeration ID
+- **AND** snapshot buffer retries preserve the committed session table until delivery succeeds, and removal/close releases retained references
+
+#### Scenario: A browser connection is replaced
+- **WHEN** a browser reconnects while old reports, disconnects or commands remain queued
+- **THEN** the worker ignores obsolete reports, an old disconnect cannot remove the new connection, and a command cannot be written to a replacement connection
+- **AND** callbacks from a replaced extension WebSocket cannot act for the current socket
+
+#### Scenario: A browser document replaces the same tab and frame
+- **WHEN** a new content-port instance occupies the same tab/frame before a captured command reaches extension routing
+- **THEN** the extension refuses the mismatched instance and an old port cannot overwrite the new frame's report
+- **AND** captured play/pause and mute values are applied explicitly when the identity remains valid
+- **AND** tab mute remains a browser-tab API operation checked at dispatch, without claiming atomicity against later navigation or observed success
+
+#### Scenario: Deferred seek outlives its target
+- **WHEN** a dial seek is accepted into the accumulator and its captured source/session lifetime changes before the deferred write
+- **THEN** that obsolete seek is discarded without selecting a replacement target or replaying it
+- **AND** its earlier Submitted result remains distinct from later native/readback status
+
+#### Scenario: An older companion or extension lacks identity support
+- **WHEN** a native snapshot lacks an instance token or the browser protocol version does not match the identity-bearing format
+- **THEN** native session commands are unavailable or the existing extension handshake explicitly requests the appropriate update
+- **AND** no compatibility fallback dispatches by a mutable display ID
+
 ### Requirement: The two global mute preferences can be independently ordered
 Only audio.mic-mute and audio.speaker-mute SHALL use separate worker-owned preference generations
 instead of the shared audio epoch. A request SHALL capture its generation and explicit desired
