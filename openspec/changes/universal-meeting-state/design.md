@@ -127,4 +127,4 @@ uncertainty remains. Never evict an unresolved fence just to admit a new slot.
 If the bound is reached, retire absent peers and refresh admitted peers from the
 current report, refuse only excess new slots, and report the capacity error. This
 must not retain vanished calls in the camera period. Fresh shared intent may
-clear retired fences and reclaim their history; reconnect alone may not.
+clear write inhibition, but unobserved potentially submitted echoes remain until known-unsent rejection, matching readback or a definite new call retires them. Reconnect alone cannot discard that history.
