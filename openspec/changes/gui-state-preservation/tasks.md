@@ -20,7 +20,7 @@
 - [x] 5. Update UI contract and audit status for these intentional changes. Run strict type/lint/
   format, model and complete isolated GUI checks within the harness budget; inspect dialog layout
   at 1280×820 and 800×600 and run strict OpenSpec validation.
-- [ ] 6. Coordinate the canonical build and
+- [x] 6. Coordinate the canonical build and
   packaged WebView2 acceptance of state restoration, dialog cancellation, continued polling and
   captured-target rejection. Restore the prior launch; hardware integration acceptance is separate.
 

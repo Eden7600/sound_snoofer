@@ -9,11 +9,20 @@ Screenshots were reviewed at 1280×820 and 800×600 using the browser fixture.
 
 ## Current status
 
-As of 2026-10-15, all planned implementation checkpoints and shared source checks are complete.
-The canonical executable and companions are built, and Snoofer has been restarted with its prior
-configuration path. The audit is **not fully accepted**: final interactive WebView2 and physical
-integration checks remain open. Windows was locked during the coordinated acceptance attempt;
-an unlock was requested and no further native UI input was attempted.
+As of 2026-10-15, the original implementation checkpoints and shared source checks are complete.
+Interactive WebView2 acceptance resumed after Windows was unlocked. The isolated canonical
+fixture verified keyboard commitment, state restoration, target-bound dialogs and local action
+feedback. Functional native state-preservation acceptance is fulfilled.
+
+Native inspection exposed compact-sidebar wordmark clipping, fixed in `9065ff7`. A later graceful
+host stop reached its deadline; `c3cff86` adds the awaited plugin to that diagnostic without changing
+shutdown policy. The canonical executable and companions were rebuilt with both follow-ups.
+The coordinated shutdown recheck and unchanged native smoke now pass. After the subsequent Deck
+probes, the host was restored as PID 20488. The original timeout's cause remains unknown.
+Physical reconnect acceptance exposed a separate first-key failure on Plus XL. The user chose
+all-released initialization for keys and dial buttons so the first press works; implementation is
+pending. The audit is **not fully accepted**: that fix, packaged brand recheck and the remaining
+native/live checks below are pending.
 
 The findings below retain their original audit wording and old source references;
 current implementation lives in `app/web/src`.
@@ -21,48 +30,107 @@ current implementation lives in `app/web/src`.
 | Work / findings | Source status | Remaining acceptance |
 | --- | --- | --- |
 | `gui-test-harness`, `gui-typescript-modules` | Complete; generated Audio/Deck fixtures, independent Playwright cases, strict TypeScript/esbuild, keyboard/axe/geometry checks | None for source/tooling |
-| `gui-content-fixes`: 7–9, 15–16 | Complete; labels, Activity keys, internal labels and display-only Deck bindings corrected | Packaged desktop smoke and screen inspection |
-| `gui-dropdown-commit`: 2 | Complete; closed browsing stages locally, native popup confirmation/cancellation retained | Final packaged Processing/Monitor keyboard journeys |
+| `gui-content-fixes`: 7–9, 15–16 | Complete; labels, Activity keys, internal labels and display-only Deck bindings corrected; native smoke passes | Remaining content inspection; Audio/Routing/Deck inspected |
+| `gui-dropdown-commit`: 2 | Complete; native closed-select and popup keyboard commitment checks pass | Pointer selection and remaining native popup dismissal paths |
 | `gui-connection-recovery`: 5 | Complete; separate banner, bounded backoff, no replay; browser fault tests pass | Packaged acceptance; EOF establishes shutdown, not rejected State/backoff behavior |
-| `gui-layout-polish`: 10–13 and meter/search parts of 14 | Complete; both browser sizes inspected with no geometry exceptions | Packaged screen inspection |
-| `gui-state-preservation`: 3, 6 | Complete; focus, scroll, details/search, drafts, context guards, styled dialogs and stable notice Dismiss focus | Packaged restoration and confirmation journeys |
-| `gui-action-outcomes`: 1, 4 | Complete; correlated transport, independent mutes, every provider adapter, local feedback and lifecycle identity; independent completion-path review passed | Packaged results/state/close checks and real integration outcomes |
-| `gui-attention-journeys`: remaining 14 | Complete; typed lifecycle, provider metadata, shared gates and accessible sidebar markers | Packaged recovery/navigation journeys |
-| `view-state-transport`, repository hardening/cleanup | Complete source gates and canonical companion build | Unchanged native smoke, live artwork/clocks and recorded physical acceptance |
+| `gui-layout-polish`: 10–13 and meter/search parts of 14 | Complete source work, including compact native brand fix; five affected screens inspected at both outer window sizes | Packaged brand recheck with the classic scrollbar |
+| `gui-state-preservation`: 3, 6 | Complete; functional native restoration, dialog cancellation, polling and captured-target invalidation verified | No remaining functional native journey; aggregate validation and physical integration remain separately tracked |
+| `gui-action-outcomes`: 1, 4 | Complete; independent completion-path review and native smoke pass; packaged result attribution, state updates and close with an outstanding action verified | Real integration outcomes |
+| `gui-attention-journeys`: remaining 14 | Complete; disabled Audio gate and captured host-proposal cancellation verified natively | Starting/failed gates, marker visibility and keyboard navigation |
+| `view-state-transport`, repository hardening/cleanup | Original source gates, canonical companion build, native smoke and coordinated shutdown recheck pass; original timeout unexplained | Implement the chosen all-released key/dial-button initialization and recheck first press; live artwork/clocks and remaining physical acceptance |
 
-### Final combined validation
+### Shared source and build validation
 
-- Ordinary `scripts/check.ps1`: full Go tests and vet, strict TypeScript, ESLint, Prettier,
-  15 model tests, **290 browser tests in 43.4 s**, and all **104 OpenSpec changes** pass.
+- Before the native follow-ups, ordinary `scripts/check.ps1` at `49e3fd9` passed full Go tests and
+  vet, strict TypeScript, ESLint, Prettier, 15 model tests, **290 browser tests in 43.4 s**, and
+  strict validation of all **104 OpenSpec changes**.
 - The default browser concurrency is four workers. Automatic sixteen-worker execution on this
   machine caused widespread timeouts; the corrected default meets the existing 60-second budget
   without extending test timeouts or weakening assertions. That run also exposed the fixed
   shared-notice focus defect. The initial failed run is retained separately in the local logs.
 - Canonical `bin/snoofer.exe` and companions built successfully. Native ABI/buffer/callback-stop,
   media async timeout and canonical COM identity self-tests pass; the actual media DLL compiles.
-- The built media DLL opens and snapshots successfully, but the read-only probe found no active
-  sessions, so it does not establish live-player/artwork acceptance. The soundboard normalization
-  probe passes using generated temporary WAV files, with its playback path disabled.
+- The initial media DLL probe opened and snapshotted successfully with no active sessions. After
+  unlock, a read-only probe found the active Brave YouTube Music session, playing position,
+  duration, canonical instance token 1 and 33,390 bytes of artwork. No media command was sent;
+  GUI rendering, asset replacement/removal and reopen acceptance remain separate. The soundboard
+  normalization probe passes using temporary WAV files, with its playback path disabled.
 - Extension unit/build tests: 16 pass. Chrome page-script and isolated Brave protocol 2 end-to-end
   checks pass. Browser media controls require the matching extension 1.1.0; the installed user
   extension was not reloaded. Refresh older media tabs after updating if Next/Previous is unavailable.
-- The prior host and controls child exited normally. The new host started with the same
-  `--config bin/snoofer.json` path. Audio configuration and mute-state file fingerprints and the
-  user-owned native smoke script remain unchanged. The main host config was rewritten during
+- During the initial deployment, the prior host and controls child exited normally. The new host
+  started with the same `--config bin/snoofer.json` path. Audio configuration and mute-state file
+  fingerprints and the user-owned native smoke script remain unchanged. The main host config was rewritten during
   normal startup, consistent with the existing Discord refresh-token rotation; no manual config
   edits or rollback were performed.
+- During the later build attempt, host PID 70268 reached the cleanup deadline and displayed
+  `context deadline exceeded`. It exited after the user dismissed its error dialog normally;
+  no force termination was used. The failed stop remains failed evidence. Two decks were connected,
+  but the awaited plugin and underlying cause were not identified. The named-error diagnostic in
+  `c3cff86` and the brand fix in `9065ff7` are now in the canonical build. On the coordinated recheck,
+  PID 51076 exited normally in under one second with both decks connected. The successful recheck
+  does not establish the cause or a repair for the initial failure.
+- The unchanged `node scripts/check-desktop.cjs` passes against the diagnostic build: native
+  accessible Lights/Start Sync controls, revisioned actions, window close/reopen, host EOF cleanup,
+  and scoped graceful tray shutdown with repeated stop. Its output is retained in
+  `.local/gui-audit-native-smoke.log`. Production host PID 18648 was then restored with the same
+  `--config bin/snoofer.json` launch configuration.
+- The opt-in Deck baseline probe in `d56c6e1` adds `baseline_probe_windows_test.go`; package tests
+  pass in 15.6 s. Actual Plus and Plus XL `inputReport` calls returned success with header
+  `01 00 00 00` followed by zeros, which has an invalid key count. Holding blank key 8 on XL
+  produced the same invalid report. The logs are `.local/deck-baseline-probe.log` and
+  `.local/deck-baseline-held-probe.log`. These reports do not provide a usable initial key state.
+  After reconnecting XL, the user observed that the first Play press on key 29 did nothing;
+  the second worked and redrew. The user explicitly chose all-released initialization for keys
+  and dial buttons: holding a button during startup is negligible in their use, and a displayed
+  button must work on the first press. This supersedes the previous held-key suppression policy;
+  the OpenSpec correction and implementation are pending. Host PID 20488 was restored after the probes.
 - Changed Go files are formatted. Two untouched legacy Voicemeeter test files still have their
   pre-existing import formatting. The race detector remains unavailable: `CGO_ENABLED=0`.
 
-The remaining tasks are acceptance work, not unfinished provider/frontend implementation. Keep
-their checkboxes open until actually performed: native dropdown/dialog/state/result/attention
-journeys at both window sizes; real mute/error/uncertain-one-shot outcomes; live artwork/animation
-and reopen; recorder pause, Voicemeeter startup/restart, and physical Stream Deck model/hotplug/key
-checks. Do not infer hardware acceptance from fixtures, screenshots or native self-tests.
+### Native fixture acceptance after unlock
+
+The canonical executable at `49e3fd9` ran an isolated `__controls` fixture as PID 57508, without
+host plugins or device writes. Production host PID 70268 remained unchanged during that inspection.
+Nine captured actions were retained in the local acceptance log.
+
+- Processing: closed Down staged Element without dispatch; Enter sent one revision-35 `set(element)`.
+  Monitor: closed Down then Tab restored Pre without dispatch; typeahead `o` then Escape also
+  cancelled. Open-popup Down+Tab sent one revision-36 `set(post)`; popup Enter sent one `set(off)`.
+  Pointer selection remains unverified because computer use refused the separate WebView popup,
+  including the refreshed retry. Remaining popup dismissal paths are also pending.
+- Mic Mute stayed reserved after the 2.5-second Unknown threshold while Playback Mute still sent.
+  An injected Playback Failed reply stayed on Audio; navigation to Soundboard showed no Audio
+  error. A later Mic Processed reply remained on Audio, gain updates continued, and no action
+  replayed. These injected replies establish correlation and presentation, not actual mute effects.
+- Deck Page Options, an unapplied page-name draft, binding search and scroll survived structural
+  rebuilds. Delete Page and Forget Deck cancelled with Escape; Own Layout cancelled with Cancel;
+  none sent an action. Making Delete unavailable while its dialog was open invalidated acceptance
+  while polling continued. A fresh acceptance sent one captured revision-1 request. App Audio More,
+  nickname draft and combine selection survived a label rebuild after Tab, with Rename retaining
+  focus and no restoration action. These observations fulfill functional native state preservation.
+- Disabled Audio exposed Enable Audio with the captured `native-fixture-config` revision. A host
+  proposal kept its original text and ID after a replacement arrived; Cancel sent the original
+  `native-audio-enable-1` ID. Starting/failed gates and marker-to-screen keyboard journeys remain open.
+- Audio, Routing including Activity/output devices, Soundboard, Deck and Diagnostics were inspected
+  at 1280×820 and 800×600 outer window sizes. The compact CSS client was approximately 784×562.
+  Other inspected controls remained accessible through scrolling; classic-scrollbar wordmark
+  clipping prompted the now-built follow-up, whose final packaged inspection is pending.
+- Soundboard animation visibly changed from pie to green-square frames. This is synthetic rendering
+  evidence, not live artwork lifecycle acceptance. Native window Close exited zero with an App Audio
+  action still unresolved, confirming that the outstanding result did not block window shutdown.
+
+Keep aggregate acceptance tasks open until all their required checks are performed. Outstanding
+work includes the final brand check, remaining dropdown, attention and connection-recovery
+journeys, real mute/error/uncertain-one-shot outcomes, and live artwork changes/removal/reopen.
+Recorder Pause, Voicemeeter startup/restart and remaining physical Stream Deck input/hotplug
+checks remain separate. The observed XL first-key failure is an unresolved implementation issue,
+not a completed acceptance check. Plus and Plus XL are available; Mini/MK.2 are unavailable.
+Fixtures, screenshots and native self-tests do not establish those hardware results.
 
 Native WebView2 confirmed item 2 during migration acceptance: Down on a closed Processing select
-sent a set action. Its source fix is committed and browser coverage passes; final packaged keyboard
-acceptance remains tracked separately.
+sent a set action. The corrected closed-select and popup keyboard paths now pass native checks;
+pointer selection and remaining popup dismissal acceptance are still tracked separately.
 
 ## Reliability
 
@@ -169,7 +237,8 @@ and OpenSpec task lists track implementation and acceptance. The audit itself is
 the user subsequently authorized implementation.
 
 The one-off WebView2 check through `__controls` confirmed item 2 during migration acceptance,
-so change 3 is required and its source fix has landed. Final packaged keyboard acceptance is open.
+so change 3 is required and its source fix has landed. Native keyboard commitment now passes;
+pointer selection and remaining popup dismissal acceptance are open.
 
 Order (decided 2026-10-14): 1 → 4 → 2 → 3 → remaining GUI checkpoints → final shared gates →
 packaged/live acceptance. The harness and TypeScript prerequisites are satisfied. Independent

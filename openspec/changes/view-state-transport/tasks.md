@@ -11,7 +11,7 @@
 
 ## Automated validation and commit
 - [x] 6. Run gofmt, focused and full Go tests, `go vet ./...`, model tests, TypeScript/lint/format checks, GUI tests and strict OpenSpec validation; commit the complete validated transport change.
-- [ ] 7. Coordinate `scripts/build.ps1` and the existing native desktop smoke without modifying its script; verify legacy fixtures, revisioned actions, focus, close/reopen and EOF cleanup. Report race-detector results or the existing toolchain limitation.
+- [x] 7. Coordinate `scripts/build.ps1` and the existing native desktop smoke without modifying its script; verify legacy fixtures, revisioned actions, focus, close/reopen and EOF cleanup. Report race-detector results or the existing toolchain limitation.
 
 ## Live acceptance
 - [ ] 8. With live media or soundboard artwork, verify telemetry and clocks continue, animation/artwork changes and removal render correctly, and closing/reopening controls restores assets. Leave this unchecked if hardware acceptance is not performed.
