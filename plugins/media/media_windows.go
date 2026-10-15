@@ -25,14 +25,20 @@ func (i *instance) Stop(ctx context.Context) error {
 }
 
 // Plugin registers media commands without claiming observed player state.
-func Plugin() snoofer.Plugin {
+func Plugin() snoofer.Plugin { return pluginWithSender(send) }
+
+func pluginWithSender(sendKey func(string) error) snoofer.Plugin {
 	return snoofer.Plugin{ID: "media", Validate: func(raw json.RawMessage) error { return snoofer.DecodeSettings(raw, &struct{}{}) }, Label: "Windows Media", Start: func(ctx context.Context, s snoofer.Services, raw json.RawMessage, _ map[string]snoofer.Instance) (snoofer.Instance, error) {
 		if err := snoofer.DecodeSettings(raw, &struct{}{}); err != nil {
 			return nil, err
 		}
 		runCtx, cancel := context.WithCancel(ctx)
 		i := &instance{cancel: cancel, done: make(chan struct{})}
-		queue := make(chan snoofer.Request, 8)
+		type command struct {
+			request  snoofer.Request
+			complete snoofer.Completion
+		}
+		queue := make(chan command, 8)
 		controls := []snoofer.Control{}
 		for _, name := range []string{"prev", "play", "next", "stop"} {
 			controls = append(controls, snoofer.Control{ID: "media." + name, Label: "Media " + name, ShortLabel: name, Group: "Media", SurfaceOnly: true, Kind: "command", Icon: "media-" + name, Available: s.Live, Operations: []string{"press"}})
@@ -45,8 +51,12 @@ func Plugin() snoofer.Plugin {
 			}
 			published := append(append([]snoofer.Control(nil), controls...), keys.report(s.Live, time.Now()))
 			_ = s.Controls.Publish("media", published, func(ctx context.Context, r snoofer.Request) error {
+				if err := runCtx.Err(); err != nil {
+					return err
+				}
+				queued := command{request: r, complete: r.ClaimCompletion(runCtx)}
 				select {
-				case queue <- r:
+				case queue <- queued:
 					return nil
 				case <-ctx.Done():
 					return ctx.Err()
@@ -67,8 +77,13 @@ func Plugin() snoofer.Plugin {
 					if runCtx.Err() != nil {
 						return
 					}
-					err := send(r.ID)
-					keys.sent(r.ID, err, time.Now())
+					err := sendKey(r.request.ID)
+					outcome := snoofer.Outcome{Status: snoofer.Processed, Detail: "Media key sent"}
+					if err != nil {
+						outcome = snoofer.Outcome{Status: snoofer.Failed, Detail: err.Error()}
+					}
+					r.complete(outcome)
+					keys.sent(r.request.ID, err, time.Now())
 					if err != nil {
 						publish(err.Error())
 					} else {
