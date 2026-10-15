@@ -226,7 +226,7 @@ func (h *harness) settle() {
 }
 
 func (h *harness) press(id string) {
-	h.w.handle(h.ctx, snoofer.Request{ID: id, Operation: "press"}, h.now)
+	h.w.handle(h.ctx, h.w.capture(snoofer.Request{ID: id, Operation: "press"}, h.mic.MicMute()), h.now)
 	h.cycle()
 }
 
@@ -460,6 +460,14 @@ func (m *fakeMic) SetMicMute(muted bool, origin string) error {
 		m.muted = muted
 	}
 	return nil
+}
+
+func (m *fakeMic) SetMicMuteWithResult(muted bool, origin string, revision uint64, complete snoofer.Completion) error {
+	err := m.SetMicMute(muted, origin)
+	if err == nil && complete != nil {
+		complete(snoofer.Outcome{Status: snoofer.Processed, Detail: "Saved"})
+	}
+	return err
 }
 
 // A pipe that reconnects while a refresh is in flight must not start a second

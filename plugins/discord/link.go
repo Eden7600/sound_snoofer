@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"sound-snoofer/plugins/audio"
+	"sound-snoofer/snoofer"
 )
 
 // micMute is the audio plugin's Mic mute preference, which Discord mute
@@ -11,6 +12,7 @@ import (
 type micMute interface {
 	MicMute() audio.MicMute
 	SetMicMute(muted bool, origin string) error
+	SetMicMuteWithResult(muted bool, origin string, revision uint64, complete snoofer.Completion) error
 }
 
 // muteLink is the state of reconciling Discord mute with the preference.

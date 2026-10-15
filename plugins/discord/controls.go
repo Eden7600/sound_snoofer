@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"sound-snoofer/plugins/audio"
 	"sound-snoofer/snoofer"
 )
 
@@ -32,53 +33,123 @@ func (w *worker) observed(id string) string {
 	return ""
 }
 
-// handle runs one request. Dispatch enforces availability; the checks here
-// cover state that changed since the request was made.
-func (w *worker) handle(_ context.Context, r snoofer.Request, now time.Time) {
-	delete(w.notes, r.ID)
-	if r.ID == "discord.connect" {
-		if w.state == stateUnauthorized && w.conn != nil {
-			w.state = stateAuthorizing
-			w.send("AUTHORIZE", map[string]any{"client_id": w.settings.ClientID, "scopes": scopes}, "authorize", r.ID, authorizeTimeout, now)
-		}
-		return
-	}
-	if w.state != stateReady {
-		return
-	}
-	if !w.services.Live {
-		w.notes[r.ID] = "Preview"
-		return
-	}
-	var want string
+// command retains the published target and desired state through the worker queue.
+type command struct {
+	request         snoofer.Request
+	complete        snoofer.Completion
+	generation      int
+	channelID       string
+	channelLifetime uint64
+	known, desired  bool
+	micRevision     uint64
+}
+
+func (w *worker) capture(r snoofer.Request, pref audio.MicMute) command {
+	c := command{request: r, complete: func(snoofer.Outcome) {}, generation: w.generation,
+		channelID: w.voice.channelID, channelLifetime: w.channelLifetime}
 	switch r.ID {
 	case "discord.mute":
-		// The linked preference; reconcileMute applies it to Discord.
-		if err := w.mic.SetMicMute(!w.mic.MicMute().Muted, "discord"); err != nil {
+		c.known, c.desired, c.micRevision = pref.Known, !pref.Muted, pref.Revision
+	case "discord.deafen":
+		c.known, c.desired = w.voice.settingsKnown, !w.voice.deaf
+	case "discord.video":
+		c.known, c.desired = w.voice.videoKnown, !w.voice.video
+	case "discord.screenshare":
+		c.known, c.desired = w.voice.screenKnown, !w.voice.screen
+	}
+	return c
+}
+
+// handle rechecks the captured context before any side effect. RPC completion
+// and the later observed pendingWrite state remain separate.
+func (w *worker) handle(ctx context.Context, c command, now time.Time) {
+	r := c.request
+	reject := func(detail string) { c.complete(snoofer.Outcome{Status: snoofer.Rejected, Detail: detail}) }
+	if ctx.Err() != nil {
+		c.complete(snoofer.Outcome{Status: snoofer.Unknown, Detail: "Discord stopped before processing"})
+		return
+	}
+	if c.generation != w.generation || w.conn == nil {
+		reject("Discord connection changed")
+		return
+	}
+	if r.ID == "discord.connect" {
+		if w.state != stateUnauthorized {
+			reject("Discord authorization state changed")
+			return
+		}
+		delete(w.notes, r.ID)
+		w.state = stateAuthorizing
+		c.complete(snoofer.Outcome{Status: snoofer.Submitted, Detail: "Discord authorization requested"})
+		w.send("AUTHORIZE", map[string]any{"client_id": w.settings.ClientID, "scopes": scopes}, "authorize", r.ID, authorizeTimeout, now)
+		return
+	}
+	if reason := w.unavailable(); reason != "" {
+		reject(reason)
+		return
+	}
+	switch r.ID {
+	case "discord.video", "discord.screenshare", "discord.leave":
+		if !w.voice.channelKnown || c.channelID == "" || c.channelID != w.voice.channelID || c.channelLifetime != w.channelLifetime {
+			reject("Discord call changed")
+			return
+		}
+	}
+	delete(w.notes, r.ID)
+	var cmd, want string
+	args := map[string]any{}
+	switch r.ID {
+	case "discord.mute":
+		if !c.known {
+			reject("Mic mute preference unavailable")
+			return
+		}
+		// Reconciliation follows the preference; completion belongs to the audio save.
+		if err := w.mic.SetMicMuteWithResult(c.desired, "discord", c.micRevision, c.complete); err != nil {
 			w.notes[r.ID] = "Failed"
 			w.link.Fail(err.Error(), now)
+			reject(err.Error())
 		}
 		return
 	case "discord.deafen":
-		want = onOff(!w.voice.deaf)
-		w.send("SET_VOICE_SETTINGS", map[string]any{"deaf": !w.voice.deaf}, "write", r.ID, requestTimeout, now)
-	case "discord.video":
-		if w.voice.videoKnown {
-			want = onOff(!w.voice.video)
+		if !c.known || !w.voice.settingsKnown {
+			reject("Discord voice settings unavailable")
+			return
 		}
-		w.send("TOGGLE_VIDEO", map[string]any{}, "write", r.ID, requestTimeout, now)
-	case "discord.screenshare":
-		if w.voice.screenKnown {
-			want = onOff(!w.voice.screen)
+		cmd, want = "SET_VOICE_SETTINGS", onOff(c.desired)
+		args["deaf"] = c.desired
+	case "discord.video", "discord.screenshare":
+		if _, pending := w.pending[r.ID]; pending {
+			reject("Discord toggle still pending")
+			return
 		}
-		w.send("TOGGLE_SCREENSHARE", map[string]any{}, "write", r.ID, requestTimeout, now)
+		for _, call := range w.calls {
+			if call.purpose == "write" && call.id == r.ID {
+				reject("Discord toggle still pending")
+				return
+			}
+		}
+		known, current := w.voice.videoKnown, w.voice.video
+		cmd = "TOGGLE_VIDEO"
+		if r.ID == "discord.screenshare" {
+			known, current = w.voice.screenKnown, w.voice.screen
+			cmd = "TOGGLE_SCREENSHARE"
+		}
+		if known != c.known || (known && current == c.desired) {
+			reject("Discord toggle state changed")
+			return
+		}
+		if c.known {
+			want = onOff(c.desired)
+		}
 	case "discord.leave":
-		want = "left"
-		w.send("SELECT_VOICE_CHANNEL", map[string]any{"channel_id": nil}, "write", r.ID, requestTimeout, now)
+		cmd, want = "SELECT_VOICE_CHANNEL", "left"
+		args["channel_id"] = nil
 	default:
+		reject("Unknown Discord control")
 		return
 	}
-	if want != "" {
+	if w.sendEvent(cmd, "", args, "write", r.ID, requestTimeout, now, c.complete) && want != "" {
 		w.pending[r.ID] = pendingWrite{want: want, deadline: now.Add(verifyDeadline)}
 	}
 }
@@ -114,6 +185,10 @@ func (w *worker) controlStatus(id, blocked string) string {
 }
 
 func (w *worker) controls(now time.Time) []snoofer.Control {
+	return w.controlsFor(now, w.mic.MicMute())
+}
+
+func (w *worker) controlsFor(now time.Time, pref audio.MicMute) []snoofer.Control {
 	reason := w.unavailable()
 	inCall := reason
 	if inCall == "" && (!w.voice.channelKnown || w.voice.channelID == "") {
@@ -140,10 +215,10 @@ func (w *worker) controls(now time.Time) []snoofer.Control {
 	if w.state == stateAuthorizing {
 		connect = "Pending"
 	}
-	return []snoofer.Control{
+	controls := []snoofer.Control{
 		{ID: "discord.channel", Label: "Discord Channel", ShortLabel: "Channel", Group: "Discord", Kind: "status", Icon: "call",
 			Value: channel, Status: reason, Available: true},
-		w.muteControl(reason),
+		w.muteControl(reason, pref),
 		toggle("discord.deafen", "Discord Deafen", "Deafen", "discord-deafen", reason, w.voice.settingsKnown),
 		toggle("discord.video", "Discord Camera", "Camera", "discord-video", inCall, true),
 		toggle("discord.screenshare", "Discord Screen Share", "Share", "screen-share", inCall, true),
@@ -153,6 +228,17 @@ func (w *worker) controls(now time.Time) []snoofer.Control {
 			Status: w.controlStatus("discord.connect", connect), Operations: []string{"press"}, Available: w.state == stateUnauthorized},
 		w.report(now),
 	}
+	for i := range controls {
+		c := &controls[i]
+		c.Epoch = uint64(w.generation)
+		switch c.ID {
+		case "discord.video", "discord.screenshare", "discord.leave":
+			c.Epoch = w.channelLifetime
+		case "discord.mute":
+			c.Epoch = pref.Revision
+		}
+	}
+	return controls
 }
 
 func (w *worker) report(now time.Time) snoofer.Control {
@@ -188,11 +274,21 @@ func (w *worker) report(now time.Time) snoofer.Control {
 		SurfaceOnly: true, Available: true, Connection: w.link.Report(endpoint, details...)}
 }
 
-func (w *worker) publish(now time.Time) {
+func (w *worker) publish(ctx context.Context, now time.Time) {
 	requests := w.requests
-	_ = w.services.Controls.Publish("discord", w.controls(now), func(ctx context.Context, r snoofer.Request) error {
+	pref := w.mic.MicMute()
+	controls := w.controlsFor(now, pref)
+	commands := make(map[string]command, len(controls))
+	for _, control := range controls {
+		commands[control.ID] = w.capture(snoofer.Request{ID: control.ID}, pref)
+	}
+	lifetime := ctx
+	_ = w.services.Controls.Publish("discord", controls, func(ctx context.Context, r snoofer.Request) error {
+		c := commands[r.ID]
+		c.request = r
+		c.complete = r.ClaimCompletion(lifetime)
 		select {
-		case requests <- r:
+		case requests <- c:
 			return nil
 		case <-ctx.Done():
 			return ctx.Err()
@@ -211,8 +307,7 @@ func onOff(on bool) string {
 
 // muteControl toggles the Mic mute preference that Discord mute follows. It
 // mirrors audio.mic-mute, so automatic deck layouts show only one of them.
-func (w *worker) muteControl(reason string) snoofer.Control {
-	pref := w.mic.MicMute()
+func (w *worker) muteControl(reason string, pref audio.MicMute) snoofer.Control {
 	c := snoofer.Control{ID: "discord.mute", Label: "Discord Mute", ShortLabel: "Mute", Group: "Discord", Kind: "toggle", Icon: "mic-mute",
 		Mirrors: "audio.mic-mute", Operations: []string{"press"}, Status: reason, Available: reason == "" && pref.Known}
 	if pref.Known {

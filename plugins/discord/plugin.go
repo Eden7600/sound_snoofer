@@ -115,6 +115,7 @@ type call struct {
 	purpose  string // What the response completes.
 	id       string // Control that issued it, if any.
 	deadline time.Time
+	complete snoofer.Completion
 }
 
 // pendingWrite is a requested state awaiting Discord's update.
@@ -156,7 +157,7 @@ type worker struct {
 	dial     func() (io.ReadWriteCloser, string, error)
 	client   *http.Client
 	endpoint string
-	requests chan snoofer.Request
+	requests chan command
 	frames   chan incoming
 	tokens   chan tokenResult
 	helpers  sync.WaitGroup // Reader and token goroutines.
@@ -167,24 +168,25 @@ type worker struct {
 	state      string
 	// exchanging marks a token request in flight. Only one runs: refresh tokens
 	// rotate, so a second request with the same token would be refused.
-	exchanging  bool
-	deadline    time.Time // Handshake deadline.
-	nextDial    time.Time
-	nextRefresh time.Time
-	backoff     time.Duration
-	nonce       int
-	calls       map[string]call
-	access      string // In memory only.
-	voice       voice
-	pending     map[string]pendingWrite
-	notes       map[string]string
-	mute        muteLink
-	link        snoofer.ConnectionTracker
+	exchanging      bool
+	deadline        time.Time // Handshake deadline.
+	nextDial        time.Time
+	nextRefresh     time.Time
+	backoff         time.Duration
+	nonce           int
+	calls           map[string]call
+	access          string // In memory only.
+	voice           voice
+	channelLifetime uint64
+	pending         map[string]pendingWrite
+	notes           map[string]string
+	mute            muteLink
+	link            snoofer.ConnectionTracker
 }
 
 func newWorker(s snoofer.Services, raw json.RawMessage, settings Settings, mic micMute, dial func() (io.ReadWriteCloser, string, error), client *http.Client, endpoint string) *worker {
 	w := &worker{services: s, raw: append(json.RawMessage(nil), raw...), settings: settings, mic: mic, dial: dial, client: client, endpoint: endpoint,
-		requests: make(chan snoofer.Request, 8), frames: make(chan incoming), tokens: make(chan tokenResult),
+		requests: make(chan command, 8), frames: make(chan incoming), tokens: make(chan tokenResult),
 		calls: map[string]call{}, pending: map[string]pendingWrite{}, notes: map[string]string{}, state: stateClosed}
 	if !settings.configured() {
 		w.state = stateSetup
@@ -199,7 +201,7 @@ func (w *worker) run(ctx context.Context) {
 	defer w.closeConn()
 	for {
 		w.step(ctx, time.Now())
-		w.publish(time.Now())
+		w.publish(ctx, time.Now())
 		select {
 		case <-ctx.Done():
 			return
@@ -231,7 +233,9 @@ func (w *worker) step(ctx context.Context, now time.Time) {
 	for nonce, c := range w.calls {
 		if now.After(c.deadline) {
 			delete(w.calls, nonce)
-			w.callFailed(c, fmt.Errorf("Discord did not answer %s", c.purpose), now)
+			err := fmt.Errorf("Discord did not answer %s", c.purpose)
+			w.callFailed(c, err, now)
+			c.finish(snoofer.Unknown, err.Error())
 		}
 	}
 	for id, p := range w.pending {
@@ -283,12 +287,17 @@ func (w *worker) connect(ctx context.Context, now time.Time) {
 
 // drop closes the connection and forgets everything Discord reported.
 func (w *worker) drop(err error, now time.Time) {
+	detail := "Discord connection closed before response"
+	if err != nil {
+		detail = err.Error()
+	}
+	w.finishCalls(detail)
 	w.closeConn()
 	w.state = stateClosed
 	w.nextDial = now.Add(redial)
-	w.calls = map[string]call{}
 	w.pending = map[string]pendingWrite{}
 	w.voice = voice{}
+	w.channelLifetime++
 	w.access = ""
 	if err != nil && !errors.Is(err, io.EOF) {
 		w.link.Fail(err.Error(), now)
@@ -296,6 +305,7 @@ func (w *worker) drop(err error, now time.Time) {
 }
 
 func (w *worker) closeConn() {
+	w.finishCalls("Discord connection closed before response")
 	if w.conn == nil {
 		return
 	}
@@ -304,21 +314,39 @@ func (w *worker) closeConn() {
 	w.conn = nil
 }
 
-// send issues a command; its response completes purpose.
-func (w *worker) send(cmd string, args any, purpose, id string, timeout time.Duration, now time.Time) {
-	w.sendEvent(cmd, "", args, purpose, id, timeout, now)
+func (c call) finish(status snoofer.OutcomeStatus, detail string) {
+	if c.complete != nil {
+		c.complete(snoofer.Outcome{Status: status, Detail: detail})
+	}
 }
 
-func (w *worker) sendEvent(cmd, evt string, args any, purpose, id string, timeout time.Duration, now time.Time) {
+func (w *worker) finishCalls(detail string) {
+	for nonce, c := range w.calls {
+		delete(w.calls, nonce)
+		c.finish(snoofer.Unknown, detail)
+	}
+}
+
+// send issues a command; its response completes purpose.
+func (w *worker) send(cmd string, args any, purpose, id string, timeout time.Duration, now time.Time) {
+	w.sendEvent(cmd, "", args, purpose, id, timeout, now, nil)
+}
+
+func (w *worker) sendEvent(cmd, evt string, args any, purpose, id string, timeout time.Duration, now time.Time, complete snoofer.Completion) bool {
 	if w.conn == nil {
-		return
+		if complete != nil {
+			complete(snoofer.Outcome{Status: snoofer.Rejected, Detail: "Discord connection closed before processing"})
+		}
+		return false
 	}
 	w.nonce++
 	nonce := strconv.Itoa(w.nonce)
-	w.calls[nonce] = call{purpose: purpose, id: id, deadline: now.Add(timeout)}
+	w.calls[nonce] = call{purpose: purpose, id: id, deadline: now.Add(timeout), complete: complete}
 	if err := writeFrame(w.conn, opFrame, message{Cmd: cmd, Evt: evt, Nonce: nonce, Args: args}); err != nil {
 		w.drop(err, now)
+		return false
 	}
+	return true
 }
 
 func (w *worker) receive(ctx context.Context, in incoming, now time.Time) {
@@ -362,10 +390,12 @@ func (w *worker) dispatch(ctx context.Context, m message, now time.Time) {
 		var e rpcError
 		_ = json.Unmarshal(m.Data, &e) // An unparsed error still fails the call.
 		w.callFailed(c, e, now)
+		c.finish(snoofer.Failed, e.Error())
 		return
 	}
 	w.link.Activity(now)
 	w.callDone(ctx, c, m.Data, now)
+	c.finish(snoofer.Processed, "Discord response received")
 }
 
 func (w *worker) event(ctx context.Context, evt string, data json.RawMessage, now time.Time) {
@@ -393,7 +423,7 @@ func (w *worker) event(ctx context.Context, evt string, data json.RawMessage, no
 			w.leftChannel()
 			return
 		}
-		w.voice.channelKnown, w.voice.channelID, w.voice.channelName = true, *selected.ChannelID, ""
+		w.selectChannel(*selected.ChannelID, "")
 		w.send("GET_CHANNEL", map[string]any{"channel_id": *selected.ChannelID}, "channel", "", requestTimeout, now)
 	case "VIDEO_STATE_UPDATE":
 		w.voice.videoKnown, w.voice.video = activeOf(data, w.voice.video)
@@ -428,8 +458,16 @@ func (w *worker) voiceSettings(data json.RawMessage) {
 	w.voice.settingsKnown, w.voice.mute, w.voice.deaf = true, *settings.Mute, *settings.Deaf
 }
 
+func (w *worker) selectChannel(id, name string) {
+	if !w.voice.channelKnown || w.voice.channelID != id {
+		w.channelLifetime++
+		w.voice.videoKnown, w.voice.screenKnown = false, false
+	}
+	w.voice.channelKnown, w.voice.channelID, w.voice.channelName = true, id, name
+}
+
 func (w *worker) leftChannel() {
-	w.voice.channelKnown, w.voice.channelID, w.voice.channelName = true, "", ""
+	w.selectChannel("", "")
 	w.voice.videoKnown, w.voice.video = true, false
 	w.voice.screenKnown, w.voice.screen = true, false
 }
@@ -453,7 +491,7 @@ func (w *worker) callDone(ctx context.Context, c call, data json.RawMessage, now
 		w.send("GET_VOICE_SETTINGS", map[string]any{}, "voice", "", requestTimeout, now)
 		w.send("GET_SELECTED_VOICE_CHANNEL", map[string]any{}, "selected", "", requestTimeout, now)
 		for _, evt := range []string{"VOICE_SETTINGS_UPDATE", "VOICE_CHANNEL_SELECT", "VIDEO_STATE_UPDATE", "SCREENSHARE_STATE_UPDATE"} {
-			w.sendEvent("SUBSCRIBE", evt, map[string]any{}, "subscribe", "", requestTimeout, now)
+			w.sendEvent("SUBSCRIBE", evt, map[string]any{}, "subscribe", "", requestTimeout, now, nil)
 		}
 	case "voice":
 		w.voiceSettings(data)
@@ -466,7 +504,7 @@ func (w *worker) callDone(ctx context.Context, c call, data json.RawMessage, now
 			w.leftChannel()
 			return
 		}
-		w.voice.channelKnown, w.voice.channelID, w.voice.channelName = true, channel.ID, channel.Name
+		w.selectChannel(channel.ID, channel.Name)
 	case "channel":
 		var channel struct {
 			ID   string `json:"id"`
