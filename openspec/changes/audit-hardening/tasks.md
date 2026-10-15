@@ -5,7 +5,7 @@
 - [x] 3. `fix(nowplaying)`: bound WinRT media calls; build the media helper.
 - [x] 4. `fix(build)`: stage all selected companions/models/licenses until esbuild, Tailwind and Go succeed; preserve the sole application output `bin/snoofer.exe`; repair neural-AEC setup; test failure/success/tagged paths and interrupted dependency recovery with isolated fake commands.
 - [x] 5. `fix(voicemeeter)`: treat "no callback registered" as a clean stop; callback probe.
-- [x] 6. `fix(deck)`: seed the key baseline from the current input report.
+- [x] 6. `fix(deck)`: seed the key baseline from the current input report (initial implementation; hardware evidence below supersedes this approach in task 14).
 - [x] 7. `fix(deck)`: report every deck path that fails to open; retire temporary path reports on recovery/removal; surface and report-lifecycle tests.
 - [x] 8. `fix(hue)`: ignore light-write results from before a room change; test.
 - [x] 9. `fix(nowplaying)`: replace bridge connections only from the same origin; test.
@@ -27,3 +27,7 @@
 - [x] 13. Add the explicitly opted-in native initial-input probe; run default package tests and strict validation, then coordinate the read-only hardware probe with the host stopped. Record query/decode results for Plus and Plus XL and restore the same host configuration. Do not mark first-key acceptance complete from a probe.
 
 Probe evidence, 2026-10-15: Plus (0084) and Plus XL (00C6) both returned 512-byte input reports beginning 01 00 00 00 with zero payload. Decoder rejected them as invalid key count. The XL returned the same report with its unbound key 8 held. The real XL first Play press after reconnect did nothing; the second worked (user report). This is failed first-key acceptance, not a successful baseline. The read-only probes ran in 0.03 s; default Stream Deck tests pass. Logs: .local/deck-baseline-probe.log and .local/deck-baseline-held-probe.log.
+
+## First-input policy correction
+- [ ] 14. `fix(deck)`: implement the user's released-at-connect policy for keys and dial buttons, remove the unsupported production current-report query, and keep any historical query test-local. First prove Plus and Plus XL startup key/dial-button regressions fail, then verify first down exactly once, repeated-down deduplication, release/repress, malformed-before-first-input and fresh reconnect state. Retain existing hold, stale-generation, dark/inert and multi-deck coverage; run gofmt, focused and full Stream Deck/package plugin tests, vet and strict validation.
+- [ ] 15. Root builds canonically, restores the prior host configuration and confirms the first displayed key and dial button work after connection/reconnection on Plus and Plus XL. Record observed behavior and preserve the failed first-key evidence above; do not complete this from automated tests.

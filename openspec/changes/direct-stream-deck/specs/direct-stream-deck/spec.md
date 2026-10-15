@@ -6,7 +6,8 @@ Sound Snoofer SHALL operate the Stream Deck + XL through direct HID without Elga
 - **THEN** its controls initialize and display current application state without sending audio or transport commands
 #### Scenario: Disconnect and reconnect
 - **WHEN** the device disconnects and returns
-- **THEN** audio management continues, the display repaints, and held keys or previous commands are not replayed
+- **THEN** audio management continues, the display repaints, and previous commands are not replayed
+- **AND** keys and dial buttons initialize as released, their first valid down report activates once even if held at connection, and repeated down reports do not repeat the press
 #### Scenario: Busy or unsupported device
 - **WHEN** access fails or the product is unsupported
 - **THEN** the application reports unavailable and continues normal audio management

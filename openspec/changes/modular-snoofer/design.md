@@ -90,7 +90,7 @@ Seed a useful initial layout from the owner's existing bindings and first three 
 
 Bindings retain provider/control ID and saved display label even when the provider is disabled, omitted or failed. Render dim Unavailable and ignore input; configurator explains the reason. Restore automatically when the same stable control returns, without replaying old input.
 
-Page transitions/layout edits invalidate queued input associated with the previous layout generation. Never reinterpret a held key or old encoder delta as a new page action. Preserve initial-held-key suppression on reconnect, bound rendering queues, send changed images only, and redraw the current effective layout after reconnect. Hardware absence permits offline layout editing. Unknown active page after an edit resolves to Home.
+Page transitions/layout edits invalidate queued input associated with the previous layout generation. Never reinterpret a held key or old encoder delta as a new page action. Initialize keys and dial buttons as released on reconnect so the first valid down report activates once, as explicitly selected by the user in audit-hardening. Duplicate down reports do not repeat the press; a button already held at connection may activate once. Bound rendering queues, send changed images only, and redraw the current effective layout after reconnect. Hardware absence permits offline layout editing. Unknown active page after an edit resolves to Home.
 
 ## 7. Delivery sequence and acceptance
 

@@ -37,7 +37,7 @@
 - [x] 6.2 Add stable pages, Home, shared positions, compatible single-control bindings and reserved sixth dial navigation.
 - [x] 6.3 Implement integrated TUI page/binding editor with effective preview, offline editing, Save/Cancel and atomic live apply.
 - [x] 6.4 Preserve missing-control bindings/labels as inert Unavailable; invalidate old-generation input across edits, page changes and provider changes.
-- [x] 6.5 Seed existing personal/default key and gain assignments; preserve serial-specific layouts and initial-held-key suppression.
+- [x] 6.5 Seed existing personal/default key and gain assignments; preserve serial-specific layouts. Initial-held-key suppression was implemented here and is superseded by the user-selected first-press policy in audit-hardening task 14.
 - [x] 6.6 Test wrap/Home/reorder/delete, final-page rejection, collision validation, save failure, unavailable restoration and reconnect rendering without replay.
 
 ## 7. Rename, external author path and manual changeover (depends on 2-6)

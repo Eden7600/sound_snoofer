@@ -24,7 +24,7 @@ Findings 14, 15 and 26 are handled elsewhere:
 - **17:** each asynchronous WinRT media operation waits at most 2 s; synchronous property reads are unchanged. A timed-out call is cancelled and reported as an error.
 - **18:** native companions build into a fresh staging folder and reach `bin/` only after esbuild, Tailwind and the Go build succeed. Preparation and compilation failures preserve deployed files; deployment I/O failures are reported without a rollback guarantee. The only application output remains `bin/snoofer.exe`. Neural-AEC setup repairs a wrong checkout and a partial CMake extraction.
 - **21:** `SnooferStop` treats Voicemeeter's "no callback registered" (-2) as clean.
-- **22:** a deck session reads the current key state when it opens, so the first report is compared with real state.
+- **22:** keys and dial buttons start released on each connection, so the first valid down report dispatches once. Remove the unsupported synchronous startup query; retain repeated-report deduplication and existing release/generation handling.
 - **23:** a deck path that fails to open is reported even while another deck runs; its temporary path report is retired when that path opens or disappears.
 - **24:** a Hue light-write result from before a room change is ignored.
 - **25:** a newer bridge connection replaces a live one only when it comes from the same extension origin.
@@ -34,7 +34,7 @@ Findings 14, 15 and 26 are handled elsewhere:
 
 ## Impact
 - **Code:** `app/web/app.js`, `internal/mediasessions/native`, `scripts/build*.ps1`, `internal/voicemeeter/callback`, `internal/streamdeck`, `plugins/streamdeck`, `plugins/hue`, `plugins/nowplaying`, `snoofer/plugin.go`.
-- **Invariants:** unchanged. Stale-action rejection is strengthened (16). No uncertain command is retried.
+- **Invariants:** stale-action rejection is strengthened (16). No uncertain command is retried. The user explicitly superseded initial-held-button suppression: the first valid reported down state may activate once even if the button was already held when connected; later duplicate down reports do not repeat it.
 
 ## First-key hardware follow-up
-On 2026-10-15, the user reconnected the Plus XL, waited for Home, and reported that the first Play press did nothing while the second worked. Inspect the initial HID report and decoding result through an explicitly opted-in native read-only probe before changing input semantics. Preserve held-key suppression until the hardware evidence supports a replacement.
+On 2026-10-15, the user reconnected the Plus XL, waited for Home, and reported that the first Play press did nothing while the second worked. The read-only probe returned a zero-length key payload on both Plus and Plus XL, including while an XL key was held. The user then explicitly chose immediate first-press delivery over suppressing a button held during connection. Initialize keys and dial buttons as released; remove the unsupported startup query and add no grace period or other timing heuristic. This policy supersedes the conflicting initial-held-button clauses in modular-snoofer and direct-stream-deck; page/layout generation checks and suppression while dark remain unchanged.

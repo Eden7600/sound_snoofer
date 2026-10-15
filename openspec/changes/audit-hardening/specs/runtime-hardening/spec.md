@@ -53,11 +53,26 @@ A callback stop that finds nothing registered SHALL count as a clean stop.
 - **THEN** the monitor stays enabled
 
 ### Requirement: First deck press is delivered
-A deck session SHALL start from the deck's current key state when the device provides it.
+A deck session SHALL initialize keys and dial buttons as released on each connection. Its first valid down report SHALL emit one press, without an initial current-input query, startup delay or first-report suppression. A button already held while connecting MAY therefore activate once when first reported; repeated down reports SHALL NOT repeat that press. Existing release handling, stale-generation rejection and dark/inert behavior SHALL remain unchanged.
 
-#### Scenario: First press after connecting
-- **WHEN** the user presses a key for the first time after the deck connects
-- **THEN** the press is delivered
+#### Scenario: First key or dial-button press after connecting
+- **WHEN** the first valid report shows a key or dial button down after the deck connects
+- **THEN** exactly one press is delivered
+- **AND** the same rule applies independently to Plus and Plus XL
+
+#### Scenario: Repeated down and release
+- **WHEN** a down report repeats, then the button is released and pressed again
+- **THEN** the repeated down emits no additional press and the later down emits one new press
+- **AND** key release events retain their existing behavior
+
+#### Scenario: Invalid report before first input
+- **WHEN** a malformed or zero-length key report precedes the first valid down report
+- **THEN** the invalid report emits no event and does not consume the first valid press
+
+#### Scenario: Reconnect with a button already held
+- **WHEN** a fresh deck session first reports a button that was already held during connection
+- **THEN** that down state may activate once under the user's released-at-connect policy
+- **AND** queued commands from the previous session are not replayed
 
 ### Requirement: Every deck open failure is reported
 A deck that fails to open SHALL be reported even while another deck runs. Its temporary path-only report SHALL be retired when that path opens or disappears; remembered serial-based reports SHALL be retained.

@@ -41,8 +41,9 @@ Missing controls SHALL retain their saved IDs and labels, render dim Unavailable
 - **THEN** that input cannot trigger the new page's binding.
 
 #### Scenario: Hardware reconnect
-- **WHEN** the deck reconnects with a key already held
-- **THEN** held-key suppression prevents accidental activation and the current page is redrawn without replaying queued commands.
+- **WHEN** the deck reconnects
+- **THEN** keys and dial buttons initialize as released and their first valid down report activates once, including a button already held at connection
+- **AND** duplicate down reports do not repeat the press, stale input is still rejected and the current page is redrawn without replaying queued commands.
 
 #### Scenario: Ambiguous device mapping
 - **WHEN** serial-profile configuration cannot identify one applicable layout unambiguously

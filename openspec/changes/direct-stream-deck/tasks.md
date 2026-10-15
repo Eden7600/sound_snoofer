@@ -8,7 +8,7 @@
 - [x] Add changed-tile renderer and authoritative gain/mute/recording feedback.
 - [x] Add media adapter and tray lifecycle integration.
 ## 3. Automated verification
-- [ ] Test report fixtures, malformed input, held-key reconnect, queue overflow and shutdown.
+- [ ] Test report fixtures, malformed input, first key/dial-button input after reconnect, repeated-down deduplication, queue overflow and shutdown.
 - [ ] Test stale mic targets, simultaneous TUI edits, mute composition, slow display writes and readback failures.
 - [ ] Test transport exactly-once dispatch, guard failures and dry-run suppression of all external effects.
 - [ ] Run tests, vet, Windows build, strict validation and isolated preview; race checks where supported.
