@@ -3,6 +3,7 @@ $ErrorActionPreference = "Stop"
 Push-Location (Split-Path $PSScriptRoot -Parent)
 $previousCache = $env:GOCACHE
 try {
+    & ./scripts/check-build.ps1
     $go = Get-Command go -ErrorAction SilentlyContinue
     if ($go) { $goPath = $go.Source } else { $goPath = "$env:ProgramFiles\Go\bin\go.exe" }
     $env:GOCACHE = Join-Path (Get-Location) ".local/go-build"

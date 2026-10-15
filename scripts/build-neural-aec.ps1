@@ -5,7 +5,14 @@ Push-Location $repo
 try {
     $cache = Join-Path $repo '.local/neural-aec'
     $out = [IO.Path]::GetFullPath((Join-Path $repo $OutputDirectory))
-    New-Item -ItemType Directory -Force $cache, "$out/models", "$out/licenses/localvqe" | Out-Null
+    New-Item -ItemType Directory -Force "$cache/models", "$out/models", "$out/licenses/localvqe" | Out-Null
+    function RemoveCacheDirectory([string]$path) {
+        $resolved = [IO.Path]::GetFullPath($path)
+        if (!$resolved.StartsWith($cache + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Dependency cleanup must stay inside $cache"
+        }
+        if (Test-Path -LiteralPath $resolved) { Remove-Item -LiteralPath $resolved -Recurse -Force }
+    }
     function Fetch([string]$url, [string]$path, [string]$sha) {
         if (!(Test-Path $path) -or (Get-FileHash $path).Hash -ne $sha) {
             Invoke-WebRequest $url -OutFile "$path.download"
@@ -13,23 +20,43 @@ try {
             Move-Item -LiteralPath "$path.download" -Destination $path -Force
         }
     }
-    $cmake = Join-Path $cache 'cmake-3.31.6-windows-x86_64/bin/cmake.exe'
-    if (!(Test-Path $cmake)) {
+    $cmakeName = 'cmake-3.31.6-windows-x86_64'
+    $cmakeDirectory = Join-Path $cache $cmakeName
+    $cmake = Join-Path $cmakeDirectory 'bin/cmake.exe'
+    if (!(Test-Path -LiteralPath $cmake) -or !(Test-Path -LiteralPath "$cmakeDirectory/.complete")) {
         Fetch 'https://github.com/Kitware/CMake/releases/download/v3.31.6/cmake-3.31.6-windows-x86_64.zip' "$cache/cmake.zip" 'd163cd3ab4959b0a53fa8988f2ddbd2e6c501658201e6a154386bad9dbe4f836'
-        Expand-Archive "$cache/cmake.zip" -DestinationPath $cache -Force
+        $extract = Join-Path $cache 'cmake-extract'
+        RemoveCacheDirectory $extract
+        Expand-Archive "$cache/cmake.zip" -DestinationPath $extract
+        $extracted = [IO.Path]::GetFullPath((Join-Path $extract $cmakeName))
+        if (!$extracted.StartsWith($cache + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or
+            !(Test-Path -LiteralPath "$extracted/bin/cmake.exe")) { throw 'CMake extraction is incomplete.' }
+        Set-Content -LiteralPath "$extracted/.complete" -Value $cmakeName
+        RemoveCacheDirectory $cmakeDirectory
+        Move-Item -LiteralPath $extracted -Destination $cmakeDirectory
+        RemoveCacheDirectory $extract
     }
     $src = Join-Path $cache 'LocalVQE'
     $revision = 'f53063c9eb2a85f96479867d1dd911dc3bf6319b'
+    $ggmlRevision = 'c044a8eeae2591faa0950c8b5e514cbc4bbfc4ca'
     if (!(Test-Path "$src/.git")) {
+        RemoveCacheDirectory $src
         git clone --no-checkout https://github.com/localai-org/LocalVQE.git $src
         if ($LASTEXITCODE) { throw 'LocalVQE clone failed' }
-        git -C $src checkout --detach $revision
+    }
+    $head = git -C $src rev-parse HEAD 2>$null
+    $ggmlHead = git -C "$src/ggml/vendor/ggml" rev-parse HEAD 2>$null
+    if ($head -ne $revision -or $ggmlHead -ne $ggmlRevision) {
+        git -C $src fetch origin $revision
+        if ($LASTEXITCODE) { throw 'LocalVQE fetch failed' }
+        # This is a private dependency cache; the MSVC patch below is reapplied after checkout.
+        git -C $src checkout --detach --force $revision
         if ($LASTEXITCODE) { throw 'LocalVQE checkout failed' }
         git -C $src submodule update --init --recursive
         if ($LASTEXITCODE) { throw 'GGML checkout failed' }
     }
     if ((git -C $src rev-parse HEAD) -ne $revision) { throw 'Unexpected LocalVQE revision' }
-    if ((git -C "$src/ggml/vendor/ggml" rev-parse HEAD) -ne 'c044a8eeae2591faa0950c8b5e514cbc4bbfc4ca') { throw 'Unexpected GGML revision' }
+    if ((git -C "$src/ggml/vendor/ggml" rev-parse HEAD) -ne $ggmlRevision) { throw 'Unexpected GGML revision' }
     # Upstream spells this GCC-only flag unconditionally; use the MSVC equivalent.
     $cmakeFile = "$src/ggml/CMakeLists.txt"
     $content = [IO.File]::ReadAllText($cmakeFile)
@@ -47,7 +74,16 @@ try {
         'localvqe-v1.4-aec-200K-f32.gguf' = 'b6e43138588a83bfe903ab5e143b4020b91c1e1629f5a575ac5855ff0003c731'
         'localvqe-v1.3-4.8M-f32.gguf' = 'c4f7912485c32cfc206c536f2f050b52513f2f613fdbc616391f6b26ab1d51ec'
     }
-    foreach ($name in $models.Keys) { Fetch "https://huggingface.co/LocalAI-io/LocalVQE/resolve/main/$name" "$out/models/$name" $models[$name] }
+    foreach ($name in $models.Keys) {
+        $cached = Join-Path "$cache/models" $name
+        $deployed = Join-Path "$repo/bin/models" $name
+        if (!(Test-Path -LiteralPath $cached) -and (Test-Path -LiteralPath $deployed) -and
+            (Get-FileHash -LiteralPath $deployed).Hash -eq $models[$name]) {
+            Copy-Item -LiteralPath $deployed -Destination $cached
+        }
+        Fetch "https://huggingface.co/LocalAI-io/LocalVQE/resolve/main/$name" $cached $models[$name]
+        Copy-Item -LiteralPath $cached -Destination "$out/models/$name" -Force
+    }
     $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
     $vs = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
     if (!$vs) { throw 'MSVC and Windows SDK required' }
