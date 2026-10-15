@@ -2,6 +2,7 @@ import { ui, el, button, panel, badge, withIcon, empty, iconButton, icon } from 
 import { root, updaters, c, appState, update } from "../state.ts";
 import { request, press } from "../host.ts";
 import { display } from "../model.ts";
+import { commitSelect } from "../select.ts";
 import type { PriorityView, PriorityEntry, PrioritySuggestion, MicView, OutputSlotView } from "./routing-types.ts";
 
 // priorityEdit sends one change to a device priority list; Snoofer validates,
@@ -302,7 +303,7 @@ function micSource(m: MicView, n: number, view: Partial<PriorityView>) {
     select.append(o);
   });
   select.value = m.Device ? "current" : "interface";
-  select.onchange = () => {
+  commitSelect(select, () => {
     if (select.value === "interface") {
       priorityEdit("mics", "set", n, "interface", "source");
       return;
@@ -316,7 +317,7 @@ function micSource(m: MicView, n: number, view: Partial<PriorityView>) {
       JSON.stringify(s.ID ? { driver: s.Driver, id: s.ID, name: s.Name } : { driver: s.Driver, pattern: s.Exact }),
       "source",
     );
-  };
+  });
   updaters.push(() => {
     select.disabled = !editable();
   });
@@ -373,8 +374,9 @@ function channelFields(entry: PriorityEntry, n: number, m: MicView) {
         ? [number(left, name + " channel" + where)]
         : [];
   const send = (value: string) => priorityEdit("interfaces", "set", n, value, field);
-  mode.onchange = () =>
-    send(mode.value === "off" ? "" : mode.value === "mono" ? String(left) : left + "," + (current[1] || left + 1));
+  commitSelect(mode, () =>
+    send(mode.value === "off" ? "" : mode.value === "mono" ? String(left) : left + "," + (current[1] || left + 1)),
+  );
   for (const i of inputs) i.onchange = () => send(inputs.map((x) => x.value).join(","));
   updaters.push(() => {
     for (const x of [mode, ...inputs]) x.disabled = !editable();
@@ -395,7 +397,7 @@ function activityCard(parent: HTMLElement, view: Partial<PriorityView>) {
   check.append(Object.assign(el("option", "", "Off"), { value: "0" }));
   for (let k = 1; k <= 4; k++) check.append(Object.assign(el("option", "", "Top " + k), { value: String(k) }));
   check.value = String(a?.check ?? 0);
-  check.onchange = () => priorityEdit("activity", "set", 0, check.value, "check");
+  commitSelect(check, () => priorityEdit("activity", "set", 0, check.value, "check"));
   const number = (value: number | undefined, label: string, field: string, min: number, max: number) => {
     const i = el("input", "w-24 tabular-nums");
     i.type = "number";
@@ -648,7 +650,7 @@ function outputsCard(parent: HTMLElement, view: Partial<PriorityView>) {
       device.append(o);
     });
     device.value = slot.Status ? "current" : "";
-    device.onchange = () => {
+    commitSelect(device, () => {
       if (device.value === "") {
         outputEdit("device", slotID, "");
         return;
@@ -656,7 +658,7 @@ function outputsCard(parent: HTMLElement, view: Partial<PriorityView>) {
       const d = choices[Number(device.value)];
       if (!d) return;
       outputEdit("device", slotID, d.ID ? JSON.stringify({ ID: d.ID, Name: d.Name }) : d.Name);
-    };
+    });
     rename.type = "text";
     rename.value = slot.Label;
     rename.maxLength = 16;

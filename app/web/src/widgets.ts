@@ -4,6 +4,7 @@ import { display, tone, meterValue, meterBallistics, gainPosition } from "./mode
 import { el, button, iconButton, withIcon, ui } from "./dom.ts";
 import { appState, c, updaters, widgets } from "./state.ts";
 import { request, press } from "./host.ts";
+import { commitSelect } from "./select.ts";
 export function command(id: string, label: string, parent: HTMLElement, className = "", iconName = "") {
   if (!c(id)) return null;
   const b = button(label, () => press(id), className);
@@ -40,7 +41,8 @@ export function control(id: string, parent: HTMLElement, label?: string, { layou
     input = button("", () => request(c(id), "press"), ui.toggle);
     input.setAttribute("aria-label", label || initial.Label);
   } else if (initial.Kind === "selection") {
-    input = el("select", wide ? "w-full" : hideLabel ? "min-w-40" : "max-w-[58%] min-w-[110px]");
+    const select = el("select", wide ? "w-full" : hideLabel ? "min-w-40" : "max-w-[58%] min-w-[110px]");
+    input = select;
     input.id = "field-" + id;
     title.htmlFor = input.id;
     for (const value of initial.Options || []) {
@@ -51,10 +53,12 @@ export function control(id: string, parent: HTMLElement, label?: string, { layou
     input.onfocus = () => {
       editRevision = c(id)?.Revision;
     };
-    input.onchange = () => {
+    const apply = () => {
       request(c(id), "set", "value" in input ? input.value : "", 0, editRevision);
       input.blur();
     };
+    if (id.startsWith("streamdeck.")) input.onchange = apply;
+    else commitSelect(select, apply, () => c(id)?.Value ?? initial.Value);
   } else if (initial.Kind === "text") {
     const field = el("input", "min-w-0 flex-1");
     field.type = "text";
