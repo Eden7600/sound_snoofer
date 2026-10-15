@@ -58,9 +58,12 @@ export interface Control<T = unknown> {
   Revision: number;
 }
 
+export type PluginState = "missing" | "disabled" | "starting" | "running" | "failed";
+
 export interface ViewState {
   Controls: Control[] | null;
   Plugins: Record<string, string> | null;
+  PluginStates: Record<string, PluginState> | null;
   PluginLabels: Record<string, string> | null;
   Enabled: Record<string, boolean> | null;
   Notice: string;

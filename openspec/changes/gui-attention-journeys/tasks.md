@@ -3,7 +3,7 @@
 - [x] 1. Review this complete plan against current lifecycle, provider publications and GUI
   ownership. Strictly validate before implementation; coordinate overlapping files with the
   action outcomes and state preservation changes.
-- [ ] 2. Commit checkpoint: add typed lifecycle snapshot and PluginStates wire field; retain
+- [x] 2. Commit checkpoint: add typed lifecycle snapshot and PluginStates wire field; retain
   status text. Cover missing/disabled/starting/running/failed, dependency failures, snapshots and
   failure text matching healthy labels. Update fixture/test types and transport coverage.
 - [ ] 3. Commit checkpoint: add narrow provider attention metadata and tests, preserving action

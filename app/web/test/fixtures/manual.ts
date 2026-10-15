@@ -495,6 +495,7 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
   const fixture: Fixture = {
     Controls: controls,
     Plugins: {
+      aec: "Running",
       audio: "Running",
       soundboard: "Running",
       streamdeck: "Running",
@@ -504,6 +505,18 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
       appaudio: "Running",
       nowplaying: "Running",
       discord: "Running",
+    },
+    PluginStates: {
+      aec: "running",
+      audio: "running",
+      soundboard: "running",
+      streamdeck: "running",
+      vr: "running",
+      media: "disabled",
+      hue: "running",
+      appaudio: "running",
+      nowplaying: "running",
+      discord: "running",
     },
     PluginLabels: {
       aec: "Echo Cancellation",
@@ -518,6 +531,7 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
       discord: "Discord",
     },
     Enabled: {
+      aec: true,
       discord: true,
       audio: true,
       soundboard: true,

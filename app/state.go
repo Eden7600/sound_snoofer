@@ -13,6 +13,7 @@ import (
 type ViewState struct {
 	Controls     []snoofer.Control
 	Plugins      map[string]string
+	PluginStates map[string]snoofer.PluginState
 	PluginLabels map[string]string
 	Enabled      map[string]bool
 	Notice       string

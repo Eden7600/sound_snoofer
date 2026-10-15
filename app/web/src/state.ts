@@ -14,7 +14,7 @@ export const appState: {
   localError: string;
   dismissedNotice: string;
 } = {
-  state: { Controls: [], Plugins: {}, PluginLabels: {}, Enabled: {}, Notice: "", Confirmation: "" },
+  state: { Controls: [], Plugins: {}, PluginStates: {}, PluginLabels: {}, Enabled: {}, Notice: "", Confirmation: "" },
   animationVersion: 0,
   controls: new Map(),
   screen: "audio",

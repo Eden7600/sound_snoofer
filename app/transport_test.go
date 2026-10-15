@@ -14,7 +14,7 @@ import (
 )
 
 func TestGenericPrivateFrames(t *testing.T) {
-	state := ViewState{Controls: []snoofer.Control{{ID: "external.light", Revision: 9, Value: "On"}}, Plugins: map[string]string{"external": "Running"}, PluginLabels: map[string]string{"external": "External Lights"}}
+	state := ViewState{Controls: []snoofer.Control{{ID: "external.light", Revision: 9, Value: "On"}}, Plugins: map[string]string{"external": "Running"}, PluginLabels: map[string]string{"external": "External Lights"}, PluginStates: map[string]snoofer.PluginState{"external": snoofer.PluginRunning}}
 	data, err := json.Marshal(frame{State: &state, Focus: true})
 	if err != nil {
 		t.Fatal(err)
@@ -91,12 +91,13 @@ func TestViewSenderTelemetryAndPresentation(t *testing.T) {
 		"progress": func() {
 			state.Controls[0].Progress = snoofer.Progress{Known: true, Playing: true, PositionMs: 100, At: time.Now()}
 		},
-		"view data":    func() { state.Controls[0].ViewData = json.RawMessage(`{"Sessions":[]}`) },
-		"plugin label": func() { state.PluginLabels = map[string]string{"custom": "Custom"} },
-		"plugin state": func() { state.Plugins = map[string]string{"custom": "Running"} },
-		"enablement":   func() { state.Enabled = map[string]bool{"custom": true} },
-		"notice":       func() { state.Notice = "notice" },
-		"confirmation": func() { state.Confirmation = "confirm" },
+		"view data":        func() { state.Controls[0].ViewData = json.RawMessage(`{"Sessions":[]}`) },
+		"plugin label":     func() { state.PluginLabels = map[string]string{"custom": "Custom"} },
+		"plugin state":     func() { state.Plugins = map[string]string{"custom": "Running"} },
+		"plugin lifecycle": func() { state.PluginStates = map[string]snoofer.PluginState{"custom": snoofer.PluginFailed} },
+		"enablement":       func() { state.Enabled = map[string]bool{"custom": true} },
+		"notice":           func() { state.Notice = "notice" },
+		"confirmation":     func() { state.Confirmation = "confirm" },
 	} {
 		t.Run(name, func(t *testing.T) {
 			change()
