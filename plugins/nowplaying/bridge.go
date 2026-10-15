@@ -49,6 +49,7 @@ type report struct {
 // serialized here.
 type bridgeConn struct {
 	browser string
+	origin  string
 	ws      *websocket.Conn
 	mu      sync.Mutex
 }
@@ -201,18 +202,26 @@ func (b *bridge) serve(w http.ResponseWriter, r *http.Request) {
 		_ = ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(4002, "protocol"), time.Now().Add(writeTimeout))
 		return
 	}
-	conn := &bridgeConn{browser: browser, ws: ws}
+	conn := &bridgeConn{browser: browser, origin: r.Header.Get("Origin"), ws: ws}
 	b.mu.Lock()
 	if b.closed {
 		b.mu.Unlock()
 		return
 	}
 	previous := b.conns[browser]
+	if previous != nil && previous.origin != conn.origin {
+		reason := "Refused another extension claiming " + browser + "; its connection is already active"
+		b.refused = reason
+		b.mu.Unlock()
+		_ = conn.write(refusal{Type: "refused", Reason: reason}) // Best effort; close follows.
+		_ = ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(4003, "origin"), time.Now().Add(writeTimeout))
+		return
+	}
 	b.conns[browser] = conn
 	b.refused = ""
 	b.mu.Unlock()
 	if previous != nil {
-		_ = previous.ws.Close() // A newer connection from the same browser wins.
+		_ = previous.ws.Close() // A reconnect from the same extension origin wins.
 	}
 	b.deliver(browserUpdate{Browser: browser, Version: h.Version, Connected: true})
 	defer func() {

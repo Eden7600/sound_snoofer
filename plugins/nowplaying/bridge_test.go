@@ -230,3 +230,54 @@ func TestBridgeRetriesBusyPortAndStopsAfterClosing(t *testing.T) {
 	}
 	again.Close()
 }
+
+func TestBridgeRejectsReplacementFromAnotherOrigin(t *testing.T) {
+	for _, scheme := range []string{"chrome-extension://", "moz-extension://"} {
+		t.Run(scheme, func(t *testing.T) {
+			r := startBridgeRig(t)
+			original := r.connect(scheme+"original", "Browser", protocol)
+			r.wait("original connected", func(v statusView) bool { return len(v.Browsers) == 1 })
+			if err := original.WriteJSON(report{Type: "sessions", Sessions: []browserSession{{ID: "7:0", Tab: 7, Title: "Original", State: "playing", CanNext: true}}}); err != nil {
+				t.Fatal(err)
+			}
+			r.wait("original session", func(v statusView) bool { return len(v.Sessions) == 1 })
+			other := r.connect(scheme+"other", "Browser", protocol)
+			if err := other.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+				t.Fatal(err)
+			}
+			var refused refusal
+			if err := other.ReadJSON(&refused); err != nil || refused.Type != "refused" || !strings.Contains(refused.Reason, "another extension") {
+				t.Fatalf("different origin was not refused: %+v, %v", refused, err)
+			}
+			var closed *websocket.CloseError
+			if _, _, err := other.ReadMessage(); !errors.As(err, &closed) || closed.Code != 4003 {
+				t.Fatalf("refused connection remained open: %v", err)
+			}
+			r.wait("original retained and refusal visible", func(v statusView) bool {
+				return len(v.Browsers) == 1 && len(v.Sessions) == 1 && v.Sessions[0].Title == "Original" && v.Bridge.Refused == refused.Reason
+			})
+			var next snoofer.Control
+			for _, c := range r.controls.Snapshot() {
+				if c.ID == "nowplaying.next" {
+					next = c
+				}
+			}
+			if err := r.controls.Dispatch(context.Background(), snoofer.Request{ID: next.ID, Revision: next.Revision, Operation: "press"}); err != nil {
+				t.Fatal(err)
+			}
+			if err := original.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+				t.Fatal(err)
+			}
+			var command browserCommand
+			if err := original.ReadJSON(&command); err != nil || command.ID != "7:0" || command.Op != "next" {
+				t.Fatalf("original no longer receives commands: %+v, %v", command, err)
+			}
+			if err := original.Close(); err != nil {
+				t.Fatal(err)
+			}
+			r.wait("original disconnected", func(v statusView) bool { return len(v.Browsers) == 0 })
+			r.connect(scheme+"other", "Browser", protocol)
+			r.wait("new origin accepted after disconnect", func(v statusView) bool { return len(v.Browsers) == 1 && v.Bridge.Refused == "" })
+		})
+	}
+}

@@ -8,7 +8,7 @@
 - [ ] 6. `fix(deck)`: seed the key baseline from the current input report.
 - [ ] 7. `fix(deck)`: report every deck path that fails to open; retire temporary path reports on recovery/removal; surface and report-lifecycle tests.
 - [ ] 8. `fix(hue)`: ignore light-write results from before a room change; test.
-- [ ] 9. `fix(nowplaying)`: replace bridge connections only from the same origin; test.
+- [x] 9. `fix(nowplaying)`: replace bridge connections only from the same origin; test.
 - [ ] 10. Validate: gofmt, `go test ./...`, `go vet ./...`, GUI check, OpenSpec strict validation, canonical build.
 
 ## Acceptance
