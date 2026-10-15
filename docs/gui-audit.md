@@ -24,7 +24,7 @@ Compact/wide content, plugin gates, marker navigation and every native dropdown 
 Live media artwork changes, selective removal, clocks and controls reopen pass. Native rejected
 State-call injection now verifies connection feedback, bounded backoff, refusal and recovery
 without replay. The Dismiss fix passes 295 browser tests and strict frontend checks.
-Packaged short/wrapped notice inspection remains pending after physical Escape stopped computer use.
+Packaged short/wrapped notice alignment now passes at both normal and minimum window sizes.
 The normal canonical build passed; production is restored as PID 71976 with --config bin/snoofer.json.
 The audit is **not fully accepted**: the real integration checks below remain open.
 
@@ -37,7 +37,7 @@ current implementation lives in `app/web/src`.
 | `gui-content-fixes`: 7–9, 15–16 | Complete; corrected content, native smoke and affected-screen inspection at both sizes pass | None for content presentation |
 | `gui-dropdown-commit`: 2 | Complete; native closed-select/popup keyboard commitment, cancellation and exactly-once pointer selection pass | None for native dropdown acceptance |
 | `gui-connection-recovery`: 5 | Source and native rejected-State fault checks pass: separate banner, bounded backoff, recovery and no replay | None for packaged recovery acceptance |
-| `gui-layout-polish`: 10–13 and meter/search parts of 14 | Affected screens, compact branding and navigation pass; notice alignment fixed with focused regressions | Packaged short/wrapped notice inspection pending; prior host launch restored |
+| `gui-layout-polish`: 10–13 and meter/search parts of 14 | Affected screens, compact branding, navigation and native short/wrapped notice alignment pass | None for packaged layout acceptance; physical checks remain separate |
 | `gui-state-preservation`: 3, 6 | Complete; functional native restoration, dialog cancellation, polling and captured-target invalidation verified | No remaining functional native journey; aggregate validation and physical integration remain separately tracked |
 | `gui-action-outcomes`: 1, 4 | Complete; independent completion-path review and native smoke pass; packaged result attribution, state updates and close with an outstanding action verified | Real integration outcomes |
 | `gui-attention-journeys`: remaining 14 | Complete; disabled/starting/failed Audio gates, marker-to-reason keyboard navigation, Plugins link/Retry availability and captured host-proposal cancellation verified natively | None for packaged presentation; real plugin lifecycle effects remain unclaimed |
@@ -71,8 +71,11 @@ current implementation lives in `app/web/src`.
 - Shared-notice alignment regressions failed at both widths with the old float's 6px offset.
   The centered layout passes short/wrapped checks, 16 focused notice/focus/recovery tests and
   **295 browser tests in 42.1 s**, plus TypeScript, ESLint and Prettier.
-  Physical Escape stopped computer use before final notice inspection; that native check remains open.
-  The normal canonical build passed and the previous bin/snoofer.json launch was restored.
+  The resumed canonical WebView2 check confirms centered, contained Dismiss buttons without
+  overlap for short errors and wrapped 180-digit messages at captured 1266×813 and 786×593
+  sizes (approximately 1280×820 and 800×600 outer windows). This verifies alignment, not a
+  dismissal-click result. The isolated fixture closed via EOF with exit code 0 and zero captured
+  action bytes. The normal production host remained running with its previous configuration.
 - Canonical `bin/snoofer.exe` and companions built successfully. Native ABI/buffer/callback-stop,
   media async timeout and canonical COM identity self-tests pass; the actual media DLL compiles.
 - The initial media DLL probe opened and snapshotted successfully with no active sessions. After

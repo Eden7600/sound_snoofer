@@ -22,11 +22,13 @@ passed after the diagnostic DevTools attempt; production is restored as PID 4891
 previous bin/snoofer.json configuration. Physical acceptance remains separate.
 
 - [x] 9. Shared-notice checkpoint: reproduce the floated Dismiss misalignment with short/multiline geometry checks at both sizes, replace the float with a contained centered row, update the UI contract, and pass focused layout, dismissal/focus, recovery and frontend checks.
-- [ ] 10. Coordinate canonical packaging and inspect short/wrapped shared notices in WebView2; restore the prior host configuration and record the native result.
+- [x] 10. Coordinate canonical packaging and inspect short/wrapped shared notices in WebView2; restore the prior host configuration and record the native result.
 
 Task 9 verification: both focused geometry cases failed on the old float with a 6px center offset. The corrected short and wrapped notices pass at both sizes; 16 focused layout/focus/dismissal/recovery tests pass, and the full suite passes 295 tests in 42.1 s. TypeScript, ESLint and Prettier pass. Rendered short/wrapped screenshots were inspected.
 
-Task 10: packaged short/wrapped shared-notice inspection is pending after the verified source fix.
-Physical Escape stopped computer use before that inspection; the final fixture closed via EOF
-with exit code 0 and zero captured actions. No further native input was attempted.
-The normal canonical build passed and the prior bin/snoofer.json launch was restored.
+Task 10 native verification, 2026-10-15: the resumed canonical WebView2 inspection shows
+centered, contained Dismiss buttons without overlap for short errors and wrapped 180-digit
+messages at captured 1266×813 and 786×593 sizes (approximately 1280×820 and 800×600 outer
+windows). This is alignment evidence; no dismissal-click result is inferred. The isolated
+fixture closed via EOF with exit code 0 and zero captured action bytes. The normal canonical
+build had passed and the prior bin/snoofer.json host launch remained running unchanged.
