@@ -12,7 +12,6 @@ import (
 	"runtime"
 	"slices"
 	"strconv"
-	"strings"
 	"time"
 
 	"sound-snoofer/internal/mediasessions"
@@ -96,12 +95,15 @@ func (i *instance) Stop(ctx context.Context) error {
 // is sent once the dial rests.
 type scrub struct {
 	key      string
+	context  mediaContext
+	session  session
 	targetMs int64
 	last     time.Time
 }
 
 // pendingCommand is a request awaiting an observed change.
 type pendingCommand struct {
+	target      sessionTarget
 	op          string
 	wantPlaying bool
 	wantMuted   bool
@@ -118,17 +120,23 @@ type worker struct {
 	bridge    *bridge // Nil when the port could not be opened.
 	bridgeErr string
 
-	openWindows func() (windowsSource, error)
-	win         windowsSource
-	winErr      string
-	retryAt     time.Time
-	pollAt      time.Time
-	winSessions []mediasessions.Session
-	winArt      map[string]string // ID and ArtKey to thumbnail.
+	openWindows   func() (windowsSource, error)
+	win           windowsSource
+	winGeneration uint64
+	winErr        string
+	retryAt       time.Time
+	pollAt        time.Time
+	winSessions   []mediasessions.Session
+	winArt        map[string]string // ID and ArtKey to thumbnail.
 
-	browsers   map[string]browserUpdate
-	browserArt map[string]string // Session key and ArtKey to thumbnail.
-	send       func(browser string, c browserCommand) error
+	browsers                                         map[string]browserUpdate
+	browserArt                                       map[string]string // Session key and ArtKey to thumbnail.
+	send                                             func(browser string, c browserCommand) error
+	browserGeneration                                func(string) uint64
+	contexts                                         map[string]mediaContext
+	nextContext, focusGeneration, settingsGeneration uint64
+	focusContext                                     mediaContext
+	focusChosen                                      bool
 
 	sessions []session
 	started  map[string]time.Time // When each session last began playing.
@@ -154,7 +162,7 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, open fu
 	runCtx, cancel := context.WithCancel(ctx)
 	i := &instance{cancel: cancel, done: make(chan struct{})}
 	updates := make(chan browserUpdate, 16)
-	commands := make(chan snoofer.Request, 8)
+	commands := make(chan command, 8)
 	// A busy port leaves Windows sessions working; the GUI shows why tabs are
 	// missing, and the worker retries until the port is free.
 	listenAt := time.Now()
@@ -168,7 +176,7 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, open fu
 			w.bridgeErr = err.Error()
 			return
 		}
-		w.bridge, w.send, w.bridgeErr = b, b.send, ""
+		w.bridge, w.send, w.browserGeneration, w.bridgeErr = b, b.send, b.generation, ""
 	}
 	tryListen(time.Now())
 	go func() {
@@ -190,7 +198,7 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, open fu
 			now := time.Now()
 			tryListen(now)
 			w.step(now)
-			w.publish(commands, now)
+			w.publish(runCtx, commands, now)
 			select {
 			case <-runCtx.Done():
 				return
@@ -198,7 +206,7 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, open fu
 			case u := <-updates:
 				w.browser(u)
 			case r := <-commands:
-				w.handle(r, time.Now())
+				w.process(runCtx, r, time.Now())
 			}
 		}
 	}()
@@ -207,7 +215,8 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, open fu
 
 func newWorker(s snoofer.Services, open func() (windowsSource, error), t timing) *worker {
 	return &worker{services: s, timing: t, openWindows: open, winArt: map[string]string{}, browsers: map[string]browserUpdate{}, browserArt: map[string]string{},
-		send:    func(string, browserCommand) error { return errors.New("browser bridge unavailable") },
+		send:              func(string, browserCommand) error { return errors.New("browser bridge unavailable") },
+		browserGeneration: func(string) uint64 { return 0 }, contexts: map[string]mediaContext{}, focusGeneration: 1, settingsGeneration: 1,
 		started: map[string]time.Time{}, playing: map[string]bool{}, pending: map[string]pendingCommand{}, failure: map[string]string{}, tiles: map[string]string{}}
 }
 
@@ -215,6 +224,7 @@ func (w *worker) closeWindows() {
 	if w.win != nil {
 		_ = w.win.Close() // Shutdown: nothing useful can follow a failed release.
 		w.win = nil
+		w.winGeneration++
 	}
 }
 
@@ -226,6 +236,7 @@ func (w *worker) step(now time.Time) {
 		if err != nil {
 			w.winErr, w.retryAt = err.Error(), now.Add(w.timing.retry)
 		} else {
+			w.winGeneration++
 			w.win, w.winErr, w.pollAt = win, "", time.Time{}
 		}
 	}
@@ -246,8 +257,8 @@ func (w *worker) step(now time.Time) {
 	if w.scrub != nil && now.Sub(w.scrub.last) >= scrubSettle {
 		target := *w.scrub
 		w.scrub = nil
-		if s, ok := w.find(target.key); ok {
-			w.command(s, "seek", target.targetMs, now)
+		if target.context == w.contexts[target.key] && w.targetAvailable(target.session) {
+			w.command(target.session, "seek", target.targetMs, now)
 		}
 	}
 }
@@ -275,7 +286,12 @@ func (w *worker) windowsArt() {
 // browser applies one browser's report. Artwork arrives only when it changes.
 func (w *worker) browser(u browserUpdate) {
 	if !u.Connected {
-		delete(w.browsers, u.Browser)
+		if w.browsers[u.Browser].Generation == u.Generation {
+			delete(w.browsers, u.Browser)
+		}
+		return
+	}
+	if u.Generation == 0 || w.browserGeneration(u.Browser) != u.Generation {
 		return
 	}
 	for _, s := range u.Sessions {
@@ -302,7 +318,9 @@ func (w *worker) merge(now time.Time) {
 		if s.Status == "closed" || (s.Title != "" && tabTitles[s.Title]) {
 			continue
 		}
-		all = append(all, fromWindows(s, w.winArt[s.ID+"\x00"+s.ArtKey]))
+		converted := fromWindows(s, w.winArt[s.ID+"\x00"+s.ArtKey])
+		converted.Generation = w.winGeneration
+		all = append(all, converted)
 	}
 	browserNames := make([]string, 0, len(w.browsers))
 	for name := range w.browsers {
@@ -314,7 +332,9 @@ func (w *worker) merge(now time.Time) {
 		for _, s := range w.browsers[name].Sessions {
 			k := name + ":" + s.ID + "\x00" + s.ArtKey
 			usedArt[k] = true
-			all = append(all, fromBrowser(name, s, w.browserArt[k]))
+			converted := fromBrowser(name, s, w.browserArt[k])
+			converted.Generation = w.browsers[name].Generation
+			all = append(all, converted)
 		}
 	}
 	for k := range w.browserArt {
@@ -325,6 +345,15 @@ func (w *worker) merge(now time.Time) {
 	present := map[string]bool{}
 	for _, s := range all {
 		present[s.Key] = true
+		old := w.contexts[s.Key].target
+		if old.instance != s.Instance || old.generation != s.Generation {
+			delete(w.playing, s.Key)
+			delete(w.started, s.Key)
+			delete(w.failure, s.Key)
+			if w.focus == s.Key {
+				w.chosen = false
+			}
+		}
 		if s.playing() && !w.playing[s.Key] {
 			w.started[s.Key] = now
 		}
@@ -364,6 +393,7 @@ func (w *worker) merge(now time.Time) {
 		}
 	}
 	w.sessions = all
+	w.refreshContexts()
 	w.observe(now)
 }
 
@@ -372,7 +402,7 @@ func (w *worker) merge(now time.Time) {
 func (w *worker) observe(now time.Time) {
 	for k, p := range w.pending {
 		s, ok := w.find(k)
-		if !ok {
+		if !ok || targetOf(s) != p.target {
 			delete(w.pending, k)
 			continue
 		}
@@ -423,7 +453,7 @@ func (w *worker) progress(s session, now time.Time) snoofer.Progress {
 	if p.At.IsZero() {
 		p.At = now
 	}
-	if w.scrub != nil && w.scrub.key == s.Key {
+	if w.scrub != nil && w.scrub.key == s.Key && w.scrub.context == w.contexts[s.Key] {
 		p.PositionMs, p.At = w.scrub.targetMs, w.scrub.last
 	} else if pending, ok := w.pending[s.Key]; ok && pending.op == "seek" {
 		p.PositionMs, p.At = pending.wantMs, pending.at
@@ -444,64 +474,50 @@ func sessionByKey(sessions []session, key string) (session, bool) {
 	return session{}, false
 }
 
-func (w *worker) handle(r snoofer.Request, now time.Time) {
-	focused, ok := w.find(w.focus)
+func (w *worker) handle(c command, now time.Time) snoofer.Outcome {
+	r := c.request
 	switch r.ID {
 	case "nowplaying.deck-media":
 		next := w.settings
-		next.DeckMediaOff = !next.DeckMediaOff
+		next.DeckMediaOff = c.wantDeckOff
 		w.saveErr = ""
 		if err := w.save(next); err != nil {
 			w.saveErr = err.Error()
+			return operationError(err)
 		}
-		return
+		return snoofer.Outcome{Status: snoofer.Processed, Detail: "Saved"}
 	case "nowplaying.dial":
-		if r.Operation == "reset" { // Reset focus: follow playback again.
+		if r.Operation == "reset" {
 			w.chosen = false
 			w.merge(now)
-			return
-		}
-		if !ok {
-			return
+			return snoofer.Outcome{Status: snoofer.Processed, Detail: "Following playback"}
 		}
 		if r.Operation == "adjust" {
-			if !focused.CanSeek {
-				return
+			if !c.target.CanSeek || !w.services.Live {
+				return reject("Seeking unavailable")
 			}
-			// Detents gather from the shown position into one seek.
-			target := w.progress(focused, now).PositionAt(now) + int64(r.Delta)*seekStep
-			if focused.DurationMs > 0 {
-				target = min(target, focused.DurationMs-1000)
+			current, _ := w.find(c.target.Key)
+			target := w.progress(current, now).PositionAt(now) + int64(r.Delta)*seekStep
+			if current.DurationMs > 0 {
+				target = min(target, current.DurationMs-1000)
 			}
-			w.scrub = &scrub{key: focused.Key, targetMs: max(0, target), last: now}
-			return
+			w.scrub = &scrub{key: current.Key, context: c.context, session: c.target, targetMs: max(0, target), last: now}
+			return snoofer.Outcome{Status: snoofer.Submitted, Detail: "Seek queued"}
 		}
-		w.command(focused, "toggle", 0, now)
-		return
-	case "nowplaying.toggle", "nowplaying.next", "nowplaying.prev", "nowplaying.mute":
-		if ok {
-			w.command(focused, strings.TrimPrefix(r.ID, "nowplaying."), 0, now)
-		}
-		return
 	}
-	for _, s := range w.sessions {
-		if controlID(s.Key) != r.ID {
-			continue
-		}
-		if r.Operation == "hold" { // Held key: choose focus without toggling.
-			w.focus, w.chosen = s.Key, true
-			return
-		}
-		if r.Operation == "set" { // The GUI seek slider: an absolute position in ms.
-			position, err := strconv.ParseInt(r.Value, 10, 64)
-			if err == nil && s.CanSeek && position >= 0 && (s.DurationMs == 0 || position <= s.DurationMs) {
-				w.command(s, "seek", position, now)
-			}
-			return
-		}
-		w.command(s, "toggle", 0, now)
-		return
+	if r.Operation == "hold" {
+		w.focus, w.chosen = c.target.Key, true
+		w.refreshContexts()
+		return snoofer.Outcome{Status: snoofer.Processed, Detail: "Player selected"}
 	}
+	if r.Operation == "set" {
+		position, err := strconv.ParseInt(r.Value, 10, 64)
+		if err != nil || !c.target.CanSeek || position < 0 || c.target.DurationMs > 0 && position > c.target.DurationMs {
+			return reject("Invalid seek position")
+		}
+		return w.command(c.target, "seek", position, now)
+	}
+	return w.command(c.target, c.op, c.value, now)
 }
 
 // save persists next. It runs on the worker, never during Start, where the
@@ -518,44 +534,65 @@ func (w *worker) save(next Settings) error {
 		return err
 	}
 	w.raw, w.settings = raw, next
+	w.settingsGeneration++
 	return nil
 }
 
-// command sends op to a session's source and records what to observe.
-func (w *worker) command(s session, op string, value int64, now time.Time) {
+// command keeps finite processing results separate from later native observation.
+func (w *worker) command(s session, op string, value int64, now time.Time) snoofer.Outcome {
 	if !w.services.Live {
-		return
+		return reject("Media commands unavailable in preview")
+	}
+	if !w.targetAvailable(s) {
+		return reject("Media session changed or unavailable; try again")
+	}
+	supported := op == "toggle" && (value == 1 && s.CanPlay || value == 0 && s.CanPause) ||
+		op == "next" && s.CanNext || op == "prev" && s.CanPrev || op == "seek" && s.CanSeek || op == "mute" && s.CanMute
+	if !supported {
+		return reject("Media operation unavailable")
 	}
 	var err error
+	result := snoofer.Outcome{Status: snoofer.Processed, Detail: "Media request processed"}
 	if s.Source == "windows" {
-		if w.win == nil {
-			err = errors.New("Windows media sessions unavailable")
-		} else {
-			native := map[string]mediasessions.Op{"toggle": mediasessions.Toggle, "next": mediasessions.Next, "prev": mediasessions.Previous, "seek": mediasessions.Seek}[op]
-			if native == 0 {
-				err = fmt.Errorf("%s is not supported here", op)
-			} else {
-				err = w.win.Command(s.ID, native, value)
+		native := map[string]mediasessions.Op{"next": mediasessions.Next, "prev": mediasessions.Previous, "seek": mediasessions.Seek}[op]
+		if op == "toggle" {
+			native = mediasessions.Pause
+			if value == 1 {
+				native = mediasessions.Play
 			}
 		}
+		err = w.win.Command(s.Instance, native, value)
 	} else {
-		err = w.send(s.Source, browserCommand{Type: "command", ID: s.ID, Op: op, Value: value})
-	}
-	if errors.Is(err, mediasessions.ErrDeclined) {
-		err = errors.New("Declined")
+		err = w.send(s.Source, browserCommand{Type: "command", ID: s.ID, Instance: s.Instance, Generation: s.Generation, Op: op, Value: value})
+		result = snoofer.Outcome{Status: snoofer.Submitted, Detail: "Browser request submitted"}
 	}
 	if err != nil {
 		w.failure[s.Key] = err.Error()
+		if errors.Is(err, mediasessions.ErrDeclined) {
+			w.failure[s.Key] = "Declined"
+		}
 		delete(w.pending, s.Key)
-		return
+		if errors.Is(err, errBrowserChanged) {
+			return reject(err.Error())
+		}
+		result = operationError(err)
+		if s.Source != "windows" || errors.Is(err, mediasessions.ErrTimeout) {
+			result.Status = snoofer.Unknown
+		}
+		return result
 	}
 	delete(w.failure, s.Key)
+	p := pendingCommand{target: targetOf(s), op: op, at: now}
 	switch op {
 	case "toggle":
-		w.pending[s.Key] = pendingCommand{op: op, wantPlaying: !s.playing(), at: now}
+		p.wantPlaying = value == 1
 	case "seek":
-		w.pending[s.Key] = pendingCommand{op: op, wantMs: value, at: now}
+		p.wantMs = value
 	case "mute":
-		w.pending[s.Key] = pendingCommand{op: op, wantMuted: !s.Muted, at: now}
+		p.wantMuted = value == 1
+	default:
+		return result
 	}
+	w.pending[s.Key] = p
+	return result
 }

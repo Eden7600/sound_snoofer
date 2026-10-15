@@ -41,7 +41,8 @@ type statusView struct {
 	Sessions     []viewSession
 }
 
-func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
+func (w *worker) publish(providerCtx context.Context, commands chan command, now time.Time) {
+	w.refreshContexts()
 	var controls []snoofer.Control
 	var attention snoofer.AttentionLevel
 	if w.winErr != "" || w.bridgeErr != "" {
@@ -60,19 +61,24 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 		if title == "" {
 			title = s.App
 		}
-		status := w.failure[s.Key]
+		failure := w.failure[s.Key]
+		if s.Instance == "" {
+			failure = "Update the Snoofer media companion"
+		}
+		status := failure
 		if _, ok := w.pending[s.Key]; ok {
 			status = "Pending"
 		} else if status != "" {
 			attention = snoofer.AttentionCritical
 		}
 		controls = append(controls, snoofer.Control{ID: id, Label: title, ShortLabel: title, Group: "Now Playing", Collection: "nowplaying.sessions", CollectionLabel: "Media Sessions",
-			Order: n + 1, Kind: "command", Icon: "media-play", Artwork: w.artwork(s), Value: s.Status, Status: status, Operations: []string{"press", "hold", "set"}, Hidden: w.settings.DeckMediaOff, Available: s.CanToggle || s.CanSeek})
+			Order: n + 1, Kind: "command", Icon: "media-play", Artwork: w.artwork(s), Value: s.Status, Status: status, Epoch: w.contexts[s.Key].epoch, Operations: []string{"press", "hold", "set"}, Hidden: w.settings.DeckMediaOff, Available: w.targetAvailable(s) && (s.CanToggle || s.CanSeek)})
 		_, pending := w.pending[s.Key]
+		available := w.targetAvailable(s)
 		shown := w.progress(s, now)
 		view.Sessions = append(view.Sessions, viewSession{ID: id, Source: s.Source, App: s.App, Title: s.Title, Artist: s.Artist, Album: s.Album, Status: s.Status,
-			Progress: shown.Text(now), PositionMs: shown.PositionMs, AtMs: shown.At.UnixMilli(), Rate: shown.Rate, DurationMs: s.DurationMs, Focused: s.Key == w.focus, CanToggle: s.CanToggle, CanNext: s.CanNext,
-			CanPrev: s.CanPrev, CanSeek: s.CanSeek, CanMute: s.CanMute, Muted: s.Muted, Pending: pending, Failure: w.failure[s.Key]})
+			Progress: shown.Text(now), PositionMs: shown.PositionMs, AtMs: shown.At.UnixMilli(), Rate: shown.Rate, DurationMs: s.DurationMs, Focused: s.Key == w.focus, CanToggle: available && s.CanToggle, CanNext: available && s.CanNext,
+			CanPrev: available && s.CanPrev, CanSeek: available && s.CanSeek, CanMute: available && s.CanMute, Muted: s.Muted, Pending: pending, Failure: failure})
 	}
 	names := make([]string, 0, len(w.browsers))
 	for name := range w.browsers {
@@ -84,12 +90,13 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 	}
 
 	focused, ok := w.find(w.focus)
+	ready := ok && w.targetAvailable(focused)
 
 	dial := snoofer.Control{ID: "nowplaying.dial", Label: "Now Playing", ShortLabel: "Nothing Playing", Group: "Now Playing", Kind: "numeric", Icon: "media-play",
-		Value: "", Operations: []string{"adjust", "press", "reset"}, Available: true}
+		Value: "", Operations: []string{"adjust", "press", "reset"}, Epoch: w.focusGeneration, Available: true}
 	transport := func(id, label, short, icon string, can bool, value string) snoofer.Control {
 		return snoofer.Control{ID: "nowplaying." + id, Label: label, ShortLabel: short, Group: "Now Playing", Kind: "command", Icon: icon, Value: value,
-			Operations: []string{"press"}, Hidden: !ok || !can || w.settings.DeckMediaOff, Available: ok && can}
+			Operations: []string{"press"}, Epoch: w.focusGeneration, Hidden: !ok || !can || w.settings.DeckMediaOff, Available: ready && can}
 	}
 	toggleValue, muteValue, dialStatus := "", "", ""
 	if ok {
@@ -117,7 +124,7 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 	}
 	// The filter key stays visible so media can be turned back on.
 	controls = append(controls, snoofer.Control{ID: "nowplaying.deck-media", Label: "Media on the Deck", ShortLabel: "Media", Group: "Now Playing", Kind: "toggle", Icon: "media-play",
-		Value: deckMedia, Status: w.saveErr, Operations: []string{"press"}, Available: w.services.SaveSettings != nil})
+		Value: deckMedia, Status: w.saveErr, Epoch: w.settingsGeneration, Operations: []string{"press"}, Available: w.services.SaveSettings != nil})
 	controls = append(controls, dial,
 		transport("prev", "Previous Track", "Previous", "media-prev", ok && focused.CanPrev, ""),
 		transport("toggle", "Play or Pause", "Play", "media-play", ok && focused.CanToggle, toggleValue),
@@ -130,9 +137,20 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 		summary = "Preview"
 	}
 	controls = append(controls, snoofer.Control{ID: "nowplaying.status", Label: "Now Playing", Group: "Now Playing", Kind: "status", Value: summary, ViewData: data, Attention: attention, Available: true})
+	sessions := make(map[string]session, len(w.sessions))
+	for _, s := range w.sessions {
+		sessions[controlID(s.Key)] = s
+	}
+	contexts, focusGeneration, settingsGeneration := w.contexts, w.focusGeneration, w.settingsGeneration
+	raw, deckOff := string(w.raw), w.settings.DeckMediaOff
 	_ = w.services.Controls.Publish("nowplaying", controls, func(ctx context.Context, r snoofer.Request) error {
+		if err := providerCtx.Err(); err != nil {
+			return err
+		}
+		c := capture(r, sessions, contexts, focused, focusGeneration, settingsGeneration, raw, deckOff)
+		c.complete = r.ClaimCompletion(providerCtx)
 		select {
-		case commands <- r:
+		case commands <- c:
 			return nil
 		case <-ctx.Done():
 			return ctx.Err()

@@ -4,21 +4,24 @@
 (() => {
   // Injection at install can run this again in the same world; one copy is
   // enough. A copy from an older install lives in another world.
-  if (globalThis.__snooferBridge) return;
-  globalThis.__snooferBridge = true;
+  if (globalThis.__snooferBridge === 2) return;
+  globalThis.__snooferBridge = 2;
   // A newer copy may be injected after an install or update; the old copy's
   // extension context is then gone and its sends fail, which is ignored.
   let port = null;
   function connect() {
-    port = chrome.runtime.connect({ name: "media" });
-    port.onMessage.addListener((command) => {
-      window.dispatchEvent(new CustomEvent("snoofer-media:command", { detail: JSON.stringify(command) }));
+    const current = chrome.runtime.connect({ name: "media" });
+    port = current;
+    current.onMessage.addListener((command) => {
+      if (port !== current) return;
+      window.dispatchEvent(new CustomEvent("snoofer-media:command-v2", { detail: JSON.stringify(command) }));
     });
-    port.onDisconnect.addListener(() => {
+    current.onDisconnect.addListener(() => {
+      if (port !== current) return;
       port = null; // The worker restarted; the next report reconnects.
     });
   }
-  window.addEventListener("snoofer-media:report", (e) => {
+  window.addEventListener("snoofer-media:report-v2", (e) => {
     if (typeof e.detail !== "string" || e.detail.length > 16384) return;
     try {
       if (!port) connect();

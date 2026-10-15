@@ -8,7 +8,8 @@ const api = globalThis.browser ?? chrome;
 
 const VERSION = api.runtime.getManifest().version;
 const BROWSER = browserName(navigator.userAgentData && navigator.userAgentData.brands, !!navigator.brave, navigator.userAgent);
-const frames = new Map(); // "tab:frame" to {tabId, port, report}.
+const frames = new Map(); // "tab:frame" to {tabId, instance, port, report}.
+let nextFrame = 0n;
 const tabs = new Map(); // Tab ID to {title, url, muted, favIconUrl}.
 const sentArt = new Map(); // Session ID to the artwork key last sent.
 let port = DEFAULT_PORT;
@@ -39,10 +40,10 @@ api.runtime.onConnect.addListener((p) => {
   const tabId = p.sender.tab.id;
   const key = tabId + ":" + (p.sender.frameId || 0);
   rememberTab(p.sender.tab);
-  frames.set(key, { tabId, port: p, report: null });
+  frames.set(key, { tabId, instance: String(++nextFrame), port: p, report: null });
   p.onMessage.addListener((message) => {
     const frame = frames.get(key);
-    if (!frame) return;
+    if (!frame || frame.port !== p) return;
     try {
       frame.report = JSON.parse(message.report);
     } catch {
@@ -90,6 +91,7 @@ function schedule() {
 
 async function send() {
   if (!connected) return;
+  const ws = socket;
   const list = sessions(frames, tabs);
   for (const s of list) {
     if (s.artKey && sentArt.get(s.id) !== s.artKey) {
@@ -98,11 +100,12 @@ async function send() {
       } catch {
         s.art = ""; // Unreadable artwork: Snoofer shows the play symbol.
       }
+      if (!connected || socket !== ws) return;
       sentArt.set(s.id, s.artKey);
     }
   }
   for (const id of sentArt.keys()) if (!list.some((s) => s.id === id)) sentArt.delete(id);
-  if (connected) socket.send(JSON.stringify({ type: "sessions", sessions: list }));
+  if (connected && socket === ws) ws.send(JSON.stringify({ type: "sessions", sessions: list }));
 }
 
 function connect() {
@@ -110,6 +113,7 @@ function connect() {
   const ws = new WebSocket("ws://127.0.0.1:" + port + "/nowplaying");
   socket = ws;
   ws.onopen = () => {
+    if (socket !== ws) return;
     connected = true;
     attempts = 0;
     refused = ""; // A refusal, if any, arrives right after hello.
@@ -118,6 +122,7 @@ function connect() {
     send().catch(() => {});
   };
   ws.onmessage = (event) => {
+    if (socket !== ws) return;
     let message;
     try {
       message = JSON.parse(event.data);
@@ -129,7 +134,7 @@ function connect() {
       return;
     }
     if (message.type !== "command") return;
-    const action = route(message, frames, tabs);
+    const action = route(message, frames);
     if (action.kind === "mute") api.tabs.update(action.tabId, { muted: action.muted });
     if (action.kind === "frame") action.frame.port.postMessage(action.message);
   };

@@ -23,7 +23,9 @@ const (
 )
 
 // protocol is the bridge message format version this build speaks.
-const protocol = 1
+const protocol = 2
+
+var errBrowserChanged = errors.New("browser connection changed; try again")
 
 // hello is the extension's first message.
 type hello struct {
@@ -48,10 +50,11 @@ type report struct {
 // bridgeConn is one connected browser. Writes come from the worker and are
 // serialized here.
 type bridgeConn struct {
-	browser string
-	origin  string
-	ws      *websocket.Conn
-	mu      sync.Mutex
+	browser    string
+	origin     string
+	generation uint64
+	ws         *websocket.Conn
+	mu         sync.Mutex
 }
 
 func (c *bridgeConn) write(v any) error {
@@ -71,10 +74,11 @@ type bridge struct {
 	updates chan<- browserUpdate
 	ctx     context.Context
 
-	mu      sync.Mutex
-	closed  bool // Set before waiting, so no handler joins the wait group late.
-	conns   map[string]*bridgeConn
-	refused string // Why the last connection was refused, for the GUI.
+	mu             sync.Mutex
+	closed         bool // Set before waiting, so no handler joins the wait group late.
+	conns          map[string]*bridgeConn
+	nextGeneration uint64
+	refused        string // Why the last connection was refused, for the GUI.
 
 	server *http.Server
 	wg     sync.WaitGroup
@@ -144,10 +148,19 @@ func (b *bridge) send(browser string, c browserCommand) error {
 	b.mu.Lock()
 	conn := b.conns[browser]
 	b.mu.Unlock()
-	if conn == nil {
-		return errors.New(browser + " is not connected")
+	if conn == nil || c.Generation == 0 || conn.generation != c.Generation {
+		return errBrowserChanged
 	}
 	return conn.write(c)
+}
+
+func (b *bridge) generation(browser string) uint64 {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if conn := b.conns[browser]; conn != nil {
+		return conn.generation
+	}
+	return 0
 }
 
 var upgrader = websocket.Upgrader{
@@ -217,13 +230,15 @@ func (b *bridge) serve(w http.ResponseWriter, r *http.Request) {
 		_ = ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(4003, "origin"), time.Now().Add(writeTimeout))
 		return
 	}
+	b.nextGeneration++
+	conn.generation = b.nextGeneration
 	b.conns[browser] = conn
 	b.refused = ""
 	b.mu.Unlock()
 	if previous != nil {
 		_ = previous.ws.Close() // A reconnect from the same extension origin wins.
 	}
-	b.deliver(browserUpdate{Browser: browser, Version: h.Version, Connected: true})
+	b.deliver(browserUpdate{Browser: browser, Version: h.Version, Connected: true, Generation: conn.generation})
 	defer func() {
 		b.mu.Lock()
 		current := b.conns[browser] == conn
@@ -232,7 +247,7 @@ func (b *bridge) serve(w http.ResponseWriter, r *http.Request) {
 		}
 		b.mu.Unlock()
 		if current {
-			b.deliver(browserUpdate{Browser: browser})
+			b.deliver(browserUpdate{Browser: browser, Generation: conn.generation})
 		}
 	}()
 	for {
@@ -254,7 +269,7 @@ func (b *bridge) serve(w http.ResponseWriter, r *http.Request) {
 			b.refuse(err.Error())
 			return
 		}
-		b.deliver(browserUpdate{Browser: browser, Version: h.Version, Connected: true, Sessions: m.Sessions})
+		b.deliver(browserUpdate{Browser: browser, Version: h.Version, Connected: true, Generation: conn.generation, Sessions: m.Sessions})
 	}
 }
 

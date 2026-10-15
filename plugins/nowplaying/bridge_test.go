@@ -126,7 +126,7 @@ func TestBridgeAcceptsOnlyExtensions(t *testing.T) {
 
 func TestBridgeRefusesOtherProtocols(t *testing.T) {
 	r := startBridgeRig(t)
-	for version, want := range map[int]string{protocol + 1: "Update Snoofer", 0: "Update the Snoofer Media extension"} {
+	for version, want := range map[int]string{protocol + 1: "Update Snoofer", protocol - 1: "Update the Snoofer Media extension"} {
 		ws := r.connect("chrome-extension://abc", "Chrome", version)
 		if err := ws.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
 			t.Fatal(err)
@@ -147,10 +147,10 @@ func TestBridgeSessionsCommandsAndReplacement(t *testing.T) {
 	r := startBridgeRig(t)
 	// Firefox's own Windows session has an unrecognisable app ID; its title
 	// matching a tab hides it.
-	r.windows.sessions = []mediasessions.Session{{ID: "308046B0AF4A39CB", App: "308046B0AF4A39CB", Title: "Video", Status: "playing", CanPlay: true}}
+	r.windows.sessions = []mediasessions.Session{{ID: "308046B0AF4A39CB", Instance: "308046B0AF4A39CB", App: "308046B0AF4A39CB", Title: "Video", Status: "playing", CanPlay: true}}
 	ws := r.connect("moz-extension://x", "Firefox", protocol)
 	r.wait("connected", func(v statusView) bool { return len(v.Browsers) == 1 && v.Browsers[0].Name == "Firefox" })
-	if err := ws.WriteJSON(report{Type: "sessions", Sessions: []browserSession{{ID: "7:0", Tab: 7, Site: "youtube.com", Title: "Video", State: "playing", CanNext: true}}}); err != nil {
+	if err := ws.WriteJSON(report{Type: "sessions", Sessions: []browserSession{{ID: "7:0", Instance: "7:0", Tab: 7, Site: "youtube.com", Title: "Video", State: "playing", CanNext: true}}}); err != nil {
 		t.Fatal(err)
 	}
 	v := r.wait("session", func(v statusView) bool { return len(v.Sessions) == 1 && v.Sessions[0].Source == "Firefox" })
@@ -201,7 +201,7 @@ func TestBridgeSkipsMalformedReports(t *testing.T) {
 	if err := ws.WriteMessage(websocket.TextMessage, []byte(`{"type":"sessions","sessions":[{"title":{}}]}`)); err != nil {
 		t.Fatal(err)
 	}
-	if err := ws.WriteJSON(report{Type: "sessions", Sessions: []browserSession{{ID: "7:0", Tab: 7, Site: "youtube.com", Title: "Video", State: "playing"}}}); err != nil {
+	if err := ws.WriteJSON(report{Type: "sessions", Sessions: []browserSession{{ID: "7:0", Instance: "7:0", Tab: 7, Site: "youtube.com", Title: "Video", State: "playing"}}}); err != nil {
 		t.Fatal(err)
 	}
 	r.wait("session after malformed report", func(v statusView) bool { return len(v.Browsers) == 1 && len(v.Sessions) == 1 })
@@ -237,7 +237,7 @@ func TestBridgeRejectsReplacementFromAnotherOrigin(t *testing.T) {
 			r := startBridgeRig(t)
 			original := r.connect(scheme+"original", "Browser", protocol)
 			r.wait("original connected", func(v statusView) bool { return len(v.Browsers) == 1 })
-			if err := original.WriteJSON(report{Type: "sessions", Sessions: []browserSession{{ID: "7:0", Tab: 7, Title: "Original", State: "playing", CanNext: true}}}); err != nil {
+			if err := original.WriteJSON(report{Type: "sessions", Sessions: []browserSession{{ID: "7:0", Instance: "7:0", Tab: 7, Title: "Original", State: "playing", CanNext: true}}}); err != nil {
 				t.Fatal(err)
 			}
 			r.wait("original session", func(v statusView) bool { return len(v.Sessions) == 1 })
@@ -279,5 +279,68 @@ func TestBridgeRejectsReplacementFromAnotherOrigin(t *testing.T) {
 			r.connect(scheme+"other", "Browser", protocol)
 			r.wait("new origin accepted after disconnect", func(v statusView) bool { return len(v.Browsers) == 1 && v.Bridge.Refused == "" })
 		})
+	}
+}
+
+func TestBridgeCapturedGenerationNeverUsesReplacement(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	updates := make(chan browserUpdate, 16)
+	port := freePort(t)
+	b, err := listen(ctx, port, updates)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cancel(); b.close() })
+	connect := func() *websocket.Conn {
+		t.Helper()
+		ws, _, err := websocket.DefaultDialer.Dial(fmt.Sprintf("ws://127.0.0.1:%d/nowplaying", port), http.Header{"Origin": []string{"moz-extension://same"}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { ws.Close() })
+		if err := ws.WriteJSON(hello{Type: "hello", Protocol: protocol, Browser: "Firefox"}); err != nil {
+			t.Fatal(err)
+		}
+		return ws
+	}
+	first := connect()
+	old := <-updates
+	second := connect()
+	current := <-updates
+	if old.Generation == 0 || current.Generation <= old.Generation {
+		t.Fatal(old, current)
+	}
+	if err := b.send("Firefox", browserCommand{Type: "command", ID: "7:0", Instance: "document", Generation: old.Generation, Op: "next"}); !errors.Is(err, errBrowserChanged) {
+		t.Fatal("old command accepted", err)
+	}
+	if err := b.send("Firefox", browserCommand{Type: "command", ID: "7:0", Instance: "document", Generation: current.Generation, Op: "mute", Value: 0}); err != nil {
+		t.Fatal(err)
+	}
+	if err := second.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]json.RawMessage
+	if err := second.ReadJSON(&got); err != nil {
+		t.Fatal(err)
+	}
+	if string(got["value"]) != "0" || string(got["instance"]) != `"document"` || got["Generation"] != nil {
+		t.Fatal(got)
+	}
+	if err := first.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := first.ReadMessage(); err == nil {
+		t.Fatal("replaced connection remained live")
+	}
+}
+
+func TestBrowserSessionsRequireBoundedInstance(t *testing.T) {
+	for _, instance := range []string{"", strings.Repeat("a", 65)} {
+		if err := validBrowserSessions([]browserSession{{ID: "7:0", Instance: instance}}); err == nil {
+			t.Fatal("invalid instance accepted")
+		}
+	}
+	if err := validBrowserSessions([]browserSession{{ID: "7:0", Instance: "1"}}); err != nil {
+		t.Fatal(err)
 	}
 }

@@ -2,6 +2,7 @@ package nowplaying
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"image"
 	"image/color"
@@ -20,6 +21,7 @@ type fakeWindows struct {
 	artCalls int
 	commands []string
 	decline  bool
+	err      error
 }
 
 func (f *fakeWindows) Snapshot() ([]mediasessions.Session, error) {
@@ -36,7 +38,7 @@ func (f *fakeWindows) Command(id string, op mediasessions.Op, value int64) error
 	if f.decline {
 		return mediasessions.ErrDeclined
 	}
-	return nil
+	return f.err
 }
 
 func (f *fakeWindows) Close() error { return nil }
@@ -56,18 +58,24 @@ func cover(t *testing.T) []byte {
 }
 
 type rig struct {
-	t        *testing.T
-	w        *worker
-	win      *fakeWindows
-	controls *snoofer.Controls
-	commands chan snoofer.Request
-	sent     []browserCommand
-	now      time.Time
+	t           *testing.T
+	w           *worker
+	win         *fakeWindows
+	controls    *snoofer.Controls
+	commands    chan command
+	ctx         context.Context
+	cancel      context.CancelFunc
+	generations map[string]uint64
+	sent        []browserCommand
+	now         time.Time
 }
 
 func newRig(t *testing.T, live bool) *rig {
-	r := &rig{t: t, win: &fakeWindows{art: map[string][]byte{"Spotify.exe": cover(t)}}, controls: snoofer.NewControls(), commands: make(chan snoofer.Request, 8), now: time.Unix(1_000_000, 0)}
+	r := &rig{t: t, win: &fakeWindows{art: map[string][]byte{"Spotify.exe": cover(t)}}, controls: snoofer.NewControls(), commands: make(chan command, 8), generations: map[string]uint64{"Brave": 1, "Firefox": 1}, now: time.Unix(1_000_000, 0)}
+	r.ctx, r.cancel = context.WithCancel(context.Background())
+	t.Cleanup(r.cancel)
 	r.w = newWorker(snoofer.Services{Controls: r.controls, Live: live}, func() (windowsSource, error) { return r.win, nil }, defaultTiming)
+	r.w.browserGeneration = func(browser string) uint64 { return r.generations[browser] }
 	r.w.send = func(_ string, c browserCommand) error {
 		r.sent = append(r.sent, c)
 		return nil
@@ -80,7 +88,7 @@ func (r *rig) tick(d time.Duration) {
 	r.now = r.now.Add(d)
 	r.w.pollAt = time.Time{}
 	r.w.step(r.now)
-	r.w.publish(r.commands, r.now)
+	r.w.publish(r.ctx, r.commands, r.now)
 }
 
 func (r *rig) control(id string) snoofer.Control {
@@ -103,18 +111,26 @@ func (r *rig) members() []snoofer.Control {
 }
 
 func (r *rig) press(id, op string, delta int) {
-	r.w.handle(snoofer.Request{ID: id, Operation: op, Delta: delta}, r.now)
-	r.w.publish(r.commands, r.now)
+	r.request(snoofer.Request{ID: id, Operation: op, Delta: delta})
+	r.w.publish(r.ctx, r.commands, r.now)
+}
+
+func (r *rig) request(request snoofer.Request) {
+	request.Revision = r.control(request.ID).Revision
+	if err := r.controls.Dispatch(r.ctx, request); err != nil {
+		r.t.Fatal(err)
+	}
+	r.w.process(r.ctx, <-r.commands, r.now)
 }
 
 func spotify(status string, position int64, updated time.Time) mediasessions.Session {
-	return mediasessions.Session{ID: "Spotify.exe", App: "Spotify.exe", Title: "Song", Artist: "Band", Status: status, PositionMs: position, DurationMs: 200_000,
+	return mediasessions.Session{ID: "Spotify.exe", Instance: "Spotify.exe", App: "Spotify.exe", Title: "Song", Artist: "Band", Status: status, PositionMs: position, DurationMs: 200_000,
 		UpdatedMs: updated.UnixMilli(), Rate: 1, CanPlay: true, CanPause: true, CanNext: true, CanPrev: true, CanSeek: true, ArtKey: "k1"}
 }
 
 func TestWindowsSessionsFocusAndArt(t *testing.T) {
 	r := newRig(t, true)
-	r.win.sessions = []mediasessions.Session{spotify("playing", 60_000, r.now), {ID: "Brave", App: "Brave", Title: "Video", Status: "paused", CanPlay: true}}
+	r.win.sessions = []mediasessions.Session{spotify("playing", 60_000, r.now), {ID: "Brave", Instance: "Brave", App: "Brave", Title: "Video", Status: "paused", CanPlay: true, CanPause: true}}
 	r.tick(0)
 	if m := r.members(); len(m) != 2 {
 		t.Fatalf("members %+v", m)
@@ -205,15 +221,15 @@ func TestScrubbingCoalescesDetents(t *testing.T) {
 
 func TestBrowserTabsReplaceItsWindowsSession(t *testing.T) {
 	r := newRig(t, true)
-	r.win.sessions = []mediasessions.Session{spotify("paused", 0, r.now), {ID: "Brave", App: "Brave", Title: "Video A", Status: "playing", CanPlay: true}}
+	r.win.sessions = []mediasessions.Session{spotify("paused", 0, r.now), {ID: "Brave", Instance: "Brave", App: "Brave", Title: "Video A", Status: "playing", CanPlay: true, CanPause: true}}
 	r.tick(0)
 	if len(r.members()) != 2 {
 		t.Fatal("without the extension Brave is one session")
 	}
 	art := thumbFor(t)
-	r.w.browser(browserUpdate{Browser: "Brave", Version: "1", Connected: true, Sessions: []browserSession{
-		{ID: "1:0", Tab: 1, Site: "youtube.com", Title: "Video A", State: "playing", ArtKey: "a", Art: art, CanNext: true, DurationMs: 100_000, CanSeek: true},
-		{ID: "2:0", Tab: 2, Site: "podcasts.example", Title: "Episode", State: "playing", ArtKey: "b"},
+	r.w.browser(browserUpdate{Browser: "Brave", Generation: 1, Version: "1", Connected: true, Sessions: []browserSession{
+		{ID: "1:0", Instance: "1:0", Tab: 1, Site: "youtube.com", Title: "Video A", State: "playing", ArtKey: "a", Art: art, CanNext: true, DurationMs: 100_000, CanSeek: true},
+		{ID: "2:0", Instance: "2:0", Tab: 2, Site: "podcasts.example", Title: "Episode", State: "playing", ArtKey: "b"},
 	}})
 	r.tick(time.Second)
 	members := r.members()
@@ -244,13 +260,13 @@ func TestBrowserTabsReplaceItsWindowsSession(t *testing.T) {
 		t.Fatal("tabs can mute")
 	}
 	// Art arrives once and is kept while its key is unchanged.
-	r.w.browser(browserUpdate{Browser: "Brave", Version: "1", Connected: true, Sessions: []browserSession{{ID: "1:0", Site: "youtube.com", Title: "Video A", State: "playing", ArtKey: "a"}}})
+	r.w.browser(browserUpdate{Browser: "Brave", Generation: 1, Version: "1", Connected: true, Sessions: []browserSession{{ID: "1:0", Instance: "1:0", Site: "youtube.com", Title: "Video A", State: "playing", ArtKey: "a"}}})
 	r.tick(time.Second)
 	if r.members()[0].Artwork != art {
 		t.Fatal("tab artwork lost")
 	}
 	// Disconnecting brings Brave's Windows session back.
-	r.w.browser(browserUpdate{Browser: "Brave"})
+	r.w.browser(browserUpdate{Browser: "Brave", Generation: 1})
 	r.tick(time.Second)
 	if len(r.members()) != 2 {
 		t.Fatal("Windows session not restored")
@@ -259,8 +275,8 @@ func TestBrowserTabsReplaceItsWindowsSession(t *testing.T) {
 
 func TestFocusFollowsPlaybackUntilChosen(t *testing.T) {
 	r := newRig(t, true)
-	a := mediasessions.Session{ID: "A", App: "A.exe", Title: "A", Status: "playing", CanPlay: true}
-	b := mediasessions.Session{ID: "B", App: "B.exe", Title: "B", Status: "paused", CanPlay: true}
+	a := mediasessions.Session{ID: "A", Instance: "A", App: "A.exe", Title: "A", Status: "playing", CanPlay: true, CanPause: true}
+	b := mediasessions.Session{ID: "B", Instance: "B", App: "B.exe", Title: "B", Status: "paused", CanPlay: true, CanPause: true}
 	r.win.sessions = []mediasessions.Session{a, b}
 	r.tick(0)
 	focus := func() string { return r.control("nowplaying.dial").ShortLabel }
@@ -337,8 +353,8 @@ func TestSessionSeekFromGUI(t *testing.T) {
 	r.win.sessions = []mediasessions.Session{spotify("paused", 0, r.now)}
 	r.tick(0)
 	id := r.members()[0].ID
-	r.w.handle(snoofer.Request{ID: id, Operation: "set", Value: "90000"}, r.now)
-	r.w.handle(snoofer.Request{ID: id, Operation: "set", Value: "999999"}, r.now) // Past the end: ignored.
+	r.request(snoofer.Request{ID: id, Operation: "set", Value: "90000"})
+	r.request(snoofer.Request{ID: id, Operation: "set", Value: "999999"}) // Past the end: ignored.
 	if len(r.win.commands) != 1 || r.win.commands[0] != "Spotify.exe:seek:90µs" {
 		t.Fatal(r.win.commands)
 	}
@@ -348,8 +364,8 @@ func TestWindowsSessionKeptWhenTabUnseen(t *testing.T) {
 	r := newRig(t, true)
 	// The video was playing before the extension loaded, so the extension
 	// reports nothing for it: Brave's Windows session must stay.
-	r.win.sessions = []mediasessions.Session{{ID: "Brave", App: "Brave", Title: "Old video", Status: "playing", CanPlay: true}}
-	r.w.browser(browserUpdate{Browser: "Brave", Version: "1", Connected: true})
+	r.win.sessions = []mediasessions.Session{{ID: "Brave", Instance: "Brave", App: "Brave", Title: "Old video", Status: "playing", CanPlay: true, CanPause: true}}
+	r.w.browser(browserUpdate{Browser: "Brave", Generation: 1, Version: "1", Connected: true})
 	r.tick(0)
 	if m := r.members(); len(m) != 1 || m[0].Label != "Old video" {
 		t.Fatalf("members %+v", m)
@@ -391,7 +407,7 @@ func TestDeckMediaFilter(t *testing.T) {
 
 func TestSessionsWithoutArtGetColouredTiles(t *testing.T) {
 	r := newRig(t, true)
-	r.win.sessions = []mediasessions.Session{{ID: "VLC", App: "vlc.exe", Title: "Clip", Status: "playing", CanPlay: true}}
+	r.win.sessions = []mediasessions.Session{{ID: "VLC", Instance: "VLC", App: "vlc.exe", Title: "Clip", Status: "playing", CanPlay: true, CanPause: true}}
 	r.tick(0)
 	want := placeholder.Art("vlc", placeholder.Media)
 	if r.members()[0].Artwork != want || r.control("nowplaying.dial").Artwork != want {

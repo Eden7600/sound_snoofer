@@ -15,6 +15,8 @@ npm run package   # also dist/snoofer-media-<browser>-<version>.zip
 - **Chrome, Brave, Edge:** open `brave://extensions` (or `chrome://extensions`), turn on Developer mode, choose **Load unpacked** and pick `dist/chrome`. After rebuilding, press the extension's reload button.
 - **Firefox (128 or later):** open `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on** and pick `dist/firefox/manifest.json`. Then click the toolbar button and **Allow on all sites**; Firefox makes site access optional.
 
+Protocol 2 requires a matching Snoofer version; the popup explains which side needs updating. After upgrading the extension, refresh already-open media tabs if Next or Previous is unavailable. The new page helper cannot recover handlers registered before the upgrade; refreshing lets the page register them again.
+
 `../scripts/check-extension.cjs` checks the page script in Chrome. It also runs the built extension end to end in Brave against a stand-in bridge.
 
 ## Layout

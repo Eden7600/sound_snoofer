@@ -10,8 +10,9 @@ import (
 
 // Session is one app's media session as Windows reports it.
 type Session struct {
-	ID         string  `json:"id"`  // AppUserModelID, plus "#n" when an app has several.
-	App        string  `json:"app"` // AppUserModelID.
+	ID         string  `json:"id"`       // AppUserModelID, plus "#n" when an app has several.
+	Instance   string  `json:"instance"` // Opaque native object token, scoped to one Client lifetime.
+	App        string  `json:"app"`      // AppUserModelID.
 	Title      string  `json:"title"`
 	Artist     string  `json:"artist"`
 	Album      string  `json:"album"`
@@ -42,6 +43,9 @@ const (
 
 // ErrDeclined reports that the player refused a command it received.
 var ErrDeclined = errors.New("player declined the command")
+
+// ErrTimeout means the bounded native call ended without establishing its effect.
+var ErrTimeout = errors.New("media player command timed out")
 
 func parseSnapshot(data []byte) ([]Session, error) {
 	var sessions []Session

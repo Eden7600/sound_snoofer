@@ -4,7 +4,7 @@
 // globalThis.SnooferLogic.
 (() => {
   // PROTOCOL is the Snoofer bridge message format this extension speaks.
-  const PROTOCOL = 1;
+  const PROTOCOL = 2;
   const DEFAULT_PORT = 47815;
 
   // browserName reports the browser Snoofer pairs with its Windows session.
@@ -42,7 +42,7 @@
   }
 
   // sessions builds Snoofer's session list. frames maps "tab:frame" to
-  // {tabId, report}; tabs maps tab IDs to {title, url, muted, favIconUrl}.
+  // {tabId, instance, report}; tabs maps tab IDs to {title, url, muted, favIconUrl}.
   // artKey names the artwork; the background adds the image only when the key
   // changes.
   function sessions(frames, tabs) {
@@ -53,6 +53,7 @@
       const tab = tabs.get(frame.tabId) || {};
       out.push({
         id,
+        instance: frame.instance,
         tab: frame.tabId,
         site: site(tab.url || ""),
         title: text(r.title) || text(tab.title),
@@ -76,11 +77,13 @@
 
   // route decides how a command from Snoofer is carried out: tab mute through
   // the tabs API, everything else by the frame that reported the session.
-  function route(command, frames, tabs) {
+  function route(command, frames) {
     const frame = frames.get(command.id);
     if (!frame) return { kind: "missing" };
+    if (typeof command.instance !== "string" || !command.instance || command.instance.length > 64 || command.instance !== frame.instance) return { kind: "stale" };
+    if (["toggle", "mute"].includes(command.op) && command.value !== 0 && command.value !== 1) return { kind: "invalid" };
     if (command.op === "mute") {
-      return { kind: "mute", tabId: frame.tabId, muted: !(tabs.get(frame.tabId) || {}).muted };
+      return { kind: "mute", tabId: frame.tabId, muted: command.value === 1 };
     }
     if (!["toggle", "next", "prev", "seek"].includes(command.op)) return { kind: "invalid" };
     return { kind: "frame", frame, message: { op: command.op, value: command.value || 0 } };

@@ -2,8 +2,8 @@
 // handlers. It reports this frame's media to bridge.js and runs commands from
 // it, both through window events carrying JSON strings.
 (() => {
-  if (window.__snooferMedia) return;
-  window.__snooferMedia = true;
+  if (window.__snooferMedia === 2) return;
+  window.__snooferMedia = 2;
   const handlers = new Map();
   const session = navigator.mediaSession;
   if (session && typeof session.setActionHandler === "function") {
@@ -81,7 +81,7 @@
     timer = setTimeout(() => {
       timer = 0;
       lastSent = Date.now();
-      window.dispatchEvent(new CustomEvent("snoofer-media:report", { detail: JSON.stringify(state()) }));
+      window.dispatchEvent(new CustomEvent("snoofer-media:report-v2", { detail: JSON.stringify(state()) }));
     }, delay);
   }
 
@@ -120,7 +120,7 @@
     return true;
   }
 
-  window.addEventListener("snoofer-media:command", (e) => {
+  window.addEventListener("snoofer-media:command-v2", (e) => {
     let command;
     try {
       command = JSON.parse(e.detail);
@@ -128,10 +128,10 @@
       return;
     }
     const el = active();
-    const playing = el ? !el.paused && !el.ended : session && session.playbackState === "playing";
     switch (command.op) {
       case "toggle":
-        if (playing) {
+        if (command.value !== 0 && command.value !== 1) return;
+        if (command.value === 0) {
           if (!call("pause") && el) el.pause();
         } else if (!call("play") && el) {
           el.play().catch(() => {});

@@ -11,25 +11,28 @@ import (
 
 // session is a media session from either source, in one shape.
 type session struct {
-	Key        string // Source and source ID; stable while the session lives.
-	Source     string // "windows" or the browser name.
-	ID         string // The source's own ID.
-	App        string // Player or site, for display.
-	Title      string
-	Artist     string
-	Album      string
-	Art        string // 64 px base64 PNG, or empty.
-	Status     string // Playing, Paused or Stopped.
-	PositionMs int64
-	DurationMs int64
-	Updated    time.Time // When PositionMs was sampled; zero if unknown.
-	Rate       float64
-	CanToggle  bool
-	CanNext    bool
-	CanPrev    bool
-	CanSeek    bool
-	CanMute    bool // Browser tabs only.
-	Muted      bool
+	Key               string // Source and display ID; may be reused by another session.
+	Source            string // "windows" or the browser name.
+	ID                string // The source's own ID.
+	Instance          string // Native object or content-port lifetime token.
+	Generation        uint64 // Windows handle or browser connection lifetime.
+	App               string // Player or site, for display.
+	Title             string
+	Artist            string
+	Album             string
+	Art               string // 64 px base64 PNG, or empty.
+	Status            string // Playing, Paused or Stopped.
+	PositionMs        int64
+	DurationMs        int64
+	Updated           time.Time // When PositionMs was sampled; zero if unknown.
+	Rate              float64
+	CanToggle         bool
+	CanPlay, CanPause bool
+	CanNext           bool
+	CanPrev           bool
+	CanSeek           bool
+	CanMute           bool // Browser tabs only.
+	Muted             bool
 }
 
 func (s session) playing() bool { return s.Status == "Playing" }
@@ -104,9 +107,9 @@ func windowsStatus(status string) string {
 
 // fromWindows converts a Windows session; art comes from the caller's cache.
 func fromWindows(s mediasessions.Session, art string) session {
-	out := session{Key: "windows:" + s.ID, Source: "windows", ID: s.ID, App: appName(s.App), Title: s.Title, Artist: s.Artist, Album: s.Album, Art: art,
+	out := session{Key: "windows:" + s.ID, Source: "windows", ID: s.ID, Instance: s.Instance, App: appName(s.App), Title: s.Title, Artist: s.Artist, Album: s.Album, Art: art,
 		Status: windowsStatus(s.Status), PositionMs: s.PositionMs, DurationMs: s.DurationMs, Rate: s.Rate,
-		CanToggle: s.CanPlay || s.CanPause, CanNext: s.CanNext, CanPrev: s.CanPrev, CanSeek: s.CanSeek && s.DurationMs > 0}
+		CanToggle: s.CanPlay || s.CanPause, CanPlay: s.CanPlay, CanPause: s.CanPause, CanNext: s.CanNext, CanPrev: s.CanPrev, CanSeek: s.CanSeek && s.DurationMs > 0}
 	if s.UpdatedMs > 0 {
 		out.Updated = time.UnixMilli(s.UpdatedMs)
 	}

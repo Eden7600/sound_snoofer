@@ -12,6 +12,10 @@ cl /nologo /W4 /WX /EHsc /O2 /MT /std:c++17 /permissive- /bigobj /Fo.local\media
 if errorlevel 1 exit /b 1
 .local\media\async-wait-test.exe
 if errorlevel 1 exit /b 1
+cl /nologo /W4 /WX /EHsc /O2 /MT /std:c++17 /permissive- /bigobj /Fo.local\media\ /Fe.local\media\session-identity-test.exe internal\mediasessions\native\session_identity_test.cpp /link windowsapp.lib
+if errorlevel 1 exit /b 1
+.local\media\session-identity-test.exe
+if errorlevel 1 exit /b 1
 cl /nologo /W4 /WX /EHsc /O2 /MT /LD /std:c++17 /permissive- /bigobj /Fo.local\media\ /Fe"$out\snoofer-media.dll" internal\mediasessions\native\media.cpp /link windowsapp.lib /IMPLIB:.local\media\media.lib
 "@
     Invoke-MsvcBuild -CommandFile $build -Commands $commands -FailureMessage 'Native media sessions build or self-test failed; do not replace an in-use DLL.'

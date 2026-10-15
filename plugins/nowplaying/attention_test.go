@@ -19,14 +19,14 @@ func TestStatusAttentionTracksOnlyVisibleMediaFailures(t *testing.T) {
 		{"deck save", func(w *worker) { w.saveErr = "Off" }, ""},
 		{"retired session", func(w *worker) { w.failure["gone"] = "Failed" }, ""},
 		{"session", func(w *worker) {
-			w.sessions = []session{{Key: "current", Title: "Player"}}
+			w.sessions = []session{{Key: "current", Instance: "current", Title: "Player"}}
 			w.failure["current"] = "Muted"
 		}, snoofer.AttentionCritical},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r := newRig(t, true)
 			tc.set(r.w)
-			r.w.publish(r.commands, r.now)
+			r.w.publish(r.ctx, r.commands, r.now)
 			var view statusView
 			if err := json.Unmarshal(r.control("nowplaying.status").ViewData, &view); err != nil {
 				t.Fatal(err)
@@ -39,7 +39,7 @@ func TestStatusAttentionTracksOnlyVisibleMediaFailures(t *testing.T) {
 			}
 			r.w.winErr, r.w.bridgeErr, r.w.saveErr = "", "", ""
 			clear(r.w.failure)
-			r.w.publish(r.commands, r.now)
+			r.w.publish(r.ctx, r.commands, r.now)
 			if got := r.control("nowplaying.status").Attention; got != "" {
 				t.Fatalf("recovery retained %q", got)
 			}
@@ -56,15 +56,15 @@ func TestStatusAttentionTracksOnlyVisibleMediaFailures(t *testing.T) {
 
 func TestPendingSessionHidesRememberedFailureAttention(t *testing.T) {
 	r := newRig(t, true)
-	r.w.sessions = []session{{Key: "current", Title: "Player"}}
+	r.w.sessions = []session{{Key: "current", Instance: "current", Title: "Player"}}
 	r.w.failure["current"] = "Muted"
 	r.w.pending["current"] = pendingCommand{}
-	r.w.publish(r.commands, r.now)
+	r.w.publish(r.ctx, r.commands, r.now)
 	if got := r.control("nowplaying.status").Attention; got != "" {
 		t.Fatalf("pending session exposes remembered failure: %q", got)
 	}
 	delete(r.w.pending, "current")
-	r.w.publish(r.commands, r.now)
+	r.w.publish(r.ctx, r.commands, r.now)
 	if got := r.control("nowplaying.status").Attention; got != snoofer.AttentionCritical {
 		t.Fatalf("visible failure after pending cleared = %q", got)
 	}

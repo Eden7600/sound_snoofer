@@ -46,13 +46,13 @@ navigator.mediaSession.setActionHandler("nexttrack", () => { window.nextCalls++;
     page.on("pageerror", (e) => errors.push(String(e)));
     await page.addInitScript(() => {
       window.reports = [];
-      window.addEventListener("snoofer-media:report", (e) => window.reports.push(JSON.parse(e.detail)));
+      window.addEventListener("snoofer-media:report-v2", (e) => window.reports.push(JSON.parse(e.detail)));
     });
     await page.addInitScript(pageScript);
     const base = "http://127.0.0.1:" + server.address().port;
     await page.goto(base + "/");
     const last = () => page.evaluate(() => window.reports.at(-1));
-    const command = (c) => page.evaluate((c) => window.dispatchEvent(new CustomEvent("snoofer-media:command", { detail: JSON.stringify(c) })), c);
+    const command = (c) => page.evaluate((c) => window.dispatchEvent(new CustomEvent("snoofer-media:command-v2", { detail: JSON.stringify(c) })), c);
 
     await page.evaluate(() => document.getElementById("a").play());
     await page.waitForFunction(() => window.reports.at(-1)?.state === "playing", null, { polling: 50 });
@@ -66,14 +66,14 @@ navigator.mediaSession.setActionHandler("nexttrack", () => { window.nextCalls++;
     assert.equal(r.canSeek, true);
     assert.ok(Math.abs(r.durationMs - 3000) < 50, "duration " + r.durationMs);
 
-    await command({ op: "toggle" });
+    await command({ op: "toggle", value: 0 });
     await page.waitForFunction(() => document.getElementById("a").paused && window.reports.at(-1)?.state === "paused", null, { polling: 50 });
     await command({ op: "next" });
     assert.equal(await page.evaluate(() => window.nextCalls), 1, "page nexttrack handler not used");
     await command({ op: "seek", value: 1500 });
     await page.waitForFunction(() => Math.abs(document.getElementById("a").currentTime - 1.5) < 0.05, null, { polling: 50 });
     await page.waitForFunction(() => Math.abs((window.reports.at(-1)?.positionMs || 0) - 1500) < 100, null, { polling: 50 });
-    await command({ op: "toggle" });
+    await command({ op: "toggle", value: 1 });
     await page.waitForFunction(() => !document.getElementById("a").paused, null, { polling: 50 });
 
     // Injected into a tab that is already playing (installing the extension
@@ -82,13 +82,13 @@ navigator.mediaSession.setActionHandler("nexttrack", () => { window.nextCalls++;
     await late.goto(base + "/");
     await late.evaluate(() => document.getElementById("a").play());
     await late.waitForFunction(() => !document.getElementById("a").paused, null, { polling: 50 });
-    await late.evaluate(() => { window.reports = []; window.addEventListener("snoofer-media:report", (e) => window.reports.push(JSON.parse(e.detail))); });
+    await late.evaluate(() => { window.reports = []; window.addEventListener("snoofer-media:report-v2", (e) => window.reports.push(JSON.parse(e.detail))); });
     await late.evaluate(pageScript);
     await late.waitForFunction(() => window.reports.at(-1)?.state === "playing" && window.reports.at(-1)?.title === "Song", null, { polling: 50 });
 
     // A page with no media never reports.
     const quiet = await browser.newPage();
-    await quiet.addInitScript(() => { window.reports = []; window.addEventListener("snoofer-media:report", (e) => window.reports.push(e.detail)); });
+    await quiet.addInitScript(() => { window.reports = []; window.addEventListener("snoofer-media:report-v2", (e) => window.reports.push(e.detail)); });
     await quiet.addInitScript(pageScript);
     await quiet.goto(base + "/quiet");
     await quiet.waitForTimeout(400);
@@ -164,7 +164,7 @@ async function live(base) {
       throw new Error("timed out waiting for " + what + ": " + JSON.stringify(fake.messages.slice(-3)));
     };
     const hello = await until("hello", (m) => m.type === "hello");
-    assert.equal(hello.protocol, 1);
+    assert.equal(hello.protocol, 2);
     assert.equal(hello.browser, "Brave");
     assert.match(fake.messages.origin, /^chrome-extension:\/\//);
 
@@ -174,15 +174,16 @@ async function live(base) {
     const playing = await until("playing session", (m) => m.type === "sessions" && m.sessions.some((s) => s.title === "Song" && s.state === "playing"));
     const session = playing.sessions.find((s) => s.title === "Song");
     assert.equal(session.artist, "Band");
+    assert.ok(typeof session.instance === "string" && session.instance.length > 0, "session has a document instance");
     assert.equal(session.site, "127.0.0.1");
     assert.equal(session.canNext, true);
 
-    fake.send({ type: "command", id: session.id, op: "toggle" });
+    fake.send({ type: "command", id: session.id, instance: session.instance, op: "toggle", value: 0 });
     await page.waitForFunction(() => document.getElementById("a").paused, null, { polling: 50, timeout: 10000 });
     await until("paused session", (m) => m.type === "sessions" && m.sessions.some((s) => s.id === session.id && s.state === "paused"));
-    fake.send({ type: "command", id: session.id, op: "next" });
+    fake.send({ type: "command", id: session.id, instance: session.instance, op: "next", value: 0 });
     await page.waitForFunction(() => window.nextCalls === 1, null, { polling: 50, timeout: 10000 });
-    fake.send({ type: "command", id: session.id, op: "mute" });
+    fake.send({ type: "command", id: session.id, instance: session.instance, op: "mute", value: 1 });
     await until("muted tab", (m) => m.type === "sessions" && m.sessions.some((s) => s.id === session.id && s.muted));
 
     // The install hook injects into open tabs. On a tab that already has the
@@ -193,7 +194,7 @@ async function live(base) {
     await until("playing again", (m) => m.type === "sessions" && m.sessions.some((s) => s.id === session.id && s.state === "playing"));
     await worker.evaluate(() => injectOpenTabs());
     fake.messages.length = 0;
-    fake.send({ type: "command", id: session.id, op: "toggle" });
+    fake.send({ type: "command", id: session.id, instance: session.instance, op: "toggle", value: 0 });
     await page.waitForFunction(() => document.getElementById("a").paused, null, { polling: 50, timeout: 10000 });
     const after = await until("paused after injection", (m) => m.type === "sessions" && m.sessions.some((s) => s.id === session.id && s.state === "paused"));
     assert.equal(after.sessions.filter((s) => s.title === "Song").length, 1, "injection duplicated the session");

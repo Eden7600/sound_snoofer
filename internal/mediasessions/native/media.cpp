@@ -8,6 +8,7 @@
 #include <winrt/Windows.Storage.Streams.h>
 
 #include "async_wait.h"
+#include "session_identity.h"
 
 #include <chrono>
 #include <cstdint>
@@ -26,9 +27,16 @@ using namespace winrt::Windows::Media::Control;
 using namespace winrt::Windows::Storage::Streams;
 using Session = GlobalSystemMediaTransportControlsSession;
 
+struct MediaSession {
+    winrt::com_ptr<::IUnknown> identity;
+    std::string instance, id;
+    Session session{nullptr};
+};
+
 struct MS {
     GlobalSystemMediaTransportControlsSessionManager manager{nullptr};
-    std::vector<std::pair<std::string, Session>> sessions;  // From the last snapshot.
+    std::vector<MediaSession> sessions;  // From the last successful snapshot.
+    uint64_t nextInstance = 0;
 };
 
 namespace {
@@ -86,10 +94,10 @@ HRESULT deliver(std::string const& data, char* buf, uint32_t cap, uint32_t* need
     return S_OK;
 }
 
-Session* find(MS* ms, const char* id) {
+Session* find(MS* ms, const char* id, bool byInstance = false) {
     if (!ms || !id) return nullptr;
     for (auto& entry : ms->sessions) {
-        if (entry.first == id) return &entry.second;
+        if ((byInstance ? entry.instance : entry.id) == id) return &entry.session;
     }
     return nullptr;
 }
@@ -142,13 +150,15 @@ extern "C" __declspec(dllexport) HRESULT __cdecl MSOpen(MS** out) {
 extern "C" __declspec(dllexport) HRESULT __cdecl MSSnapshot(MS* ms, char* buf, uint32_t cap, uint32_t* needed) {
     if (!ms || !needed) return E_INVALIDARG;
     try {
-        std::vector<std::pair<std::string, Session>> sessions;
+        std::vector<MediaSession> sessions;
         std::map<std::string, int> seen;
         std::string out = "[";
         for (auto const& s : ms->manager.GetSessions()) {
             std::string app = to_string(s.SourceAppUserModelId());
             int n = seen[app]++;
             std::string id = n == 0 ? app : app + "#" + std::to_string(n);
+            auto identity = s.as<::IUnknown>();
+            std::string instance = mediaInstance(identity, ms->sessions, ms->nextInstance);
             std::string title, artist, album;
             bool art = false;
             try {
@@ -171,6 +181,7 @@ extern "C" __declspec(dllexport) HRESULT __cdecl MSSnapshot(MS* ms, char* buf, u
             if (out.size() > 1) out += ',';
             out += "{\"id\":";
             appendJSON(out, id);
+            field(out, "instance", instance);
             field(out, "app", app);
             field(out, "title", title);
             field(out, "artist", artist);
@@ -193,7 +204,7 @@ extern "C" __declspec(dllexport) HRESULT __cdecl MSSnapshot(MS* ms, char* buf, u
             }
             field(out, "artKey", key);
             out += '}';
-            sessions.emplace_back(id, s);
+            sessions.push_back({std::move(identity), std::move(instance), std::move(id), s});
         }
         out += ']';
         HRESULT hr = deliver(out, buf, cap, needed);
@@ -232,10 +243,10 @@ extern "C" __declspec(dllexport) HRESULT __cdecl MSArt(MS* ms, const char* id, c
     }
 }
 
-// MSCommand returns S_OK when the player accepted the request and S_FALSE
-// when it declined.
-extern "C" __declspec(dllexport) HRESULT __cdecl MSCommand(MS* ms, const char* id, int op, int64_t value) {
-    Session* s = find(ms, id);
+// MSCommand accepts the opaque instance, never the current enumeration ID.
+// S_OK means the player accepted the request; S_FALSE means it declined.
+extern "C" __declspec(dllexport) HRESULT __cdecl MSCommand(MS* ms, const char* instance, int op, int64_t value) {
+    Session* s = find(ms, instance, true);
     if (!s) return E_BOUNDS;
     try {
         bool accepted = false;

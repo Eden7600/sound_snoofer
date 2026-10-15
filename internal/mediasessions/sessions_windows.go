@@ -24,6 +24,9 @@ type Client struct {
 const insufficientBuffer = 0x8007007A
 
 func result(code uintptr) error {
+	if uint32(code) == 0x800705B4 { // HRESULT_FROM_WIN32(ERROR_TIMEOUT).
+		return ErrTimeout
+	}
 	if int32(code) < 0 {
 		return fmt.Errorf("media sessions native error 0x%08X", uint32(code))
 	}
@@ -71,7 +74,8 @@ func (c *Client) fetch(call func(buf *byte, size uint32, needed *uint32) uintptr
 	return nil, errors.New("media sessions result keeps growing")
 }
 
-// Snapshot lists the current sessions; IDs stay valid until the next call.
+// Snapshot lists sessions. IDs name snapshot slots; Instance identifies the
+// retained native object across successful snapshots for this Client's lifetime.
 func (c *Client) Snapshot() ([]Session, error) {
 	data, err := c.fetch(func(buf *byte, size uint32, needed *uint32) uintptr {
 		code, _, _ := c.snapshot.Call(c.handle, uintptr(unsafe.Pointer(buf)), uintptr(size), uintptr(unsafe.Pointer(needed)))
@@ -95,10 +99,10 @@ func (c *Client) Art(id string) ([]byte, error) {
 	})
 }
 
-// Command asks a session's player to act. Acceptance is not proof the player
+// Command asks the captured instance's player to act. Acceptance is not proof the player
 // applied it; callers confirm with a later snapshot.
-func (c *Client) Command(id string, op Op, value int64) error {
-	name, err := windows.BytePtrFromString(id)
+func (c *Client) Command(instance string, op Op, value int64) error {
+	name, err := windows.BytePtrFromString(instance)
 	if err != nil {
 		return err
 	}
