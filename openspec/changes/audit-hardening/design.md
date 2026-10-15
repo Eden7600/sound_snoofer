@@ -58,3 +58,6 @@ source checkpoint, root coordinates the canonical build and graceful-stop rechec
 with the previous launch configuration. Record a successful stop or the named
 failure; investigate any reproduced plugin problem separately before claiming its
 cause or repair. The initial failed stop remains failed evidence.
+
+## Initial-report diagnostic probe
+The session ignores current-report query and decode failures; its fallback intentionally consumes the first valid key report. The confirmed Plus XL first-press failure requires distinguishing refused, malformed and valid initial reports. Add a separate SNOOFER_DECK_BASELINE_PROBE opt-in test that discovers and opens supported decks, logs the current-input result and bounded raw report prefix, and validates a fresh Decoder against successful reports. It issues no image, feature, key or media writes and never runs in default tests. Root runs it with the production host gracefully stopped and a disposable go test timeout, then restores the same host configuration. A hung native query may time out that isolated test process; never terminate the production audio host. The probe is evidence only and does not change runtime behavior. Specify any resulting repair before implementing it.

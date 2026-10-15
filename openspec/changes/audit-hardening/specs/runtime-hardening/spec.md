@@ -99,3 +99,11 @@ order, deadlines, error presentation, build refusal or process termination polic
 - **WHEN** one plugin reports an error before the deadline expires awaiting another
 - **THEN** the returned error retains both the earlier failure and the named timeout
 - **AND** no successful cleanup or confirmed hardware cause is inferred from the diagnostic
+
+### Requirement: Initial-input diagnostics are opt-in and read-only
+The native initial-report probe SHALL run only with its dedicated environment opt-in, report query and decoding results, and issue no device-output or application actions. Default tests SHALL skip it.
+
+#### Scenario: Probe initial input on connected decks
+- **GIVEN** the production host is stopped and the dedicated probe opt-in is set
+- **WHEN** the probe opens each supported connected deck
+- **THEN** it reports the current-input result and decode result without changing layouts, controls or playback

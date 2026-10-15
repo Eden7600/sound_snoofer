@@ -35,3 +35,6 @@ Findings 14, 15 and 26 are handled elsewhere:
 ## Impact
 - **Code:** `app/web/app.js`, `internal/mediasessions/native`, `scripts/build*.ps1`, `internal/voicemeeter/callback`, `internal/streamdeck`, `plugins/streamdeck`, `plugins/hue`, `plugins/nowplaying`, `snoofer/plugin.go`.
 - **Invariants:** unchanged. Stale-action rejection is strengthened (16). No uncertain command is retried.
+
+## First-key hardware follow-up
+On 2026-10-15, the user reconnected the Plus XL, waited for Home, and reported that the first Play press did nothing while the second worked. Inspect the initial HID report and decoding result through an explicitly opted-in native read-only probe before changing input semantics. Preserve held-key suppression until the hardware evidence supports a replacement.

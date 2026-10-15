@@ -23,3 +23,5 @@
   evidence; record success or the named awaited plugin without force termination or
   claiming the two connected decks caused it. Any underlying repair needs its own
   confirmed evidence and reviewed scope.
+
+- [ ] 13. Add the explicitly opted-in native initial-input probe; run default package tests and strict validation, then coordinate the read-only hardware probe with the host stopped. Record query/decode results for Plus and Plus XL and restore the same host configuration. Do not mark first-key acceptance complete from a probe.
