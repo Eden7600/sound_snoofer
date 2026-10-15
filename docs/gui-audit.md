@@ -12,12 +12,16 @@ Screenshots were reviewed at 1280×820 and 800×600 using the browser fixture.
 1. **Clicks are silently dropped.** `send` returns early while any action is pending
    (`app/web/app.js:71`), and every control on the screen is disabled for up to 2.5 s after any
    action. Pressing Mic Mute and then Playback Mute quickly loses the second press without feedback.
+   Separately, `Desktop.Send` refuses an action when its queue is full and returns "controls busy;
+   try again" (`app/desktop_windows.go:56`). That reaches the user only through the same global
+   error notice, so it is a second way to lose an action.
 2. **Keyboard browsing of a dropdown may write live settings (unverified).** Every selection applies
    on `onchange` (`app.js:112`, plus the mic source, channel mode and region source selects). In
    Chromium on Windows, arrow keys on a closed `<select>` fire `change` per step, so arrowing through
    Processing or Monitor would apply each option. That conflicts with the rule that browsing never
    writes audio settings. The deck binding listbox (`app.js:1031`) changes the draft on every arrow
-   press. This still needs to be confirmed in WebView2 with a test.
+   press. This still needs to be confirmed in WebView2. If it is confirmed, it is the most severe
+   finding here, because it breaks a live-audio invariant.
 3. **Rebuilds discard UI state.** Any structural change rebuilds the whole screen (`layoutKey`,
    `app.js:1197`), for example a browser tab starting to play on Media or App Audio. This collapses
    open `<details>` (App Audio "More", Other Rooms, Page Options), loses scroll position and focus,
@@ -25,8 +29,9 @@ Screenshots were reviewed at 1280×820 and 800×600 using the browser fixture.
 4. **Errors follow the user across screens.** In the test run, "Control changed; try again" stayed
    visible from Audio through Soundboard, Lights, App Audio and Diagnostics. The contract asks for
    errors to stay local.
-5. **Connection loss looks like an error.** Each failed poll calls `showError`, with no backoff and no
-   distinct reconnecting state.
+5. **Connection loss has no recovery state.** Each failed poll calls `showError`, with no backoff and
+   no distinct reconnecting state. The error notice matches the current UI contract; introducing
+   reconnecting feedback is an intentional UX change, not a correction to that contract.
 6. **Confirmations are inconsistent.** Delete Page, Forget Deck and turning Own Layout off use the
    native `window.confirm`, which also blocks polling. Host confirmations use the styled `<dialog>`.
 
@@ -77,43 +82,133 @@ Screenshots were reviewed at 1280×820 and 800×600 using the browser fixture.
 - `app/web/app.js` is 1,260 lines: all 11 screens, widgets and global mutable state in one module,
   mostly in dense one-line style. Only `model.mjs` has unit tests (77 lines).
 - `scripts/check-gui.cjs` is a single 681-line script:
-  - One fixture is shared and mutated by every step, which is why the error in item 4 bled across
-    screens.
+  - One fixture is shared and mutated by every step, leaving the injected error visible in later
+    screenshots. Fresh fixtures prevent test contamination, but a separate cross-screen journey
+    must still verify that real action errors stay local.
   - It stops at the first failure and runs only with `scripts/check.ps1 -GUI`.
   - It writes screenshots but never compares them.
-  - It has no accessibility checks and no keyboard-journey coverage.
+  - It has no automated accessibility scans. It already checks deck arrow navigation, range
+    selection and no dispatch during focus movement; dropdown commit/cancel and complete keyboard
+    journeys are missing.
 - The fixture is written by hand and has drifted from the real providers. That is how items 7 and 8
   went unnoticed.
 
 ## Proposed changes
 
-Each change is its own OpenSpec change, split into commit-sized tasks. Recommended order:
+Each change is its own OpenSpec change, split into commit-sized tasks with verification at each
+checkpoint. Prepare the `gui-test-harness` proposal first; prepare later proposals against the
+resulting code and tests. This audit does not change the UI contract or authorize implementation.
+
+Before or alongside the harness proposal, run a one-off WebView2 check of item 2 through the
+`__controls` route that `scripts/check-desktop.cjs` already uses. The result decides whether
+change 3 exists.
+
+Recommended order: 1 → 2 → 3 (if confirmed) → 4 → 5 → 6 → 7 → 8 → 9. The module split comes
+before the reliability work so that work is written once, in its final location, and its pending
+and outcome logic can be unit-tested. The harness from change 1 protects the split.
 
 1. **`gui-test-harness`.** Move to Playwright Test:
-   - A fresh fixture per test, and one spec file per screen.
-   - Keyboard-journey tests, accessibility scans (axe-core), and screenshot comparisons at
-     1280×820 and 800×600.
-   - Fixtures generated from the real providers in preview, so labels cannot drift.
+   - First port every existing assertion with no application behavior change. Keep the existing
+     model tests, use a fresh fixture per test, and group specs by screen plus cross-screen journeys.
+   - Generate fixture controls through real provider publication code with fixed inputs and fake
+     backends, so labels cannot drift. Include separate live-available and preview cases: preview
+     deliberately disables audio gain/transport and several Hue controls that existing tests use.
+     Fixture generation must not depend on installed devices, network services or personal settings;
+     use isolated temporary configuration/state and inert or temporary saves.
+   - Add keyboard journeys and axe-core scans. Preserve the existing keyboard assertions; add
+     regressions for known behavior defects with the change that fixes them. Record existing
+     accessibility failures with an owning change rather than treating a scan as proof of compliance.
+   - Check layout at 1280×820 and 800×600. If screenshot comparisons are adopted, control timestamps,
+     telemetry and animation, and document the browser/font environment used for baselines.
+   - Fixture mechanism: generate fixtures with a Go test or a `tools/` generator, never a new
+     production subcommand. Commit the generated fixture together with a test that fails when it
+     no longer matches provider output. Plugins without a fake backend yet (likely Hue, App Audio,
+     Now Playing and Discord) may stay hand-written at first, with a check that their IDs and labels
+     still match the providers, rather than blocking the harness on building every fake.
    - Run by default in `scripts/check.ps1`; the native desktop smoke stays opt-in.
-   - Port the existing assertions first, with no behavior change.
-2. **`gui-content-fixes`.** Items 7–9 and the Retry label.
-3. **`gui-action-reliability`.** Items 1–6:
-   - Track pending actions per control, and never drop a click silently.
-   - Apply dropdowns only on an explicit choice.
-   - Rebuild screens without losing their state.
-   - Scope errors to where they happened, and add a reconnecting state.
-   - Use the styled dialog for all confirmations.
+   - Acceptance:
+     - The migrated suite retains every existing scenario, and tests pass independently.
+     - Fixtures reproduce provider labels, and checks require no live integrations or personal state.
+     - The suite has a stated time budget, measured against today's 27 s check, because it runs
+       on every `check.ps1`.
+     - Tests use the installed Chrome (`channel: "chrome"`). On a machine without it, the suite
+       fails with a clear message and never downloads a browser.
+2. **`gui-content-fixes`.** Items 7–9, including the Retry label:
+   - Fix labels at the owning provider or presentation layer; keep IDs, bindings and saved values
+     unchanged. Verify rendered labels with the provider-backed fixtures.
+3. **`gui-dropdown-commit`** (only if the WebView2 check confirms item 2). A small, early fix for
+   a live-audio invariant breach:
+   - Define browsing, explicit keyboard or pointer commitment, and Escape cancellation.
+   - Apply a committed choice once. Distinguish live audio selections from deck draft edits, and
+     preserve regular controls' live behavior.
+   - Acceptance: a WebView2 regression check shows that arrowing through Processing and Monitor
+     sends nothing until a choice is committed. Run this targeted check even though the general
+     native smoke remains opt-in.
+   - If the check does not confirm item 2, keep the commit/cancel definition in change 6 and add a
+     regression test so the behavior stays verified.
 4. **`gui-modules`.** Split `app.js` into per-screen modules and shared widgets so each part can be
-   unit-tested.
-5. **`gui-layout-polish`.** Items 10–14, screen by screen, with the contract updated where the UX
-   changes.
-6. **`gui-attention-journeys`.** Sidebar attention markers and consistent disabled-plugin cards.
-   This requires a contract update, because the header is limited to transient badges.
+   tested without changing behavior:
+   - Update the explicit asset list in `app/desktop_windows.go` and the source list in
+     `app/web/tailwind.css` in the same change. New modules must be embedded and their utility
+     classes included in generated CSS; filesystem-served browser tests cannot prove packaging.
+   - Add focused tests for extracted behavior. Verify the existing browser suite and canonical
+     `scripts/build.ps1` output, then run native desktop smoke against that executable and inspect
+     representative screens for missing imports or styles. Do not mark packaging verified from
+     source-served tests alone.
+
+Changes 5–7 replace the earlier single `gui-action-reliability` change, which covered items 1–6.
+They are split by risk so each can be reviewed and reverted on its own, and so the GUI-only work in
+change 6 does not wait for the cross-layer design in change 5.
+
+5. **`gui-action-outcomes`.** Items 1 and 4. This spans the GUI, host and providers, and touches the
+   stale-action and no-replay invariants, so it needs an explicit design update:
+   - Design action ordering and outcome attribution across the GUI, host and providers before
+     replacing the global pending flag. Audio controls share an epoch (`audio.go:430`); one saved
+     edit advances it, so another action from the same snapshot can be rejected as stale.
+     `Desktop.Send` acknowledges queueing only, refuses actions when its queue is full, and host
+     dispatch errors currently use one global `Notice`. Per-control pending alone does not solve
+     any of these.
+   - Keep pending state and outcomes attached to the originating action/control. Preserve stale
+     validation and target identity through queued input, edits and confirmations; do not silently
+     retarget an action using newer state. An enqueue acknowledgment, unrelated revision change or
+     timeout must not be presented as observed success. Never replay failed or uncertain one-shot
+     commands automatically.
+   - Keep action errors local to their originating screen.
+   - Acceptance: rapid Mic Mute → Playback Mute applies both valid intentions through the agreed
+     ordering policy; stale or unavailable targets receive explicit rejection. Cover delayed or
+     failed dispatch, a full action queue ("controls busy") and cross-screen errors.
+6. **`gui-state-preservation`.** Items 3 and 6, GUI only:
+   - Preserve focus, scroll, expanded details, search and unapplied text during structural updates.
+   - Use the styled dialog for all confirmations while preserving each action's warning, cancellation
+     and draft/save semantics; polling must continue while the dialog is open.
+   - Include the dropdown commit/cancel definition here if change 3 was not needed.
+   - Acceptance: cover structural updates during editing and confirmation cancellation.
+7. **`gui-connection-recovery`.** Item 5:
+   - Define global host-disconnection feedback, polling backoff and recovery. Update
+     `ui-contract.md` in this change to replace its host-loss error-notice rule with the chosen
+     reconnecting behavior; specify placement and clearing on recovery, without hiding unresolved
+     action errors.
+   - Never replay failed or uncertain one-shot commands after reconnect.
+   - Acceptance: cover disconnect and reconnect without replay.
+8. **`gui-layout-polish`.** Items 10–14 except sidebar attention and disabled-plugin cards, which
+   belong to change 9. Work screen by screen, update the contract for intentional UX changes, and
+   verify each affected screen at both viewport sizes. Reconcile the proposed Diagnostics cleanup
+   with the contract's explicit Engine row on both Audio and Diagnostics before removing controls.
+9. **`gui-attention-journeys`.** Sidebar attention markers and consistent disabled-plugin cards.
+   Define the states that require attention and their navigation targets in the contract; retain
+   the shared header's transient-only rule. Verify navigation from an attention marker and each
+   disabled-plugin screen's enable/recovery path.
 
 ## Open decisions
 
-- Add `@playwright/test` (same version as `playwright`, 1.62.1) and `@axe-core/playwright` as dev
-  dependencies?
-- Commit screenshot baselines (binary churn on UI changes), or check DOM geometry only?
-- Approve the structural split of `app.js` in change 4?
-- Write the step 1 proposal first, or all six proposals before any implementation?
+- Resolve in `gui-test-harness`: add `@playwright/test` matching the existing `playwright` version
+  (currently 1.62.1) and `@axe-core/playwright`, with intentional lockfile changes. Preserve the
+  installed-browser approach; do not introduce an implicit browser download.
+- Resolve in `gui-test-harness`: commit screenshot baselines with a reproducible capture
+  environment, or use DOM geometry assertions plus screenshot review. Either choice must catch
+  clipping, overlap and inaccessible controls at both viewport sizes; screenshots alone do not
+  verify behavior or accessibility.
+- Resolve in `gui-action-outcomes`: choose the smallest ordering and outcome mechanism that
+  satisfies the rapid-click case while preserving stale checks and no-replay guarantees.
+- Resolve in `gui-modules`: confirm module boundaries against the resulting code and test needs.
+  Keep the extraction scoped to existing screens/widgets, with no new frontend framework or bundler.
