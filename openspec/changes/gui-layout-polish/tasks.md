@@ -20,3 +20,6 @@ closed via EOF with exit code 0 and zero actions, completing task 7. The later w
 PID 63004 also closed via EOF with exit code 0 and zero actions. The normal canonical build
 passed after the diagnostic DevTools attempt; production is restored as PID 48916 with the
 previous bin/snoofer.json configuration. Physical acceptance remains separate.
+
+- [ ] 9. Shared-notice checkpoint: reproduce the floated Dismiss misalignment with short/multiline geometry checks at both sizes, replace the float with a contained centered row, update the UI contract, and pass focused layout, dismissal/focus, recovery and frontend checks.
+- [ ] 10. Coordinate canonical packaging and inspect short/wrapped shared notices in WebView2; restore the prior host configuration and record the native result.

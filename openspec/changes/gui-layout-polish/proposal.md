@@ -15,3 +15,6 @@ Frontend presentation and focused tests only. Reuse native controls, Tailwind, e
 
 ## Native compact-window follow-up
 Packaged WebView2 inspection at the 800×600 outer minimum exposed clipped sidebar branding when a classic vertical scrollbar consumes horizontal space. Browser viewport checks did not cover that gutter or the noninteractive wordmark. Fit the existing mascot and complete wordmark inside the compact sidebar, retain its vertical scrolling and navigation, and add focused geometry coverage at the native content size.
+
+## Shared notice alignment follow-up
+Packaged inspection exposed a shared error notice whose floated Dismiss button sits below the message's vertical center. Replace that float with a contained, centered row; let long and multiline errors wrap beside the button. Preserve alert semantics, dismissal and unchanged-poll focus. Add focused geometry coverage and recheck the packaged notice.

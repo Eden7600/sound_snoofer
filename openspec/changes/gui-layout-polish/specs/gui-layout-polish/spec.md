@@ -56,3 +56,11 @@ At the supported minimum outer window size, the sidebar SHALL fit the existing m
 - **THEN** the mascot and every letter of the wordmark remain inside the usable sidebar content bounds
 - **AND** the last navigation item remains reachable and visible through sidebar scrolling or keyboard navigation
 - **AND** navigation sends no provider action and no horizontal sidebar scrolling is needed
+
+### Requirement: Shared notices align their dismissal control
+The shared error notice SHALL vertically center Dismiss within its padded bounds and keep the complete message readable beside it at supported window sizes. Long identifiers and explicit line breaks SHALL wrap without overlap or horizontal overflow. Alert semantics, local dismissal and focus during unchanged polls SHALL remain unchanged.
+
+#### Scenario: Short and multiline shared errors
+- **WHEN** a short error or a long multiline error is shown at a supported window size
+- **THEN** Dismiss is vertically centered and contained inside the notice padding while the message remains readable
+- **AND** unchanged polling preserves Dismiss focus and activating it hides the notice without dispatching an action
