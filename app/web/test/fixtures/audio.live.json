@@ -1,0 +1,2910 @@
+[
+  {
+    "Artwork": "",
+    "ShortLabel": "Restart",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": true,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.engine-restart",
+    "Label": "Restart Audio Engine · Normal",
+    "Group": "Bindings",
+    "Kind": "command",
+    "Value": "",
+    "Status": "",
+    "Icon": "engine-restart",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 33
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Mic Path",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": true,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": {
+      "": "Automatic",
+      "auto": "Automatic",
+      "desk": "Desk · Silent",
+      "lav": "Lavalier",
+      "webcam": "Webcam"
+    },
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.mode",
+    "Label": "Mic Path · Normal",
+    "Group": "Bindings",
+    "Kind": "selection",
+    "Value": "direct",
+    "Status": "",
+    "Icon": "mode-direct",
+    "Options": [
+      "direct",
+      "element"
+    ],
+    "Operations": [
+      "set",
+      "press"
+    ],
+    "Available": true,
+    "Revision": 6
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Monitor",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": true,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": {
+      "": "Automatic",
+      "auto": "Automatic",
+      "desk": "Desk · Silent",
+      "lav": "Lavalier",
+      "webcam": "Webcam"
+    },
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.monitor",
+    "Label": "Monitor · Normal",
+    "Group": "Bindings",
+    "Kind": "selection",
+    "Value": "pre",
+    "Status": "",
+    "Icon": "monitor",
+    "Options": [
+      "off",
+      "pre",
+      "post"
+    ],
+    "Operations": [
+      "set",
+      "press"
+    ],
+    "Available": true,
+    "Revision": 7
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Playback",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": true,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": {
+      "": "Automatic",
+      "auto": "Automatic",
+      "desk": "Desk · Silent",
+      "lav": "Lavalier",
+      "webcam": "Webcam"
+    },
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.output",
+    "Label": "Playback · Normal",
+    "Group": "Bindings",
+    "Kind": "selection",
+    "Value": "Headphones (AirPods Pro)",
+    "Status": "",
+    "Icon": "output",
+    "Options": [
+      "",
+      "Headphones (AirPods Pro)",
+      "Speakers (SteelSeries Arena 7)",
+      "Game (SteelSeries Arena 7)"
+    ],
+    "Operations": [
+      "set"
+    ],
+    "Available": true,
+    "Revision": 8
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Mic Target",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": true,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": {
+      "": "Automatic",
+      "auto": "Automatic",
+      "desk": "Desk · Silent",
+      "lav": "Lavalier",
+      "webcam": "Webcam"
+    },
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.source",
+    "Label": "Mic Stack Target · Normal",
+    "Group": "Bindings",
+    "Kind": "selection",
+    "Value": "lav",
+    "Status": "",
+    "Icon": "source",
+    "Options": [
+      "auto",
+      "desk",
+      "lav"
+    ],
+    "Operations": [
+      "set"
+    ],
+    "Available": true,
+    "Revision": 5
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Mic Stack",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.mic-stack",
+    "Label": "Mic Stack",
+    "Group": "Mic Stack",
+    "Kind": "toggle",
+    "Value": "On",
+    "Status": "",
+    "Icon": "mic-stack",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 9
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Normal FX",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": {
+      "": "Automatic",
+      "auto": "Automatic",
+      "desk": "Desk · Silent",
+      "lav": "Lavalier",
+      "webcam": "Webcam"
+    },
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.normal-mode",
+    "Label": "Processing",
+    "Group": "Normal Microphone",
+    "Kind": "selection",
+    "Value": "direct",
+    "Status": "",
+    "Icon": "mode-direct",
+    "Options": [
+      "direct",
+      "element"
+    ],
+    "Operations": [
+      "set"
+    ],
+    "Available": true,
+    "Revision": 35
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Normal Monitor",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": {
+      "": "Automatic",
+      "auto": "Automatic",
+      "desk": "Desk · Silent",
+      "lav": "Lavalier",
+      "webcam": "Webcam"
+    },
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.normal-monitor",
+    "Label": "Monitoring",
+    "Group": "Normal Microphone",
+    "Kind": "selection",
+    "Value": "pre",
+    "Status": "",
+    "Icon": "monitor",
+    "Options": [
+      "off",
+      "pre",
+      "post"
+    ],
+    "Operations": [
+      "set"
+    ],
+    "Available": true,
+    "Revision": 36
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Normal Target",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": {
+      "": "Automatic",
+      "auto": "Automatic",
+      "desk": "Desk · Silent",
+      "lav": "Lavalier",
+      "webcam": "Webcam"
+    },
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.normal-source",
+    "Label": "Mic Stack Target",
+    "Group": "Normal Microphone",
+    "Kind": "selection",
+    "Value": "lav",
+    "Status": "",
+    "Icon": "normal-source",
+    "Options": [
+      "auto",
+      "desk",
+      "lav"
+    ],
+    "Operations": [
+      "set"
+    ],
+    "Available": true,
+    "Revision": 34
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Normal Playback",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": {
+      "": "Automatic",
+      "auto": "Automatic",
+      "desk": "Desk · Silent",
+      "lav": "Lavalier",
+      "webcam": "Webcam"
+    },
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.normal-output",
+    "Label": "Playback",
+    "Group": "Normal Playback",
+    "Kind": "selection",
+    "Value": "Headphones (AirPods Pro)",
+    "Status": "",
+    "Icon": "normal-output",
+    "Options": [
+      "",
+      "Headphones (AirPods Pro)",
+      "Speakers (SteelSeries Arena 7)",
+      "Game (SteelSeries Arena 7)"
+    ],
+    "Operations": [
+      "set"
+    ],
+    "Available": true,
+    "Revision": 37
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Record PC",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.record-computer",
+    "Label": "Record Computer",
+    "Group": "Recording",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "",
+    "Icon": "record-computer",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 18
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Loop",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.record-loop",
+    "Label": "Loop Recording",
+    "Group": "Recording",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "",
+    "Icon": "record-loop",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 19
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Record Mic",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.record-mic",
+    "Label": "Record Microphone",
+    "Group": "Recording",
+    "Kind": "toggle",
+    "Value": "On",
+    "Status": "",
+    "Icon": "record-mic",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 17
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Mic Stage",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": {
+      "": "Automatic",
+      "auto": "Automatic",
+      "desk": "Desk · Silent",
+      "lav": "Lavalier",
+      "webcam": "Webcam"
+    },
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.record-tap",
+    "Label": "Mic Stage",
+    "Group": "Recording",
+    "Kind": "selection",
+    "Value": "pre",
+    "Status": "",
+    "Icon": "tap-pre",
+    "Options": [
+      "pre",
+      "post"
+    ],
+    "Operations": [
+      "press",
+      "set"
+    ],
+    "Available": true,
+    "Revision": 21
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "To VST",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.record-vst",
+    "Label": "Recording to VST",
+    "Group": "Recording",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "",
+    "Icon": "record-vst",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 20
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.output-edit",
+    "Label": "Output Edit",
+    "Group": "Routing",
+    "Kind": "text",
+    "Value": "7304e7ceb1ab",
+    "Status": "",
+    "Icon": "",
+    "Options": null,
+    "Operations": [
+      "set"
+    ],
+    "Available": true,
+    "Revision": 61
+  },
+  {
+    "ViewData": {
+      "Lists": {
+        "interfaces": [
+          {
+            "ASIOPattern": "(?i)^Universal Audio Volt$",
+            "PresencePattern": "(?i)^INPUT 1/2 \\(Volt 2\\)$",
+            "Inputs": {
+              "desk": [
+                1
+              ],
+              "lav": [
+                2
+              ]
+            },
+            "Matches": [
+              "INPUT 1/2 (Volt 2)"
+            ],
+            "Drivers": [
+              "Universal Audio Volt"
+            ],
+            "InUse": true
+          }
+        ],
+        "mic-devices:webcam": [
+          {
+            "Driver": "wdm",
+            "Pattern": "(?i)insta360.*link.*2",
+            "Matches": [],
+            "InUse": false
+          }
+        ],
+        "microphones": [
+          {
+            "ID": "lav",
+            "Matches": null,
+            "InUse": true,
+            "Option": true
+          },
+          {
+            "ID": "webcam",
+            "Matches": null,
+            "InUse": false
+          }
+        ],
+        "playback": [
+          {
+            "Driver": "wdm",
+            "DeviceID": "{airpods}",
+            "DeviceName": "Headphones (AirPods Pro)",
+            "Matches": [
+              "Headphones (AirPods Pro)"
+            ],
+            "InUse": true
+          },
+          {
+            "Driver": "wdm",
+            "Pattern": "(?i)steelseries.*arena",
+            "Matches": [
+              "Game (SteelSeries Arena 7)",
+              "Headphones (SteelSeries Arena 7)"
+            ],
+            "InUse": false
+          },
+          {
+            "Driver": "asio",
+            "Pattern": "(?i)^Universal Audio Volt$",
+            "Matches": [
+              "Universal Audio Volt"
+            ],
+            "InUse": false
+          }
+        ]
+      },
+      "Suggestions": {
+        "mic-devices:": [
+          {
+            "Name": "Microphone (Realtek Audio)",
+            "Driver": "wdm",
+            "ID": "{realtek-mic}",
+            "Exact": "(?i)^Microphone \\(Realtek Audio\\)$",
+            "Device": "(?i)Realtek Audio"
+          },
+          {
+            "Name": "Analogue 1 + 2 (Focusrite USB)",
+            "Driver": "wdm",
+            "Exact": "(?i)^Analogue 1 \\+ 2 \\(Focusrite USB\\)$",
+            "Device": "(?i)Focusrite USB"
+          }
+        ],
+        "playback": [
+          {
+            "Name": "Speakers (Realtek Audio)",
+            "Driver": "wdm",
+            "ID": "{realtek}",
+            "Exact": "(?i)^Speakers \\(Realtek Audio\\)$",
+            "Device": "(?i)Realtek Audio"
+          }
+        ]
+      },
+      "Drivers": [
+        {
+          "Name": "Focusrite USB ASIO",
+          "Driver": "asio",
+          "ID": "{focusrite}",
+          "Exact": "(?i)^Focusrite USB ASIO$",
+          "Device": ""
+        }
+      ],
+      "Inputs": [
+        {
+          "Name": "INPUT 1/2 (Volt 2)",
+          "Driver": "wdm",
+          "Exact": "(?i)^INPUT 1/2 \\(Volt 2\\)$",
+          "Device": "(?i)Volt 2"
+        },
+        {
+          "Name": "Microphone (Realtek Audio)",
+          "Driver": "wdm",
+          "ID": "{realtek-mic}",
+          "Exact": "(?i)^Microphone \\(Realtek Audio\\)$",
+          "Device": "(?i)Realtek Audio"
+        },
+        {
+          "Name": "Analogue 1 + 2 (Focusrite USB)",
+          "Driver": "wdm",
+          "Exact": "(?i)^Analogue 1 \\+ 2 \\(Focusrite USB\\)$",
+          "Device": "(?i)Focusrite USB"
+        }
+      ],
+      "Microphones": [
+        "desk",
+        "lav",
+        "webcam",
+        "off"
+      ],
+      "Mics": [
+        {
+          "ID": "desk",
+          "Name": "Desk",
+          "Device": false,
+          "InUse": false,
+          "Option": true,
+          "Ready": false,
+          "Silent": true
+        },
+        {
+          "ID": "lav",
+          "Name": "Lavalier",
+          "Device": false,
+          "InUse": true,
+          "Option": true,
+          "Ready": true,
+          "Silent": false
+        },
+        {
+          "ID": "webcam",
+          "Name": "Webcam",
+          "Device": true,
+          "InUse": false,
+          "Option": false,
+          "Ready": false,
+          "Silent": false
+        }
+      ],
+      "OutputDevices": [
+        {
+          "Name": "Game (SteelSeries Arena 7)",
+          "Driver": "wdm",
+          "Exact": "(?i)^Game \\(SteelSeries Arena 7\\)$",
+          "Device": "(?i)SteelSeries Arena 7"
+        },
+        {
+          "Name": "Speakers (Realtek Audio)",
+          "Driver": "wdm",
+          "ID": "{realtek}",
+          "Exact": "(?i)^Speakers \\(Realtek Audio\\)$",
+          "Device": "(?i)Realtek Audio"
+        },
+        {
+          "Name": "Headphones (SteelSeries Arena 7)",
+          "Driver": "wdm",
+          "Exact": "(?i)^Headphones \\(SteelSeries Arena 7\\)$",
+          "Device": "(?i)SteelSeries Arena 7"
+        }
+      ],
+      "Profiles": true,
+      "Activity": {
+        "check": 2,
+        "silence_db": -70,
+        "silent_after_s": 10
+      }
+    },
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.priorities",
+    "Label": "Device Priorities",
+    "Group": "Routing",
+    "Kind": "status",
+    "Value": "",
+    "Status": "",
+    "Icon": "",
+    "Options": null,
+    "Operations": null,
+    "Available": true,
+    "Revision": 59
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.priority-edit",
+    "Label": "Device Priority Edit",
+    "Group": "Routing",
+    "Kind": "text",
+    "Value": "7304e7ceb1ab",
+    "Status": "",
+    "Icon": "",
+    "Options": null,
+    "Operations": [
+      "set"
+    ],
+    "Available": true,
+    "Revision": 60
+  },
+  {
+    "ViewData": {
+      "ID": "music",
+      "Bus": "A3"
+    },
+    "Artwork": "",
+    "ShortLabel": "Music",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.slot-1",
+    "Label": "Music",
+    "Group": "Routing",
+    "Kind": "status",
+    "Value": "In use",
+    "Status": "Speakers (SteelSeries Arena 7)",
+    "Icon": "vr-playback",
+    "Options": null,
+    "Operations": null,
+    "Available": true,
+    "Revision": 38
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Monitor",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.slot-1:monitor",
+    "Label": "Music Monitor",
+    "Group": "Routing",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "",
+    "Icon": "monitor",
+    "Options": [
+      "On",
+      "Off"
+    ],
+    "Operations": [
+      "press",
+      "set"
+    ],
+    "Available": true,
+    "Revision": 42
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Soundboard",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.slot-1:soundboard",
+    "Label": "Music Soundboard",
+    "Group": "Routing",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "",
+    "Icon": "soundboard-play",
+    "Options": [
+      "On",
+      "Off"
+    ],
+    "Operations": [
+      "press",
+      "set"
+    ],
+    "Available": true,
+    "Revision": 43
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Tape",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.slot-1:tape",
+    "Label": "Music Tape",
+    "Group": "Routing",
+    "Kind": "toggle",
+    "Value": "On",
+    "Status": "",
+    "Icon": "tape-play",
+    "Options": [
+      "On",
+      "Off"
+    ],
+    "Operations": [
+      "press",
+      "set"
+    ],
+    "Available": true,
+    "Revision": 44
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Computer",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.slot-1:virtual:1",
+    "Label": "Music Computer",
+    "Group": "Routing",
+    "Kind": "toggle",
+    "Value": "On",
+    "Status": "",
+    "Icon": "record-computer",
+    "Options": [
+      "On",
+      "Off"
+    ],
+    "Operations": [
+      "press",
+      "set"
+    ],
+    "Available": true,
+    "Revision": 39
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Virtual 2",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": true,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.slot-1:virtual:2",
+    "Label": "Music Virtual 2",
+    "Group": "Routing",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "",
+    "Icon": "record-computer",
+    "Options": [
+      "On",
+      "Off"
+    ],
+    "Operations": [
+      "press",
+      "set"
+    ],
+    "Available": false,
+    "Revision": 40
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Virtual 3",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": true,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.slot-1:virtual:3",
+    "Label": "Music Virtual 3",
+    "Group": "Routing",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "",
+    "Icon": "record-computer",
+    "Options": [
+      "On",
+      "Off"
+    ],
+    "Operations": [
+      "press",
+      "set"
+    ],
+    "Available": false,
+    "Revision": 41
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": true,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.slot-2",
+    "Label": "Output 2",
+    "Group": "Routing",
+    "Kind": "status",
+    "Value": "",
+    "Status": "",
+    "Icon": "vr-playback",
+    "Options": null,
+    "Operations": null,
+    "Available": false,
+    "Revision": 45
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Monitor",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": true,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.slot-2:monitor",
+    "Label": "Output 2 Monitor",
+    "Group": "Routing",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "",
+    "Icon": "monitor",
+    "Options": [
+      "On",
+      "Off"
+    ],
+    "Operations": [
+      "press",
+      "set"
+    ],
+    "Available": false,
+    "Revision": 49
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Soundboard",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": true,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.slot-2:soundboard",
+    "Label": "Output 2 Soundboard",
+    "Group": "Routing",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "",
+    "Icon": "soundboard-play",
+    "Options": [
+      "On",
+      "Off"
+    ],
+    "Operations": [
+      "press",
+      "set"
+    ],
+    "Available": false,
+    "Revision": 50
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Tape",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": true,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.slot-2:tape",
+    "Label": "Output 2 Tape",
+    "Group": "Routing",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "",
+    "Icon": "tape-play",
+    "Options": [
+      "On",
+      "Off"
+    ],
+    "Operations": [
+      "press",
+      "set"
+    ],
+    "Available": false,
+    "Revision": 51
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Computer",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": true,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.slot-2:virtual:1",
+    "Label": "Output 2 Computer",
+    "Group": "Routing",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "",
+    "Icon": "record-computer",
+    "Options": [
+      "On",
+      "Off"
+    ],
+    "Operations": [
+      "press",
+      "set"
+    ],
+    "Available": false,
+    "Revision": 46
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Virtual 2",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": true,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.slot-2:virtual:2",
+    "Label": "Output 2 Virtual 2",
+    "Group": "Routing",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "",
+    "Icon": "record-computer",
+    "Options": [
+      "On",
+      "Off"
+    ],
+    "Operations": [
+      "press",
+      "set"
+    ],
+    "Available": false,
+    "Revision": 47
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Virtual 3",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": true,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.slot-2:virtual:3",
+    "Label": "Output 2 Virtual 3",
+    "Group": "Routing",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "",
+    "Icon": "record-computer",
+    "Options": [
+      "On",
+      "Off"
+    ],
+    "Operations": [
+      "press",
+      "set"
+    ],
+    "Available": false,
+    "Revision": 48
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": true,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.slot-3",
+    "Label": "Output 3",
+    "Group": "Routing",
+    "Kind": "status",
+    "Value": "",
+    "Status": "",
+    "Icon": "vr-playback",
+    "Options": null,
+    "Operations": null,
+    "Available": false,
+    "Revision": 52
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Monitor",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": true,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.slot-3:monitor",
+    "Label": "Output 3 Monitor",
+    "Group": "Routing",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "",
+    "Icon": "monitor",
+    "Options": [
+      "On",
+      "Off"
+    ],
+    "Operations": [
+      "press",
+      "set"
+    ],
+    "Available": false,
+    "Revision": 56
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Soundboard",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": true,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.slot-3:soundboard",
+    "Label": "Output 3 Soundboard",
+    "Group": "Routing",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "",
+    "Icon": "soundboard-play",
+    "Options": [
+      "On",
+      "Off"
+    ],
+    "Operations": [
+      "press",
+      "set"
+    ],
+    "Available": false,
+    "Revision": 57
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Tape",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": true,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.slot-3:tape",
+    "Label": "Output 3 Tape",
+    "Group": "Routing",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "",
+    "Icon": "tape-play",
+    "Options": [
+      "On",
+      "Off"
+    ],
+    "Operations": [
+      "press",
+      "set"
+    ],
+    "Available": false,
+    "Revision": 58
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Computer",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": true,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.slot-3:virtual:1",
+    "Label": "Output 3 Computer",
+    "Group": "Routing",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "",
+    "Icon": "record-computer",
+    "Options": [
+      "On",
+      "Off"
+    ],
+    "Operations": [
+      "press",
+      "set"
+    ],
+    "Available": false,
+    "Revision": 53
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Virtual 2",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": true,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.slot-3:virtual:2",
+    "Label": "Output 3 Virtual 2",
+    "Group": "Routing",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "",
+    "Icon": "record-computer",
+    "Options": [
+      "On",
+      "Off"
+    ],
+    "Operations": [
+      "press",
+      "set"
+    ],
+    "Available": false,
+    "Revision": 54
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Virtual 3",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": true,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.slot-3:virtual:3",
+    "Label": "Output 3 Virtual 3",
+    "Group": "Routing",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "",
+    "Icon": "record-computer",
+    "Options": [
+      "On",
+      "Off"
+    ],
+    "Operations": [
+      "press",
+      "set"
+    ],
+    "Available": false,
+    "Revision": 55
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Recovery",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.auto-recover",
+    "Label": "Automatic Recovery",
+    "Group": "Shared Audio",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "",
+    "Icon": "auto-recover",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 13
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Defaults",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.defaults",
+    "Label": "Protect Windows Defaults",
+    "Group": "Shared Audio",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "",
+    "Icon": "defaults",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 12
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Mic",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": true,
+      "Known": true,
+      "DB": -14.991599802578259,
+      "At": "2026-10-14T12:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.gain-mic",
+    "Label": "Mic",
+    "Group": "Shared Audio",
+    "Kind": "numeric",
+    "Value": "-6.0 dB",
+    "Status": "",
+    "Icon": "gain-mic",
+    "Options": null,
+    "Operations": [
+      "adjust",
+      "press"
+    ],
+    "Available": true,
+    "Revision": 32
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Playback",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": true,
+      "Known": true,
+      "DB": -14.991599802578259,
+      "At": "2026-10-14T12:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.gain-playback",
+    "Label": "Playback",
+    "Group": "Shared Audio",
+    "Kind": "numeric",
+    "Value": "-6.0 dB",
+    "Status": "",
+    "Icon": "gain-playback",
+    "Options": null,
+    "Operations": [
+      "adjust",
+      "press"
+    ],
+    "Available": true,
+    "Revision": 31
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Mute",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.mic-mute",
+    "Label": "Mic Mute",
+    "Group": "Shared Audio",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "Unknown",
+    "Icon": "mic-mute",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 10
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Pause Devices",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.pause-devices",
+    "Label": "Disable Device Manipulation",
+    "Group": "Shared Audio",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "",
+    "Icon": "pause-devices",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 14
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Pause Sends",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.pause-sends",
+    "Label": "Disable Send Manipulation",
+    "Group": "Shared Audio",
+    "Kind": "toggle",
+    "Value": "On",
+    "Status": "3 held",
+    "Icon": "pause-sends",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 15
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Playback 1",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.playback:virtual:1",
+    "Label": "virtual:1 Playback",
+    "Group": "Shared Audio",
+    "Kind": "toggle",
+    "Value": "On",
+    "Status": "",
+    "Icon": "playback:virtual:1",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 16
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Mute",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.speaker-mute",
+    "Label": "Playback Mute",
+    "Group": "Shared Audio",
+    "Kind": "toggle",
+    "Value": "Off",
+    "Status": "Unknown",
+    "Icon": "speaker-mute",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 11
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.health",
+    "Label": "Audio Health",
+    "Group": "System",
+    "Kind": "status",
+    "Value": "Healthy",
+    "Status": "",
+    "Icon": "",
+    "Options": null,
+    "Operations": null,
+    "Available": true,
+    "Revision": 1
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.interface",
+    "Label": "Interface",
+    "Group": "System",
+    "Kind": "status",
+    "Value": "Universal Audio Volt",
+    "Status": "",
+    "Icon": "interface",
+    "Options": null,
+    "Operations": null,
+    "Available": true,
+    "Revision": 2
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": true,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.mic-device",
+    "Label": "Microphone",
+    "Group": "System",
+    "Kind": "status",
+    "Value": "Lavalier",
+    "Status": "",
+    "Icon": "mic-device",
+    "Options": null,
+    "Operations": null,
+    "Available": true,
+    "Revision": 4
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": true,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.playback-device",
+    "Label": "Playback Device",
+    "Group": "System",
+    "Kind": "status",
+    "Value": "Headphones (AirPods Pro)",
+    "Status": "",
+    "Icon": "playback-device",
+    "Options": null,
+    "Operations": null,
+    "Available": true,
+    "Revision": 3
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Record",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": true,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.record-start",
+    "Label": "record start",
+    "Group": "Transport",
+    "Kind": "command",
+    "Value": "Playing",
+    "Status": "",
+    "Icon": "record-start",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 22
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Stop Rec",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": true,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.record-stop",
+    "Label": "record stop",
+    "Group": "Transport",
+    "Kind": "command",
+    "Value": "Playing",
+    "Status": "",
+    "Icon": "record-stop",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 23
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Record",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": true,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.record-toggle",
+    "Label": "Record",
+    "Group": "Transport",
+    "Kind": "command",
+    "Value": "Playing",
+    "Status": "",
+    "Icon": "record-toggle",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 26
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Play",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": true,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.snippet-play",
+    "Label": "snippet play",
+    "Group": "Transport",
+    "Kind": "command",
+    "Value": "Playing",
+    "Status": "",
+    "Icon": "snippet-play",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 24
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Stop",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": true,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.snippet-stop",
+    "Label": "snippet stop",
+    "Group": "Transport",
+    "Kind": "command",
+    "Value": "Playing",
+    "Status": "",
+    "Icon": "snippet-stop",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 25
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "FF",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": true,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.tape-ff",
+    "Label": "Fast-forward",
+    "Group": "Transport",
+    "Kind": "command",
+    "Value": "Ready",
+    "Status": "",
+    "Icon": "tape-ff",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 30
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Play",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": true,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.tape-play",
+    "Label": "Play Recording",
+    "Group": "Transport",
+    "Kind": "command",
+    "Value": "Playing",
+    "Status": "",
+    "Icon": "tape-pause",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 27
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Rew",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": true,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.tape-rew",
+    "Label": "Rewind",
+    "Group": "Transport",
+    "Kind": "command",
+    "Value": "Ready",
+    "Status": "",
+    "Icon": "tape-rew",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 29
+  },
+  {
+    "Artwork": "",
+    "ShortLabel": "Stop",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": true,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.tape-stop",
+    "Label": "Stop",
+    "Group": "Transport",
+    "Kind": "command",
+    "Value": "Ready",
+    "Status": "",
+    "Icon": "tape-stop",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 28
+  }
+]

@@ -27,7 +27,7 @@ Tests are TypeScript. Playwright Test transpiles them; strict type-checking of t
 
 ## Fixtures
 - **Generated:**
-  - A Go golden test in `plugins/audio` builds `control.State` values for a fixed studio (live, and preview) and publishes them through `controls`, `slotControls` and `priorityControls`, with the configuration from `config.DefaultBytes()`.
+  - A Go golden test in `plugins/audio` builds `control.State` values for a fixed studio (live, and preview) and publishes them through `controls`, `slotControls` and `priorityControls` and the real registry. Its configuration is `plugins/audio/testdata/gui-config.json`, which mirrors the hand fixture's scenario (Music output, desk/lav/webcam, an ambiguous Arena match) so the ported specs keep their intent.
   - A test in `plugins/streamdeck` publishes the editor view and binding controls for a fixed layout.
   - Both marshal to JSON and compare with the committed file. With `SNOOFER_UPDATE_FIXTURES=1` they write it instead.
   - Timestamps and meters are fixed values; the browser host refreshes meter times.

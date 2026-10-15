@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { test as base, expect, type Page } from "@playwright/test";
-import { manualFixture } from "./fixtures/manual";
+import { studioFixture, type Variant } from "./fixtures";
 import type { Action, Animations, Fixture, Request } from "./types";
 
 const repository = path.resolve(__dirname, "../../..");
@@ -121,8 +121,8 @@ export class Gui {
   }
 
   // open loads the GUI with a fresh fixture, optionally edited first.
-  async open(edit?: (fixture: Fixture, animations: Animations) => void): Promise<void> {
-    const { fixture, animations } = manualFixture();
+  async open(edit?: (fixture: Fixture, animations: Animations) => void, variant: Variant = "live"): Promise<void> {
+    const { fixture, animations } = studioFixture(variant);
     edit?.(fixture, animations);
     await this.page.route(`${origin}/**`, async (route) => {
       const url = new URL(route.request().url());

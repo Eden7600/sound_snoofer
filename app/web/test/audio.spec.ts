@@ -41,6 +41,9 @@ test.describe("Audio", () => {
     expect(await tape.getByRole("button").allTextContents()).toEqual(["Record", "Pause", "Stop", "", ""]);
     await expect(tape.getByRole("button", { name: "Fast-forward" })).toHaveCount(1);
     await expect(page.getByText("Play Recording"), "tape commands leaked into Routing & recovery").toHaveCount(0);
+    await gui.update(() => {
+      window.ctl("audio.tape-rew").Available = false;
+    });
     await expect(tape.getByRole("button", { name: "Rewind" }), "unavailable tape control enabled").toBeDisabled();
     await tape.getByRole("button", { name: "Stop" }).click();
     await gui.last("audio.tape-stop");
@@ -87,5 +90,16 @@ test.describe("Audio", () => {
     await echo.getByRole("button", { name: "Retry", exact: true }).click();
     const retry = await gui.last("aec.retry");
     expect(retry.Operation).toBe("press");
+  });
+});
+
+test.describe("Audio in preview", () => {
+  test("live-only controls are unavailable", async ({ gui }) => {
+    await gui.open(undefined, "preview");
+    await gui.page.getByRole("heading", { name: "Live Controls" }).waitFor();
+    const tape = gui.page.locator("[data-part=tape]");
+    for (const name of ["Stop", "Rewind", "Fast-forward"]) {
+      await expect(tape.getByRole("button", { name }), name + " enabled in preview").toBeDisabled();
+    }
   });
 });

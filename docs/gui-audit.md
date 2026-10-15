@@ -93,6 +93,17 @@ Screenshots were reviewed at 1280×820 and 800×600 using the browser fixture.
 - The fixture is written by hand and has drifted from the real providers. That is how items 7 and 8
   went unnoticed.
 
+### Found by the generated fixture
+
+15. **Activity settings never show on Routing.** The audio provider publishes the activity settings
+    with their JSON names (`check`, `silence_db`, `silent_after_s`), but the GUI reads `Check`,
+    `SilenceDB` and `SilentAfterS` (`app.js:360`). With real data the Meter choice always shows Off
+    and the threshold fields are empty. The hand-written fixture used the GUI's spelling, so the old
+    check passed. The Routing spec records it as an expected failure owned by `gui-content-fixes`.
+16. **Every audio selection carries microphone option labels.** `audio.mode`, `audio.monitor`,
+    `audio.output` and the record tap publish the microphone `OptionLabels` map, not labels for
+    their own options. This is the cause of item 7.
+
 ## Proposed changes
 
 Each change is its own OpenSpec change, split into commit-sized tasks with verification at each
@@ -134,7 +145,7 @@ later work is written once, in TypeScript, in its final location. The repository
        on every `check.ps1`.
      - Tests use the installed Chrome (`channel: "chrome"`). On a machine without it, the suite
        fails with a clear message and never downloads a browser.
-2. **`gui-content-fixes`.** Items 7–9, including the Retry label:
+2. **`gui-content-fixes`.** Items 7–9, 15 and 16, including the Retry label:
    - Fix labels at the owning provider or presentation layer; keep IDs, bindings and saved values
      unchanged. Verify rendered labels with the provider-backed fixtures.
 3. **`gui-dropdown-commit`** (only if the WebView2 check confirms item 2). A small, early fix for

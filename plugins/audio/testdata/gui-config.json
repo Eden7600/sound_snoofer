@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "poll_ms": 1000,
+  "debounce_ms": 1000,
+  "verify_ms": 5000,
+  "profiles": {
+    "microphones": ["lav", "webcam"],
+    "activity": { "check": 2, "silence_db": -70, "silent_after_s": 10 }
+  },
+  "studio": {
+    "asio": [
+      {
+        "asio_pattern": "(?i)^Universal Audio Volt$",
+        "presence_pattern": "(?i)^INPUT 1/2 \\(Volt 2\\)$",
+        "inputs": { "desk": [1], "lav": [2] }
+      }
+    ],
+    "playback": [
+      { "driver": "wdm", "id": "{airpods}", "name": "Headphones (AirPods Pro)" },
+      { "driver": "wdm", "pattern": "(?i)steelseries.*arena" },
+      { "driver": "asio", "pattern": "(?i)^Universal Audio Volt$" }
+    ],
+    "microphones": [
+      { "id": "desk", "name": "Desk" },
+      { "id": "lav", "name": "Lavalier", "ready": true },
+      { "id": "webcam", "name": "Webcam", "devices": [{ "driver": "wdm", "pattern": "(?i)insta360.*link.*2" }] }
+    ],
+    "outputs": [
+      { "id": "music", "name": "Music", "device": "Speakers (SteelSeries Arena 7)", "sources": ["virtual:1", "tape"] }
+    ],
+    "move_playback_routing": true,
+    "playback_sources": ["virtual:1"],
+    "recording": { "computer_sources": ["virtual:1"] },
+    "voice": { "enabled": true, "source": "lav", "mode": "direct", "monitor": "off" }
+  }
+}
