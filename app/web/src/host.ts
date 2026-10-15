@@ -1,6 +1,10 @@
 import type { Control, UIAction } from "./types.ts";
 import { appState, c, update, showError } from "./state.ts";
 export async function send(action: UIAction) {
+  if (appState.reconnecting) {
+    showError("Host disconnected; action not sent");
+    return;
+  }
   if (appState.pending) return;
   appState.localError = "";
   appState.pending = {

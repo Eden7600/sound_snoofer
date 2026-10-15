@@ -9,6 +9,7 @@ export const appState: {
   controls: Map<string, Control>;
   screen: string;
   pending: Pending | null;
+  reconnecting: boolean;
   localError: string;
   dismissedNotice: string;
 } = {
@@ -16,11 +17,16 @@ export const appState: {
   controls: new Map(),
   screen: "audio",
   pending: null,
+  reconnecting: false,
   localError: "",
   dismissedNotice: "",
 };
 export function c<T = unknown>(id: string): Control<T> | undefined {
   return appState.controls.get(id) as Control<T> | undefined;
+}
+export function setReconnecting(value: boolean) {
+  appState.reconnecting = value;
+  $("#connection").hidden = !value;
 }
 export function showError(error: unknown) {
   appState.localError = String(error);

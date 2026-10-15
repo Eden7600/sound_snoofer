@@ -1,6 +1,6 @@
 import { controlsByID, gridMove } from "./model.ts";
 import { $, ui, icon } from "./dom.ts";
-import { appState, root, widgets, updaters, c, update, showError } from "./state.ts";
+import { appState, root, widgets, updaters, c, update, showError, setReconnecting } from "./state.ts";
 import { send } from "./host.ts";
 import type { ViewState } from "./types.ts";
 import type { MediaView } from "./screens/media-types.ts";
@@ -185,25 +185,28 @@ $("#confirm").oncancel = (e) => {
   e.preventDefault();
   send({ Kind: "cancel" });
 };
+let connectionFailures = 0;
 async function poll() {
   try {
-    if (!window.go?.app?.Desktop) throw new Error("Desktop connection unavailable");
-    const next = await window.go.app.Desktop.State();
+    let next: ViewState | null;
+    try {
+      if (!window.go?.app?.Desktop) throw new Error("Desktop connection unavailable");
+      next = await window.go.app.Desktop.State();
+    } catch {
+      connectionFailures = Math.min(connectionFailures + 1, 6);
+      setReconnecting(true);
+      update();
+      return;
+    }
+    connectionFailures = 0;
+    setReconnecting(false);
     receive(next);
   } catch (error) {
     showError(error);
-    update();
   } finally {
-    // finally: a throwing render must not stop polling. Meters need a faster refresh.
-    setTimeout(
-      poll,
-      appState.screen === "audio" ||
-        appState.screen === "soundboard" ||
-        appState.screen === "appaudio" ||
-        appState.screen === "media"
-        ? 100
-        : 200,
-    );
+    // A render failure must not stop polling; disconnected polls back off.
+    const cadence = ["audio", "soundboard", "appaudio", "media"].includes(appState.screen) ? 100 : 200;
+    setTimeout(poll, connectionFailures ? Math.min(5000, 100 * 2 ** connectionFailures) : cadence);
   }
 }
 poll();
