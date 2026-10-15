@@ -8,9 +8,11 @@ installed player's existing process or issue commands to a user's media session.
 
 Build only the scratch helper with the existing MSVC setup; no production source,
 canonical DLL or test hooks are changed. Use one fresh run directory for its WAV,
-logs and ready/release/stop files. The helper has an at-most-90-second lifetime,
-normal explicit stop and an independently running release/watchdog. Reserve time
-for cleanup. Compilation and fake/pure self-checks do not start media or acceptance.
+logs and ready/release/stop files. An independent watchdog requests normal stop
+and deferral release at 85 seconds and reports any cleanup overrun at 90 seconds.
+A hung native call can exceed this cooperative bound; do not force exit or claim
+a guaranteed process lifetime. Reserve time for cleanup and report failed normal
+cleanup before stronger action. Compilation and pure checks start no media.
 
 First establish real attributable SMTC publication in an approved session, then
 perform a bounded cooperative command stall using MediaPlayer.CommandManager's
@@ -38,3 +40,13 @@ each exact process exits and its SMTC session disappears, then remove only its o
 silent WAV. Keep logs. Do not terminate unrelated players or force-stop Snoofer.
 If normal cleanup fails, report the failure before stronger cleanup. Any GUI input
 or visible launch requires the user's freshly approved timed control session.
+
+The scratch native probe uses a Go test overlay only, leaving the repository and
+canonical DLL untouched. Its default is disabled. Match exactly one owned nonce/role
+title and explicit AppUserModelID after root verifies the live helper PID, creation
+time and executable against its readiness record. Reject absent/ambiguous matches.
+Read-only snapshots show only the owned sessions. An explicit Next/Pause option
+sends exactly one command to the captured instance and records elapsed time plus
+ErrTimeout (native 0x800705B4), refusal or success without retry. Keep OS-thread
+ownership and close the client; bound the scratch test process. Pure selector tests
+cover wrong identity, missing/duplicate sessions and unsupported command choices.
