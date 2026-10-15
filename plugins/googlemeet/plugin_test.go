@@ -2,8 +2,8 @@ package googlemeet
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -67,12 +67,13 @@ func (f *fakeLease) generation(browser string, value uint64) {
 }
 
 type rig struct {
-	t      *testing.T
-	w      *worker
-	lease  *fakeLease
-	ctx    context.Context
-	cancel context.CancelFunc
-	now    time.Time
+	t       *testing.T
+	w       *worker
+	lease   *fakeLease
+	adapter *testAdapter
+	ctx     context.Context
+	cancel  context.CancelFunc
+	now     time.Time
 }
 
 func newRig(t *testing.T, live bool) *rig {
@@ -80,22 +81,85 @@ func newRig(t *testing.T, live bool) *rig {
 	connection := &fakeLease{updates: make(chan browserbridge.MeetUpdate, 16), generations: map[string]uint64{"Brave": 1, "Firefox": 1}, status: browserbridge.Status{Port: 47815}}
 	r := &rig{t: t, lease: connection, now: time.Now()}
 	r.ctx, r.cancel = context.WithCancel(context.Background())
-	r.w = newWorker(snoofer.Services{Controls: snoofer.NewControls(), Live: live}, connection)
-	t.Cleanup(func() { r.cancel(); r.w.helpers.Wait() })
+	controls := snoofer.NewControls()
+	meetings := snoofer.NewMeetings(controls, live)
+	if err := meetings.Start(r.ctx); err != nil {
+		t.Fatal(err)
+	}
+	adapter, err := meetings.Attach(r.ctx, "googlemeet")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.adapter = &testAdapter{real: adapter}
+	r.w = newWorker(snoofer.Services{Controls: controls, Meetings: meetings, Live: live}, connection, r.adapter)
+	t.Cleanup(func() {
+		r.cancel()
+		r.adapter.Close()
+		r.w.helpers.Wait()
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		if err := meetings.Close(ctx); err != nil {
+			t.Error(err)
+		}
+	})
 	return r
 }
 func boolValue(value bool) *bool { return &value }
 func joined(tab int64) browserbridge.MeetCall {
 	return browserbridge.MeetCall{Tab: tab, Instance: "1", Call: "1", Sample: 1, State: "joined",
-		Mic:    browserbridge.MeetControl{Value: boolValue(true), Revision: 1, Available: true},
-		Camera: browserbridge.MeetControl{Value: boolValue(false), Revision: 1, Available: true}}
+		Mic:    browserbridge.MeetControl{Value: boolValue(true), Identity: 1, Revision: 1, Available: true},
+		Camera: browserbridge.MeetControl{Value: boolValue(false), Identity: 1, Revision: 1, Available: true}}
 }
 func (r *rig) report(calls ...browserbridge.MeetCall) {
 	if calls == nil {
 		calls = []browserbridge.MeetCall{}
 	}
 	r.w.receive(browserbridge.MeetUpdate{Browser: "Brave", Generation: r.lease.Generation("Brave"), Connected: true, Supported: true, Received: r.now, Calls: calls})
+	r.refresh()
+}
+func (r *rig) refresh() {
+	r.w.reconcile(r.now)
+	r.w.synchronize(r.ctx, r.now)
 	r.w.publish(r.ctx, r.now)
+}
+
+// Manual commands isolate provider guards; integration cases use real Next.
+type testAdapter struct {
+	real       *snoofer.MeetingAdapter
+	peers      []snoofer.MeetingPeer
+	commands   []snoofer.MeetingCommand
+	integrated bool
+	reports    int
+}
+
+func (a *testAdapter) Report(peers []snoofer.MeetingPeer) error {
+	a.reports++
+	a.peers = append([]snoofer.MeetingPeer(nil), peers...)
+	return a.real.Report(peers)
+}
+func (a *testAdapter) Changed() <-chan struct{} { return a.real.Changed() }
+func (a *testAdapter) Close()                   { a.real.Close() }
+func (a *testAdapter) Next() (snoofer.MeetingCommand, bool) {
+	if a.integrated {
+		return a.real.Next()
+	}
+	if len(a.commands) == 0 {
+		return snoofer.MeetingCommand{}, false
+	}
+	c := a.commands[0]
+	a.commands = a.commands[1:]
+	return c, true
+}
+
+func (r *rig) capture(index int, property snoofer.MeetingProperty) (snoofer.MeetingCommand, <-chan snoofer.Outcome) {
+	t := r.w.choices[index]
+	c := r.w.calls[tabKey{t.browser, t.tab}]
+	state := c.state.Mic
+	if property == snoofer.MeetingCamera {
+		state = c.state.Camera
+	}
+	results := make(chan snoofer.Outcome, 3)
+	return snoofer.MeetingCommand{Context: r.ctx, Peer: t.peer(), Lifetime: t.value(), Property: property, Revision: state.Revision, Value: !*state.Value, TargetRevision: 1, Complete: func(out snoofer.Outcome) { results <- out }}, results
 }
 func (r *rig) control(id string) snoofer.Control {
 	r.t.Helper()
@@ -163,16 +227,15 @@ func (r *rig) finishNext() {
 	r.w.publish(r.ctx, r.now)
 }
 
-func TestMeetObservedControlsAndBindings(t *testing.T) {
+func TestMeetSharedBindingsAndSeparateObservedDiagnostics(t *testing.T) {
 	r := newRig(t, true)
-	original := joined(7)
-	r.report(original)
+	r.report(joined(7))
 	if len(Plugin().Requires) != 0 {
 		t.Fatal("Meet depends on another provider")
 	}
-	for _, check := range []struct{ id, value, icon string }{{"googlemeet.mute", "On", "mic-mute-muted"}, {"googlemeet.camera", "Off", "discord-video-off"}} {
+	for _, check := range []struct{ id, value, icon, mirror string }{{"googlemeet.mute", "On", "mic-mute-muted", "meetings.mute"}, {"googlemeet.camera", "Off", "discord-video-off", "meetings.camera"}} {
 		c := r.control(check.id)
-		if c.Value != check.value || c.Icon != check.icon || !c.Available || c.Mirrors != "" || c.SurfaceOnly {
+		if c.Value != check.value || c.Icon != check.icon || !c.Available || c.Mirrors != check.mirror || c.SurfaceOnly {
 			t.Fatal(c)
 		}
 	}
@@ -181,63 +244,194 @@ func TestMeetObservedControlsAndBindings(t *testing.T) {
 		layout.Pages[0].Keys[n] = deck.Binding{Control: id}
 	}
 	if err := layout.Validate(r.w.services.Controls.Snapshot()); err != nil {
-		t.Fatal("controls are not bindable", err)
+		t.Fatal(err)
 	}
-	unknown := original
+	c, done := r.queue("googlemeet.mute", "")
+	r.w.handle(r.ctx, c, r.now)
+	outcome(t, done, snoofer.Processed)
+	r.w.publish(r.ctx, r.now)
+	if r.control("googlemeet.mute").Value != "Off" || r.control("googlemeet.call-mute").Value != "On" {
+		t.Fatal("target confused with app observation")
+	}
+	actual := r.control("googlemeet.call-mute")
+	if !actual.SurfaceOnly || actual.Kind != "status" || len(actual.Operations) != 0 {
+		t.Fatal(actual)
+	}
+	unknown := joined(7)
 	unknown.Sample++
 	unknown.Mic = browserbridge.MeetControl{Revision: 2, Reason: "unknown"}
 	r.report(unknown)
-	if c := r.control("googlemeet.mute"); c.Value != "N/A" || c.Available || c.Status != "Unknown state" {
-		t.Fatal(c)
+	actual = r.control("googlemeet.call-mute")
+	if actual.Value != "N/A" || actual.Status != "Unknown state" || !actual.Available || len(actual.Operations) != 0 {
+		t.Fatal("unknown readout was hidden or actionable", actual)
 	}
-	if !r.control("googlemeet.camera").Available {
-		t.Fatal("mic state disabled independent camera")
+	if r.control("googlemeet.mute").Value != "Off" {
+		t.Fatal("unknown observation overwrote shared target")
 	}
+}
+
+func TestMeetLegacyIdentityRemainsReadableButCannotSynchronize(t *testing.T) {
+	r := newRig(t, true)
+	a := joined(7)
+	a.Mic.Identity, a.Camera.Identity = 0, 0
+	r.report(a)
+	if r.adapter.peers[0].Mute.Available || r.adapter.peers[0].Camera.Available {
+		t.Fatal("legacy identity synchronized")
+	}
+	if r.control("googlemeet.call-mute").Value != "On" || r.control("googlemeet.call-camera").Value != "Off" {
+		t.Fatal("legacy readback lost")
+	}
+	c, done := r.capture(0, snoofer.MeetingMute)
+	r.w.apply(r.ctx, c, r.now)
+	outcome(t, done, snoofer.Rejected)
 	if len(r.lease.writes()) != 0 {
-		t.Fatal("observation wrote state")
+		t.Fatal("legacy identity wrote")
 	}
 }
 
-func TestMeetSelectionPinsAndNeverFallsBackAfterLoss(t *testing.T) {
+func TestMeetControlReplacementDoesNotBecomeSharedIntent(t *testing.T) {
 	r := newRig(t, true)
-	a, b := joined(7), joined(8)
+	a := joined(7)
 	r.report(a)
-	selected := r.w.selected
-	r.report(a, b)
-	if r.w.selected != selected {
-		t.Fatal("new call changed selection")
-	}
-	r.report(b)
-	if r.w.selected != (target{}) || r.control("googlemeet.mute").Available {
-		t.Fatal("lost target fell back")
-	}
-	if c := r.control("googlemeet.target"); c.Value != "" || c.OptionLabels[""] != "Select a call" || c.Options[0] != "" {
-		t.Fatal("selector implies a target", c)
-	}
+	a.Mic.Value = boolValue(false)
+	a.Mic.Revision++
+	a.Mic.Identity++
+	a.Sample++
 	r.report(a)
-	if r.w.selected != (target{}) {
-		t.Fatal("same URL/lifetime return reactivated auto-selection")
+	if !r.w.services.Meetings.Snapshot().Mute.Value {
+		t.Fatal("replacement became a global unmute")
 	}
-	r.selectCall(0)
-	if r.w.selected.tab != 7 || len(r.lease.writes()) != 0 {
-		t.Fatal("selection changed mic/camera")
+	if r.control("googlemeet.call-mute").Value != "Off" {
+		t.Fatal("replacement observation hidden")
 	}
 }
 
-func TestMeetInitiallyAmbiguousCallsRequireSelection(t *testing.T) {
+func TestMeetLateMatchingReadbackClearsActualUncertainty(t *testing.T) {
 	r := newRig(t, true)
-	r.report(joined(7), joined(8))
-	if r.w.selected != (target{}) || r.control("googlemeet.call").Value != "Select a call" {
-		t.Fatal("ambiguous call auto-selected")
+	r.adapter.integrated = true
+	a := joined(7)
+	r.report(a)
+	c, done := r.queue("googlemeet.camera", "")
+	r.w.handle(r.ctx, c, r.now)
+	outcome(t, done, snoofer.Processed)
+	r.refresh()
+	r.settle(0, "unknown")
+	if r.control("googlemeet.call-camera").Status != "Not confirmed" {
+		t.Fatal("unknown result hidden")
 	}
-	r.report(joined(8))
-	if r.w.selected != (target{}) {
-		t.Fatal("ambiguity later removal auto-selected")
+	a.Sample++
+	a.Camera.Revision++
+	a.Camera.Value = boolValue(true)
+	r.report(a)
+	if r.control("googlemeet.call-camera").Status != "" {
+		t.Fatal("late matching actual readback stayed uncertain")
 	}
-	r.selectCall(0)
-	if r.w.selected.tab != 8 {
-		t.Fatal(r.w.selected)
+	if len(r.lease.writes()) != 1 {
+		t.Fatal("late readback replayed command")
 	}
+}
+
+func TestMeetObservedResultCannotReplayBeforeMatchingSnapshot(t *testing.T) {
+	for _, newerContradiction := range []bool{false, true} {
+		t.Run(fmt.Sprint(newerContradiction), func(t *testing.T) {
+			r := newRig(t, true)
+			r.adapter.integrated = true
+			a := joined(7)
+			r.report(a)
+			c, done := r.queue("googlemeet.camera", "")
+			r.w.handle(r.ctx, c, r.now)
+			outcome(t, done, snoofer.Processed)
+			r.refresh()
+			if newerContradiction {
+				a.Sample++
+				a.Camera.Revision++
+				r.report(a)
+			}
+			r.settle(0, "observed")
+			r.refresh()
+			if len(r.lease.writes()) != 1 {
+				t.Fatal("observed result replayed before actual readback")
+			}
+			if r.control("googlemeet.call-camera").Value != "Off" {
+				t.Fatal("result overwrote actual snapshot")
+			}
+			a.Sample++
+			a.Camera.Revision++
+			a.Camera.Value = boolValue(true)
+			r.report(a)
+			if len(r.lease.writes()) != 1 || r.control("googlemeet.call-camera").Value != "On" {
+				t.Fatal("matching readback replayed or stayed stale")
+			}
+		})
+	}
+}
+
+func TestMeetUnchangedSnapshotsDoNotFeedCoordinatorWake(t *testing.T) {
+	r := newRig(t, true)
+	a := joined(7)
+	r.report(a)
+	for range 4 {
+		a.Sample++
+		r.report(a)
+		r.refresh()
+	}
+	if r.adapter.reports != 1 {
+		t.Fatal("heartbeat fed coordinator wake", r.adapter.reports)
+	}
+	a.Mic.Revision++
+	a.Mic.Value = boolValue(false)
+	a.Sample++
+	r.report(a)
+	a.Mic.Revision++
+	a.Mic.Value = boolValue(true)
+	a.Sample++
+	r.report(a)
+	if r.adapter.reports != 3 {
+		t.Fatal("real value transitions were coalesced", r.adapter.reports)
+	}
+}
+
+func TestMeetKnownUnsentRefusalStaysRejectedAfterTargetLoss(t *testing.T) {
+	r := newRig(t, true)
+	r.report(joined(7))
+	c, done := r.capture(0, snoofer.MeetingMute)
+	r.w.apply(r.ctx, c, r.now)
+	sent := r.lease.writes()[0]
+	wire := sent.command
+	r.lease.generation("Brave", 2)
+	r.w.finish(completed{id: 1, result: browserbridge.MeetResult{Tab: wire.Tab, Instance: wire.Instance, Call: wire.Call, Control: wire.Control, Revision: wire.Revision, Value: wire.Value, Status: "rejected", Reason: "stale"}}, r.now)
+	outcome(t, done, snoofer.Rejected)
+	r.finishNext() // The canceled waiter cannot complete it a second time.
+	select {
+	case duplicate := <-done:
+		t.Fatal("duplicate completion", duplicate)
+	default:
+	}
+}
+
+func TestMeetAllCallsFanoutWithoutSelection(t *testing.T) {
+	r := newRig(t, true)
+	r.adapter.integrated = true
+	r.report(joined(8), joined(7))
+	if r.w.selected != (target{}) || len(r.adapter.peers) != 2 || r.adapter.peers[0].ID != "Brave/7" {
+		t.Fatal("selection or nondeterministic report", r.adapter.peers)
+	}
+	c, done := r.queue("googlemeet.camera", "")
+	r.w.handle(r.ctx, c, r.now)
+	outcome(t, done, snoofer.Processed)
+	r.refresh()
+	writes := r.lease.writes()
+	if len(writes) != 2 || writes[0].command.Tab != 7 || writes[1].command.Tab != 8 {
+		t.Fatal("fanout missing", writes)
+	}
+	r.selectCall(1)
+	for _, sent := range writes {
+		if sent.ctx.Err() != nil {
+			t.Fatal("diagnostic selection canceled universal command")
+		}
+	}
+	r.settle(0, "observed")
+	r.settle(1, "observed")
 }
 
 func TestMeetFreshnessIsPerTabAndPerSample(t *testing.T) {
@@ -251,29 +445,69 @@ func TestMeetFreshnessIsPerTabAndPerSample(t *testing.T) {
 	r.now = r.now.Add(time.Second)
 	b.Sample++
 	r.report(a, b)
-	if r.w.selected != (target{}) || len(r.w.choices) != 1 || r.w.choices[0].tab != 8 {
-		t.Fatal("cached sample/other tab kept target fresh", r.w.selected, r.w.choices)
+	if r.w.selected != (target{}) || len(r.adapter.peers) != 1 || r.adapter.peers[0].ID != "Brave/8" {
+		t.Fatal("cached sample stayed fresh", r.adapter.peers)
 	}
 	a.Sample = 0
 	r.report(a, b)
-	if len(r.w.choices) != 1 {
-		t.Fatal("lower sample resurrected target")
+	if len(r.adapter.peers) != 1 {
+		t.Fatal("lower sample revived peer")
 	}
 	a.Sample = 2
 	r.report(a, b)
-	if len(r.w.choices) != 2 || r.w.selected != (target{}) {
-		t.Fatal("fresh state should need explicit reselection")
+	if len(r.adapter.peers) != 2 || r.adapter.peers[0].NewCall {
+		t.Fatal("fresh recovery mistaken for new call")
 	}
 }
 
-func TestMeetQueuedActionsRejectChangedIdentity(t *testing.T) {
-	for _, change := range []string{"connection", "document", "call", "selection", "selection ABA", "revision", "revision ABA", "unknown", "prejoin", "removed", "expired"} {
+func TestMeetNewCallNeedsAuthoritativeEvidence(t *testing.T) {
+	for _, change := range []string{"prejoin", "call", "document", "reconnect", "omitted", "unknown", "stale"} {
 		t.Run(change, func(t *testing.T) {
 			r := newRig(t, true)
-			a, b := joined(7), joined(8)
+			a := joined(7)
 			r.report(a)
-			r.report(a, b)
-			c, done := r.queue("googlemeet.mute", "")
+			a.Sample++
+			switch change {
+			case "prejoin":
+				a.State, a.Call = "prejoin", ""
+				r.report(a)
+				a.State, a.Call = "joined", "2"
+				a.Sample++
+			case "call":
+				a.Call = "2"
+			case "document":
+				a.Instance = "2"
+			case "reconnect":
+				r.lease.generation("Brave", 2)
+			case "omitted":
+				r.report()
+			case "unknown":
+				a.State = "unknown"
+				r.report(a)
+				a.State = "joined"
+				a.Sample++
+			case "stale":
+				r.now = r.now.Add(freshness)
+			}
+			r.report(a)
+			if len(r.adapter.peers) != 1 || r.adapter.peers[0].NewCall != (change == "prejoin" || change == "call") {
+				t.Fatal(r.adapter.peers)
+			}
+			r.refresh()
+			if r.adapter.peers[0].NewCall {
+				t.Fatal("repeated new call edge")
+			}
+		})
+	}
+}
+
+func TestMeetClaimedCommandsRejectChangedIdentity(t *testing.T) {
+	for _, change := range []string{"connection", "document", "call", "revision", "revision ABA", "unknown", "prejoin", "removed", "expired", "canceled", "property"} {
+		t.Run(change, func(t *testing.T) {
+			r := newRig(t, true)
+			a := joined(7)
+			r.report(a)
+			c, done := r.capture(0, snoofer.MeetingMute)
 			a.Sample++
 			switch change {
 			case "connection":
@@ -282,17 +516,12 @@ func TestMeetQueuedActionsRejectChangedIdentity(t *testing.T) {
 				a.Instance = "2"
 			case "call":
 				a.Call = "2"
-			case "selection", "selection ABA":
-				r.selectCall(1)
-				if change == "selection ABA" {
-					r.selectCall(0)
-				}
 			case "revision":
 				a.Mic.Revision++
 			case "revision ABA":
 				a.Mic.Value = boolValue(false)
 				a.Mic.Revision++
-				r.report(a, b)
+				r.report(a)
 				a.Sample++
 				a.Mic.Value = boolValue(true)
 				a.Mic.Revision++
@@ -303,50 +532,42 @@ func TestMeetQueuedActionsRejectChangedIdentity(t *testing.T) {
 			case "prejoin":
 				a.State, a.Call = "prejoin", ""
 			case "removed":
-				r.report(b)
+				r.report()
 			case "expired":
 				r.now = r.now.Add(freshness)
+			case "canceled":
+				ctx, cancel := context.WithCancel(r.ctx)
+				cancel()
+				c.Context = ctx
+			case "property":
+				c.Property = "leave"
 			}
 			if change != "removed" && change != "expired" {
-				r.report(a, b)
+				r.report(a)
 			}
-			r.w.handle(r.ctx, c, r.now)
+			r.w.apply(r.ctx, c, r.now)
 			outcome(t, done, snoofer.Rejected)
 			if len(r.lease.writes()) != 0 {
-				t.Fatal("stale request wrote", r.lease.writes())
+				t.Fatal("stale command wrote")
 			}
 		})
 	}
 }
 
-func TestMeetExplicitIntentPendingAndIndependentResults(t *testing.T) {
+func TestMeetExplicitIntentAndTerminalResults(t *testing.T) {
 	r := newRig(t, true)
 	a := joined(7)
 	r.report(a)
-	mic, micDone := r.queue("googlemeet.mute", "")
-	again, againDone := r.queue("googlemeet.mute", "")
-	camera, cameraDone := r.queue("googlemeet.camera", "")
-	r.w.handle(r.ctx, mic, r.now)
-	r.w.handle(r.ctx, again, r.now)
-	outcome(t, againDone, snoofer.Rejected)
-	r.w.handle(r.ctx, camera, r.now)
-	r.w.publish(r.ctx, r.now)
-	writes := r.lease.writes()
-	if len(writes) != 2 || writes[0].command.Control != "mic" || writes[0].command.Value || writes[1].command.Control != "camera" || !writes[1].command.Value {
-		t.Fatal(writes)
-	}
-	for _, id := range []string{"googlemeet.mute", "googlemeet.camera"} {
-		c := r.control(id)
-		if c.Status != "Pending" || !c.Available {
-			t.Fatal(c)
-		}
-	}
-	if r.control("googlemeet.mute").Value != "On" || r.control("googlemeet.camera").Value != "Off" {
-		t.Fatal("optimistic values")
+	mic, micDone := r.capture(0, snoofer.MeetingMute)
+	camera, cameraDone := r.capture(0, snoofer.MeetingCamera)
+	r.w.apply(r.ctx, mic, r.now)
+	r.w.apply(r.ctx, camera, r.now)
+	if len(r.lease.writes()) != 2 || r.lease.writes()[0].command.Value || !r.lease.writes()[1].command.Value {
+		t.Fatal("explicit intent lost")
 	}
 	select {
 	case <-micDone:
-		t.Fatal("socket write completed outcome")
+		t.Fatal("write acknowledgement completed")
 	default:
 	}
 	a.Sample++
@@ -360,80 +581,190 @@ func TestMeetExplicitIntentPendingAndIndependentResults(t *testing.T) {
 	}
 	r.settle(0, "observed")
 	outcome(t, micDone, snoofer.Processed)
-	if r.control("googlemeet.camera").Status != "Pending" {
-		t.Fatal("mic completed camera")
+	if len(r.w.pending) != 1 {
+		t.Fatal("mic settled camera")
 	}
 	r.settle(1, "rejected")
 	outcome(t, cameraDone, snoofer.Rejected)
-	if r.control("googlemeet.camera").Value != "Off" {
-		t.Fatal("result changed actual camera state")
+	r.w.finish(completed{id: 1}, r.now)
+	select {
+	case <-micDone:
+		t.Fatal("duplicate terminal result")
+	default:
+	}
+	noop, done := r.capture(0, snoofer.MeetingMute)
+	noop.Value = false
+	r.w.apply(r.ctx, noop, r.now)
+	outcome(t, done, snoofer.Processed)
+	if len(r.lease.writes()) != 2 {
+		t.Fatal("already satisfied wrote")
 	}
 }
 
-func TestMeetNoReplayAfterLostTargetOrUncertainResult(t *testing.T) {
+func TestMeetUncertainCommandAndReconnectDoNotReplay(t *testing.T) {
+	r := newRig(t, true)
+	r.adapter.integrated = true
+	a, b := joined(7), joined(8)
+	r.report(a, b)
+	c, done := r.queue("googlemeet.camera", "")
+	r.w.handle(r.ctx, c, r.now)
+	outcome(t, done, snoofer.Processed)
+	r.refresh()
+	r.settle(0, "unknown")
+	r.settle(1, "unknown")
+	r.lease.generation("Brave", 2)
+	a.Sample++
+	b.Sample++
+	r.report(a, b)
+	r.refresh()
+	if len(r.lease.writes()) != 2 {
+		t.Fatal("uncertain command replayed", r.lease.writes())
+	}
+}
+
+func TestMeetLossCancelsClaimedCommand(t *testing.T) {
 	for _, change := range []string{"disconnect", "call", "timeout", "malformed result"} {
 		t.Run(change, func(t *testing.T) {
 			r := newRig(t, true)
 			a := joined(7)
 			r.report(a)
-			c, done := r.queue("googlemeet.camera", "")
+			c, done := r.capture(0, snoofer.MeetingCamera)
 			if change == "timeout" {
-				c.accepted = time.Now().Add(-completionTimeout + 20*time.Millisecond)
+				ctx, cancel := context.WithTimeout(r.ctx, 20*time.Millisecond)
+				defer cancel()
+				c.Context = ctx
 			}
-			r.w.handle(r.ctx, c, r.now)
+			r.w.apply(r.ctx, c, r.now)
 			switch change {
 			case "disconnect":
 				r.lease.generation("Brave", 0)
 				r.w.reconcile(r.now)
-				r.finishNext()
 			case "call":
 				a.Call = "2"
 				a.Sample++
 				r.report(a)
-				r.finishNext()
-			case "timeout":
-				r.finishNext()
 			case "malformed result":
 				r.lease.writes()[0].result <- browserbridge.MeetResult{Status: "observed"}
-				r.finishNext()
 			}
+			r.finishNext()
 			outcome(t, done, snoofer.Unknown)
-			r.lease.generation("Brave", 2)
-			a.Sample++
-			r.report(a)
-			if len(r.lease.writes()) != 1 {
-				t.Fatal("uncertain operation replayed")
-			}
-			select {
-			case duplicate := <-done:
-				t.Fatal("duplicate outcome", duplicate)
-			default:
+			if len(r.w.pending) != 0 {
+				t.Fatal("pending survived loss")
 			}
 		})
 	}
 }
 
-func TestMeetPreviewAndOldCompanionRemainUnavailable(t *testing.T) {
-	r := newRig(t, false)
-	r.report(joined(7))
-	if c := r.control("googlemeet.mute"); c.Available || c.Status != "Preview" || c.Value != "On" {
-		t.Fatal(c)
+func TestMeetCapacityOnlyClaimsAvailableSlots(t *testing.T) {
+	r := newRig(t, true)
+	var calls []browserbridge.MeetCall
+	for tab := int64(1); tab <= 5; tab++ {
+		calls = append(calls, joined(tab))
 	}
-	if err := Plugin().Validate([]byte(`{"saved_camera":true}`)); err == nil {
-		t.Fatal("accepted persisted activation setting")
+	r.report(calls...)
+	for index := range 5 {
+		for _, property := range []snoofer.MeetingProperty{snoofer.MeetingMute, snoofer.MeetingCamera} {
+			c, _ := r.capture(index, property)
+			r.adapter.commands = append(r.adapter.commands, c)
+		}
 	}
-	r.w.receive(browserbridge.MeetUpdate{Browser: "Brave", Generation: 1, Connected: true, Received: r.now})
-	r.w.publish(r.ctx, r.now)
-	if c := r.control("googlemeet.app-client"); c.Connection.State != snoofer.ConnectionAttention || c.Value != "Update companion" {
-		t.Fatal(c)
+	r.refresh()
+	if len(r.w.pending) != 8 || len(r.adapter.commands) != 2 || len(r.lease.writes()) != 8 {
+		t.Fatal("claim capacity bound lost")
 	}
-	if len(r.lease.writes()) != 0 {
-		t.Fatal("preview/upgrade wrote")
+	r.settle(0, "observed")
+	r.refresh()
+	if len(r.w.pending) != 8 || len(r.adapter.commands) != 1 || len(r.lease.writes()) != 9 {
+		t.Fatal("free slot did not progress")
 	}
 }
 
-func TestMeetLeaseCloseErrorIsReturned(t *testing.T) {
+func TestMeetPreviewAndOldCompanion(t *testing.T) {
+	r := newRig(t, false)
+	r.report(joined(7))
+	c, done := r.capture(0, snoofer.MeetingMute)
+	r.w.apply(r.ctx, c, r.now)
+	outcome(t, done, snoofer.Rejected)
+	if c := r.control("googlemeet.call-mute"); c.Status != "Preview" || c.Value != "On" {
+		t.Fatal(c)
+	}
+	if r.control("googlemeet.mute").Available || len(r.lease.writes()) != 0 {
+		t.Fatal("preview writes enabled")
+	}
+	if err := Plugin().Validate([]byte(`{"saved_camera":true}`)); err == nil {
+		t.Fatal("persisted camera accepted")
+	}
+	r.w.receive(browserbridge.MeetUpdate{Browser: "Brave", Generation: 1, Connected: true, Received: r.now})
+	r.refresh()
+	if r.control("googlemeet.app-client").Value != "Update companion" {
+		t.Fatal("old companion admitted")
+	}
+}
+
+func TestMeetHelloDoesNotClaimObservedAbsence(t *testing.T) {
 	r := newRig(t, true)
+	metadata := browserbridge.MeetUpdate{Browser: "Brave", Generation: 1, Connected: true, Supported: true, Received: r.now}
+	r.w.receive(metadata)
+	r.refresh()
+	if r.control("googlemeet.call").Value != "Unknown call state" {
+		t.Fatal("hello claimed absence")
+	}
+	empty := metadata
+	empty.Calls = []browserbridge.MeetCall{}
+	r.w.receive(empty)
+	r.refresh()
+	if r.control("googlemeet.call").Value != "Not in a call" {
+		t.Fatal("observed absence missing")
+	}
+	r.w.receive(metadata)
+	r.refresh()
+	if r.control("googlemeet.call").Value != "Not in a call" {
+		t.Fatal("metadata erased absence")
+	}
+	r.lease.generation("Brave", 2)
+	metadata.Generation = 2
+	r.w.receive(metadata)
+	r.refresh()
+	if r.control("googlemeet.call").Value != "Unknown call state" {
+		t.Fatal("new generation retained absence")
+	}
+}
+
+func TestMeetLegacyActionRejectsStaleSharedRevision(t *testing.T) {
+	r := newRig(t, true)
+	r.report(joined(7))
+	a, done := r.queue("googlemeet.camera", "")
+	b, other := r.queue("googlemeet.camera", "")
+	r.w.handle(r.ctx, a, r.now)
+	outcome(t, done, snoofer.Processed)
+	r.w.handle(r.ctx, b, r.now)
+	outcome(t, other, snoofer.Rejected)
+	if len(r.lease.writes()) != 0 {
+		t.Fatal("legacy action bypassed coordinator")
+	}
+}
+
+func TestMeetAdmissionFailureAndQueuedDeadline(t *testing.T) {
+	r := newRig(t, true)
+	r.report(joined(7))
+	c, done := r.capture(0, snoofer.MeetingMute)
+	r.lease.sendErr = browserbridge.ErrBusy
+	r.w.apply(r.ctx, c, r.now)
+	outcome(t, done, snoofer.Rejected)
+	legacy, result := r.queue("googlemeet.mute", "")
+	legacy.accepted = r.now.Add(-completionTimeout)
+	r.w.handle(r.ctx, legacy, r.now)
+	outcome(t, result, snoofer.Rejected)
+	if len(r.lease.writes()) != 0 || len(r.w.pending) != 0 {
+		t.Fatal("unsent rejection wrote")
+	}
+}
+
+func TestMeetStopCompletesClaimOnceAndReturnsLeaseError(t *testing.T) {
+	r := newRig(t, true)
+	r.report(joined(7))
+	c, done := r.capture(0, snoofer.MeetingMute)
+	r.w.apply(r.ctx, c, r.now)
 	r.lease.closeErr = errors.New("close failed")
 	i := start(r.ctx, r.cancel, r.w)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -441,184 +772,15 @@ func TestMeetLeaseCloseErrorIsReturned(t *testing.T) {
 	if err := i.Stop(ctx); !errors.Is(err, r.lease.closeErr) {
 		t.Fatal(err)
 	}
-	if len(r.w.services.Controls.Snapshot()) != 0 {
-		t.Fatal("controls survived stop")
-	}
-}
-
-func TestMeetHelloDoesNotClaimAnObservedEmptyCallList(t *testing.T) {
-	r := newRig(t, true)
-	metadata := browserbridge.MeetUpdate{Browser: "Brave", Generation: 1, Connected: true, Supported: true, Received: r.now}
-	r.w.receive(metadata)
-	r.w.publish(r.ctx, r.now)
-	if c := r.control("googlemeet.call"); c.Value != "Unknown call state" {
-		t.Fatal("hello claimed call absence", c)
-	}
-	empty := metadata
-	empty.Calls = []browserbridge.MeetCall{}
-	r.w.receive(empty)
-	r.w.publish(r.ctx, r.now)
-	if c := r.control("googlemeet.call"); c.Value != "Not in a call" {
-		t.Fatal("observed absence missing", c)
-	}
-	r.w.receive(metadata)
-	r.w.publish(r.ctx, r.now)
-	if c := r.control("googlemeet.call"); c.Value != "Not in a call" {
-		t.Fatal("metadata erased observed absence", c)
-	}
-	r.lease.generation("Brave", 2)
-	metadata.Generation = 2
-	r.w.receive(metadata)
-	r.w.publish(r.ctx, r.now)
-	if c := r.control("googlemeet.call"); c.Value != "Unknown call state" {
-		t.Fatal("new generation reused old absence", c)
-	}
-}
-
-func TestMeetSelectionCancelsAcceptedWorkBeforeDelayedWrite(t *testing.T) {
-	r := newRig(t, true)
-	r.report(joined(7))
-	r.report(joined(7), joined(8))
-	c, done := r.queue("googlemeet.mute", "")
-	r.w.handle(r.ctx, c, r.now)
-	accepted := r.lease.writes()[0]
-	r.selectCall(1)
-	select {
-	case <-accepted.ctx.Done():
-	default:
-		t.Fatal("selection change left old unmute eligible at the bridge write gate")
-	}
-	r.finishNext()
 	outcome(t, done, snoofer.Unknown)
-	if r.control("googlemeet.mute").Status != "" || r.w.selected.tab != 8 {
-		t.Fatal("old result changed new target")
-	}
-}
-
-func TestMeetAdmissionFailureAndQueueDeadlineDoNotWrite(t *testing.T) {
-	for _, failure := range []string{"send", "deadline"} {
-		t.Run(failure, func(t *testing.T) {
-			r := newRig(t, true)
-			r.report(joined(7))
-			c, done := r.queue("googlemeet.mute", "")
-			if failure == "send" {
-				r.lease.sendErr = browserbridge.ErrBusy
-			} else {
-				c.accepted = r.now.Add(-completionTimeout)
-			}
-			r.w.handle(r.ctx, c, r.now)
-			outcome(t, done, snoofer.Rejected)
-			if len(r.lease.writes()) != 0 || len(r.w.pending) != 0 {
-				t.Fatal("unsent rejection reserved or wrote")
-			}
-		})
-	}
-}
-
-func TestMeetQueueFullAndStopSettleClaims(t *testing.T) {
-	r := newRig(t, true)
-	r.report(joined(7))
-	active, activeDone := r.queue("googlemeet.mute", "")
-	r.w.handle(r.ctx, active, r.now)
-	var queued []<-chan snoofer.Outcome
-	for range cap(r.w.requests) {
-		result := make(chan snoofer.Outcome, 2)
-		control := r.control("googlemeet.camera")
-		if err := r.w.services.Controls.DispatchWithResult(r.ctx, snoofer.Request{ID: control.ID, Revision: control.Revision, Operation: "press"}, func(out snoofer.Outcome) { result <- out }); err != nil {
-			t.Fatal(err)
-		}
-		queued = append(queued, result)
-	}
-	overflow := make(chan snoofer.Outcome, 2)
-	control := r.control("googlemeet.camera")
-	err := r.w.services.Controls.DispatchWithResult(r.ctx, snoofer.Request{ID: control.ID, Revision: control.Revision, Operation: "press"}, func(out snoofer.Outcome) { overflow <- out })
-	if err == nil {
-		t.Fatal("full queue accepted request")
-	}
-	outcome(t, overflow, snoofer.Rejected)
-	r.cancel()
-	outcome(t, activeDone, snoofer.Unknown)
-	for _, result := range queued {
-		outcome(t, result, snoofer.Unknown)
-	}
-	r.w.helpers.Wait()
-	if len(r.lease.writes()) != 1 {
-		t.Fatal("queued commands wrote after stop")
-	}
 	select {
-	case extra := <-activeDone:
-		t.Fatal("duplicate active outcome", extra)
+	case extra := <-done:
+		t.Fatal("duplicate terminal completion", extra)
 	default:
 	}
-}
-
-func TestMeetPendingLimitKeepsIndependentTargetState(t *testing.T) {
-	r := newRig(t, true)
-	var calls []browserbridge.MeetCall
-	for tab := int64(1); tab <= 5; tab++ {
-		calls = append(calls, joined(tab))
-	}
-	r.report(calls...)
-	// Switching targets cancels previous accepted work. Until its waiter settles,
-	// the bounded owner retains the reservation instead of growing more waiters.
-	for index := range 4 {
-		r.selectCall(index)
-		for _, id := range []string{"googlemeet.mute", "googlemeet.camera"} {
-			c, _ := r.queue(id, "")
-			r.w.handle(r.ctx, c, r.now)
+	for _, c := range r.w.services.Controls.Snapshot() {
+		if c.ID == "googlemeet.mute" {
+			t.Fatal("controls survived stop")
 		}
-	}
-	r.selectCall(4)
-	c, done := r.queue("googlemeet.mute", "")
-	r.w.handle(r.ctx, c, r.now)
-	outcome(t, done, snoofer.Rejected)
-	if len(r.w.pending) != 8 || len(r.lease.writes()) != 8 {
-		t.Fatal("pending bound not enforced")
-	}
-}
-
-func TestMeetObservationsAndRequestsDoNotWriteOtherProviders(t *testing.T) {
-	r := newRig(t, true)
-	sideEffects := 0
-	for _, owner := range []string{"audio", "discord"} {
-		if err := r.w.services.Controls.Publish(owner, []snoofer.Control{{ID: owner + ".mute", Label: owner, Kind: "toggle", Value: "On", Available: true, Operations: []string{"press"}}}, func(context.Context, snoofer.Request) error { sideEffects++; return nil }); err != nil {
-			t.Fatal(err)
-		}
-	}
-	r.w.services.SaveSettings = func(string, json.RawMessage, json.RawMessage) error { sideEffects++; return nil }
-	r.report(joined(7))
-	c, done := r.queue("googlemeet.mute", "")
-	r.w.handle(r.ctx, c, r.now)
-	r.settle(0, "observed")
-	outcome(t, done, snoofer.Processed)
-	if sideEffects != 0 || r.control("audio.mute").Value != "On" || r.control("discord.mute").Value != "On" {
-		t.Fatal("Meet changed global/Discord state")
-	}
-}
-
-func TestMeetPrejoinAndObservedEmptyListEndSelectedLifetime(t *testing.T) {
-	r := newRig(t, true)
-	prejoin := joined(7)
-	prejoin.State, prejoin.Call = "prejoin", ""
-	prejoin.Mic.Available, prejoin.Camera.Available = false, false
-	prejoin.Mic.Reason, prejoin.Camera.Reason = "not-in-call", "not-in-call"
-	r.report(prejoin)
-	if r.w.selected != (target{}) || r.control("googlemeet.mute").Available || r.w.discovered {
-		t.Fatal("prejoin consumed initial selection or enabled actions")
-	}
-	active := joined(7)
-	active.Sample = 2
-	r.report(active)
-	if r.w.selected == (target{}) {
-		t.Fatal("first real call was not selected")
-	}
-	r.report()
-	if r.w.selected != (target{}) || r.control("googlemeet.call").Value != "Not in a call" {
-		t.Fatal("observed empty list retained call")
-	}
-	active.Sample++
-	r.report(active)
-	if r.w.selected != (target{}) {
-		t.Fatal("rejoin automatically restored selection")
 	}
 }

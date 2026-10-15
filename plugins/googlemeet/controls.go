@@ -51,15 +51,13 @@ func (w *worker) callReason(now time.Time) string {
 	return "Not in a call"
 }
 
-func (w *worker) actionControl(control, id, label, icon string, now time.Time) (snoofer.Control, command) {
+func (w *worker) observedControl(control, id, label, icon string, now time.Time) snoofer.Control {
 	current, selected := w.current(w.selected, now)
 	state := controlState(current.state, control)
 	key := actionKey{w.selected, control}
-	c := command{target: w.selected, selection: w.selection, control: control, revision: state.Revision,
-		known: state.Value != nil, available: selected && state.Available}
 	value, status := "N/A", ""
 	if selected && state.Value != nil {
-		value, c.want = snoofer.OnOff(*state.Value), !*state.Value
+		value = snoofer.OnOff(*state.Value)
 	}
 	switch {
 	case !selected:
@@ -69,7 +67,7 @@ func (w *worker) actionControl(control, id, label, icon string, now time.Time) (
 	default:
 		status = w.notes[key]
 		for _, p := range w.pending {
-			if (actionKey{p.command.target, p.command.control}) == key {
+			if (actionKey{p.target, p.control}) == key {
 				status = "Pending"
 				break
 			}
@@ -84,16 +82,27 @@ func (w *worker) actionControl(control, id, label, icon string, now time.Time) (
 	if control == "camera" && value == "Off" {
 		icon = "discord-video-off"
 	}
-	identity := controlContext{w.selected, w.selection, state.Revision}
-	epoch := w.epochs[id]
-	if epoch.epoch == 0 || epoch.context != identity {
-		w.nextEpoch++
-		epoch = controlEpoch{identity, w.nextEpoch}
-		w.epochs[id] = epoch
+	return snoofer.Control{ID: id, Label: "Meet " + label, ShortLabel: label, Group: "Google Meet", Kind: "status", Icon: icon,
+		Value: value, Status: status, SurfaceOnly: true, Available: true}
+}
+
+func (w *worker) actionControl(property snoofer.MeetingProperty, target snoofer.MeetingTarget, id, label, icon string) (snoofer.Control, command) {
+	value, status := "N/A", target.Status
+	if target.Known {
+		value = snoofer.OnOff(target.Value)
+	}
+	if !w.services.Live {
+		status = "Preview"
+	}
+	if property == snoofer.MeetingMute && value == "On" {
+		icon = "mic-mute-muted"
+	}
+	if property == snoofer.MeetingCamera && value == "Off" {
+		icon = "discord-video-off"
 	}
 	return snoofer.Control{ID: id, Label: "Meet " + label, ShortLabel: label, Group: "Google Meet", Kind: "toggle", Icon: icon,
-		Value: value, Status: status, Epoch: epoch.epoch, Operations: []string{"press"},
-		Available: w.services.Live && c.available && c.known}, c
+		Value: value, Status: status, Epoch: target.Revision, Operations: []string{"press"}, Mirrors: "meetings." + string(property),
+		Available: w.services.Live && target.Known}, command{property: property, revision: target.Revision, want: !target.Value}
 }
 
 func (w *worker) report(now time.Time) snoofer.Control {
@@ -127,8 +136,9 @@ func (w *worker) report(now time.Time) snoofer.Control {
 
 func (w *worker) publish(ctx context.Context, now time.Time) {
 	w.reconcile(now)
-	mute, muteCommand := w.actionControl("mic", "googlemeet.mute", "Mute", "mic-mute", now)
-	camera, cameraCommand := w.actionControl("camera", "googlemeet.camera", "Camera", "discord-video", now)
+	shared := w.services.Meetings.Snapshot()
+	mute, muteCommand := w.actionControl(snoofer.MeetingMute, shared.Mute, "googlemeet.mute", "Mute", "mic-mute")
+	camera, cameraCommand := w.actionControl(snoofer.MeetingCamera, shared.Camera, "googlemeet.camera", "Camera", "discord-video")
 	options, labels, targets := []string{}, map[string]string{}, map[string]target{}
 	callValue, callStatus := w.callReason(now), ""
 	if w.selected == (target{}) {
@@ -146,6 +156,8 @@ func (w *worker) publish(ctx context.Context, now time.Time) {
 		labels[value], targets[value] = choice.label(), choice
 	}
 	controls := []snoofer.Control{mute, camera,
+		w.observedControl("mic", "googlemeet.call-mute", "Mute", "mic-mute", now),
+		w.observedControl("camera", "googlemeet.call-camera", "Camera", "discord-video", now),
 		{ID: "googlemeet.call", Label: "Meet Call", ShortLabel: "Call", Group: "Google Meet", Kind: "status", Icon: "call", Value: callValue, Status: callStatus, Available: true},
 		{ID: "googlemeet.target", Label: "Meet Call", ShortLabel: "Call", Group: "Google Meet", Kind: "selection", Icon: "call", Value: w.selected.value(),
 			Options: options, OptionLabels: labels, Operations: []string{"set"}, Epoch: w.catalogue, SurfaceOnly: true, Available: len(w.choices) > 0},

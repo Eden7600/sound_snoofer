@@ -1,4 +1,4 @@
-// Package googlemeet controls only the selected Meet call through the browser companion.
+// Package googlemeet applies shared meeting intent to observed browser calls.
 package googlemeet
 
 import (
@@ -25,6 +25,13 @@ type lease interface {
 	Close(context.Context) error
 }
 
+type meetingAdapter interface {
+	Report([]snoofer.MeetingPeer) error
+	Changed() <-chan struct{}
+	Next() (snoofer.MeetingCommand, bool)
+	Close()
+}
+
 func validate(raw json.RawMessage) error { return snoofer.DecodeSettings(raw, &struct{}{}) }
 
 // Plugin has no audio, Discord or Now Playing dependency and no saved activation state.
@@ -37,13 +44,22 @@ func Plugin() snoofer.Plugin {
 			if s.Browser == nil {
 				return nil, errors.New("browser bridge unavailable")
 			}
+			if s.Meetings == nil {
+				return nil, errors.New("meeting coordinator unavailable")
+			}
 			runCtx, cancel := context.WithCancel(ctx)
-			connection, err := s.Browser.AcquireMeet(runCtx)
+			adapter, err := s.Meetings.Attach(runCtx, "googlemeet")
 			if err != nil {
 				cancel()
 				return nil, err
 			}
-			return start(runCtx, cancel, newWorker(s, connection)), nil
+			connection, err := s.Browser.AcquireMeet(runCtx)
+			if err != nil {
+				cancel()
+				adapter.Close()
+				return nil, err
+			}
+			return start(runCtx, cancel, newWorker(s, connection, adapter)), nil
 		}}
 }
 
@@ -73,13 +89,15 @@ type command struct {
 	complete                       snoofer.Completion
 	target                         target
 	selection, catalogue, revision uint64
-	control                        string
-	known, available, want         bool
+	property                       snoofer.MeetingProperty
+	want                           bool
 	accepted                       time.Time
 }
 
 type pending struct {
-	command command
+	command snoofer.MeetingCommand
+	target  target
+	control string
 	wire    browserbridge.MeetCommand
 	cancel  context.CancelFunc
 }
@@ -90,43 +108,46 @@ type completed struct {
 }
 
 type worker struct {
-	services               snoofer.Services
-	connection             lease
-	requests               chan command
-	results                chan completed
-	helpers                sync.WaitGroup
-	browsers               map[string]browserbridge.MeetUpdate
-	calls                  map[tabKey]call
-	selected               target
-	discovered             bool
-	selection, catalogue   uint64
-	choices                []target
-	epochs                 map[string]controlEpoch
-	nextEpoch, nextRequest uint64
-	pending                map[uint64]pending
-	notes                  map[actionKey]string
-	link                   snoofer.ConnectionTracker
+	services             snoofer.Services
+	connection           lease
+	meetings             meetingAdapter
+	requests             chan command
+	results              chan completed
+	helpers              sync.WaitGroup
+	browsers             map[string]browserbridge.MeetUpdate
+	calls                map[tabKey]call
+	selected             target
+	discovered           bool
+	selection, catalogue uint64
+	choices              []target
+	lastReport           []snoofer.MeetingPeer
+	nextRequest          uint64
+	pending              map[uint64]pending
+	notes                map[actionKey]string
+	link                 snoofer.ConnectionTracker
 }
 
-func newWorker(s snoofer.Services, connection lease) *worker {
-	return &worker{services: s, connection: connection, requests: make(chan command, 8), results: make(chan completed, 8),
+func newWorker(s snoofer.Services, connection lease, meetings meetingAdapter) *worker {
+	return &worker{services: s, connection: connection, meetings: meetings, requests: make(chan command, 8), results: make(chan completed, 8),
 		browsers: map[string]browserbridge.MeetUpdate{}, calls: map[tabKey]call{}, selection: 1,
-		epochs: map[string]controlEpoch{}, pending: map[uint64]pending{}, notes: map[actionKey]string{}}
+		pending: map[uint64]pending{}, notes: map[actionKey]string{}}
 }
 
 func (w *worker) run(ctx context.Context) {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 	defer w.helpers.Wait()
+	defer w.meetings.Close()
 	updates := w.connection.Updates()
 	for {
 		w.reconcile(time.Now())
+		w.synchronize(ctx, time.Now())
 		w.publish(ctx, time.Now())
 		select {
 		case <-ctx.Done():
 			for _, p := range w.pending {
 				p.cancel()
-				p.command.finish(snoofer.Unknown, "Meet stopped before confirmation")
+				p.command.Complete(snoofer.Outcome{Status: snoofer.Unknown, Detail: "Meet stopped before confirmation"})
 			}
 			return
 		case update, ok := <-updates:
@@ -141,6 +162,7 @@ func (w *worker) run(ctx context.Context) {
 			w.handle(ctx, c, time.Now())
 		case result := <-w.results:
 			w.finish(result, time.Now())
+		case <-w.meetings.Changed():
 		case <-ticker.C:
 		}
 	}
@@ -159,12 +181,8 @@ func (w *worker) handle(ctx context.Context, c command, now time.Time) {
 		c.finish(snoofer.Unknown, "Meet stopped before processing")
 		return
 	}
-	if c.selection != w.selection {
-		reject("Meet selection changed; try again")
-		return
-	}
 	if c.request.ID == "googlemeet.target" {
-		if c.catalogue != w.catalogue || !w.eligible(c.target, now) {
+		if c.selection != w.selection || c.catalogue != w.catalogue || !w.eligible(c.target, now) {
 			reject("Meet calls changed; select again")
 			return
 		}
@@ -180,19 +198,47 @@ func (w *worker) handle(ctx context.Context, c command, now time.Time) {
 		reject("Meet request expired before sending")
 		return
 	}
-	current, ok := w.current(c.target, now)
-	if !ok || c.target != w.selected {
+	if err := w.services.Meetings.Request(ctx, c.property, c.revision, c.want, c.complete); err != nil {
+		reject(err.Error())
+	}
+}
+
+func (w *worker) apply(ctx context.Context, c snoofer.MeetingCommand, now time.Time) {
+	reject := func(detail string) { c.Complete(snoofer.Outcome{Status: snoofer.Rejected, Detail: detail}) }
+	if ctx.Err() != nil || c.Context.Err() != nil || !w.services.Live {
+		reject("Meet command canceled or unavailable in preview")
+		return
+	}
+	var captured target
+	for _, choice := range w.choices {
+		if choice.peer() == c.Peer && choice.value() == c.Lifetime {
+			captured = choice
+			break
+		}
+	}
+	current, ok := w.current(captured, now)
+	if !ok {
 		reject("Meet call changed or unavailable")
 		return
 	}
-	state := controlState(current.state, c.control)
-	if !c.known || !c.available || !state.Available || state.Value == nil || state.Revision != c.revision {
+	control := ""
+	switch c.Property {
+	case snoofer.MeetingMute:
+		control = "mic"
+	case snoofer.MeetingCamera:
+		control = "camera"
+	default:
+		reject("Unknown Meet property")
+		return
+	}
+	state := controlState(current.state, control)
+	if !state.Available || state.Identity == 0 || state.Value == nil || state.Revision != c.Revision {
 		reject("Meet control changed or unavailable; try again")
 		return
 	}
-	key := actionKey{c.target, c.control}
+	key := actionKey{captured, control}
 	for _, p := range w.pending {
-		if (actionKey{p.command.target, p.command.control}) == key {
+		if (actionKey{p.target, p.control}) == key {
 			reject("Meet control pending")
 			return
 		}
@@ -201,14 +247,16 @@ func (w *worker) handle(ctx context.Context, c command, now time.Time) {
 		reject("Meet commands busy")
 		return
 	}
-	if *state.Value == c.want {
-		c.finish(snoofer.Processed, "Meet state observed")
+	if *state.Value == c.Value {
+		c.Complete(snoofer.Outcome{Status: snoofer.Processed, Detail: "Meet state observed"})
 		return
 	}
-	wire := browserbridge.MeetCommand{Generation: c.target.generation, Tab: c.target.tab, Instance: c.target.instance, Call: c.target.call,
-		Control: c.control, Revision: c.revision, Value: c.want}
-	requestCtx, cancel := context.WithDeadline(ctx, c.accepted.Add(completionTimeout))
-	results, err := w.connection.Send(requestCtx, c.target.browser, wire)
+	wire := browserbridge.MeetCommand{Generation: captured.generation, Tab: captured.tab, Instance: captured.instance, Call: captured.call,
+		Control: control, Revision: c.Revision, Value: c.Value}
+	requestCtx, cancelRequest := context.WithTimeout(c.Context, completionTimeout)
+	stop := context.AfterFunc(ctx, cancelRequest)
+	cancel := func() { stop(); cancelRequest() }
+	results, err := w.connection.Send(requestCtx, captured.browser, wire)
 	if err != nil {
 		cancel()
 		reject(err.Error())
@@ -216,7 +264,7 @@ func (w *worker) handle(ctx context.Context, c command, now time.Time) {
 	}
 	w.nextRequest++
 	id := w.nextRequest
-	w.pending[id] = pending{command: c, wire: wire, cancel: cancel}
+	w.pending[id] = pending{command: c, target: captured, control: control, wire: wire, cancel: cancel}
 	delete(w.notes, key)
 	w.helpers.Add(1)
 	go func() {
@@ -235,7 +283,7 @@ func (w *worker) handle(ctx context.Context, c command, now time.Time) {
 		select {
 		case w.results <- completed{id, result}:
 		case <-ctx.Done():
-			c.finish(snoofer.Unknown, "Meet stopped before confirmation")
+			// The worker owns terminal completion during shutdown.
 		}
 	}()
 }
@@ -250,16 +298,18 @@ func (w *worker) finish(done completed, now time.Time) {
 	result, wire := done.result, p.wire
 	status, detail := snoofer.Unknown, "Meet state not confirmed"
 	matched := result.Tab == wire.Tab && result.Instance == wire.Instance && result.Call == wire.Call && result.Control == wire.Control && result.Revision == wire.Revision && result.Value == wire.Value
-	if matched && w.eligible(p.command.target, now) {
+	if matched {
 		switch result.Status {
 		case "observed":
-			status, detail = snoofer.Processed, "Meet state observed"
+			if w.eligible(p.target, now) {
+				status, detail = snoofer.Processed, "Meet state observed"
+			}
 		case "rejected":
 			status, detail = snoofer.Rejected, "Meet request rejected: "+result.Reason
 		}
 	}
-	if w.eligible(p.command.target, now) && status != snoofer.Processed {
-		w.notes[actionKey{p.command.target, p.command.control}] = "Not confirmed"
+	if w.eligible(p.target, now) && status != snoofer.Processed {
+		w.notes[actionKey{p.target, p.control}] = "Not confirmed"
 	}
-	p.command.finish(status, detail)
+	p.command.Complete(snoofer.Outcome{Status: status, Detail: detail})
 }

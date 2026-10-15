@@ -1,11 +1,13 @@
 package googlemeet
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"time"
 
 	"sound-snoofer/internal/browserbridge"
+	"sound-snoofer/snoofer"
 )
 
 type tabKey struct {
@@ -22,18 +24,11 @@ type call struct {
 	target  target
 	state   browserbridge.MeetCall
 	sampled time.Time
+	newCall bool
 }
 type actionKey struct {
 	target  target
 	control string
-}
-type controlContext struct {
-	target              target
-	selection, revision uint64
-}
-type controlEpoch struct {
-	context controlContext
-	epoch   uint64
 }
 
 func (t target) value() string {
@@ -43,6 +38,7 @@ func (t target) value() string {
 	return fmt.Sprintf("%s/%d/%d/%s/%s", t.browser, t.generation, t.tab, t.instance, t.call)
 }
 func (t target) label() string { return fmt.Sprintf("%s · Tab %d", t.browser, t.tab) }
+func (t target) peer() string  { return fmt.Sprintf("%s/%d", t.browser, t.tab) }
 
 func controlState(c browserbridge.MeetCall, control string) browserbridge.MeetControl {
 	if control == "mic" {
@@ -80,7 +76,11 @@ func (w *worker) receive(update browserbridge.MeetUpdate) {
 				continue
 			}
 		}
-		w.calls[key] = call{target{update.Browser, update.Generation, state.Tab, state.Instance, state.Call}, state, update.Received}
+		t := target{update.Browser, update.Generation, state.Tab, state.Instance, state.Call}
+		// Missing/stale reports and new documents do not prove that a call ended.
+		newCall := state.State == "joined" && exists && old.target.generation == update.Generation && old.state.Instance == state.Instance &&
+			update.Received.Sub(old.sampled) < freshness && (old.state.State == "prejoin" || old.state.State == "joined" && old.state.Call != state.Call)
+		w.calls[key] = call{target: t, state: state, sampled: update.Received, newCall: newCall || old.target == t && old.newCall}
 	}
 	for key := range w.calls {
 		if key.browser == update.Browser && !present[key] {
@@ -104,9 +104,6 @@ func (w *worker) selectTarget(t target) {
 	if w.selected != t {
 		w.selected = t
 		w.selection++
-		for _, p := range w.pending {
-			p.cancel() // The adapter cannot see a changed Snoofer selection.
-		}
 	}
 }
 
@@ -156,7 +153,7 @@ func (w *worker) reconcile(now time.Time) {
 		}
 	}
 	for _, p := range w.pending {
-		if !w.eligible(p.command.target, now) {
+		if !w.eligible(p.target, now) {
 			p.cancel()
 		}
 	}
@@ -164,5 +161,66 @@ func (w *worker) reconcile(now time.Time) {
 		if !w.eligible(key.target, now) {
 			delete(w.notes, key)
 		}
+	}
+}
+
+func meetingValue(state browserbridge.MeetControl) snoofer.MeetingValue {
+	v := snoofer.MeetingValue{Identity: state.Identity, Known: state.Value != nil, Available: state.Available && state.Identity != 0, Revision: state.Revision}
+	if state.Value != nil {
+		v.Value = *state.Value
+	}
+	return v
+}
+
+func (w *worker) synchronize(ctx context.Context, now time.Time) {
+	peers := make([]snoofer.MeetingPeer, 0, len(w.choices))
+	for _, t := range w.choices {
+		c, ok := w.current(t, now)
+		if !ok {
+			continue
+		}
+		peers = append(peers, snoofer.MeetingPeer{ID: t.peer(), Lifetime: t.value(), Label: t.label(), Joined: true, NewCall: c.newCall,
+			Mute: meetingValue(c.state.Mic), Camera: meetingValue(c.state.Camera)})
+	}
+	// Reports wake all adapters; unchanged snapshots must not feed that wake back.
+	if !slices.Equal(peers, w.lastReport) {
+		if err := w.meetings.Report(peers); err != nil {
+			w.link.Fail(err.Error(), now)
+			return
+		}
+		w.lastReport = peers
+	}
+	for key, c := range w.calls {
+		c.newCall = false
+		w.calls[key] = c
+	}
+	shared := w.services.Meetings.Snapshot()
+	for key := range w.notes {
+		current, ok := w.current(key.target, now)
+		state := controlState(current.state, key.control)
+		target := shared.Mute
+		if key.control == "camera" {
+			target = shared.Camera
+		}
+		if !ok || !state.Available || state.Identity == 0 || state.Value == nil || !target.Known || *state.Value != target.Value {
+			continue
+		}
+		pending := false
+		for _, p := range w.pending {
+			pending = pending || p.target == key.target && p.control == key.control
+		}
+		if !pending {
+			delete(w.notes, key)
+		}
+	}
+	if !w.services.Live || ctx.Err() != nil {
+		return
+	}
+	for capacity := 8 - len(w.pending); capacity > 0; capacity-- {
+		c, ok := w.meetings.Next()
+		if !ok {
+			return
+		}
+		w.apply(ctx, c, now)
 	}
 }
