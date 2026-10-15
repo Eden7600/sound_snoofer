@@ -21,6 +21,8 @@ with its focused checks; retain unrelated GUI defects and user changes.
 - [x] 6. `test(gui)`: protect already-correct built-in/custom page OptionLabels with an unchanged-ID
   selection assertion; reconcile the UI contract for the intentional presentation changes and
   inspect native-size deck renderer output for affected option labels.
+- [ ] 6a. Bound the Binding listbox height after the combined geometry check exposed label-driven
+  overlap with Save/Discard at 1280×820; retain wrapped labels and native scrolling, verify both sizes.
 - [ ] 7. Validate: frontend type/lint/format/model/browser checks, provider fixture drift,
   `go test ./...`, `go vet ./...`, OpenSpec strict validation, canonical build and packaged desktop
   smoke; inspect affected screens at both viewport sizes and restore the prior host launch.

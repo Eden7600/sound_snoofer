@@ -66,7 +66,7 @@ Use these names in Plugins headings and Third-Party Apps' Not monitored list. Th
 keeps the full provider Label and changes its suffix from plugin ID to registered plugin label.
 Search continues to find displayed names and plugin IDs; retaining ID matching avoids removing an
 existing search capability. Selected and unavailable bindings retain their existing fallback.
-Option values and tooltips remain control IDs.
+Option values and tooltips remain control IDs. Longer registered names and profile qualifiers can increase native listbox row height in Chromium; cap the Binding listbox height while preserving its native scrolling and wrapped labels, so these content changes do not put it under the save bar. Verify both supported sizes without expanding the layout exception list.
 
 Audio's fixed Normal/VR controls currently share full Labels such as Processing while only their
 ShortLabels distinguish profiles. Qualify their provider Labels with Normal/VR (Microphone,
