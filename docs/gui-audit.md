@@ -22,8 +22,9 @@ cause remains unknown. Physical reconnect acceptance exposed a separate first-ke
 Plus XL. The user selected released-at-connect button state; `03e74d2` implements that policy
 and removes the unsupported startup query. After the canonical rebuild, the user confirmed
 the first key and first dial-button press work on both Plus and Plus XL. Snoofer is running as
-PID 69960 with the previous configuration. The audit is **not fully accepted**: the packaged
-brand recheck and remaining native/live checks below are pending.
+PID 69960 with the previous configuration. The compact packaged brand recheck, plugin-gate
+and marker-navigation journeys now pass. The audit is **not fully accepted**: pointer selection,
+wide Plugins/Third-Party Apps inspection and the remaining native/live checks below are pending.
 
 The findings below retain their original audit wording and old source references;
 current implementation lives in `app/web/src`.
@@ -31,13 +32,13 @@ current implementation lives in `app/web/src`.
 | Work / findings | Source status | Remaining acceptance |
 | --- | --- | --- |
 | `gui-test-harness`, `gui-typescript-modules` | Complete; generated Audio/Deck fixtures, independent Playwright cases, strict TypeScript/esbuild, keyboard/axe/geometry checks | None for source/tooling |
-| `gui-content-fixes`: 7–9, 15–16 | Complete; labels, Activity keys, internal labels and display-only Deck bindings corrected; native smoke passes | Remaining content inspection; Audio/Routing/Deck inspected |
-| `gui-dropdown-commit`: 2 | Complete; native closed-select and popup keyboard commitment checks pass | Pointer selection and remaining native popup dismissal paths |
+| `gui-content-fixes`: 7–9, 15–16 | Complete; corrected content and native smoke pass; Audio/Routing/Deck inspected at both sizes and Plugins/Third-Party Apps at compact size | Plugins/Third-Party Apps inspection at 1280×820 |
+| `gui-dropdown-commit`: 2 | Complete; native closed-select/popup keyboard commitment and Escape/Alt+Up/outside-click cancellation pass | Pointer selection, pending user verification |
 | `gui-connection-recovery`: 5 | Complete; separate banner, bounded backoff, no replay; browser fault tests pass | Packaged acceptance; EOF establishes shutdown, not rejected State/backoff behavior |
-| `gui-layout-polish`: 10–13 and meter/search parts of 14 | Complete source work, including compact native brand fix; five affected screens inspected at both outer window sizes | Packaged brand recheck with the classic scrollbar |
+| `gui-layout-polish`: 10–13 and meter/search parts of 14 | Complete source work; affected screens inspected at both sizes, compact native branding and last-item keyboard navigation pass | Record final fixture cleanup to close aggregate task 7; physical checks remain separate |
 | `gui-state-preservation`: 3, 6 | Complete; functional native restoration, dialog cancellation, polling and captured-target invalidation verified | No remaining functional native journey; aggregate validation and physical integration remain separately tracked |
 | `gui-action-outcomes`: 1, 4 | Complete; independent completion-path review and native smoke pass; packaged result attribution, state updates and close with an outstanding action verified | Real integration outcomes |
-| `gui-attention-journeys`: remaining 14 | Complete; disabled Audio gate and captured host-proposal cancellation verified natively | Starting/failed gates and marker-to-screen keyboard navigation |
+| `gui-attention-journeys`: remaining 14 | Complete; disabled/starting/failed Audio gates, marker-to-reason keyboard navigation, Plugins link/Retry availability and captured host-proposal cancellation verified natively | None for packaged presentation; real plugin lifecycle effects remain unclaimed |
 | `view-state-transport`, repository hardening/cleanup | Original source gates, canonical companion build, native smoke and coordinated shutdown recheck pass; original timeout unexplained | First key/dial presses pass on both connected models; live asset removal/reopen and remaining physical acceptance |
 
 ### Shared source and build validation
@@ -49,7 +50,10 @@ current implementation lives in `app/web/src`.
   machine caused widespread timeouts; the corrected default meets the existing 60-second budget
   without extending test timeouts or weakening assertions. That run also exposed the fixed
   shared-notice focus defect. The initial failed run is retained separately in the local logs.
-- After the compact-brand fix, the complete browser suite passed **293 tests in 44.1 s**, with strict frontend gates passing. Final compact packaged inspection was interrupted by physical Escape and remains pending; the isolated fixture exited normally via EOF without actions.
+- After the compact-brand fix, the complete browser suite passed **293 tests in 44.1 s**, with
+  strict frontend gates passing. The first compact packaged inspection was interrupted by physical
+  Escape; that fixture exited normally via EOF without actions. The resumed outer 800×600 native
+  inspection now confirms full branding and keyboard access to the final navigation items.
 - Canonical `bin/snoofer.exe` and companions built successfully. Native ABI/buffer/callback-stop,
   media async timeout and canonical COM identity self-tests pass; the actual media DLL compiles.
 - The initial media DLL probe opened and snapshotted successfully with no active sessions. After
@@ -99,8 +103,10 @@ Nine captured actions were retained in the local acceptance log.
 - Processing: closed Down staged Element without dispatch; Enter sent one revision-35 `set(element)`.
   Monitor: closed Down then Tab restored Pre without dispatch; typeahead `o` then Escape also
   cancelled. Open-popup Down+Tab sent one revision-36 `set(post)`; popup Enter sent one `set(off)`.
-  Pointer selection remains unverified because computer use refused the separate WebView popup,
-  including the refreshed retry. Remaining popup dismissal paths are also pending.
+  In the later native fixture, opening Monitor at Pre and moving Down to Post then cancelling
+  with Escape, Alt+Up or an outside click on a blank panel restored Pre each time. The action log
+  remained zero bytes. Pointer selection remains pending user verification after computer use
+  refused the separate WebView popup, including the refreshed retry.
 - Mic Mute stayed reserved after the 2.5-second Unknown threshold while Playback Mute still sent.
   An injected Playback Failed reply stayed on Audio; navigation to Soundboard showed no Audio
   error. A later Mic Processed reply remained on Audio, gain updates continued, and no action
@@ -113,18 +119,27 @@ Nine captured actions were retained in the local acceptance log.
   focus and no restoration action. These observations fulfill functional native state preservation.
 - Disabled Audio exposed Enable Audio with the captured `native-fixture-config` revision. A host
   proposal kept its original text and ID after a replacement arrived; Cancel sent the original
-  `native-audio-enable-1` ID. Critical Audio and warning Routing markers were visible in the later packaged fixture. Starting/failed gates and marker-to-screen keyboard journeys remain open.
+  `native-audio-enable-1` ID. Critical Audio and warning Routing markers were visible in the later
+  packaged fixture. The resumed check showed Starting Audio, then the failed Audio gate and marker
+  with the exact detail `Native acceptance: audio service unavailable`. Its Plugins link worked and
+  Retry was available. Home-key navigation activated the marked Audio screen and exposed that
+  reason. All of these navigation checks left the action log at zero bytes; no real plugin retry
+  or lifecycle effect is claimed.
 - Audio, Routing including Activity/output devices, Soundboard, Deck and Diagnostics were inspected
   at 1280×820 and 800×600 outer window sizes. The compact CSS client was approximately 784×562.
-  Other inspected controls remained accessible through scrolling; classic-scrollbar wordmark
-  clipping prompted the now-built follow-up, whose final packaged inspection is pending.
+  Other inspected controls remained accessible through scrolling. The final outer 800×600
+  inspection confirms full branding after the classic-scrollbar clipping fix. From Audio, End
+  activated Diagnostics, then Up reached Third-Party Apps and Up reached Plugins with correct
+  focus. Compact Plugins/Third-Party Apps labels and layout were inspected; their 1280×820
+  inspection remains pending. Navigation emitted no actions.
 - Soundboard animation visibly changed from pie to green-square frames. This is synthetic rendering
   evidence, not live artwork lifecycle acceptance. Native window Close exited zero with an App Audio
   action still unresolved, confirming that the outstanding result did not block window shutdown.
 
 Keep aggregate acceptance tasks open until all their required checks are performed. Outstanding
-work includes the final brand check, remaining dropdown, attention and connection-recovery
-journeys, real mute/error/uncertain-one-shot outcomes, and live artwork changes/removal/reopen.
+work includes pointer dropdown selection, wide Plugins/Third-Party Apps inspection, native
+connection-recovery fault acceptance, real mute/error/uncertain-one-shot outcomes, and live
+artwork removal/reopen. Live artwork change and clock progression have already been observed.
 Recorder Pause, Voicemeeter startup/restart and remaining physical Stream Deck input/hotplug
 checks remain separate. The observed XL first-key failure is fixed and its key/dial-button
 retest passes on both available models. Mini/MK.2 are unavailable.
@@ -132,7 +147,7 @@ Fixtures, screenshots and native self-tests do not establish those hardware resu
 
 Native WebView2 confirmed item 2 during migration acceptance: Down on a closed Processing select
 sent a set action. The corrected closed-select and popup keyboard paths now pass native checks;
-pointer selection and remaining popup dismissal acceptance are still tracked separately.
+popup Escape/Alt+Up/outside-click cancellation also passes; pointer selection remains pending.
 
 ## Reliability
 
@@ -240,7 +255,7 @@ the user subsequently authorized implementation.
 
 The one-off WebView2 check through `__controls` confirmed item 2 during migration acceptance,
 so change 3 is required and its source fix has landed. Native keyboard commitment now passes;
-pointer selection and remaining popup dismissal acceptance are open.
+popup Escape/Alt+Up/outside-click cancellation also passes; pointer selection remains open.
 
 Order (decided 2026-10-14): 1 → 4 → 2 → 3 → remaining GUI checkpoints → final shared gates →
 packaged/live acceptance. The harness and TypeScript prerequisites are satisfied. Independent

@@ -22,6 +22,15 @@
 - [x] 6. Update UI contract/audit status; run Go tests/vet for affected packages, strict frontend
   gates, model/full GUI tests within 60 seconds, axe and layout checks at both viewport sizes,
   then strict OpenSpec validation. Inspect screenshots before marking this task done.
-- [ ] 7. Root-coordinated canonical build and packaged WebView2 acceptance for marker visibility,
+- [x] 7. Root-coordinated canonical build and packaged WebView2 acceptance for marker visibility,
   plugin gates, keyboard navigation and confirmation cancellation; restore the previous launch.
   Do not exercise real plugin enable/restart or hardware writes merely to produce a screenshot.
+
+2026-10-15 packaged evidence: disabled Audio and captured host-confirmation cancellation
+passed earlier. The resumed native fixture shows Starting Audio, then failed Audio with its
+critical marker and exact detail "Native acceptance: audio service unavailable". The Plugins
+link works and Retry is available. Home-key navigation activates the marked Audio screen and
+shows its reason; all navigation leaves the action log at zero bytes. Critical Audio and
+warning Routing markers are visible. These are isolated presentation/interaction checks,
+not real plugin enablement, retry, restart or hardware effects. The prior host configuration
+remains restored.

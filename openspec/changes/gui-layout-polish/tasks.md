@@ -8,4 +8,13 @@
 - [x] 6. Update UI contract and audit status; run type/lint/format, model, full GUI and strict OpenSpec checks. Inspect affected screens at 1280×820 and 800×600.
 - [ ] 7. Coordinate canonical build and packaged WebView2 acceptance, restore the previous launch configuration and record remaining hardware checks honestly.
 
-- [ ] 8. Native compact-sidebar checkpoint: reproduce classic-scrollbar brand clipping at the approximately 784×562 client viewport; apply the smallest existing-brand utility adjustment; verify text/image bounds, no horizontal overflow and last-item navigation with a reserved gutter, retain existing viewport checks, and inspect the packaged outer 800×600 window using its measured client size.
+- [x] 8. Native compact-sidebar checkpoint: reproduce classic-scrollbar brand clipping at the approximately 784×562 client viewport; apply the smallest existing-brand utility adjustment; verify text/image bounds, no horizontal overflow and last-item navigation with a reserved gutter, retain existing viewport checks, and inspect the packaged outer 800×600 window using its measured client size.
+
+2026-10-15 packaged evidence: canonical builds and prior host restoration are recorded in
+docs/gui-audit.md. Audio, Routing, Soundboard, Deck and Diagnostics were inspected at both
+outer sizes. After 9065ff7, the resumed outer 800×600 inspection confirms full branding with
+the classic scrollbar. End from Audio activates Diagnostics; Up then reaches Third-Party Apps
+and Plugins with correct focus. Compact navigation/content inspection emitted zero action-log
+bytes. The 293-test browser suite and strict frontend gates pass. Task 8 is complete; task 7
+remains open until the current fixture cleanup is recorded. Remaining physical acceptance
+belongs to the separate integration tasks.
