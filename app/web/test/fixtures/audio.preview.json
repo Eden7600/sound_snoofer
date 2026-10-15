@@ -743,6 +743,48 @@
     "Revision": 61
   },
   {
+    "Artwork": "",
+    "ShortLabel": "Playback 1",
+    "Collection": "",
+    "CollectionLabel": "",
+    "Mirrors": "",
+    "Order": 0,
+    "Meter": {
+      "Present": false,
+      "Known": false,
+      "DB": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "Progress": {
+      "Known": false,
+      "Playing": false,
+      "PositionMs": 0,
+      "DurationMs": 0,
+      "Rate": 0,
+      "At": "0001-01-01T00:00:00Z"
+    },
+    "SurfaceOnly": false,
+    "Hidden": false,
+    "Inactive": false,
+    "OptionLabels": null,
+    "EnterOnly": false,
+    "Epoch": 0,
+    "Subdued": false,
+    "ID": "audio.playback:virtual:1",
+    "Label": "Computer Playback",
+    "Group": "Routing",
+    "Kind": "toggle",
+    "Value": "On",
+    "Status": "",
+    "Icon": "playback:virtual:1",
+    "Options": null,
+    "Operations": [
+      "press"
+    ],
+    "Available": true,
+    "Revision": 16
+  },
+  {
     "ViewData": {
       "Lists": {
         "interfaces": [
@@ -2263,48 +2305,6 @@
     ],
     "Available": true,
     "Revision": 15
-  },
-  {
-    "Artwork": "",
-    "ShortLabel": "Playback 1",
-    "Collection": "",
-    "CollectionLabel": "",
-    "Mirrors": "",
-    "Order": 0,
-    "Meter": {
-      "Present": false,
-      "Known": false,
-      "DB": 0,
-      "At": "0001-01-01T00:00:00Z"
-    },
-    "Progress": {
-      "Known": false,
-      "Playing": false,
-      "PositionMs": 0,
-      "DurationMs": 0,
-      "Rate": 0,
-      "At": "0001-01-01T00:00:00Z"
-    },
-    "SurfaceOnly": false,
-    "Hidden": false,
-    "Inactive": false,
-    "OptionLabels": null,
-    "EnterOnly": false,
-    "Epoch": 0,
-    "Subdued": false,
-    "ID": "audio.playback:virtual:1",
-    "Label": "virtual:1 Playback",
-    "Group": "Shared Audio",
-    "Kind": "toggle",
-    "Value": "On",
-    "Status": "",
-    "Icon": "playback:virtual:1",
-    "Options": null,
-    "Operations": [
-      "press"
-    ],
-    "Available": true,
-    "Revision": 16
   },
   {
     "Artwork": "",

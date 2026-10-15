@@ -70,8 +70,10 @@ export function buildAudio() {
     control("aec.mode", card, "Mode");
     control("aec.engine", card, "Engine");
     control("aec.strength", card, "Strength");
-    control("aec.retry", card, "Retry");
     control("aec.timing", card, "Timing");
+    const actions = el("div", ui.actions + " mt-3");
+    card.append(actions);
+    command("aec.retry", "Retry", actions);
   }
   const other = [...appState.controls.values()].filter(
     (v) => v.ID.startsWith("audio.") && !v.SurfaceOnly && !used.has(v.ID) && v.Group !== "Routing",

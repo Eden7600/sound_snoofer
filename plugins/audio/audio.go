@@ -365,7 +365,11 @@ func controls(s control.State) []snoofer.Control {
 		if enabled {
 			value = "On"
 		}
-		add("playback:"+source, source+" Playback", "Shared Audio", "toggle", value, nil, "press")
+		label := sourceLabels[source]
+		if label == "" {
+			label = source
+		}
+		add("playback:"+source, label+" Playback", "Routing", "toggle", value, nil, "press")
 	}
 	if i.Recording != nil {
 		for _, row := range []struct {

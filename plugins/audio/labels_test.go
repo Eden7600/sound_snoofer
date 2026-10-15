@@ -47,6 +47,24 @@ func TestSelectionLabelsBelongToTheirControl(t *testing.T) {
 	}
 }
 
+func TestPlaybackSendLabelsAndRoutingGroup(t *testing.T) {
+	s, _ := guiState(t, true)
+	s.Intent.Playback = map[string]bool{"virtual:1": true, "virtual:2": false, "custom": true}
+	published := controls(s)
+	for _, row := range []struct {
+		source, label, value string
+	}{
+		{"virtual:1", "Computer Playback", "On"},
+		{"virtual:2", "Virtual 2 Playback", "Off"},
+		{"custom", "custom Playback", "On"},
+	} {
+		c := controlByID(t, published, "audio.playback:"+row.source)
+		if c.Label != row.label || c.Group != "Routing" || c.Value != row.value || !c.Available || len(c.Operations) != 1 || c.Operations[0] != "press" {
+			t.Errorf("playback send changed identity or presentation: %+v", c)
+		}
+	}
+}
+
 func TestCompactLabelsAndStateIcons(t *testing.T) {
 	s := control.State{Connected: true, Profile: "Normal", Intent: &config.Intent{Enabled: false, Source: "desk", Mode: "direct", Monitor: "off", VRProfile: &config.ProfileChoices{Source: "auto", Mode: "element", Monitor: "pre"}, Recording: &config.RecordingChoices{MicTap: "pre"}}}
 	for _, mode := range []string{"direct", "element"} {

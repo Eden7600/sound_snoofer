@@ -11,7 +11,7 @@ with its focused checks; retain unrelated GUI defects and user changes.
   Stream Deck; assert rendered Audio option labels and Routing's Pre label. Run drift tests.
 - [x] 3. `fix(gui)`: read Activity's lowercase fields; remove legacy cast and expected failure;
   assert initial 2/-70/10 values, absent Activity, no render/focus dispatch and all edit payloads.
-- [ ] 4. `fix(gui)`: classify/name playback sends with existing Routing/source metadata and render
+- [x] 4. `fix(gui)`: classify/name playback sends with existing Routing/source metadata and render
   Retry as a compact command action; regenerate affected fixtures, verify no duplicate recovery
   switches, unchanged Routing dispatch and Retry availability/press; inspect Audio at both sizes.
 - [ ] 5. `feat(gui)`: carry registered plugin labels through ViewState and use them in plugin

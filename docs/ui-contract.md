@@ -159,6 +159,8 @@ The Echo cancellation card includes an Engine selector: WebRTC AEC3 (default), L
 
 LocalVQE full-band is an optional fourth engine: the voice-cleanup neural model below a 6 kHz crossover and WebRTC AEC3 above it. It requires a 48 kHz host stream, with other rates showing Needs 48 kHz and pass-through. Status reads 48 kHz mono · hybrid plus measured processing latency (approximately 63 ms at 512 samples). Existing neural modes and preferences stay unchanged; the upper band has echo control but does not receive the neural noise cleanup.
 
-Echo cancellation has a Retry button, enabled for engine or load failures while processing is wanted, disabled during loading, inactivity or unconfirmed hook removal. Retry resets only AEC and does not change saved preferences. Latched native failures retry automatically every 15 seconds; the error remains visible with automatic retry pending, and a reset shows Wait until processing is observed.
+Playback source sends appear in Routing and retain their existing deck bindings; the Audio Routing & Recovery card contains recovery and manipulation controls.
+
+Echo cancellation has a Retry button, enabled for engine or load failures while processing is wanted, disabled during loading, inactivity or unconfirmed hook removal. Retry is a compact action below Timing, with no empty field caption. Retry resets only AEC and does not change saved preferences. Latched native failures retry automatically every 15 seconds; the error remains visible with automatic retry pending, and a reset shows Wait until processing is observed.
 
 Neural Timing shows lifetime peak worker-packet / queue-wait milliseconds, including warm-up, and cumulative gap/underrun counts. These are diagnostic peaks, not measured end-to-end latency. Hybrid upper-band gain follows a smooth neural-output gate; isolated high frequencies and very quiet speech can be attenuated.

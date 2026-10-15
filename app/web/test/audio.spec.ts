@@ -43,6 +43,13 @@ test.describe("Audio", () => {
     });
     await expect(recovery.getByText("Disable Send Manipulation")).toHaveCount(1);
     await expect(recovery.getByText("3 held")).toHaveCount(1);
+    await expect(recovery.getByRole("button", { name: /^(virtual:\d+|Computer|Virtual [23]) Playback$/ })).toHaveCount(
+      0,
+    );
+    await gui.screen("Routing");
+    await gui.page.getByRole("button", { name: "Playback Computer", exact: true }).click();
+    const route = await gui.last("audio.playback:virtual:1");
+    expect(route.Operation).toBe("press");
   });
 
   test("selection labels preserve raw choices and configured names", async ({ gui }) => {
@@ -115,6 +122,11 @@ test.describe("Audio", () => {
   test("echo cancellation disables unavailable choices and retries", async ({ gui }) => {
     const { page } = gui;
     const echo = page.locator("[data-part=echo]");
+    const retryButton = echo.getByRole("button", { name: "Retry", exact: true });
+    await expect(
+      echo.locator("[data-part=row]", { has: page.getByRole("button", { name: "Retry", exact: true }) }),
+      "Retry has an empty field caption",
+    ).toHaveCount(0);
     await gui.update(() => {
       window.ctl("aec.strength").Available = false;
       window.ctl("aec.status").Status = "48 kHz mono · hybrid · ~63 ms processing latency";
@@ -127,10 +139,21 @@ test.describe("Audio", () => {
       window.ctl("aec.status").Value = "Error";
       window.ctl("aec.status").Status =
         "Engine error (missing output callback); mic passes through; automatic retry pending";
+      const desktop = window.go?.app?.Desktop;
+      if (!desktop) throw new Error("fixture Desktop missing");
+      desktop.Send = async (action) => {
+        window.sent.push(action);
+      };
     });
     await echo.getByRole("button", { name: "Retry", exact: true }).click();
     const retry = await gui.last("aec.retry");
     expect(retry.Operation).toBe("press");
+    await expect(retryButton).toBeDisabled();
+    await gui.update(() => {
+      window.ctl("aec.retry").Revision++;
+    });
+    await gui.settled();
+    await expect(retryButton).toBeEnabled();
   });
 });
 
