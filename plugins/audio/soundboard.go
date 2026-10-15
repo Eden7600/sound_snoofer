@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strings"
 	"time"
 
 	"sound-snoofer/internal/config"
@@ -82,12 +83,16 @@ func soundboardReady(s control.State, routes *config.SoundboardRoutes) error {
 	if routes.Microphone {
 		desired["Strip[7].B3"] = 1
 	}
-	for bus := 1; bus <= 5; bus++ {
-		key := fmt.Sprintf("Strip[7].A%d", bus)
-		desired[key] = 0
-		if routes.Monitor && target == fmt.Sprintf("A%d", bus) {
-			desired[key] = 1
+	// The planner owns the A-bus sends, including output slots that carry the soundboard.
+	planned := false
+	for _, op := range s.Plan.Topology.Operations {
+		if strings.HasPrefix(op.Parameter, "Strip[7].") {
+			desired[op.Parameter] = float32(op.Value)
+			planned = planned || strings.HasPrefix(op.Parameter, "Strip[7].A")
 		}
+	}
+	if !planned {
+		return fmt.Errorf("soundboard routing not planned")
 	}
 	for key, want := range desired {
 		if got, ok := s.Snapshot.Numbers[key]; !ok || got != want {

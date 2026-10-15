@@ -3,7 +3,7 @@
 - [x] 1. `docs(audit)`: specify the audit reliability fixes.
 - [x] 2. `fix(deck)`: publish empty key/dial lists; test the marshalled view for a model without dials.
 - [x] 3. `fix(audio)`: check prefixed Normal/VR device rows for availability; tests for `normal-output` and a VR row.
-- [ ] 4. `fix(audio)`: soundboard readiness compares planned `Strip[7]` operations; test with an output slot carrying the soundboard.
+- [x] 4. `fix(audio)`: soundboard readiness compares planned `Strip[7]` operations; test with an output slot carrying the soundboard.
 - [ ] 5. `fix(voicemeeter)`: retry a failed callback registration; test.
 - [ ] 6. `fix(deck)`: deliver reads completed at the deadline; reads have no deadline.
 - [ ] 7. `fix(nowplaying)`: skip malformed bridge messages; coerce report fields; fetch only http(s) artwork without credentials; tests.

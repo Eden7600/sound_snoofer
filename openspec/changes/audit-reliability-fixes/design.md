@@ -11,7 +11,7 @@ The plugin sends `normal-source`, `normal-output`, `vr-profile-source` and `vr-p
 `off` and an empty playback stay exempt, as before. Bare `source`/`output` rows are still checked.
 
 ## 3. Soundboard readiness
-`soundboardReady` stops rebuilding the soundboard routing rule. It requires every planned operation on a `Strip[7].` parameter to match the snapshot. The planner stays the only owner of that rule.
+`soundboardReady` stops rebuilding the A-bus rule. Every planned operation on a `Strip[7].` parameter must match the snapshot, and at least one A-bus operation must be planned. The B2 (never to Element) and B3 (microphone route) checks stay, since the planner does not write those zeros.
 
 ## 4. Callback retry
 `SetCallback` short-circuits only when the requested state is already in effect: `enable == m.enabled && sameHook(...) && (m.active || !enable)`. A failed registration therefore retries on the next call. The `unsafeClose` gate is unchanged.
