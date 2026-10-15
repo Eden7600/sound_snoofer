@@ -16,7 +16,7 @@
   lifecycle transitions without navigation, busy/reconnect refusal and healthy empty content.
   Preserve legacy unversioned fixture rendering through the documented absent-map normalization,
   with typed-map authority and unchanged revisioned action coverage.
-- [ ] 5. Commit checkpoint: add sidebar classification/mapping and accessible markers. Cover
+- [x] 5. Commit checkpoint: add sidebar classification/mapping and accessible markers. Cover
   each positive source and the negative cases listed in the design; verify marker-to-screen
   keyboard journeys and no dispatch from navigation. Keep the header transient-only.
 - [ ] 6. Update UI contract/audit status; run Go tests/vet for affected packages, strict frontend

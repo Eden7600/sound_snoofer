@@ -3,7 +3,7 @@ export { icon };
 // Utility groups reused across screens. They are plain Tailwind utility
 // literals (no component classes), kept complete so the CSS build finds them.
 export const ui = {
-  nav: "flex items-center gap-[13px] border-transparent bg-transparent px-3 py-[11px] text-left whitespace-nowrap text-muted hover:bg-hover aria-[current=page]:border-[#214a5a] aria-[current=page]:bg-[#163341] aria-[current=page]:text-active max-[1120px]:gap-[9px] max-[1120px]:px-2",
+  nav: "flex items-center gap-[13px] border-transparent bg-transparent px-3 py-[11px] text-left whitespace-nowrap text-muted hover:bg-hover aria-[current=page]:border-[#214a5a] aria-[current=page]:bg-[#163341] aria-[current=page]:text-active max-[1120px]:gap-[9px] max-[1120px]:px-2 max-[850px]:whitespace-normal",
   panel: "min-w-0 rounded-xl border border-seam bg-panel p-5 max-[1120px]:p-4",
   panelHead: "mb-[18px] flex items-center justify-between gap-2.5",
   h2: "text-base font-semibold",

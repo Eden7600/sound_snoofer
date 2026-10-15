@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "lint:gui": "eslint app/web/src app/web/test",
     "format:gui": "prettier --check \"app/web/src/**/*.ts\" \"app/web/test/**/*.ts\" tsconfig.json eslint.config.mjs .prettierrc.json package.json",
-    "test:model": "node --test app/web/src/model.test.ts"
+    "test:model": "node --test app/web/src/model.test.ts app/web/src/attention.test.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

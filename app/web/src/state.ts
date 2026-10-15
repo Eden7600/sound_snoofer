@@ -1,3 +1,4 @@
+import { updateNavigationAttention } from "./attention.ts";
 import type { Control, ViewState, Pending, Widget } from "./types.ts";
 import { $, button, ui, badge, tc } from "./dom.ts";
 import { display, tone } from "./model.ts";
@@ -58,6 +59,7 @@ export function refreshNotice() {
   }
 }
 export function update() {
+  updateNavigationAttention(appState.state);
   if (
     appState.pending &&
     (Date.now() > appState.pending.until ||
