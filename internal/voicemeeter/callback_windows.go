@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -18,6 +19,19 @@ type callbackMonitor struct {
 	enabled, active, unsafeClose                bool
 	insert                                      *InsertHook // Stages of the current registration.
 	err                                         error
+	retryAt                                     time.Time // Earliest retry after a failed registration.
+}
+
+// callbackRetry spaces registration attempts, since the worker asks every iteration.
+const callbackRetry = 5 * time.Second
+
+// settled reports whether the requested registration is already in effect, or
+// failed too recently to try again.
+func (m *callbackMonitor) settled(enable bool, insert *InsertHook, now time.Time) bool {
+	if enable != m.enabled || !sameHook(insert, m.insert) {
+		return false
+	}
+	return !enable || m.active || now.Before(m.retryAt)
 }
 
 // SetCallback registers while monitoring or an insert is wanted. Insert stages
@@ -30,7 +44,7 @@ func (a *winAPI) SetCallback(monitor bool, insert *InsertHook) error {
 		return fmt.Errorf("callback cleanup uncertain; restart Sound Snoofer")
 	}
 	enable := monitor || insert != nil
-	if enable == m.enabled && sameHook(insert, m.insert) {
+	if m.settled(enable, insert, time.Now()) {
 		return m.err
 	}
 	if m.active {
@@ -52,6 +66,7 @@ func (a *winAPI) SetCallback(monitor bool, insert *InsertHook) error {
 		m.err = nil
 		return nil
 	}
+	m.retryAt = time.Now().Add(callbackRetry)
 	if m.dll == nil {
 		exe, err := os.Executable()
 		if err != nil {

@@ -4,7 +4,7 @@
 - [x] 2. `fix(deck)`: publish empty key/dial lists; test the marshalled view for a model without dials.
 - [x] 3. `fix(audio)`: check prefixed Normal/VR device rows for availability; tests for `normal-output` and a VR row.
 - [x] 4. `fix(audio)`: soundboard readiness compares planned `Strip[7]` operations; test with an output slot carrying the soundboard.
-- [ ] 5. `fix(voicemeeter)`: retry a failed callback registration; test.
+- [x] 5. `fix(voicemeeter)`: retry a failed callback registration; test.
 - [ ] 6. `fix(deck)`: deliver reads completed at the deadline; reads have no deadline.
 - [ ] 7. `fix(nowplaying)`: skip malformed bridge messages; coerce report fields; fetch only http(s) artwork without credentials; tests.
 - [ ] 8. `fix(routing)`: gate every interface-mic strip; test with a patch index of 4 or higher.

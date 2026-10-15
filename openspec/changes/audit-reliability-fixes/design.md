@@ -14,7 +14,7 @@ The plugin sends `normal-source`, `normal-output`, `vr-profile-source` and `vr-p
 `soundboardReady` stops rebuilding the A-bus rule. Every planned operation on a `Strip[7].` parameter must match the snapshot, and at least one A-bus operation must be planned. The B2 (never to Element) and B3 (microphone route) checks stay, since the planner does not write those zeros.
 
 ## 4. Callback retry
-`SetCallback` short-circuits only when the requested state is already in effect: `enable == m.enabled && sameHook(...) && (m.active || !enable)`. A failed registration therefore retries on the next call. The `unsafeClose` gate is unchanged.
+`SetCallback` short-circuits only when the requested state is already in effect: `enable == m.enabled && sameHook(...) && (m.active || !enable)`. A failed registration retries, at most every 5 s, because the worker requests the callback on every iteration. The `unsafeClose` gate is unchanged.
 
 ## 5. Deck reads at the deadline
 `device.io` checks `WAIT_OBJECT_0` before the deadline. When the deadline or cancellation fires, it cancels and waits for the result. If the cancelled read still returned bytes, it returns them. Reads no longer have a deadline (the read loop's context still stops them); writes keep the 1 s deadline.
