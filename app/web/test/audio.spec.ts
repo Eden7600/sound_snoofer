@@ -1,3 +1,4 @@
+import { holdActions, reply } from "./action-host.ts";
 import { expect, test } from "./host.ts";
 
 test.describe("Audio", () => {
@@ -139,12 +140,8 @@ test.describe("Audio", () => {
       window.ctl("aec.status").Value = "Error";
       window.ctl("aec.status").Status =
         "Engine error (missing output callback); mic passes through; automatic retry pending";
-      const desktop = window.go?.app?.Desktop;
-      if (!desktop) throw new Error("fixture Desktop missing");
-      desktop.Send = async (action) => {
-        window.sent.push(action);
-      };
     });
+    await holdActions(gui);
     await echo.getByRole("button", { name: "Retry", exact: true }).click();
     const retry = await gui.last("aec.retry");
     expect(retry.Operation).toBe("press");
@@ -152,6 +149,8 @@ test.describe("Audio", () => {
     await gui.update(() => {
       window.ctl("aec.retry").Revision++;
     });
+    await expect(retryButton).toBeDisabled();
+    await reply(gui, "aec.retry", "Submitted", "Retry submitted");
     await gui.settled();
     await expect(retryButton).toBeEnabled();
   });

@@ -29,7 +29,12 @@ test.describe("Plugins", () => {
       has: gui.page.getByRole("heading", { name: "App Audio", exact: true }),
     });
     await card.getByRole("button", { name: "Disable", exact: true }).click();
-    expect((await gui.sent()).at(-1)).toEqual({ Kind: "selection", Plugin: "appaudio", Enable: false });
+    expect((await gui.sent()).at(-1)).toMatchObject({
+      ID: expect.any(String),
+      Kind: "selection",
+      Plugin: "appaudio",
+      Enable: false,
+    });
   });
 
   test("missing plugin labels fall back to IDs and later snapshots refresh names", async ({ gui }) => {

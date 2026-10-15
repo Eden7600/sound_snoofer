@@ -100,14 +100,18 @@ test("actions refused during recovery are never queued or replayed", async ({ gu
   await trackPolls(gui);
   await gui.page.clock.runFor(220);
   await gui.page.locator("[data-part=tape]").getByRole("button", { name: "Record", exact: true }).click();
-  await expect(gui.page.locator("#notice")).toContainText("Host disconnected; action not sent");
+  await expect(gui.page.locator('[data-action-feedback="audio.record-toggle"]:visible')).toContainText(
+    "Host disconnected; action not sent",
+  );
   expect(await gui.sent()).toEqual([]);
   await gui.update(() => {
     window.recoveryProbe.fail = false;
   });
   await gui.page.clock.runFor(600);
   await expect(gui.page.locator("#connection")).toBeHidden();
-  await expect(gui.page.locator("#notice")).toContainText("Host disconnected; action not sent");
+  await expect(gui.page.locator('[data-action-feedback="audio.record-toggle"]:visible')).toContainText(
+    "Host disconnected; action not sent",
+  );
   expect(await gui.sent()).toEqual([]);
 });
 
@@ -122,7 +126,9 @@ test("an uncertain one-shot failure survives connection recovery without replay"
     };
   });
   await gui.page.locator("[data-part=tape]").getByRole("button", { name: "Record", exact: true }).click();
-  await expect(gui.page.locator("#notice")).toContainText("Recording result unavailable");
+  await expect(gui.page.locator('[data-action-feedback="audio.record-toggle"]:visible')).toContainText(
+    "Recording result unavailable",
+  );
   await trackPolls(gui);
   await gui.page.clock.runFor(220);
   await expect(gui.page.locator("#connection")).toBeVisible();
@@ -131,7 +137,9 @@ test("an uncertain one-shot failure survives connection recovery without replay"
   });
   await gui.page.clock.runFor(600);
   await expect(gui.page.locator("#connection")).toBeHidden();
-  await expect(gui.page.locator("#notice")).toContainText("Recording result unavailable");
+  await expect(gui.page.locator('[data-action-feedback="audio.record-toggle"]:visible')).toContainText(
+    "Recording result unavailable",
+  );
   expect(await gui.sent()).toHaveLength(1);
 });
 

@@ -19,6 +19,8 @@ function state(): ViewState {
     Enabled: {},
     Notice: "",
     Confirmation: "",
+    ConfigRevision: "fixture-config",
+    ProposalID: "",
   };
 }
 function add(view: ViewState, control: Partial<Control>) {

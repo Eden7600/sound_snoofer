@@ -44,6 +44,7 @@ test("queue acknowledgment retains text until observation, and Escape discards a
     if (!desktop) throw new Error("desktop missing");
     desktop.Send = async (action) => {
       window.sent.push(action);
+      return { ID: action.ID, Status: "Submitted", Detail: "Queued" };
     };
   });
   await name.fill("Queued name");
@@ -122,6 +123,7 @@ for (const label of ["Home", " Home "]) {
       if (!desktop) throw new Error("desktop missing");
       desktop.Send = async (action) => {
         window.sent.push(action);
+        return { ID: action.ID, Status: "Submitted", Detail: "Queued" };
       };
     });
     await input.fill(label);

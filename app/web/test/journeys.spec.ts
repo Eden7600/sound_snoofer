@@ -63,7 +63,9 @@ for (const [keys, outcome] of [
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole("button", { name: "Cancel", exact: true })).toBeFocused();
     for (const key of keys) await page.keyboard.press(key);
-    await expect.poll(() => gui.sent()).toEqual([{ Kind: outcome }]);
+    await expect
+      .poll(() => gui.sent())
+      .toEqual([expect.objectContaining({ ID: expect.any(String), Kind: outcome, ProposalID: "" })]);
     await gui.update(() => {
       window.fixture.Confirmation = "";
     });

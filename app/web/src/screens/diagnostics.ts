@@ -1,3 +1,4 @@
+import { isBusy, actionFeedback } from "../actions.ts";
 import { ui, el, button, panel, withIcon, tc } from "../dom.ts";
 import { appState, root, updaters, c } from "../state.ts";
 import { send } from "../host.ts";
@@ -41,6 +42,10 @@ function currentNotices() {
 
 export function buildDiagnostics() {
   const toolbar = el("div", ui.toolbar);
+  const retry = button("Retry Plugins", () => send({ Kind: "retry" }));
+  updaters.push(() => {
+    retry.disabled = appState.reconnecting || isBusy("lifecycle");
+  });
   toolbar.append(
     withIcon(
       viewKey(
@@ -52,6 +57,7 @@ export function buildDiagnostics() {
     ),
   );
   root.append(toolbar);
+  actionFeedback("lifecycle", toolbar);
   if (c("core.startup")) {
     const startup = panel("Startup", root, "mb-[18px]");
     control("core.startup", startup);

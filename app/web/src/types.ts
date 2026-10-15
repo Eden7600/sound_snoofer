@@ -69,6 +69,8 @@ export interface ViewState {
   Enabled: Record<string, boolean> | null;
   Notice: string;
   Confirmation: string;
+  ConfigRevision: string;
+  ProposalID: string;
 }
 
 export interface Request {
@@ -80,10 +82,19 @@ export interface Request {
 }
 
 export interface UIAction {
+  ID: string;
+  ConfigRevision?: string;
+  ProposalID?: string;
   Request?: Request;
   Kind?: string;
   Plugin?: string;
   Enable?: boolean;
+}
+
+export interface ActionResult {
+  ID: string;
+  Status: "Submitted" | "Processed" | "Rejected" | "Failed" | "Unknown";
+  Detail: string;
 }
 
 export interface ArtworkFrame {
@@ -100,7 +111,7 @@ export interface ViewUpdate {
 
 export interface Desktop {
   State(sinceVersion: number): Promise<ViewUpdate | null>;
-  Send(action: UIAction): Promise<void>;
+  Send(action: UIAction): Promise<ActionResult>;
   Animation(id: string): Promise<ArtworkFrame[] | null>;
 }
 
@@ -118,11 +129,4 @@ export interface Widget {
   note: HTMLElement;
   input: WidgetInput;
   initial: Control;
-}
-
-export interface Pending {
-  id?: string;
-  revision?: number;
-  notice: string;
-  until: number;
 }

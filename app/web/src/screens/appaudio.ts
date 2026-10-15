@@ -1,3 +1,4 @@
+import { isBusy, actionFeedback } from "../actions.ts";
 import { ui, tc, el, button, panel, empty, iconButton, icon } from "../dom.ts";
 import { root, updaters, c, appState, update } from "../state.ts";
 import { request, press } from "../host.ts";
@@ -121,6 +122,7 @@ function appStrip(id: string, parent: HTMLElement) {
     more.insertBefore(list, details);
   }
   node.append(head, value, status, slider, ...meter.nodes, mute, more);
+  actionFeedback(id, node);
   updaters.push(() => {
     renameDraft.sync();
     combineDraft.sync();
@@ -142,10 +144,10 @@ function appStrip(id: string, parent: HTMLElement) {
     pin.setAttribute("aria-pressed", String(!!a.Picked));
     pin.title = a.Picked ? "Unpin" : "Pin";
     earlier.hidden = later.hidden = !a.Picked;
-    for (const b of [slider, mute]) b.disabled = !!appState.pending || !item.Available || closed;
+    for (const b of [slider, mute]) b.disabled = isBusy(id) || !item.Available || closed;
     for (const n of [slider, mute, ...meter.nodes]) n.hidden = closed;
     for (const b of [pin, earlier, later, renameApply, combineApply, hide, rename, combine, ...separates])
-      b.disabled = !!appState.pending || !c("appaudio.edit")?.Available;
+      b.disabled = isBusy("appaudio.edit") || !c("appaudio.edit")?.Available;
     for (const b of [renameApply, combineApply, hide, rename, combine]) b.disabled ||= closed;
     renameApply.disabled ||= !rename.value.trim();
     combineApply.disabled ||= !combine.value;
@@ -187,10 +189,11 @@ export function buildAppAudio() {
   intro.append(el("span", "", "Pinned apps first, then apps heard in the last"), minutes, el("span", "", "minutes."));
   const note = el("p", "mb-[18px] text-[13px]");
   root.append(intro, note);
+  actionFeedback("appaudio.edit", intro);
   updaters.push(() => {
     const s = c<AppAudioView>("appaudio.status");
     if (document.activeElement !== minutes) minutes.value = String(s?.ViewData?.RecentMinutes || 5);
-    minutes.disabled = !!appState.pending || !c("appaudio.edit")?.Available;
+    minutes.disabled = isBusy("appaudio.edit") || !c("appaudio.edit")?.Available;
     note.textContent = s?.Status || (s?.Value === "Preview" ? "Preview: volumes are read, never changed." : "");
     note.hidden = !note.textContent;
     note.className = "mb-[18px] text-[13px] " + (s?.Status ? "text-critical" : "text-muted");
@@ -219,7 +222,7 @@ function excludedCard(view: Partial<AppAudioView>) {
     ),
   );
   const apps = view.Apps || [],
-    editable = () => !appState.pending && !!c("appaudio.edit")?.Available,
+    editable = () => !isBusy("appaudio.edit") && !!c("appaudio.edit")?.Available,
     buttons: HTMLButtonElement[] = [];
   const row = (
     title: string,
@@ -289,5 +292,5 @@ function excludedCard(view: Partial<AppAudioView>) {
     for (const b of buttons) b.disabled = !editable();
     apply.disabled = !editable() || !input.value.trim();
   });
-  input.addEventListener("input", update);
+  input.addEventListener("input", () => update());
 }

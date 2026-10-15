@@ -51,6 +51,9 @@ function layoutKey() {
   return JSON.stringify([
     appState.screen,
     pluginGateState(appState.screen),
+    appState.screen === "plugins" || pluginGateState(appState.screen) === "disabled"
+      ? appState.state.ConfigRevision
+      : null,
     appState.screen === "plugins" || appState.screen === "apps" ? pluginStates() : null,
     list,
     Object.keys(appState.state.Plugins || {}),
@@ -147,13 +150,7 @@ function receive(next: ViewState | null) {
   if (nextKey !== signature) {
     // Preserve edits until blur if a provider changes its available choices mid-edit.
     const focused = document.activeElement;
-    if (
-      !lifecycleChanged &&
-      focused &&
-      root.contains(focused) &&
-      ["INPUT", "SELECT"].includes(focused.tagName) &&
-      !appState.pending
-    ) {
+    if (!lifecycleChanged && focused && root.contains(focused) && ["INPUT", "SELECT"].includes(focused.tagName)) {
       update();
       return;
     }

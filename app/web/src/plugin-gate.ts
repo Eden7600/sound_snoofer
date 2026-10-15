@@ -1,6 +1,7 @@
 import { button, el, panel, ui } from "./dom.ts";
 import { appState, root, updaters } from "./state.ts";
 import { send } from "./host.ts";
+import { isBusy } from "./actions.ts";
 import { viewKey } from "./view-state.ts";
 
 import { gateState, lifecycleStates, pluginScreens } from "./plugin-lifecycle.ts";
@@ -14,7 +15,7 @@ export function pluginGateState(screen: string) {
 
 // Selection, retry and confirmation share one lifecycle action group.
 export function lifecycleUnavailable() {
-  return appState.reconnecting || !!appState.pending;
+  return appState.reconnecting || isBusy("lifecycle");
 }
 
 export function buildPluginGate(screen: string) {
@@ -41,11 +42,13 @@ export function buildPluginGate(screen: string) {
     });
   }
   if (state === "disabled") {
+    const configRevision = appState.state.ConfigRevision;
     const enable = viewKey(
       button(
         "Enable " + label,
         () => {
-          if (!lifecycleUnavailable()) send({ Kind: "selection", Plugin: id, Enable: true });
+          if (!lifecycleUnavailable())
+            send({ Kind: "selection", Plugin: id, Enable: true, ConfigRevision: configRevision });
         },
         ui.primary + " mt-4",
       ),

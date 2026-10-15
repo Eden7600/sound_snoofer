@@ -1,3 +1,4 @@
+import { isBusy, actionFeedback } from "../actions.ts";
 import { ui, el, button, panel, empty, icon } from "../dom.ts";
 import { appState, root, widgets, updaters, c, update } from "../state.ts";
 import { request, press } from "../host.ts";
@@ -136,6 +137,7 @@ export function buildDeck() {
     keys = el("div", "grid gap-[7px]"),
     dials = el("div", "mt-[22px] grid gap-2");
   frame.append(keys, dials);
+  actionFeedback("streamdeck.slot", frame);
   left.append(frame);
   // The grid follows the model; narrow decks keep keys near their + XL size.
   keys.style.gridTemplateColumns = "repeat(" + columns + ",minmax(0,1fr))";
@@ -218,7 +220,7 @@ export function buildDeck() {
           (inRange ? " · In selection" : ""),
       );
       b.title = b.getAttribute("aria-label") || "";
-      b.disabled = !!appState.pending;
+      b.disabled = isBusy("streamdeck.slot");
       b.dataset.empty = String(!slot.Control);
       name.textContent = item?.ShortLabel || item?.Label || slot.Label || "";
       source.textContent = slot.Source || "";
@@ -297,6 +299,7 @@ export function buildDeck() {
   inspector.append(eyebrow, el("h2", ui.h2, "Binding"));
   const ownership = el("p", ui.note + " mt-1");
   inspector.append(ownership);
+  actionFeedback("streamdeck.binding", inspector);
   updaters.push(() => {
     const v = c<DeckView>("streamdeck.preview")?.ViewData;
     if (!v) return;
@@ -370,7 +373,7 @@ export function buildDeck() {
     select.blur();
   };
   updaters.push(() => {
-    select.disabled = !!appState.pending || !c("streamdeck.binding")?.Available;
+    select.disabled = isBusy("streamdeck.binding") || !c("streamdeck.binding")?.Available;
     const value = c("streamdeck.binding")?.Value || "";
     if (document.activeElement !== select && select.value !== value) select.value = value;
   });
@@ -388,8 +391,8 @@ export function buildDeck() {
     const v = c<DeckView>("streamdeck.preview")?.ViewData;
     status.textContent = c("streamdeck.status")?.Value || "";
     status.className = "text-xs " + (v?.Dirty ? "text-attention" : "text-muted");
-    if (discard) discard.disabled = !!appState.pending || !v?.Dirty;
-    if (save) save.disabled = !!appState.pending || !v?.Dirty;
+    if (discard) discard.disabled = isBusy("streamdeck.discard") || !v?.Dirty;
+    if (save) save.disabled = isBusy("streamdeck.save") || !v?.Dirty;
   });
 }
 // decksPanel holds Paging and the remembered decks: name, own layout and
@@ -437,6 +440,8 @@ function regionsPanel(parent: HTMLElement) {
   if (!view || !c("streamdeck.region-add")) return;
   const card = panel("Regions", parent, "mt-5 grid gap-3");
   card.dataset.part = "regions";
+  for (const id of ["region-source", "region-clip", "region-remove", "region-add"])
+    actionFeedback("streamdeck." + id, card);
   const collections = view.Collections || [];
   const sourceSelect = (value: string, label: string) => {
     const select = el("select", "min-w-0 flex-1");
@@ -513,10 +518,12 @@ function regionsPanel(parent: HTMLElement) {
     if (c("streamdeck.region-clip")) row.append(overflow);
     row.append(remove);
     card.append(row);
-    updaters.push(() => {
-      select.disabled = remove.disabled = box.disabled = !!appState.pending;
+    updaters.push((readback) => {
+      select.disabled = isBusy("streamdeck.region-source");
+      remove.disabled = isBusy("streamdeck.region-remove");
+      box.disabled = isBusy("streamdeck.region-clip");
       const saved = (c<DeckView>("streamdeck.preview")?.ViewData?.Regions || [])[i];
-      if (saved && !appState.pending) box.checked = !saved.Clip;
+      if (readback && saved && !isBusy("streamdeck.region-clip")) box.checked = !saved.Clip;
     });
   });
   const add = el("div", "flex flex-wrap items-center gap-2.5 border-t border-[#25323e] pt-3"),
@@ -556,7 +563,8 @@ function regionsPanel(parent: HTMLElement) {
           ? regionDialsLabel(deckRange.anchor - K, deckRange.end - K)
           : regionKeysLabel(deckRange.anchor, deckRange.end))
       : "Add Region";
-    create.disabled = !!appState.pending || !deckRange || overlaps || !collections.length || source.selectedIndex < 0;
+    create.disabled =
+      isBusy("streamdeck.region-add") || !deckRange || overlaps || !collections.length || source.selectedIndex < 0;
     create.title = overlaps ? "The selection overlaps a region" : !deckRange ? "Select keys or dials first" : "";
     source.disabled = !collections.length;
   });

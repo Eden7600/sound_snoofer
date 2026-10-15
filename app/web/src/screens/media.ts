@@ -1,3 +1,4 @@
+import { isBusy, actionFeedback } from "../actions.ts";
 import { ui, el, button, panel, empty, iconButton, icon } from "../dom.ts";
 import { root, updaters, c, appState } from "../state.ts";
 import { request, press } from "../host.ts";
@@ -47,10 +48,10 @@ function mediaCard(id: string, parent: HTMLElement) {
   };
   const actions = el("div", ui.actions),
     status = el("small", "text-[11px]");
-  const prev = iconButton("skip-back", "Previous", () => press("nowplaying.prev")),
+  const prev = iconButton("skip-back", "Previous", () => press("nowplaying.prev", id)),
     play = iconButton("play", "Play or Pause", () => press(id)),
-    next = iconButton("skip-forward", "Next", () => press("nowplaying.next"));
-  const mute = button("Mute", () => press("nowplaying.mute"), ui.toggle + " " + ui.small);
+    next = iconButton("skip-forward", "Next", () => press("nowplaying.next", id));
+  const mute = button("Mute", () => press("nowplaying.mute", id), ui.toggle + " " + ui.small);
   play.dataset.part = "play";
   mute.dataset.part = "mute";
   viewKey(prev, id, "previous");
@@ -60,6 +61,8 @@ function mediaCard(id: string, parent: HTMLElement) {
   actions.append(prev, play, next, mute, status);
   card.append(head, seek, times, actions);
   parent.append(card);
+  actionFeedback(id, card);
+  for (const key of ["nowplaying.prev", "nowplaying.next", "nowplaying.mute"]) actionFeedback(key, card, id);
   const clock = (ms?: number) => {
     const s = Math.max(0, Math.floor((ms || 0) / 1000));
     return s >= 3600
@@ -97,9 +100,11 @@ function mediaCard(id: string, parent: HTMLElement) {
     mute.dataset.tone = s.Muted ? "critical" : "";
     status.textContent = s.Pending ? "Wait" : s.Failure || "";
     status.className = "text-[11px] " + (s.Failure ? "text-critical" : "text-attention");
-    seek.disabled = !!appState.pending || !s.CanSeek;
-    play.disabled = !!appState.pending || !s.CanToggle;
-    for (const b of [prev, next, mute]) b.disabled = !!appState.pending;
+    seek.disabled = isBusy(id) || !item.Available || !s.CanSeek;
+    play.disabled = isBusy(id) || !item.Available || !s.CanToggle;
+    prev.disabled = isBusy("nowplaying.prev") || !c("nowplaying.prev")?.Available;
+    next.disabled = isBusy("nowplaying.next") || !c("nowplaying.next")?.Available;
+    mute.disabled = isBusy("nowplaying.mute") || !c("nowplaying.mute")?.Available;
   });
 }
 // extensionCard explains the Snoofer Media extension, which reports each

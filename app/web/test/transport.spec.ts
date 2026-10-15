@@ -1,3 +1,4 @@
+import { holdActions, reply } from "./action-host.ts";
 import { expect, test, type Gui } from "./host.ts";
 import { dot } from "./fixtures/manual.ts";
 import type { MediaView } from "../src/screens/media-types.ts";
@@ -92,23 +93,25 @@ test("hydration leaves received controls and fixture artwork immutable", async (
   expect(shapes.fixture).toBeTruthy();
 });
 
-test("null polls still expire meters and pending requests", async ({ gui }) => {
+test("null polls expire meters but keep uncertain action reservations", async ({ gui }) => {
   await gui.open();
   await freezeTelemetry(gui);
   await gui.page.clock.runFor(600);
   await expect(gui.page.locator("[data-part=strip]").first().getByText("LEVEL N/A")).toBeVisible();
-  await gui.update(() => {
-    const desktop = window.go?.app?.Desktop;
-    if (!desktop) throw new Error("Desktop missing");
-    desktop.Send = async (action) => {
-      window.sent.push(action);
-    };
-  });
-  await gui.page.locator("[data-part=tape]").getByRole("button", { name: "Record", exact: true }).click();
-  await expect(gui.page.locator("#content")).toHaveAttribute("aria-busy", "true");
+  await holdActions(gui);
+  const record = gui.page.locator("[data-part=tape]").getByRole("button", { name: "Record", exact: true });
+  const sending = gui.page.locator("#summary").getByText("Sending", { exact: true });
+  await record.click();
+  await expect(record).toBeDisabled();
+  await expect(sending).toBeVisible();
   const before = await gui.page.evaluate(() => window.transport.unchanged);
   await gui.page.clock.runFor(2700);
-  await expect(gui.page.locator("#content")).toHaveAttribute("aria-busy", "false");
+  await expect(record).toBeDisabled();
+  await expect(sending).toBeVisible();
+  await expect(gui.page.locator("#content")).toContainText("Outcome unknown; still waiting.");
+  await reply(gui, "audio.record-toggle", "Processed", "Recording command completed");
+  await expect(record).toBeEnabled();
+  await expect(sending).toBeHidden();
   expect(await gui.page.evaluate(() => window.transport.unchanged)).toBeGreaterThan(before);
   expect(await gui.sent()).toHaveLength(1);
 });

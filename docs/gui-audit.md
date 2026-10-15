@@ -11,7 +11,7 @@ Screenshots were reviewed at 1280×820 and 800×600 using the browser fixture.
 
 The audit is **not complete**. The harness and TypeScript split are complete, and the content,
 dropdown, reconnect, screen-layout, draft/dialog and plugin-recovery checkpoints have landed
-in source. Cross-layer action feedback is still being integrated; final shared gates and
+in source. Cross-layer action feedback is implemented; Hue is the final provider adapter. Final shared gates and
 packaged acceptance remain open.
 The findings below retain their original audit wording and old source references;
 current implementation lives in `app/web/src`.
@@ -24,9 +24,12 @@ current implementation lives in `app/web/src`.
 | `gui-connection-recovery`: 5 | Complete; separate reconnect banner, bounded backoff, no replay | Final packaged reconnect acceptance |
 | `gui-layout-polish`: 10–13 and meter/search parts of 14 | Complete screen checkpoints: Diagnostics, Audio, Routing, Deck and Soundboard; both sizes inspected | Final shared gates and packaged acceptance |
 | `gui-state-preservation`: 3, 6 | Focus, scroll, details/search, explicit drafts/context checks and styled confirmations committed | Final shared gates and packaged journeys |
-| `gui-action-outcomes`: 1, 4 | Transport, independent global mute ordering, host proposal identity and Audio/AEC/App Audio/Stream Deck/Windows Media outcomes committed; remaining provider adapters and frontend integration in progress | Complete all provider boundaries and local feedback, then full gates and native acceptance before deployment |
+| `gui-action-outcomes`: 1, 4 | Transport, independent global mute ordering, host proposal identity, frontend feedback and all provider outcomes except Hue committed | Complete Hue and its review, then full gates and native acceptance before deployment |
 | `gui-attention-journeys`: remaining 14 | Typed lifecycle, provider attention metadata, shared gates and sidebar markers committed | Final shared gates and packaged recovery journeys |
 | `view-state-transport`, repository hardening/cleanup | Source checkpoints committed; versioned/coalesced state transport and native cleanup tested offline | Canonical build, final gates and actual hardware acceptance |
+
+The action-feedback frontend passes 289 browser tests in 46.2 s, plus strict TypeScript, ESLint,
+Prettier and 15 model tests. Final combined source gates follow Hue integration.
 
 Recent focused runs include 53 Routing/keyboard/preservation/accessibility cases in 7.4 s and
 52 Deck/Soundboard/preservation/accessibility cases in 8.3 s. The geometry suite no longer carries
@@ -38,7 +41,7 @@ canonical build and packaged acceptance, then restores the prior launch configur
 hardware task is complete merely because a fixture, browser screenshot or offline native test
 passes. The configured toolchain still cannot run the race detector without cgo.
 
-Execution continues through the remaining action-outcome adapters and frontend integration,
+Execution continues through the Hue adapter and final completion-path review,
 then shared source gates and native acceptance of all GUI changes. Do not deploy the intermediate action-result
 protocol before its frontend and provider integration is complete. The TypeScript-first order
 is satisfied; repository hardening is no longer waiting on that split.

@@ -1,3 +1,4 @@
+import { isBusy, actionFeedback } from "../actions.ts";
 import { ui, el, panel, empty, iconButton, icon } from "../dom.ts";
 import { root, updaters, c, appState } from "../state.ts";
 import { press } from "../host.ts";
@@ -101,7 +102,7 @@ function transport(card: HTMLElement) {
   const stop = command("audio.tape-stop", "Stop", row, "", "square");
   if (stop)
     updaters.push(() => {
-      stop.disabled = !!appState.pending || !c("audio.tape-stop")?.Available || !!c("audio.tape-stop")?.Inactive;
+      stop.disabled = isBusy("audio.tape-stop") || !c("audio.tape-stop")?.Available || !!c("audio.tape-stop")?.Inactive;
     });
   for (const [id, name, label] of [
     ["audio.tape-rew", "rewind", "Rewind"],
@@ -111,8 +112,9 @@ function transport(card: HTMLElement) {
     const b = iconButton(name, label, () => press(id));
     viewKey(b, id, "press");
     row.append(b);
+    actionFeedback(id, row);
     updaters.push(() => {
-      b.disabled = !!appState.pending || !c(id)?.Available || !!c(id)?.Inactive;
+      b.disabled = isBusy(id) || !c(id)?.Available || !!c(id)?.Inactive;
     });
   }
   const relabel = (b: HTMLButtonElement | null, text: string, name: string) => {

@@ -149,7 +149,9 @@ test("host confirmation preempts a local ticket without sending host Cancel", as
   await expect(host.getByRole("button", { name: "Cancel", exact: true })).toBeFocused();
   expect(await gui.sent()).toEqual([]);
   await gui.page.keyboard.press("Escape");
-  await expect.poll(() => gui.sent()).toEqual([{ Kind: "cancel" }]);
+  await expect
+    .poll(() => gui.sent())
+    .toEqual([expect.objectContaining({ ID: expect.any(String), Kind: "cancel", ProposalID: "" })]);
   await gui.update(() => {
     window.fixture.Confirmation = "";
   });

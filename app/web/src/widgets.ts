@@ -7,6 +7,7 @@ import { request, press } from "./host.ts";
 import { commitSelect } from "./select.ts";
 import { viewKey } from "./view-state.ts";
 import { registerDraft } from "./draft.ts";
+import { isBusy, actionFeedback } from "./actions.ts";
 function widgetKey(id: string) {
   if (id === "streamdeck.name") return [id, c("streamdeck.profile")?.Value || "", c("streamdeck.page")?.Value || ""];
   if (id === "streamdeck.add") return [id, c("streamdeck.profile")?.Value || ""];
@@ -21,8 +22,9 @@ export function command(id: string, label: string, parent: HTMLElement, classNam
   viewKey(b, ...widgetKey(id), "command");
   if (iconName) withIcon(b, iconName);
   parent.append(b);
+  actionFeedback(id, parent);
   updaters.push(() => {
-    b.disabled = !!appState.pending || !c(id)?.Available;
+    b.disabled = isBusy(id) || !c(id)?.Available;
   });
   return b;
 }
@@ -131,7 +133,7 @@ export function control(id: string, parent: HTMLElement, label?: string, { layou
     );
     updaters.push(() => {
       value.textContent = display(c(id) || initial);
-      for (const b of input.querySelectorAll("button")) b.disabled = !!appState.pending || !c(id)?.Available;
+      for (const b of input.querySelectorAll("button")) b.disabled = isBusy(id) || !c(id)?.Available;
     });
   } else {
     input = el("span");
@@ -152,13 +154,14 @@ export function control(id: string, parent: HTMLElement, label?: string, { layou
     row.append(editor);
     const enable = () => {
       apply.disabled =
-        !!appState.pending || !c(id)?.Available || ("value" in input ? input.value : "") === (c(id)?.Value || "");
+        isBusy(id) || !c(id)?.Available || ("value" in input ? input.value : "") === (c(id)?.Value || "");
     };
     input.addEventListener("input", enable);
     updaters.push(enable);
   } else row.append(input);
   viewKey(input, ...widgetKey(id), "field");
   parent.append(row);
+  if (initial.Kind !== "status") actionFeedback(id, caption);
   widgets.push({ id, row, title, note, input, initial });
 }
 // meterBar is a level meter: a dimmed full gradient as the unlit track, the
@@ -242,6 +245,7 @@ export function mixer(id: string, parent: HTMLElement, title: string) {
     mute.title = "Toggle mute";
   }
   parent.append(node);
+  actionFeedback(id, node);
   updaters.push(() => {
     const control = c(id);
     device.textContent =
@@ -271,7 +275,7 @@ export function mixer(id: string, parent: HTMLElement, title: string) {
       mute.dataset.tone = muted ? "critical" : "";
       mute.setAttribute("aria-pressed", String(muted));
     }
-    for (const b of actions.querySelectorAll("button")) b.disabled = !!appState.pending || !control?.Available;
+    for (const b of actions.querySelectorAll("button")) b.disabled = isBusy(id) || !control?.Available;
   });
 }
 export function setArt(

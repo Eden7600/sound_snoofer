@@ -31,11 +31,11 @@ test.describe("Third-Party Apps", () => {
       page.locator("[data-part=app-card]", { hasText: "callback" }).locator("[data-part=app-times]"),
       "zero times shown",
     ).toBeHidden();
-    expect(await page.locator("[data-part=not-monitored] li").allTextContents()).toEqual(["Windows Media — Disabled"]);
+    expect(await page.locator("[data-part=not-monitored] li").allTextContents()).toEqual(["Windows Media — Off"]);
     await gui.update(() => {
       delete window.fixture.PluginLabels;
     });
-    await expect(page.locator("[data-part=not-monitored] li")).toHaveText(["media — Disabled"]);
+    await expect(page.locator("[data-part=not-monitored] li")).toHaveText(["media — Off"]);
   });
 
   test("copies details", async ({ gui }) => {

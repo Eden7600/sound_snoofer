@@ -1,3 +1,4 @@
+import { isBusy, actionFeedback } from "../actions.ts";
 import { ui, el, button, panel, badge, withIcon, empty, iconButton, icon } from "../dom.ts";
 import { root, updaters, c, appState, update } from "../state.ts";
 import { request, press } from "../host.ts";
@@ -31,7 +32,7 @@ function deviceIdentity(device: PrioritySuggestion | undefined) {
   return device && JSON.stringify([device.Driver, device.ID || device.Exact || device.Name]);
 }
 function editable() {
-  return !appState.pending && !!c("audio.priority-edit")?.Available;
+  return !isBusy("audio.priority-edit") && !!c("audio.priority-edit")?.Available;
 }
 // matchBadge states what an entry matches under the planner's rules.
 function matchBadge(entry: PriorityEntry, missing = "No match") {
@@ -353,7 +354,7 @@ function micsCard(parent: HTMLElement, view: Partial<PriorityView>) {
     name.onkeydown = (e) => {
       if (e.key === "Enter") b.click();
     };
-    name.addEventListener("input", update);
+    name.addEventListener("input", () => update());
     updaters.push(() => {
       nameDraft.sync();
       name.disabled = kind.disabled = !editable();
@@ -696,20 +697,24 @@ function routeCell(id: string, label: string) {
       on = !!item && item.Value !== "Off" && item.Value !== "off";
     b.textContent = item ? display(item) : "N/A";
     b.setAttribute("aria-pressed", String(on));
-    b.disabled = !!appState.pending || !item?.Available;
+    b.disabled = isBusy(id) || !item?.Available;
   });
-  return b;
+  const wrap = el("div", "min-w-0");
+  wrap.append(b);
+  actionFeedback(id, wrap);
+  return wrap;
 }
 function outputsCard(parent: HTMLElement, view: Partial<PriorityView>) {
   const card = panel("Outputs", parent, "col-span-full");
   card.dataset.part = "outputs";
+  actionFeedback("audio.output-edit", card);
   const slots = [1, 2, 3]
     .map((n) => "audio.slot-" + n)
     .filter((id) => {
       const slot = c(id);
       return slot && !slot.Hidden;
     });
-  const editableOutputs = () => !appState.pending && !!c("audio.output-edit")?.Available;
+  const editableOutputs = () => !isBusy("audio.output-edit") && !!c("audio.output-edit")?.Available;
   const playbackSources = [...appState.controls.keys()]
     .filter((id) => id.startsWith("audio.playback:"))
     .map((id) => id.slice("audio.playback:".length))
@@ -895,13 +900,14 @@ function outputsCard(parent: HTMLElement, view: Partial<PriorityView>) {
       name.disabled = device.disabled = !editableOutputs();
       b.disabled = !editableOutputs() || !name.value.trim() || !added();
     });
-    name.addEventListener("input", update);
+    name.addEventListener("input", () => update());
     routingKey(b, "new-output", "add");
     add.append(name, device, b);
     card.append(add);
   }
 }
 export function buildRouting() {
+  actionFeedback("audio.priority-edit", root);
   drawnConfig = c("audio.priority-edit")?.Value || "";
   const status = c<PriorityView>("audio.priorities");
   if (!status) {

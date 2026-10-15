@@ -1,3 +1,4 @@
+import { isBusy, actionFeedback } from "./actions.ts";
 import { $ } from "./dom.ts";
 import { appState, c, root } from "./state.ts";
 import { send } from "./host.ts";
@@ -16,8 +17,9 @@ interface LocalConfirmation {
   invoker: string | undefined;
   invalid: boolean;
 }
-type Confirmation = { kind: "host"; message: string } | { kind: "local"; ticket: LocalConfirmation };
+type Confirmation = { kind: "host"; message: string; id: string } | { kind: "local"; ticket: LocalConfirmation };
 let local: LocalConfirmation | null = null;
+let host: Extract<Confirmation, { kind: "host" }> | null = null;
 let shown: Confirmation["kind"] | undefined;
 
 function valid(ticket: LocalConfirmation) {
@@ -45,7 +47,7 @@ export function confirmAction(
   if (
     local ||
     appState.state.Confirmation ||
-    appState.pending ||
+    isBusy(id) ||
     appState.reconnecting ||
     !control?.Available ||
     !control.Operations?.includes("press")
@@ -72,14 +74,20 @@ export function closeLocalConfirmation() {
   if (!appState.state.Confirmation) restoreFocus(root, invoker);
 }
 export function renderConfirmation() {
-  if (appState.state.Confirmation) local = null;
+  if (appState.state.Confirmation) {
+    local = null;
+    host ??= { kind: "host", message: appState.state.Confirmation, id: appState.state.ProposalID || "" };
+  } else host = null;
   if (local && !valid(local)) local.invalid = true;
-  const confirmation: Confirmation | null = appState.state.Confirmation
-    ? { kind: "host", message: appState.state.Confirmation }
-    : local
-      ? { kind: "local", ticket: local }
-      : null;
+  const confirmation: Confirmation | null = host ? host : local ? { kind: "local", ticket: local } : null;
   const dialog = $<HTMLDialogElement>("#confirm");
+  dialog.dataset.confirmation = confirmation?.kind || "";
+  const feedback = dialog.querySelector<HTMLElement>("[data-action-feedback]");
+  if (feedback && confirmation?.kind !== "host") {
+    feedback.hidden = true;
+    feedback.replaceChildren();
+    delete feedback.dataset.signature;
+  }
   if (!confirmation) {
     if (dialog.open) dialog.close();
     shown = undefined;
@@ -93,26 +101,36 @@ export function renderConfirmation() {
   status.textContent = ticket?.invalid ? "Selection changed; cancel and try again." : "";
   const yes = $<HTMLButtonElement>("#confirm-yes");
   yes.textContent = ticket?.accept || "Apply & restart";
-  yes.disabled = !!ticket?.invalid || !!appState.pending || appState.reconnecting;
+  yes.disabled = !!ticket?.invalid || isBusy(ticket?.request.ID || "lifecycle") || appState.reconnecting;
+  $<HTMLButtonElement>("#confirm-no").disabled = !!host && (isBusy("lifecycle") || appState.reconnecting);
   const focusCancel = !dialog.open || shown !== confirmation.kind;
   if (!dialog.open) dialog.showModal();
   if (focusCancel) $("#confirm-no").focus();
   shown = confirmation.kind;
 }
 export function initializeConfirmation() {
+  const feedback = actionFeedback("lifecycle", $("#confirm"));
+  $("#confirm-status").after(feedback);
+  const hostAction = async (kind: "confirm" | "cancel") => {
+    const ticket = host;
+    if (!ticket) return;
+    await send({ Kind: kind, ProposalID: ticket.id });
+    if (host === ticket && appState.state.ProposalID !== ticket.id) host = null;
+    renderConfirmation();
+  };
   const cancel = () => {
-    if (appState.state.Confirmation) send({ Kind: "cancel" });
+    if (host) void hostAction("cancel");
     else closeLocalConfirmation();
   };
   $("#confirm-no").onclick = cancel;
   $("#confirm-yes").onclick = () => {
-    if (appState.state.Confirmation) {
-      send({ Kind: "confirm" });
+    if (host) {
+      void hostAction("confirm");
       return;
     }
     const ticket = local;
     if (!ticket) return;
-    if (!valid(ticket) || appState.pending) {
+    if (!valid(ticket) || isBusy(ticket.request.ID)) {
       renderConfirmation();
       return;
     }

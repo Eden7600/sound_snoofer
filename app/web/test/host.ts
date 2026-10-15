@@ -36,7 +36,7 @@ const types: Record<string, string> = {
 // installHost runs in the page before the GUI: it fakes window.go.app.Desktop.
 // Send records each action and applies the few mutations the host would.
 function installHost([fixture, animations]: [Fixture, Animations]): void {
-  window.fixture = fixture;
+  window.fixture = { ConfigRevision: "fixture-config", ProposalID: "", ...fixture };
   window.animations = animations;
   window.sent = [];
   window.copied = [];
@@ -105,7 +105,8 @@ function installHost([fixture, animations]: [Fixture, Animations]): void {
     Send: async (action: Action) => {
       window.sent.push(action);
       const r = action.Request;
-      if (!r) return;
+      const result = { ID: action.ID, Status: "Processed" as const, Detail: "" };
+      if (!r) return result;
       const target = window.fixture.Controls.find((c) => c.ID === r.ID);
       const preview = window.fixture.Controls.find((c) => c.ID === "streamdeck.preview");
       const view = preview?.ViewData as DeckView | undefined;
@@ -173,9 +174,10 @@ function installHost([fixture, animations]: [Fixture, Animations]): void {
         view.Dirty = true;
         preview.Revision++;
       }
-      if (!target) return;
+      if (!target) return result;
       if (r.Operation === "set") target.Value = r.Value;
       target.Revision++;
+      return result;
     },
   };
   Object.assign(window, { go: { app: { Desktop: desktop } } });
@@ -242,10 +244,9 @@ export class Gui {
     return sent.flatMap((a) => (a.Request?.ID === id ? [JSON.parse(a.Request.Value) as unknown] : []));
   }
 
-  // settled waits until the GUI accepts input again after a send.
+  // settled waits until this screen has no outstanding sends.
   async settled(): Promise<void> {
-    await expect(this.page.getByText("Sending", { exact: true })).toBeHidden();
-    await expect(this.page.locator("#content")).toHaveAttribute("aria-busy", "false");
+    await expect(this.page.locator("#summary").getByText("Sending", { exact: true })).toBeHidden();
   }
 
   async noHorizontalScroll(): Promise<void> {

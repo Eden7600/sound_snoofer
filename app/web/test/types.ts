@@ -1,6 +1,6 @@
 // The host's view state as the GUI receives it (app/state.go, snoofer.Control).
 // Handwritten fixtures may omit default fields; provider ViewData is narrowed at each read.
-import type { PluginState } from "../src/types.ts";
+import type { PluginState, UIAction } from "../src/types.ts";
 
 export interface Meter {
   Present?: boolean;
@@ -39,6 +39,7 @@ export interface Control<T = unknown> {
   OptionLabels?: Record<string, string>;
   Meter?: Meter;
   Artwork?: string;
+  Mirrors?: string;
   Collection?: string;
   CollectionLabel?: string;
   Order?: number;
@@ -54,6 +55,8 @@ export interface Fixture {
   Enabled: Record<string, boolean>;
   Notice: string;
   Confirmation: string;
+  ConfigRevision?: string;
+  ProposalID?: string;
 }
 
 export type Animations = Record<string, { Artwork: string; Delay: number }[]>;
@@ -66,9 +69,4 @@ export interface Request {
   Delta: number;
 }
 
-export interface Action {
-  Request?: Request;
-  Kind?: string;
-  Plugin?: string;
-  Enable?: boolean;
-}
+export type Action = UIAction;

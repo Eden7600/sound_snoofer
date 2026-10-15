@@ -175,6 +175,8 @@ test.describe("Stream Deck", () => {
     expect(await request(gui)).toEqual(["streamdeck.region-clip", "0,on"]);
     await page.locator("[data-part=page-sets]").waitFor({ state: "hidden" });
     await expect(page.getByLabel("Region 1 Overflow")).not.toBeChecked();
+    // A focused live input still defers unrelated structural replacement.
+    await page.getByLabel("Region 1 Overflow").blur();
     await gui.update(() => {
       const preview = window.ctl("streamdeck.preview");
       const v = preview.ViewData as DeckView | undefined;

@@ -1,3 +1,4 @@
+import { isBusy, actionFeedback } from "../actions.ts";
 import { ui, tc, el, button, panel, iconButton, icon } from "../dom.ts";
 import { root, updaters, c, appState } from "../state.ts";
 import { request, press } from "../host.ts";
@@ -17,6 +18,7 @@ function lightsSetup(parent: HTMLElement) {
   viewKey(pair, "hue.pair", "press");
   actions.append(pair);
   card.append(title, text, actions);
+  actionFeedback("hue.pair", card);
   parent.append(card);
   updaters.push(() => {
     const status = c<HueStatusView>("hue.status"),
@@ -65,7 +67,7 @@ function lightsSetup(parent: HTMLElement) {
     text.textContent = body;
     pair.hidden = !canPair;
     pair.textContent = value === "Error" ? "Pair Again" : "Pair";
-    pair.disabled = !!appState.pending || !p?.Available;
+    pair.disabled = isBusy("hue.pair") || !p?.Available;
   });
 }
 function lightDial(
@@ -92,6 +94,7 @@ function lightDial(
   viewKey(slider, id, "slider");
   node.append(el("h3", ui.stripTitle, title), value, slider, note, actions);
   parent.append(node);
+  actionFeedback(id, node);
   actions.append(
     viewKey(
       iconButton("minus", title + " down", () => request(c(id), "adjust", "", -1)),
@@ -122,10 +125,10 @@ function lightDial(
     value.textContent = control ? display(control) : "Unavailable";
     value.className = ui.readout + (control?.Subdued ? " text-attention" : "");
     if (document.activeElement !== slider && number !== null) slider.value = String(number);
-    slider.disabled = !!appState.pending || !control?.Available || number === null;
+    slider.disabled = isBusy(id) || !control?.Available || number === null;
     note.textContent = control?.Status || "";
     note.className = ui.meterLabel + " " + tc(tone(control));
-    for (const b of actions.querySelectorAll("button")) b.disabled = !!appState.pending || !control?.Available;
+    for (const b of actions.querySelectorAll("button")) b.disabled = isBusy(id) || !control?.Available;
   });
 }
 function segmented(id: string, title: string, parent: HTMLElement) {
@@ -137,6 +140,7 @@ function segmented(id: string, title: string, parent: HTMLElement) {
   group.setAttribute("aria-label", title);
   row.append(el("h3", ui.stripTitle, title), group);
   parent.append(row);
+  actionFeedback(id, row);
   updaters.push(() => {
     row.hidden = !!c(id)?.Hidden;
   });
@@ -151,7 +155,7 @@ function segmented(id: string, title: string, parent: HTMLElement) {
     updaters.push(() => {
       const item = c(id);
       b.setAttribute("aria-pressed", String(item?.Value === option));
-      b.disabled = !!appState.pending || !item?.Available;
+      b.disabled = isBusy(id) || !item?.Available;
     });
   }
 }
@@ -163,13 +167,17 @@ function sceneCard(id: string, parent: HTMLElement) {
   b.dataset.part = "scene";
   viewKey(b, id, "scene");
   b.append(art, name, status);
-  parent.append(b);
+  const wrap = el("div", "min-w-0");
+  b.classList.add("w-full");
+  wrap.append(b);
+  actionFeedback(id, wrap);
+  parent.append(wrap);
   updaters.push(() => {
     const item = c(id);
     if (!item) return;
     name.textContent = item.ShortLabel || item.Label;
     b.title = item.Label;
-    b.disabled = !!appState.pending || !item.Available;
+    b.disabled = isBusy(id) || !item.Available;
     b.dataset.state = clipState(item, "Active");
     status.textContent = item.Status === "Pending" ? "Wait" : item.Status || display(item);
     status.className = "mt-[5px] text-[11px] " + (tc(tone(item)) || "text-muted");
@@ -186,6 +194,7 @@ function roomsCard(parent: HTMLElement) {
   const list = el("div", "mt-3 grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2"),
     error = el("p", "mt-2 text-critical");
   card.append(list, error);
+  actionFeedback("hue.rooms", card);
   const boxes: HTMLInputElement[] = [];
   for (const room of item.ViewData) {
     const label = el("label", "flex items-center gap-2.5"),
@@ -212,7 +221,7 @@ function roomsCard(parent: HTMLElement) {
     for (const b of boxes) b.checked = !!chosen.get(b.value);
     const count = boxes.filter((b) => b.checked).length;
     // The last chosen room stays chosen.
-    for (const b of boxes) b.disabled = !!appState.pending || !current?.Available || (b.checked && count === 1);
+    for (const b of boxes) b.disabled = isBusy("hue.rooms") || !current?.Available || (b.checked && count === 1);
     error.textContent = current?.Status || "";
     error.hidden = !error.textContent;
   });
@@ -287,6 +296,7 @@ export function buildLights() {
     toggle = button("", () => press("hue.sync"), ui.toggle + " mb-[18px] w-full p-3.5 text-base"),
     help = el("p", "text-muted");
   sync.append(syncState, toggle);
+  actionFeedback("hue.sync", sync);
   viewKey(toggle, "hue.sync", "toggle");
   segmented("hue.sync-mode", "Mode", sync);
   segmented("hue.sync-intensity", "Intensity", sync);
@@ -301,7 +311,7 @@ export function buildLights() {
     toggle.textContent = item?.Status === "Pending" ? "Wait" : on ? "Stop Sync" : "Start Sync";
     toggle.setAttribute("aria-pressed", String(on));
     toggle.dataset.tone = failed ? "critical" : "";
-    toggle.disabled = !!appState.pending || !item?.Available;
+    toggle.disabled = isBusy("hue.sync") || !item?.Available;
     help.textContent =
       status?.Value === "N/A"
         ? "Open Hue Sync and turn on Settings → Third-party control."

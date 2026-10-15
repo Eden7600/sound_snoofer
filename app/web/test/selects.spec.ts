@@ -19,6 +19,11 @@ test.describe("Live dropdown commitment", () => {
     expect(await gui.last("audio.normal-mode")).toMatchObject({ Operation: "set", Value: "element" });
     await gui.settled();
     await expect(processing).not.toBeFocused();
+    // A correlated reply can precede the provider snapshot. Duplicate choice
+    // suppression compares observed state, not a presumed successful write.
+    const polls = await gui.page.evaluate(() => window.transport.polls);
+    await gui.page.waitForFunction((before) => window.transport.polls > before, polls);
+    await expect(processing).toHaveValue("element");
     await processing.selectOption("element");
     expect(await gui.sent()).toHaveLength(1);
   });

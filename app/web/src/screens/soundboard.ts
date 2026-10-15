@@ -1,3 +1,4 @@
+import { isBusy, actionFeedback } from "../actions.ts";
 import { ui, tc, el, button, panel, empty, icon } from "../dom.ts";
 import { root, updaters, c, appState, update } from "../state.ts";
 import { request, press } from "../host.ts";
@@ -12,7 +13,7 @@ export function buildSoundboard() {
   search.type = "search";
   search.placeholder = "Search Clips";
   search.setAttribute("aria-label", "Search Clips");
-  search.oninput = update;
+  search.oninput = () => update();
   preserveSearch(search, ["soundboard", "search"], update);
   toolbar.append(icon("search", "size-5 shrink-0 text-muted"), search);
   command("soundboard.stop", "Stop", toolbar, "", "square");
@@ -50,7 +51,11 @@ export function buildSoundboard() {
     viewKey(b, initial.ID, "play");
     b.append(art, name, status);
     b.title = initial.Label;
-    grid.append(b);
+    const wrap = el("div", "min-w-0");
+    b.classList.add("w-full");
+    wrap.append(b);
+    actionFeedback(initial.ID, wrap);
+    grid.append(wrap);
     b.onpointerdown = (e) => {
       if (e.button !== 0) return;
       clearTimeout(holdTimer);
@@ -65,12 +70,12 @@ export function buildSoundboard() {
     updaters.push(() => {
       const item = c(initial.ID);
       if (!item) return;
-      b.disabled = !!appState.pending || !item.Available;
+      b.disabled = isBusy(initial.ID) || !item.Available;
       b.dataset.state = clipState(item, "Playing");
       status.textContent = item.Status || display(item);
       status.className = "mt-[5px] text-[11px] " + (tc(tone(item)) || "text-muted");
       setArt(art, item.Artwork, () => icon("play", "size-9"), "size-16", item.ID);
-      b.hidden = !item.Label.toLocaleLowerCase().includes(search.value.toLocaleLowerCase());
+      wrap.hidden = b.hidden = !item.Label.toLocaleLowerCase().includes(search.value.toLocaleLowerCase());
     });
   }
   const noMatch = el("p", ui.empty, "No matching clips");

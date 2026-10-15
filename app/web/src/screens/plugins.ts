@@ -5,6 +5,7 @@ import { viewKey } from "../view-state.ts";
 import { lifecycleUnavailable, pluginStateText, pluginStates } from "../plugin-gate.ts";
 
 export function buildPlugins() {
+  const configRevision = appState.state.ConfigRevision;
   const retry = viewKey(
     button("Retry Plugins", () => send({ Kind: "retry" })),
     "plugins",
@@ -34,6 +35,7 @@ export function buildPlugins() {
               Kind: "selection",
               Plugin: id,
               Enable: state === "disabled",
+              ConfigRevision: configRevision,
             }),
           ui.toggle,
         ),
