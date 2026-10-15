@@ -242,3 +242,14 @@ that control revision even if its next observed value is unchanged.
 - **WHEN** a new DOM node replaces the captured mic or camera control
 - **THEN** the old revision is invalid before another action can click the replacement
 - **AND** the replacement needs a fresh observed control state
+
+### Requirement: Meet documents do not enter the companion Media publisher
+The new companion SHALL exclude exact https://meet.google.com documents from its
+generic Media adapter admission/publication and injection. Meet reports SHALL use
+the dedicated isolated-world contract without page titles or meeting identifiers.
+Other sites and existing Windows media-session reporting SHALL remain unchanged.
+
+#### Scenario: A joined Meet call contains playing HTML media
+- **WHEN** a Meet-origin document would otherwise report generic Media playback
+- **THEN** the companion refuses that generic Media port and publishes only bounded Meet control state
+- **AND** call media does not enter the companion's music-session focus list

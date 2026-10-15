@@ -62,3 +62,6 @@ control requires session permission.
 
 Default/user layout placement and Show Call, hand controls, Step Away, screen share,
 Leave, push-to-talk and automatic meeting modes are follow-ups, not completion tasks.
+
+Task 4 also verifies the exact-origin exclusion from generic browser Media
+admission/injection; other sites retain their existing media behavior.

@@ -474,3 +474,17 @@ omit private meeting URLs/codes and unnecessary page titles.
 Screen sharing, Leave, push-to-talk, global linked mute, calendar triggers and
 automatic meeting/audio modes require separate proposals. They are not hidden
 requirements or reasons to expand this first release.
+
+## Meet-origin exclusion from generic browser Media
+The existing all-sites Media adapter could discover HTML media inside a Meet call
+and use a tab-title fallback. The new companion excludes exact top-frame/frame
+origin https://meet.google.com from generic Media admission and publication, and
+does not inject its generic Media scripts on that origin. The isolated Meet
+adapter remains the only companion report source for these documents. This avoids
+transporting meeting titles/codes through an unrelated envelope or letting call
+media compete with music-session focus. Derive the exclusion from the actual
+runtime sender origin; do not trust a page-supplied site label. Regression checks
+cover generic Media ports from Meet and continued Media operation on other sites.
+This intentionally narrows the new companion's browser Media discovery on Meet.
+Windows media-session reporting and older companions are unchanged; the feature
+does not claim to redact metadata independently published by those existing paths.
