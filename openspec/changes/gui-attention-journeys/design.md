@@ -110,6 +110,12 @@ the text to Saved: error text can equal it. Dirty alone is not a problem marker.
 intentional Preview label and unavailable playback in preview are not failures; the current Preview label replaces every diagnostic, so preview publishes no attention metadata. Do not flag a hidden diagnostic
 that the destination does not show. Keep every producer's existing error lifetime.
 
+Now Playing additionally publishes ViewData.WindowsError from its actual winErr field, omitted
+when empty. Media uses WindowsError for its existing Windows problem line instead of comparing
+the display-only Windows text to Connected. Keep Windows as descriptive compatibility data.
+The TypeScript view and manual fixture mirror this field; a real error whose text is Connected
+must stay visible and critical, while healthy Connected with no WindowsError stays neutral.
+
 Media does not show nowplaying.deck-media save errors; those remain Deck-local action feedback and do not enter the Media status aggregate.
 
 Current Hue/Discord faults and setup use their typed connection reports. Pairing or individual

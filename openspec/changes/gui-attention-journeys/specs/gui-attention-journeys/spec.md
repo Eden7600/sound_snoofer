@@ -61,6 +61,12 @@ design SHALL bound this change; generic Value or Status text matching SHALL NOT 
 - **THEN** its canonical status control gains and then clears the declared attention metadata
 - **AND** descriptive labels, values and existing error lifetime remain unchanged
 
+#### Scenario: A Windows media error resembles healthy display text
+- **WHEN** Windows media reports an error whose text is Connected
+- **THEN** the provider publishes explicit WindowsError data and critical attention
+- **AND** the existing Media problem line shows that error without comparing display words
+- **AND** a healthy Connected state with no WindowsError remains neutral
+
 #### Scenario: Metadata changes independently
 - **WHEN** only a control's attention metadata changes
 - **THEN** the changed metadata reaches the GUI
