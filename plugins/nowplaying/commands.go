@@ -11,14 +11,14 @@ import (
 
 // Track/capability changes invalidate queued work; progress and artwork do not.
 type sessionTarget struct {
-	key, source, instance, title, artist, album string
-	generation                                  uint64
-	duration                                    int64
-	play, pause, next, prev, seek, mute         bool
+	key, source, instance, title, artist, album, track string
+	generation                                         uint64
+	duration                                           int64
+	play, pause, next, prev, seek, mute                bool
 }
 
 func targetOf(s session) sessionTarget {
-	return sessionTarget{s.Key, s.Source, s.Instance, s.Title, s.Artist, s.Album, s.Generation,
+	return sessionTarget{s.Key, s.Source, s.Instance, s.Title, s.Artist, s.Album, s.Track, s.Generation,
 		s.DurationMs, s.CanPlay, s.CanPause, s.CanNext, s.CanPrev, s.CanSeek, s.CanMute}
 }
 
@@ -35,6 +35,7 @@ type command struct {
 	expectedSettings                    string
 	wantDeckOff                         bool
 	op                                  string
+	rating                              string
 	value                               int64
 	complete                            snoofer.Completion
 }
@@ -65,13 +66,21 @@ func capture(r snoofer.Request, sessions map[string]session, contexts map[string
 	case "nowplaying.deck-media":
 		c.settingsGeneration, c.expectedSettings, c.wantDeckOff = settingsGeneration, raw, !deckOff
 		return c
-	case "nowplaying.dial", "nowplaying.toggle", "nowplaying.next", "nowplaying.prev", "nowplaying.mute":
+	case "nowplaying.dial", "nowplaying.toggle", "nowplaying.next", "nowplaying.prev", "nowplaying.mute", "nowplaying.like", "nowplaying.dislike":
 		c.target, c.focusGeneration = focus, focusGeneration
 	default:
 		c.target = sessions[r.ID]
 	}
 	c.context = contexts[c.target.Key]
 	c.op = strings.TrimPrefix(r.ID, "nowplaying.")
+	if c.op == "like" || c.op == "dislike" {
+		c.rating = c.op
+		if c.target.Rating == c.rating {
+			c.rating = "none"
+		}
+		c.op = "rate"
+		return c
+	}
 	if c.op == "dial" || c.op != "next" && c.op != "prev" && c.op != "mute" {
 		c.op = "toggle"
 	}

@@ -143,6 +143,7 @@ type worker struct {
 	playing  map[string]bool
 	focus    string
 	chosen   bool // The user chose focus by holding a session key; it sticks until reset.
+	ratings  map[string]ratingState
 	pending  map[string]pendingCommand
 	failure  map[string]string
 	scrub    *scrub            // The dial seek being gathered, if any.
@@ -217,7 +218,7 @@ func newWorker(s snoofer.Services, open func() (windowsSource, error), t timing)
 	return &worker{services: s, timing: t, openWindows: open, winArt: map[string]string{}, browsers: map[string]browserUpdate{}, browserArt: map[string]string{},
 		send:              func(string, browserCommand) error { return errors.New("browser bridge unavailable") },
 		browserGeneration: func(string) uint64 { return 0 }, contexts: map[string]mediaContext{}, focusGeneration: 1, settingsGeneration: 1,
-		started: map[string]time.Time{}, playing: map[string]bool{}, pending: map[string]pendingCommand{}, failure: map[string]string{}, tiles: map[string]string{}}
+		started: map[string]time.Time{}, playing: map[string]bool{}, pending: map[string]pendingCommand{}, ratings: map[string]ratingState{}, failure: map[string]string{}, tiles: map[string]string{}}
 }
 
 func (w *worker) closeWindows() {
@@ -400,6 +401,7 @@ func (w *worker) merge(now time.Time) {
 // observe settles pending commands that the sources confirm, and reports
 // those that are not confirmed in time.
 func (w *worker) observe(now time.Time) {
+	w.observeRatings(now)
 	for k, p := range w.pending {
 		s, ok := w.find(k)
 		if !ok || targetOf(s) != p.target {
@@ -516,6 +518,9 @@ func (w *worker) handle(c command, now time.Time) snoofer.Outcome {
 			return reject("Invalid seek position")
 		}
 		return w.command(c.target, "seek", position, now)
+	}
+	if c.op == "rate" {
+		return w.rate(c.target, c.rating, now)
 	}
 	return w.command(c.target, c.op, c.value, now)
 }

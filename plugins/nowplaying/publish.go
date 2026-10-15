@@ -62,6 +62,12 @@ func (w *worker) publish(providerCtx context.Context, commands chan command, now
 			title = s.App
 		}
 		failure := w.failure[s.Key]
+		if failure == "" {
+			failure = w.ratings[s.Key].failure
+		}
+		if s.ReloadRequired {
+			failure = "Reload this tab"
+		}
 		if s.Instance == "" {
 			failure = "Update the Snoofer media companion"
 		}
@@ -130,6 +136,8 @@ func (w *worker) publish(providerCtx context.Context, commands chan command, now
 		transport("toggle", "Play or Pause", "Play", "media-play", ok && focused.CanToggle, toggleValue),
 		transport("next", "Next Track", "Next", "media-next", ok && focused.CanNext, ""),
 		transport("mute", "Mute Tab", "Mute", "speaker-mute", ok && focused.CanMute, muteValue))
+
+	controls = append(controls, w.ratingControl(focused, "like", "Like"), w.ratingControl(focused, "dislike", "Dislike"))
 
 	data, _ := json.Marshal(view) // Plain fields always marshal.
 	summary := fmt.Sprintf("%d sessions", len(w.sessions))

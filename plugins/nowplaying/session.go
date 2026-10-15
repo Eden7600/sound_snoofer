@@ -11,28 +11,30 @@ import (
 
 // session is a media session from either source, in one shape.
 type session struct {
-	Key               string // Source and display ID; may be reused by another session.
-	Source            string // "windows" or the browser name.
-	ID                string // The source's own ID.
-	Instance          string // Native object or content-port lifetime token.
-	Generation        uint64 // Windows handle or browser connection lifetime.
-	App               string // Player or site, for display.
-	Title             string
-	Artist            string
-	Album             string
-	Art               string // 64 px base64 PNG, or empty.
-	Status            string // Playing, Paused or Stopped.
-	PositionMs        int64
-	DurationMs        int64
-	Updated           time.Time // When PositionMs was sampled; zero if unknown.
-	Rate              float64
-	CanToggle         bool
-	CanPlay, CanPause bool
-	CanNext           bool
-	CanPrev           bool
-	CanSeek           bool
-	CanMute           bool // Browser tabs only.
-	Muted             bool
+	Key                     string // Source and display ID; may be reused by another session.
+	Source                  string // "windows" or the browser name.
+	ID                      string // The source's own ID.
+	Instance                string // Native object or content-port lifetime token.
+	Generation              uint64 // Windows handle or browser connection lifetime.
+	App                     string // Player or site, for display.
+	Title                   string
+	Artist                  string
+	Album                   string
+	Art                     string // 64 px base64 PNG, or empty.
+	Status                  string // Playing, Paused or Stopped.
+	PositionMs              int64
+	DurationMs              int64
+	Updated                 time.Time // When PositionMs was sampled; zero if unknown.
+	Rate                    float64
+	CanToggle               bool
+	CanPlay, CanPause       bool
+	CanNext                 bool
+	CanPrev                 bool
+	CanSeek                 bool
+	CanMute                 bool // Browser tabs only.
+	Muted                   bool
+	Track, Rating           string
+	CanRate, ReloadRequired bool
 }
 
 func (s session) playing() bool { return s.Status == "Playing" }
