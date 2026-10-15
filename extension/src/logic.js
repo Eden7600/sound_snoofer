@@ -145,7 +145,9 @@
       if (!c || (typeof c.value !== "boolean" && c.value !== null) || typeof c.available !== "boolean" || !meetCounter(c.revision) ||
           !["", "unknown", "unavailable", "not-in-call", "reload-required"].includes(c.reason) ||
           (c.available ? value.state !== "joined" || c.value === null || c.reason !== "" : c.reason === "")) return null;
+      if (c.identity !== undefined && c.identity !== "0" && !meetCounter(c.identity)) return null;
       result[name] = { value: c.value, revision: c.revision, available: c.available, reason: c.reason };
+      if (c.identity !== undefined) result[name].identity = c.identity;
     }
     return result;
   }

@@ -143,3 +143,15 @@ test("Meet wire counters, booleans, reasons and exact result echo are bounded", 
   assert.equal(meetResult({ ...result, revision: "2" }, command), null);
   assert.equal(meetResult({ ...result, status: "unknown", reason: "" }, command), null);
 });
+
+test("Meet observation identity is bounded and legacy omission remains readable", () => {
+  const c = { value: true, revision: "1", available: true, reason: "" };
+  const state = { sample: "1", call: "1", state: "joined", mic: c, camera: c };
+  assert.equal(meetState(state).mic.identity, undefined);
+  for (const identity of ["0", "1", "18446744073709551615"]) {
+    assert.equal(meetState({ ...state, mic: { ...c, identity } }).mic.identity, identity);
+  }
+  for (const identity of [null, 1, "", "01", "-1", "1.0", "18446744073709551616"]) {
+    assert.equal(meetState({ ...state, mic: { ...c, identity } }), null);
+  }
+});

@@ -86,6 +86,7 @@ func ValidateMediaSessions(sessions []MediaSession) error {
 
 // MeetControl separates unknown state from a known false value.
 type MeetControl struct {
+	Identity  uint64 `json:"identity,string,omitempty"`
 	Value     *bool  `json:"value"`
 	Revision  uint64 `json:"revision,string"`
 	Available bool   `json:"available"`
@@ -178,15 +179,22 @@ func (c *MeetControl) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	var presence struct {
-		Available *bool   `json:"available"`
-		Revision  string  `json:"revision"`
-		Reason    *string `json:"reason"`
+		Identity  json.RawMessage `json:"identity"`
+		Available *bool           `json:"available"`
+		Revision  string          `json:"revision"`
+		Reason    *string         `json:"reason"`
 	}
 	if err := json.Unmarshal(data, &presence); err != nil {
 		return err
 	}
 	if presence.Available == nil || presence.Reason == nil || !counter(presence.Revision) {
 		return errors.New("invalid Meet control")
+	}
+	if len(presence.Identity) > 0 {
+		var identity string
+		if err := json.Unmarshal(presence.Identity, &identity); err != nil || identity != "0" && !counter(identity) {
+			return errors.New("invalid Meet control identity")
+		}
 	}
 	if value.Available {
 		if value.Value == nil || value.Reason != "" {

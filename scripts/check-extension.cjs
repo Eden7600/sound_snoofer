@@ -290,10 +290,12 @@ const wire = () => {
   document.querySelector('button[jsname="psRWwc"]').onclick = function() { window.meetClicks.camera++; if (!window.ignoreCamera) this.setAttribute('data-is-muted', String(this.getAttribute('data-is-muted') !== 'true')); };
 }; wire();
 window.replaceCall = () => { const old = document.querySelector('[role="region"]'); const replacement = old.cloneNode(true); old.replaceWith(replacement); wire(); };
+window.replaceMic = () => { const old = document.querySelector('button[jsname="hw0c9"]'); const replacement = old.cloneNode(true); replacement.setAttribute('data-is-muted', 'true'); old.replaceWith(replacement); wire(); };
 </script>` }));
   await page.goto("https://meet.google.com/isolated-snoofer-fixture");
   const joined = await until("isolated Meet joined state", (m) => m.type === "meet-state" && m.calls.some((c) => c.state === "joined" && c.mic.available && c.camera.available));
   let call = joined.calls.find((c) => c.state === "joined");
+  assert.equal(call.mic.identity, "1"); assert.equal(call.camera.identity, "1");
   assert.equal(await page.evaluate(() => window.__snooferMedia), undefined, "Meet must not install the generic Media page helper");
   let request = 100;
   const send = (control, value, target = call) => {
@@ -313,6 +315,14 @@ window.replaceCall = () => { const old = document.querySelector('[role="region"]
   await fresh((c) => c.mic.value === false);
   assert.equal((await result(send("camera", true))).status, "observed");
   await fresh((c) => c.camera.value === true);
+  assert.deepEqual(await page.evaluate(() => window.meetClicks), { mic: 1, camera: 1 });
+
+  assert.equal(call.mic.identity, "1", "value changes retain control identity");
+  const oldControl = call;
+  await page.evaluate(() => window.replaceMic());
+  await fresh((c) => c.mic.identity !== oldControl.mic.identity);
+  assert.equal(call.call, oldControl.call); assert.equal(call.mic.value, true);
+  assert.equal((await result(send("mic", false, oldControl))).status, "rejected");
   assert.deepEqual(await page.evaluate(() => window.meetClicks), { mic: 1, camera: 1 });
 
   const old = call;

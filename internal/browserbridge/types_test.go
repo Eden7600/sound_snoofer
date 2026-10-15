@@ -10,6 +10,29 @@ import (
 const validCalls = `{"type":"meet-state","calls":[{"tab":7,"instance":"42","sample":"29","call":"3","state":"joined","mic":{"value":true,"revision":"8","available":true,"reason":""},"camera":{"value":false,"revision":"5","available":true,"reason":""}}]}`
 const validResult = `{"type":"meet-result","id":"106","tab":7,"instance":"42","call":"3","control":"mic","revision":"8","value":false,"status":"observed","reason":""}`
 
+func TestMeetControlIdentityAndLegacyOmission(t *testing.T) {
+	legacy, err := decodeCalls([]byte(validCalls))
+	if err != nil || legacy[0].Mic.Identity != 0 || !*legacy[0].Mic.Value {
+		t.Fatal("legacy observation lost", legacy, err)
+	}
+	for _, check := range []struct {
+		raw  string
+		want uint64
+	}{{`"0"`, 0}, {`"1"`, 1}, {`"18446744073709551615"`, ^uint64(0)}} {
+		raw := strings.Replace(validCalls, `"revision":"8"`, `"identity":`+check.raw+`,"revision":"8"`, 1)
+		calls, err := decodeCalls([]byte(raw))
+		if err != nil || calls[0].Mic.Identity != check.want {
+			t.Fatal(raw, calls, err)
+		}
+	}
+	for _, identity := range []string{`null`, `0`, `1`, `""`, `"01"`, `"-1"`, `"1.0"`, `"18446744073709551616"`} {
+		raw := strings.Replace(validCalls, `"revision":"8"`, `"identity":`+identity+`,"revision":"8"`, 1)
+		if _, err := decodeCalls([]byte(raw)); err == nil {
+			t.Fatal("malformed identity accepted", identity)
+		}
+	}
+}
+
 func TestMeetDecoderPreservesFalseAndUnknown(t *testing.T) {
 	calls, err := decodeCalls([]byte(validCalls))
 	if err != nil || len(calls) != 1 || calls[0].Camera.Value == nil || *calls[0].Camera.Value {

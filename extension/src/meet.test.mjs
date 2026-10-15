@@ -148,3 +148,20 @@ test("a synchronously read click and unrelated styling do not advance revision t
   h.mutate([{ type: "attributes", target: h.mic, attributeName: "class", oldValue: "normal" }]);
   assert.equal(h.state().mic.revision, revision);
 });
+
+test("control identity changes only with node lifetime, including same-batch reinsertion", () => {
+  const h = adapter(); h.config(); const initial = h.state();
+  assert.equal(initial.mic.identity, "1"); assert.equal(initial.camera.identity, "1");
+  h.command("mic", false); assert.equal(h.state().mic.identity, initial.mic.identity);
+  h.mic.disabled = true; h.observe(); h.mic.disabled = false; h.observe();
+  assert.equal(h.state().mic.identity, initial.mic.identity);
+  h.mutate([{ type: "attributes", target: h.mic, attributeName: "data-is-muted", oldValue: "true" }]);
+  assert.equal(h.state().mic.identity, initial.mic.identity, "attribute revision must not manufacture a new node");
+  h.mic = { ...h.mic, value: "true" }; const replacement = h.observe();
+  assert.notEqual(replacement.mic.identity, initial.mic.identity);
+  assert.equal(replacement.camera.identity, initial.camera.identity);
+  h.mutate([{ removedNodes: [h.mic] }]); assert.notEqual(h.state().mic.identity, replacement.mic.identity);
+  const reinserted = h.state().mic.identity;
+  h.duplicates.mic = [h.mic]; h.observe(); h.duplicates.mic = []; h.observe();
+  assert.notEqual(h.state().mic.identity, reinserted);
+});

@@ -10,6 +10,8 @@
   let root = null, leave = null, call = 0n, sample = 0n;
   const controls = { mic: null, camera: null };
   const revisions = { mic: 0n, camera: 0n };
+  const identities = { mic: 0n, camera: 0n };
+  const identityNodes = { mic: null, camera: null };
   const pending = new Map();
   const limit = 18446744073709551615n;
 
@@ -71,9 +73,13 @@
       const current = inspect(nodes[name], name, joined);
       if (state === "unknown") { current.value = null; current.available = false; current.reason = "unknown"; }
       const old = controls[name];
+      if (identities[name] === 0n || identityNodes[name] !== current.node) {
+        identities[name] = next(identities[name]);
+        identityNodes[name] = current.node;
+      }
       if (!old || ["node", "value", "available", "reason"].some((key) => old[key] !== current[key])) revisions[name] = next(revisions[name]);
       controls[name] = current;
-      result[name] = { value: current.value, available: current.available, reason: current.reason, revision: String(revisions[name]) };
+      result[name] = { value: current.value, available: current.available, reason: current.reason, revision: String(revisions[name]), identity: String(identities[name]) };
     }
     post({ type: "meet-state", report: result });
     for (const entry of [...pending.values()]) {
@@ -129,6 +135,7 @@
       for (const entry of [...pending.values()]) if ([entry.root, entry.leave, entry.node].some((node) => removed === node || removed.contains(node))) finish(entry, "unknown", "not-confirmed");
       if (root && (removed === root || removed.contains(root))) root = null;
       if (leave && (removed === leave || removed.contains(leave))) leave = null;
+      for (const name of ["mic", "camera"]) if (identityNodes[name] && (removed === identityNodes[name] || removed.contains(identityNodes[name]))) identityNodes[name] = undefined;
       for (const name of ["mic", "camera"]) if (controls[name]?.node && (removed === controls[name].node || removed.contains(controls[name].node))) controls[name].node = null;
     }
     // Attribute records retain evidence of a change away and back between reads.
