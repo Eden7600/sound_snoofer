@@ -103,9 +103,10 @@ Before or alongside the harness proposal, run a one-off WebView2 check of item 2
 `__controls` route that `scripts/check-desktop.cjs` already uses. The result decides whether
 change 3 exists.
 
-Recommended order: 1 → 2 → 3 (if confirmed) → 4 → 5 → 6 → 7 → 8 → 9. The module split comes
-before the reliability work so that work is written once, in its final location, and its pending
-and outcome logic can be unit-tested. The harness from change 1 protects the split.
+Order (decided 2026-10-14): 1 → 4 → 2 → 3 (if confirmed) → 5 → 6 → 7 → 8 → 9. The harness lands
+first and protects the split. The split now comes before the content fixes as well, so that all
+later work is written once, in TypeScript, in its final location. The repository-audit
+`audit-hardening` change is paused until the split lands.
 
 1. **`gui-test-harness`.** Move to Playwright Test:
    - First port every existing assertion with no application behavior change. Keep the existing
@@ -146,8 +147,13 @@ and outcome logic can be unit-tested. The harness from change 1 protects the spl
      native smoke remains opt-in.
    - If the check does not confirm item 2, keep the commit/cancel definition in change 6 and add a
      regression test so the behavior stays verified.
-4. **`gui-modules`.** Split `app.js` into per-screen modules and shared widgets so each part can be
-   tested without changing behavior:
+4. **`gui-typescript-modules`** (was `gui-modules`). Rewrite `app.js` as TypeScript modules, one
+   per screen plus shared widgets, state and host binding, with readable formatting, so each part
+   can be tested without changing behavior:
+   - Strict `tsc` (`strict`, `noUncheckedIndexedAccess`) type-checks; esbuild bundles to one
+     `dist/app.js`. Types for the host's `ViewState`, `Control` and `UIAction` mirror the Go structs.
+   - typescript-eslint (recommended) and Prettier enforce hygiene; type-check, lint and format all
+     fail `scripts/check.ps1`. No frontend framework.
    - Update the explicit asset list in `app/desktop_windows.go` and the source list in
      `app/web/tailwind.css` in the same change. New modules must be embedded and their utility
      classes included in generated CSS; filesystem-served browser tests cannot prove packaging.
@@ -201,14 +207,14 @@ change 6 does not wait for the cross-layer design in change 5.
 
 ## Open decisions
 
-- Resolve in `gui-test-harness`: add `@playwright/test` matching the existing `playwright` version
-  (currently 1.62.1) and `@axe-core/playwright`, with intentional lockfile changes. Preserve the
-  installed-browser approach; do not introduce an implicit browser download.
-- Resolve in `gui-test-harness`: commit screenshot baselines with a reproducible capture
-  environment, or use DOM geometry assertions plus screenshot review. Either choice must catch
-  clipping, overlap and inaccessible controls at both viewport sizes; screenshots alone do not
-  verify behavior or accessibility.
+- Resolved in `gui-test-harness`: add `@playwright/test` 1.62.1 and `@axe-core/playwright`; the
+  installed Chrome only, never a browser download. DOM geometry assertions plus screenshots as
+  review artifacts, not committed baselines.
+- Resolved for `gui-typescript-modules`: TypeScript with strict `tsc`, an esbuild bundle,
+  typescript-eslint and Prettier.
+- Follow-up from `gui-test-harness`: generate the fixtures that stay hand-written (Soundboard, Hue,
+  App Audio, Now Playing, Discord, AEC, VR) once those providers have fixed-input entry points.
 - Resolve in `gui-action-outcomes`: choose the smallest ordering and outcome mechanism that
   satisfies the rapid-click case while preserving stale checks and no-replay guarantees.
-- Resolve in `gui-modules`: confirm module boundaries against the resulting code and test needs.
-  Keep the extraction scoped to existing screens/widgets, with no new frontend framework or bundler.
+- Resolve in `gui-typescript-modules`: confirm module boundaries against the resulting code and test needs.
+  Keep the extraction scoped to existing screens/widgets, with no frontend framework; esbuild is the only bundler.
