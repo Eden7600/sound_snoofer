@@ -119,6 +119,9 @@ user and wait for their go-ahead. State the intended duration, stop when that
 window ends, and tell the user when control is released. A previous session's
 approval does not authorize another session. Background source work may continue
 without taking desktop control.
+During unattended control windows, use only apps already approved for Computer Use.
+New-app approval waits can outlast the granted window; obtain that access separately
+while the user is available, and reserve time for cleanup before the deadline.
 
 ## Commands
 

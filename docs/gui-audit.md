@@ -46,7 +46,8 @@ current implementation lives in `app/web/src`.
 | `gui-action-outcomes`: 1, 4 | Source/native checks pass; rapid independent mute pairs, captured stale Mic Stage rejection and a real asynchronous native Soundboard failure are verified | Uncertain one-shot without replay; queued-target replacement remains unclaimed |
 | `gui-attention-journeys`: remaining 14 | Complete; disabled/starting/failed Audio gates, marker-to-reason keyboard navigation, Plugins link/Retry availability and captured host-proposal cancellation verified natively | None for packaged presentation; real plugin lifecycle effects remain unclaimed |
 | `view-state-transport` | Complete; source/native smoke and live media artwork change, selective removal, clocks and controls reopen pass | None for the transport artwork acceptance |
-| Repository hardening/cleanup | Original source gates, canonical companion build, native smoke and coordinated shutdown recheck pass; original timeout unexplained | First key/dial presses pass on both connected models; remaining physical acceptance |
+| `output-slot-detail` | Provider/renderer/browser checks, packaged device caption/current selection, and physical No device/In use/Disconnected/reconnect cases pass | None for specified packaged/physical output presentation |
+| Repository hardening/cleanup | Original source gates, canonical companion build, native smoke and coordinated shutdown recheck pass; first key/dial presses pass on both connected models | Genuine refused second Deck, frozen player with another session updating, and Mini/MK.2 page editing; original shutdown timeout remains unexplained |
 
 ### Shared source and build validation
 
@@ -211,8 +212,25 @@ Nine captured actions were retained in the local acceptance log.
   on Plus XL Home key 8, it showed No Device without Unavailable; the user confirmed pressing it
   did nothing. Key 8 was restored to Empty/Saved and removing the slot returned Processed/Reloaded.
   The base configuration fingerprint returned to its original value and the user's enabled Mic
-  Stack choice was preserved. This verifies only the physical no-device/inert case; healthy,
-  disconnected-device caption and In Use checks remain open.
+  Stack choice was preserved. At that point only the physical no-device/inert case was verified; healthy,
+  disconnected-device caption and In Use checks remained open.
+- In the later approved AirPods check, Normal Playback was explicitly moved to the SteelSeries
+  speakers. A temporary Audit Test slot selected Headphones (Cody’s AirPods Pro); packaged Routing
+  showed that device caption, the same current selection and In use. Computer, Monitor,
+  Soundboard and Tape all remained Off. The display-only `audio.slot-1` binding was saved to
+  XL Home key 8. The user confirmed Audit Test / In use in cyan without Unavailable. With both
+  AirPods in the closed case, the key showed Disconnected with a neutral background and white
+  text; native Routing showed Disconnected while retaining the device caption and current selection. Reconnecting returned
+  the physical key and native Routing to In use. Key 8 was then cleared and saved, the temporary
+  slot removed, and Normal Playback restored to Automatic. The base configuration fingerprint
+  matched its original value; saved state and native GUI retained Mic Stack On, both mutes Off,
+  Normal Monitor Off, Mic Stage Pre and the original VR playback choice. Native Audio showed
+  Applied / No stall detected with AirPods playback. This completes output-slot-detail task 4.
+- A Windows Settings app-access request timed out after the initial 30-minute control window
+  had expired. No Settings connection action was performed. Root reported the overrun and
+  retained temporary setup, then obtained a fresh five-minute Snoofer-only window before
+  resuming. The physical case cycle and full cleanup completed within that new window; control
+  was released. No Windows connection settings were changed.
 
 The scratch-only second-deck holder is prepared and reviewed, with atomic readiness and
 eight fake-handle cases passing 20 repetitions; its entry skips without opt-in. During the
@@ -222,8 +240,9 @@ violation. It exited 1 in 0.01 seconds without acquiring an exclusive handle; no
 other-app closure followed. This is refused setup, not proof that Snoofer reports a refused
 deck while another operates. The same-config canonical host was restored; both serials were
 Connected/display On, callback Active (Buffers 4025), Recorder Stopped, Mic Stack On and both
-mutes Off. The original configuration fingerprint was retained, with no test media or WMP
-process remaining. Task 17 stays open; no physical Play request was needed without a hold.
+mutes Off. The original configuration fingerprint was retained, with no disposable MP3,
+silent player WAV or WMP test process remaining. The recording WAV described above was retained. Task 17 stays open;
+no physical Play request was needed without a hold.
 
 An owned WMP feasibility attempt exposed no Windows WMP session (only Brave) and no targetable
 window. Computer-control approval/wait timeouts
