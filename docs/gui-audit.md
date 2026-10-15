@@ -9,47 +9,60 @@ Screenshots were reviewed at 1280×820 and 800×600 using the browser fixture.
 
 ## Current status
 
-The audit is **not complete**. The harness and TypeScript split are complete, and the content,
-dropdown, reconnect, screen-layout, draft/dialog and plugin-recovery checkpoints have landed
-in source. Cross-layer action feedback is implemented; Hue is the final provider adapter. Final shared gates and
-packaged acceptance remain open.
+As of 2026-10-15, all planned implementation checkpoints and shared source checks are complete.
+The canonical executable and companions are built, and Snoofer has been restarted with its prior
+configuration path. The audit is **not fully accepted**: final interactive WebView2 and physical
+integration checks remain open. Windows was locked during the coordinated acceptance attempt;
+an unlock was requested and no further native UI input was attempted.
+
 The findings below retain their original audit wording and old source references;
 current implementation lives in `app/web/src`.
 
 | Work / findings | Source status | Remaining acceptance |
 | --- | --- | --- |
-| `gui-test-harness`, `gui-typescript-modules` | Complete: independent Playwright cases, generated Audio/Deck fixtures, keyboard/axe/geometry checks, strict TypeScript and esbuild | Rerun shared gates after integration |
-| `gui-content-fixes`: 7–9, 15–16 | Complete; labels, Activity keys, internal labels and display-only Deck bindings corrected | Packaged acceptance with the final build |
-| `gui-dropdown-commit`: 2 | Complete; closed browsing stages locally, native popup confirmation/cancellation retained | Final packaged WebView2 keyboard acceptance |
-| `gui-connection-recovery`: 5 | Complete; separate reconnect banner, bounded backoff, no replay | Final packaged reconnect acceptance |
-| `gui-layout-polish`: 10–13 and meter/search parts of 14 | Complete screen checkpoints: Diagnostics, Audio, Routing, Deck and Soundboard; both sizes inspected | Final shared gates and packaged acceptance |
-| `gui-state-preservation`: 3, 6 | Focus, scroll, details/search, explicit drafts/context checks and styled confirmations committed | Final shared gates and packaged journeys |
-| `gui-action-outcomes`: 1, 4 | Transport, independent global mute ordering, host proposal identity, frontend feedback and all provider outcomes except Hue committed | Complete Hue and its review, then full gates and native acceptance before deployment |
-| `gui-attention-journeys`: remaining 14 | Typed lifecycle, provider attention metadata, shared gates and sidebar markers committed | Final shared gates and packaged recovery journeys |
-| `view-state-transport`, repository hardening/cleanup | Source checkpoints committed; versioned/coalesced state transport and native cleanup tested offline | Canonical build, final gates and actual hardware acceptance |
+| `gui-test-harness`, `gui-typescript-modules` | Complete; generated Audio/Deck fixtures, independent Playwright cases, strict TypeScript/esbuild, keyboard/axe/geometry checks | None for source/tooling |
+| `gui-content-fixes`: 7–9, 15–16 | Complete; labels, Activity keys, internal labels and display-only Deck bindings corrected | Packaged desktop smoke and screen inspection |
+| `gui-dropdown-commit`: 2 | Complete; closed browsing stages locally, native popup confirmation/cancellation retained | Final packaged Processing/Monitor keyboard journeys |
+| `gui-connection-recovery`: 5 | Complete; separate banner, bounded backoff, no replay; browser fault tests pass | Packaged acceptance; EOF establishes shutdown, not rejected State/backoff behavior |
+| `gui-layout-polish`: 10–13 and meter/search parts of 14 | Complete; both browser sizes inspected with no geometry exceptions | Packaged screen inspection |
+| `gui-state-preservation`: 3, 6 | Complete; focus, scroll, details/search, drafts, context guards, styled dialogs and stable notice Dismiss focus | Packaged restoration and confirmation journeys |
+| `gui-action-outcomes`: 1, 4 | Complete; correlated transport, independent mutes, every provider adapter, local feedback and lifecycle identity; independent completion-path review passed | Packaged results/state/close checks and real integration outcomes |
+| `gui-attention-journeys`: remaining 14 | Complete; typed lifecycle, provider metadata, shared gates and accessible sidebar markers | Packaged recovery/navigation journeys |
+| `view-state-transport`, repository hardening/cleanup | Complete source gates and canonical companion build | Unchanged native smoke, live artwork/clocks and recorded physical acceptance |
 
-The action-feedback frontend passes 289 browser tests in 46.2 s, plus strict TypeScript, ESLint,
-Prettier and 15 model tests. Final combined source gates follow Hue integration.
+### Final combined validation
 
-Recent focused runs include 53 Routing/keyboard/preservation/accessibility cases in 7.4 s and
-52 Deck/Soundboard/preservation/accessibility cases in 8.3 s. The geometry suite no longer carries
-the narrow Deck save-bar overlap exception. These are checkpoint results, not a substitute for a
-final full-suite run within the 60-second budget.
+- Ordinary `scripts/check.ps1`: full Go tests and vet, strict TypeScript, ESLint, Prettier,
+  15 model tests, **290 browser tests in 43.4 s**, and all **104 OpenSpec changes** pass.
+- The default browser concurrency is four workers. Automatic sixteen-worker execution on this
+  machine caused widespread timeouts; the corrected default meets the existing 60-second budget
+  without extending test timeouts or weakening assertions. That run also exposed the fixed
+  shared-notice focus defect. The initial failed run is retained separately in the local logs.
+- Canonical `bin/snoofer.exe` and companions built successfully. Native ABI/buffer/callback-stop,
+  media async timeout and canonical COM identity self-tests pass; the actual media DLL compiles.
+- The built media DLL opens and snapshots successfully, but the read-only probe found no active
+  sessions, so it does not establish live-player/artwork acceptance. The soundboard normalization
+  probe passes using generated temporary WAV files, with its playback path disabled.
+- Extension unit/build tests: 16 pass. Chrome page-script and isolated Brave protocol 2 end-to-end
+  checks pass. Browser media controls require the matching extension 1.1.0; the installed user
+  extension was not reloaded. Refresh older media tabs after updating if Next/Previous is unavailable.
+- The prior host and controls child exited normally. The new host started with the same
+  `--config bin/snoofer.json` path. Audio configuration and mute-state file fingerprints and the
+  user-owned native smoke script remain unchanged. The main host config was rewritten during
+  normal startup, consistent with the existing Discord refresh-token rotation; no manual config
+  edits or rollback were performed.
+- Changed Go files are formatted. Two untouched legacy Voicemeeter test files still have their
+  pre-existing import formatting. The race detector remains unavailable: `CGO_ENABLED=0`.
 
-The meeting-time restriction on the running host has been lifted. Root coordinates a stable
-canonical build and packaged acceptance, then restores the prior launch configuration. No
-hardware task is complete merely because a fixture, browser screenshot or offline native test
-passes. The configured toolchain still cannot run the race detector without cgo.
-
-Execution continues through the Hue adapter and final completion-path review,
-then shared source gates and native acceptance of all GUI changes. Do not deploy the intermediate action-result
-protocol before its frontend and provider integration is complete. The TypeScript-first order
-is satisfied; repository hardening is no longer waiting on that split.
+The remaining tasks are acceptance work, not unfinished provider/frontend implementation. Keep
+their checkboxes open until actually performed: native dropdown/dialog/state/result/attention
+journeys at both window sizes; real mute/error/uncertain-one-shot outcomes; live artwork/animation
+and reopen; recorder pause, Voicemeeter startup/restart, and physical Stream Deck model/hotplug/key
+checks. Do not infer hardware acceptance from fixtures, screenshots or native self-tests.
 
 Native WebView2 confirmed item 2 during migration acceptance: Down on a closed Processing select
-immediately sent a set action. This was an isolated fixture, with no live audio writes. Its source
-fix has since landed; final packaged keyboard acceptance remains tracked separately.
-
+sent a set action. Its source fix is committed and browser coverage passes; final packaged keyboard
+acceptance remains tracked separately.
 
 ## Reliability
 

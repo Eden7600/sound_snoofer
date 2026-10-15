@@ -36,6 +36,6 @@
 - [x] 5.4 Integrate with state-preservation's frozen local dialog tickets and focus rules. Update the UI contract, inspect local feedback at 1280×820 and 800×600, run focused GUI and Go tests, and commit the validated checkpoint. Final frontend run: 289 tests in 46.2 s; type/lint/format and 15 model tests pass, including independent feedback announcements while another action remains pending.
 
 ## 6. Source verification and coordinated native acceptance
-- [ ] 6.1 Run full Go tests/vet and frontend model/type/lint/format/browser/accessibility checks, plus strict OpenSpec validation. Record results and commit final source fixes without modifying user-owned files or deployed outputs.
+- [x] 6.1 Run full Go tests/vet and frontend model/type/lint/format/browser/accessibility checks, plus strict OpenSpec validation. Record results and commit final source fixes without modifying user-owned files or deployed outputs.
 - [ ] 6.2 Coordinate the canonical build/restart and unchanged native desktop smoke after stable source checkpoints; confirm Send results do not block state/close and inspect packaged feedback at both sizes. Keep pending until actually performed.
 - [ ] 6.3 Coordinate appropriate live integrations to verify rapid independent mutes, stale target refusal, a delayed native error and an uncertain one-shot without replay. Preserve previous launch configuration and document unavailable hardware acceptance separately.

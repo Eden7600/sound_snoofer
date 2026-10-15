@@ -17,11 +17,11 @@
   dialog. Cover Cancel/Escape, exact one-shot accept, continued polling/rebuilds, revision/target
   invalidation, missing/disabled controls, reconnection, host-prompt priority and focus return.
   Preserve each existing warning and provider draft/save semantics; enabling Own Layout stays direct.
-- [ ] 5. Update UI contract and audit status for these intentional changes. Run strict type/lint/
+- [x] 5. Update UI contract and audit status for these intentional changes. Run strict type/lint/
   format, model and complete isolated GUI checks within the harness budget; inspect dialog layout
   at 1280×820 and 800×600 and run strict OpenSpec validation.
 - [ ] 6. Coordinate the canonical build and
   packaged WebView2 acceptance of state restoration, dialog cancellation, continued polling and
   captured-target rejection. Restore the prior launch; hardware integration acceptance is separate.
 
-- [ ] 5a. Add a failing shared-notice Dismiss focus regression, retain the rendered button across unchanged polls, and verify dismissal and full GUI checks without relaxing timeouts.
+- [x] 5a. Add a failing shared-notice Dismiss focus regression, retain the rendered button across unchanged polls, and verify dismissal and full GUI checks without relaxing timeouts.

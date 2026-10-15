@@ -19,7 +19,7 @@
 - [x] 5. Commit checkpoint: add sidebar classification/mapping and accessible markers. Cover
   each positive source and the negative cases listed in the design; verify marker-to-screen
   keyboard journeys and no dispatch from navigation. Keep the header transient-only.
-- [ ] 6. Update UI contract/audit status; run Go tests/vet for affected packages, strict frontend
+- [x] 6. Update UI contract/audit status; run Go tests/vet for affected packages, strict frontend
   gates, model/full GUI tests within 60 seconds, axe and layout checks at both viewport sizes,
   then strict OpenSpec validation. Inspect screenshots before marking this task done.
 - [ ] 7. Root-coordinated canonical build and packaged WebView2 acceptance for marker visibility,
