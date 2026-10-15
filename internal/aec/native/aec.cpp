@@ -199,22 +199,6 @@ void Configure(AEC* a, int rate, bool preserveRecovery = false) {
     }
 }
 
-void PassThrough(AudioBuffer* b) {
-    for (long c = 0; c < b->outputs && c < 128; ++c) {
-        if (b->read[c] && b->write[c] && b->read[c] != b->write[c]) {
-            std::memmove(b->write[c], b->read[c], static_cast<size_t>(b->samples) * sizeof(float));
-        }
-    }
-}
-
-bool Valid(AudioBuffer* b) {
-    return b && b->samples > 0 && b->samples <= 65536 && b->inputs > 0 && b->inputs <= 128 && b->outputs == b->inputs;
-}
-
-bool Has(AudioBuffer* b, int channel) {
-    return channel >= 0 && channel < b->inputs && b->read[channel] && b->write[channel];
-}
-
 void Discontinuity(AEC* a) {
     if (!a->recovering) a->recoverySamples = 0;
     a->recovering = a->resync = true;
@@ -233,7 +217,7 @@ void Process(AEC* a, AudioBuffer* b) {
     if (a->recovering && (a->recoverySamples += b->samples) >= 10 * a->sample_rate)
         throw Fault{kMissingOutput};
     for (int ch = 0; ch < a->micChannels; ++ch) {
-        if (!Has(b, a->mic[ch])) throw Fault{kMissingMic};
+        if (!audio_buffer_has_channel(b, a->mic[ch])) throw Fault{kMissingMic};
     }
     a->expectedReferenceSamples = b->samples;
     if (!a->referenceReady) {
@@ -363,24 +347,24 @@ __declspec(dllexport) void __stdcall AECInputInsert(void* context, AudioBuffer* 
         a->failed.store(0);
         return;
     }
-    if (!Valid(b)) return;
-    PassThrough(b);
+    if (!audio_buffer_valid_shape(b)) return;
+    audio_buffer_copy(b);
     if (!a || a->failed.load()) return;
     try {
         Process(a, b);
     } catch (const Fault& f) {
         Fail(a, f.reason);
-        PassThrough(b);
+        audio_buffer_copy(b);
     } catch (...) {
         Fail(a, kUnexpected);
-        PassThrough(b);
+        audio_buffer_copy(b);
     }
 }
 
 // AECOutputInsert records the speaker reference; it never changes the output.
 __declspec(dllexport) void __stdcall AECOutputInsert(void* context, AudioBuffer* b) {
     AEC* a = static_cast<AEC*>(context);
-    if (!a || !Valid(b) || !a->processing || a->failed.load()) return;
+    if (!a || !audio_buffer_valid_shape(b) || !a->processing || a->failed.load()) return;
     // After a reset, wait for the input insert to rebuild the engine.
     if (a->resync || a->applied != a->generation.load(std::memory_order_acquire)) return;
     try {
@@ -389,7 +373,7 @@ __declspec(dllexport) void __stdcall AECOutputInsert(void* context, AudioBuffer*
             return;
         }
         for (int c = 0; c < 8; ++c) {
-            if (!Has(b, a->ref[c])) throw Fault{kMissingReference};
+            if (!audio_buffer_has_channel(b, a->ref[c])) throw Fault{kMissingReference};
         }
         const int frame = a->sample_rate / 100;
         const webrtc::StreamConfig renderConfig(a->sample_rate, 8);

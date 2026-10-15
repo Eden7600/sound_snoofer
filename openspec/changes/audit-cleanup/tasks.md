@@ -20,9 +20,10 @@
 - [x] 6. `refactor(build)`: consolidate the six native toolchain setup sites after rebasing on
   hardening; retain staging, output paths, compiler flags, media self-tests and failure context;
   run/update isolated fake-command build tests, including paths with spaces and setup failure.
-- [ ] 7. `refactor(native)`: share buffer shape/channel/copy primitives in the existing header;
-  retain strict callback pointer validation; run C/C++ buffer self-tests and compile affected
-  companions through the canonical build workflow.
+- [x] 7. `refactor(native)`: share buffer shape/channel/copy primitives in the existing header;
+  retain strict callback pointer validation; run isolated C/C++ buffer and callback self-tests.
+- [ ] 7a. Compile affected companions through the canonical build workflow after the user permits
+  running-host changes. Offline C/C++ primitive tests passed; companion compilation is deferred.
 
 ## Validation
 - [ ] 8. Run gofmt, focused and full Go tests/vet, frontend gates/GUI tests, OpenSpec strict

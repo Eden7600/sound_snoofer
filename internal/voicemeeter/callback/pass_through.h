@@ -25,22 +25,11 @@ static volatile LONG input_peaks[PEAK_CHANNELS], input_inserts;
 /* Both inserts have equal input/output channel counts and every pointer set. */
 static int valid(const AudioBuffer *b) {
     long i;
-    if (!b || b->samples < 1 || b->samples > 65536 ||
-        b->inputs < 1 || b->inputs > 128 || b->outputs != b->inputs) {
-        return 0;
-    }
+    if (!audio_buffer_valid_shape(b)) return 0;
     for (i = 0; i < b->outputs; ++i) {
-        if (!b->read[i] || !b->write[i]) return 0;
+        if (!audio_buffer_has_channel(b, i)) return 0;
     }
     return 1;
-}
-
-static void pass_through(AudioBuffer *b) {
-    long i;
-    for (i = 0; i < b->outputs; ++i) {
-        if (b->read[i] != b->write[i])
-            memmove(b->write[i], b->read[i], (size_t)b->samples * sizeof(float));
-    }
 }
 
 /* Raises each physical channel's stored peak before any insert stage runs.
@@ -86,7 +75,7 @@ static long __stdcall observe(void *user, long command, void *data, long sync) {
         if (input_stage) {
             input_stage(stage_context, b); /* Writes every channel itself. */
         } else {
-            pass_through(b);
+            audio_buffer_copy(b);
         }
         return 0;
     case 11: break; /* Output insert. */
@@ -97,7 +86,7 @@ static long __stdcall observe(void *user, long command, void *data, long sync) {
         return 0;
     }
     if (output_stage) output_stage(stage_context, b); /* Reads only. */
-    pass_through(b);
+    audio_buffer_copy(b);
     InterlockedExchange(&sample_rate, b->sr);
     InterlockedExchange(&frame_size, b->samples);
     InterlockedExchange(&channels, b->outputs);

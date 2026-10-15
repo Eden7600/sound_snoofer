@@ -167,15 +167,6 @@ struct Engine {
         }
     }
 };
-bool Valid(AudioBuffer* b) {
-    return b && b->samples > 0 && b->samples <= 65536 && b->inputs > 0 && b->inputs <= 128 && b->outputs == b->inputs;
-}
-bool Has(AudioBuffer* b, int c) { return c >= 0 && c < b->inputs && b->read[c] && b->write[c]; }
-void Pass(AudioBuffer* b) {
-    for (int c = 0; c < b->outputs; ++c)
-        if (b->read[c] && b->write[c] && b->read[c] != b->write[c])
-            std::memmove(b->write[c], b->read[c], b->samples * sizeof(float));
-}
 }
 static HRESULT CreateNeural(Engine** result, const char* path, bool fullband) {
     if (!result || !path) return E_INVALIDARG;
@@ -245,8 +236,8 @@ __declspec(dllexport) HRESULT __cdecl AECResetFailure(Engine* e) {
 __declspec(dllexport) void __stdcall AECInputInsert(void* context, AudioBuffer* b) {
     auto e = static_cast<Engine*>(context);
     if (e && !b) { e->Reset(); e->rate.store(0); return; }
-    if (!Valid(b)) return;
-    Pass(b);
+    if (!audio_buffer_valid_shape(b)) return;
+    audio_buffer_copy(b);
     if (!e) return;
     e->rate.store(b->sr);
     unsigned rev = e->revision.load();
@@ -279,7 +270,7 @@ __declspec(dllexport) void __stdcall AECInputInsert(void* context, AudioBuffer* 
     if (e->recovering && (e->recoverySamples += b->samples) >= 10 * b->sr) {
         e->Fail(gen, 1); return;
     }
-    if (!Has(b, e->m[0]) || !Has(b, e->m[1])) { e->Fail(gen, 2); return; }
+    if (!audio_buffer_has_channel(b, e->m[0]) || !audio_buffer_has_channel(b, e->m[1])) { e->Fail(gen, 2); return; }
     if (!e->referenceReady && (e->startup += b->samples) > 5 * b->sr) { e->Fail(gen, 1); return; }
     // Preserve aliased microphone input before committing any processed output.
     for (int i = 0; i < b->samples; ++i) {
@@ -309,14 +300,14 @@ __declspec(dllexport) void __stdcall AECInputInsert(void* context, AudioBuffer* 
 }
 __declspec(dllexport) void __stdcall AECOutputInsert(void* context, AudioBuffer* b) {
     auto e = static_cast<Engine*>(context);
-    if (!e || !Valid(b) || e->bypass.load() || e->Failed()) return;
+    if (!e || !audio_buffer_valid_shape(b) || e->bypass.load() || e->Failed()) return;
     unsigned gen = e->generation.load();
     if (e->fullband && b->sr != 48000) return;
     if (e->applied != gen || (e->sampleRate != 16000 && e->sampleRate != 32000 && e->sampleRate != 48000)) return;
     if (b->sr != e->sampleRate || b->samples != e->pending) {
         e->Discontinuity(); return;
     }
-    for (int c : e->r) if (!Has(b, c)) { e->Fail(gen, 6); return; }
+    for (int c : e->r) if (!audio_buffer_has_channel(b, c)) { e->Fail(gen, 6); return; }
     for (int i = 0; i < b->samples; ++i) {
         float ref = 0;
         for (int c : e->r) ref += b->read[c][i] / 8.f;

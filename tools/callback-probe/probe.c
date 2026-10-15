@@ -17,7 +17,7 @@ static void __stdcall observe_neural_input(void *context, AudioBuffer *b) {
     if (b && monitor_read) { InterlockedIncrement(&input_count); if (InterlockedExchange(&last_command,10)==10) InterlockedIncrement(&repeated_input); InterlockedExchange(&input_rate,b->sr); InterlockedExchange(&input_frames,b->samples); }
     float saved[2][2048];
     if (b) {
-        if (b->samples > 2048) { pass_through(b); return; }
+        if (b->samples > 2048) { audio_buffer_copy(b); return; }
         for (int c = 0; c < 2; ++c) memcpy(saved[c], b->read[c], (size_t)b->samples * sizeof(float));
     }
     neural_input(context, b);

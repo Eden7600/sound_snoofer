@@ -11,6 +11,10 @@ try {
 cl /nologo /W4 /WX /O2 /std:c11 /Fo.local\stall-probe\callback-probe.obj /Fe.local\stall-probe\callback-probe.exe tools\callback-probe\probe.c
 if errorlevel 1 exit /b 1
 cl /nologo /W4 /WX /O2 /std:c11 /Fo.local\stall-probe\stop-test.obj /Fe.local\stall-probe\stop-test.exe tools\callback-probe\stop_test.c
+if errorlevel 1 exit /b 1
+cl /nologo /W4 /WX /O2 /TC /Fo.local\stall-probe\buffer-c.obj /Fe.local\stall-probe\buffer-c.exe tools\callback-probe\buffer_test.c
+if errorlevel 1 exit /b 1
+cl /nologo /W4 /WX /O2 /TP /std:c++17 /Fo.local\stall-probe\buffer-cpp.obj /Fe.local\stall-probe\buffer-cpp.exe tools\callback-probe\buffer_test.c
 "@
     Invoke-MsvcBuild -CommandFile $build -Commands $commands -FailureMessage 'Probe compilation failed. Check MSVC and Windows SDK installation.'
     $exe = Join-Path $out 'callback-probe.exe'
@@ -18,6 +22,10 @@ cl /nologo /W4 /WX /O2 /std:c11 /Fo.local\stall-probe\stop-test.obj /Fe.local\st
     if ($LASTEXITCODE -ne 0) { throw 'Callback probe self-test failed; live capture refused.' }
     & (Join-Path $out 'stop-test.exe')
     if ($LASTEXITCODE -ne 0) { throw 'Callback stop self-test failed; live capture refused.' }
+    foreach ($test in 'buffer-c.exe', 'buffer-cpp.exe') {
+        & (Join-Path $out $test)
+        if ($LASTEXITCODE -ne 0) { throw 'Audio buffer self-test failed; live capture refused.' }
+    }
     if ($Observe -or $Paired) {
         $uninstall = Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\VB:Voicemeeter {17359A74-1236-5467}' -ErrorAction SilentlyContinue
         # Same installation discovery source as the Go adapter.
