@@ -17,11 +17,12 @@ for (const size of [
     expect(device.detail).toMatchObject({ ID: "music", Device: "Speakers (SteelSeries Arena 7)" });
     const slot = gui.page.locator("[data-part=output-slot]");
     await expect(slot).toContainText("In use");
-    await expect(slot.getByLabel("Music device")).toHaveValue("current");
+    const editor = gui.page.locator("[data-part=output-editor]");
+    await expect(editor.getByLabel("Music device")).toHaveValue("current");
     await expect(
-      slot.getByLabel("Music device").getByRole("option", { name: "Speakers (SteelSeries Arena 7)", exact: true }),
+      editor.getByLabel("Music device").getByRole("option", { name: "Speakers (SteelSeries Arena 7)", exact: true }),
     ).toHaveCount(1);
-    await slot.getByLabel("Music device").selectOption({ label: "Speakers (Realtek Audio)" });
+    await editor.getByLabel("Music device").selectOption({ label: "Speakers (Realtek Audio)" });
     const request = await gui.last("audio.output-edit");
     expect(JSON.parse(request.Value)).toEqual({
       op: "device",

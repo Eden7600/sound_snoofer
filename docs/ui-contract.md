@@ -176,3 +176,5 @@ Diagnostics keeps Startup and the Engine health row with restart actions. Curren
 Audio cards use their content height. Engine and Interface appear together above the live switches and gain strips, with each live switch beside its label. GUI meter scales retain -60, -30, -12 and 0; the -3 label appears only when the strip has at least 400px available, preventing crowded labels without changing signal colors or exact readings.
 
 Automatic rebuilds of the current GUI screen preserve registered search filters, expanded sections, focus and scroll by stable target identity. Provider values continue to refresh. Removed or disabled focus targets fall back to screen content, and open dialogs keep their focus. Navigation starts a fresh screen view.
+
+Routing provides local section links. Output source switches and state stay in the table; Output Devices below it owns slot device/name/removal. Candidate movement stays beside each field, with match detail below. Microphone Apply appears only for a changed name; Enter applies, Escape cancels, and blur never writes.

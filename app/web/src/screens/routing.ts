@@ -172,22 +172,27 @@ function candidateRows(
 ) {
   entries.forEach((entry, n) => {
     const row = entryRow(card, n);
-    row.append(
-      entry.DeviceID
-        ? deviceName(entry.DeviceName, entry.Matches)
-        : patternField(
-            entry.Pattern,
-            title + " " + (n + 1) + " pattern",
-            (value) => priorityEdit(list, "set", n, value, "pattern"),
-            [list, n, "pattern"],
-          ),
-    );
-    if (list === "playback") row.append(badge((entry.Driver || "").toUpperCase()));
-    row.append(matchBadge(entry), entryButtons(list, n, entries.length, title + " " + (n + 1)));
+    row.className =
+      "grid grid-cols-[1.25rem_minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1.5 border-t border-[#25323e] py-3 first:border-t-0 first:pt-0";
+    const field = entry.DeviceID
+      ? deviceName(entry.DeviceName, entry.Matches)
+      : patternField(
+          entry.Pattern,
+          title + " " + (n + 1) + " pattern",
+          (value) => priorityEdit(list, "set", n, value, "pattern"),
+          [list, n, "pattern"],
+        );
+    field.classList.remove("min-w-[min(100%,16rem)]");
+    field.classList.add("min-w-0");
+    row.append(field, entryButtons(list, n, entries.length, title + " " + (n + 1)));
+    const details = el("div", "col-span-2 col-start-2 flex min-w-0 flex-wrap items-center gap-2");
+    if (list === "playback") details.append(badge((entry.Driver || "").toUpperCase()));
+    details.append(matchBadge(entry));
     // An identity row already names its device.
     const names = entry.Matches || [];
     if (names.length && !(entry.DeviceID && names.length === 1))
-      row.append(el("small", "basis-full pl-7 text-[11px] break-words text-muted", names.join(" · ")));
+      details.append(el("small", "basis-full text-[11px] break-words text-muted", names.join(" · ")));
+    row.append(details);
   });
   if (!entries.length) card.append(el("p", "text-muted", "No entries."));
   suggestionRows(card, list, suggestions, driverLabel);
@@ -220,7 +225,8 @@ function textField(
     }
   };
   const sync = () => {
-    b.disabled = !editable() || !input.value.trim() || input.value.trim() === value;
+    b.hidden = input.value.trim() === value;
+    b.disabled = !editable() || !input.value.trim() || b.hidden;
     input.disabled = !editable();
   };
   input.addEventListener("input", sync);
@@ -674,6 +680,11 @@ function outputsCard(parent: HTMLElement, view: Partial<PriorityView>) {
     return th;
   };
   column("Playback", () => c("audio.playback-device")?.Value, "").dataset.part = "output-playback";
+  const editors = el("div", "mt-4 grid grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] gap-4");
+  if (slots.length) {
+    editors.append(el("h3", ui.stripTitle + " col-span-full mb-0", "Output Devices"));
+    card.append(editors);
+  }
   for (const id of slots) {
     const slot = c<OutputSlotView>(id);
     if (!slot) continue;
@@ -682,7 +693,7 @@ function outputsCard(parent: HTMLElement, view: Partial<PriorityView>) {
       th = column(slot.Label, () => c<OutputSlotView>(id)?.ViewData?.Device, id);
     th.dataset.part = "output-slot";
     // Slot management: device, rename, remove.
-    const tools = el("div", "mt-2 flex flex-col gap-1.5"),
+    const tools = el("div", "flex min-w-0 flex-col gap-1.5"),
       device = el("select", "w-full min-w-0 text-xs"),
       rename = el("input", "min-w-0 flex-1 text-xs"),
       renameRow = el("div", "flex gap-1.5");
@@ -725,8 +736,9 @@ function outputsCard(parent: HTMLElement, view: Partial<PriorityView>) {
       if (e.key === "Enter") apply.click();
     };
     renameRow.append(rename, apply, remove);
-    tools.append(device, renameRow);
-    th.append(tools);
+    tools.dataset.part = "output-editor";
+    tools.append(el("div", "text-sm font-semibold", slot.Label), device, renameRow);
+    editors.append(tools);
     updaters.push(() => {
       for (const n of [device, rename, remove]) n.disabled = !editableOutputs();
       apply.disabled = !editableOutputs() || !rename.value.trim() || rename.value.trim() === slot.Label;
@@ -831,4 +843,24 @@ export function buildRouting() {
   candidateCard(grid, "Playback", "playback", view);
   micPriorityCard(grid, view);
   activityCard(grid, view);
+  const links = el("nav", "mb-[18px] flex flex-wrap gap-x-4 gap-y-2 text-sm");
+  links.setAttribute("aria-label", "Routing sections");
+  const sections = [
+    ["Outputs", "outputs", "outputs"],
+    ["Microphones", "microphones", "mics"],
+    ["Interfaces", "interfaces", "list-interfaces"],
+    ["Playback", "playback", "list-playback"],
+    ["Mic Priority", "mic-priority", "list-microphones"],
+    ["Activity", "activity", "activity"],
+  ];
+  for (const [label, id, part] of sections) {
+    const section = grid.querySelector<HTMLElement>('[data-part="' + part + '"]')!;
+    section.id = "routing-" + id;
+    section.tabIndex = -1;
+    section.classList.add("scroll-mt-4");
+    const link = el("a", "text-active underline-offset-4 hover:underline", label);
+    link.href = "#" + section.id;
+    links.append(link);
+  }
+  root.insertBefore(links, error);
 }
