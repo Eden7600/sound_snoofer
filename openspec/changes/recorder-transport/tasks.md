@@ -15,3 +15,9 @@
   - A recording pauses, resumes and ends from the deck.
   - Rew and FF are N/A while recording.
   - Record during playback stops the tape and starts recording.
+
+2026-10-15 partial task 5 evidence: using the real GUI Recording row, Record started a take;
+Pause retained Stop Rec and showed Play, with Voicemeeter Recorder explicitly Paused and
+Rewind/Fast-forward disabled. Play resumed recording and Stop ended it. A new 3,458,740-byte
+WAV was observed. These are GUI transport observations; physical Deck recording transport,
+playback pause/reset, Record-during-playback and audible/file-content checks are not inferred.

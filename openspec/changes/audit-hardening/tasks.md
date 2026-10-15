@@ -35,3 +35,11 @@ Probe evidence, 2026-10-15: Plus (0084) and Plus XL (00C6) both returned 512-byt
 Task 14 verification: all eight Plus/Plus XL first key/dial-button cases and the protocol first-down assertion failed before the fix. Focused regressions pass 10 times (4.191 s); full internal/streamdeck (15.919 s) and plugins/streamdeck (5.344 s) pass, including hold, stale-generation, dark/inert and actual fake-surface reconnect key/dial input. Both packages pass vet; all three affected OpenSpec changes validate strictly. Native query remains only in the opt-in historical test. Root's requested routing renderer preview was generated at .local/deck-status-acceptance.png; no physical input acceptance is inferred.
 
 Task 15 hardware acceptance, 2026-10-15: canonical build of 03e74d2 passed and restored the previous bin/snoofer.json configuration as PID69960. With keys released during reconnect, the user confirmed all four first presses worked: XL Play key29 and dial3 toggle playback; Plus dial3 toggles playback and Media key5 changes page. Original failed acceptance remains recorded above. Full repository Go tests and vet also pass.
+
+2026-10-15 partial task 11 hardware evidence: Voicemeeter was shut down normally from its
+menu and confirmed absent while Snoofer remained running. After relaunch, Recorder reported
+Stopped and Audio Callback Monitor Active; Buffers advanced 218493→219302 without a callback
+error. Voicemeeter/Recorder retained the actual disconnect-gap error as history. This completes
+the real Voicemeeter process-restart component. First Deck key/dial presses are already verified
+in task 15; a refused second Deck and frozen media-player acceptance remain open. Startup with
+Voicemeeter absent is separately pending in audit-reliability-fixes task 16.

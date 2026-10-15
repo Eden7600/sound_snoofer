@@ -26,7 +26,9 @@ State-call injection now verifies connection feedback, bounded backoff, refusal 
 without replay. The Dismiss fix passes 295 browser tests and strict frontend checks.
 Packaged short/wrapped notice alignment now passes at both normal and minimum window sizes.
 The normal canonical build passed; production is restored as PID 71976 with --config bin/snoofer.json.
-The audit is **not fully accepted**: the real integration checks below remain open.
+Rapid independent mute pairs, real recording Pause/resume/Stop and callback recovery after
+Voicemeeter process restart now pass. The audit is **not fully accepted**: stale-target,
+delayed-error, uncertain-one-shot and remaining hardware checks below remain open.
 
 The findings below retain their original audit wording and old source references;
 current implementation lives in `app/web/src`.
@@ -39,7 +41,7 @@ current implementation lives in `app/web/src`.
 | `gui-connection-recovery`: 5 | Source and native rejected-State fault checks pass: separate banner, bounded backoff, recovery and no replay | None for packaged recovery acceptance |
 | `gui-layout-polish`: 10–13 and meter/search parts of 14 | Affected screens, compact branding, navigation and native short/wrapped notice alignment pass | None for packaged layout acceptance; physical checks remain separate |
 | `gui-state-preservation`: 3, 6 | Complete; functional native restoration, dialog cancellation, polling and captured-target invalidation verified | No remaining functional native journey; aggregate validation and physical integration remain separately tracked |
-| `gui-action-outcomes`: 1, 4 | Complete; independent completion-path review and native smoke pass; packaged result attribution, state updates and close with an outstanding action verified | Real integration outcomes |
+| `gui-action-outcomes`: 1, 4 | Source/native checks pass; user confirms rapid independent mute pairs, with real per-control Processed/Saved feedback and both mutes restored Off | Real stale-target rejection, delayed native error and uncertain one-shot without replay |
 | `gui-attention-journeys`: remaining 14 | Complete; disabled/starting/failed Audio gates, marker-to-reason keyboard navigation, Plugins link/Retry availability and captured host-proposal cancellation verified natively | None for packaged presentation; real plugin lifecycle effects remain unclaimed |
 | `view-state-transport` | Complete; source/native smoke and live media artwork change, selective removal, clocks and controls reopen pass | None for the transport artwork acceptance |
 | Repository hardening/cleanup | Original source gates, canonical companion build, native smoke and coordinated shutdown recheck pass; original timeout unexplained | First key/dial presses pass on both connected models; remaining physical acceptance |
@@ -168,11 +170,32 @@ Nine captured actions were retained in the local acceptance log.
   evidence, not live artwork lifecycle acceptance. Native window Close exited zero with an App Audio
   action still unresolved, confirming that the outstanding result did not block window shutdown.
 
+### Live audio acceptance
+
+- The user confirmed rapid Mic Mute + Playback Mute pairs work in both directions, On then Off.
+  Separate live GUI checks showed each control's Processed/Saved result and both mutes Off.
+- A real recording started with Stop Rec/Pause shown. Pause changed the playback button to Play
+  while retaining Stop Rec; Rewind/Fast-forward were disabled and Third-Party Apps → Voicemeeter
+  Recorder explicitly reported Paused. Resume restored Pause; Stop restored Record/Play with Stop
+  disabled. The new WAV from the 10:53:33 take is 3,458,740 bytes. This verifies GUI recording
+  transport, not physical Deck transport, playback audibility or recording content.
+- Temporarily disabling Record Microphone while Record Computer was already Off produced
+  "Recorder: no eligible recording sources enabled". Record Microphone was restored On before
+  the successful take. This is a source-validation refusal, not a delayed native error.
+  Mic Stack was restored Off and verified in the GUI and saved state; Record Computer remains Off.
+- Voicemeeter was shut down normally from its menu; process inspection confirmed it absent while
+  Snoofer remained running. After Voicemeeter was relaunched, Third-Party Apps showed Recorder
+  Stopped and Audio Callback Monitor Active, with Buffers increasing from 218493 to 219302 and
+  no callback error. The Voicemeeter/Recorder cards retained the real gap's last error,
+  "VBVMR_IsParametersDirty: Voicemeeter is disconnected; start Banana or Potato". This verifies
+  recovery after a real Voicemeeter process restart, not startup with Voicemeeter initially absent.
+
 Keep aggregate acceptance tasks open until all their required checks are performed. Real
-mute/error/uncertain-one-shot outcomes remain open. Native connection-recovery faults and live
-media artwork change/removal, clock progression and controls reopen are verified.
-Recorder Pause, Voicemeeter startup/restart and remaining physical Stream Deck input/hotplug
-checks remain separate. The observed XL first-key failure is fixed and its key/dial-button
+stale-target rejection, delayed native error and uncertain-one-shot/no-replay outcomes remain
+open. Native recovery, live media artwork/clocks/reopen, rapid mute pairs and GUI recording
+Pause/resume/Stop are verified. Voicemeeter process-restart recovery passes; starting Snoofer
+before Voicemeeter, remaining recorder/deck transport scenarios and physical Stream Deck checks
+remain separate. The observed XL first-key failure is fixed and its key/dial-button
 retest passes on both available models. Mini/MK.2 are unavailable.
 Fixtures, screenshots and native self-tests do not establish those hardware results.
 

@@ -19,4 +19,9 @@
 ## Acceptance
 - [ ] 16. On hardware: edit a Stream Deck Mini or MK.2 page; start Snoofer before Voicemeeter and confirm the callback registers once Voicemeeter runs; pause a recording from Snoofer; hold and release deck keys repeatedly with no phantom hold.
 
-2026-10-15 partial task 16 hardware evidence: after 03e74d2, the user held the Plus XL Play key for about two seconds, released it and repeated three times; playback toggled once per press with no repeats while held or after release. Mini/MK.2, Voicemeeter startup and recorder Pause checks remain open.
+2026-10-15 partial task 16 hardware evidence: after 03e74d2, the user held the Plus XL Play key for about two seconds, released it and repeated three times; playback toggled once per press with no repeats while held or after release. Mini/MK.2 and Voicemeeter startup remain open.
+
+Later live task 16 evidence: a real recording was paused from Snoofer's GUI; Third-Party Apps
+reported Voicemeeter Recorder Paused, Stop Rec remained visible, and Rewind/Fast-forward were
+disabled. Resume returned to recording and Stop ended the take. This completes the recording
+Pause component; task 16 remains open for Mini/MK.2 and Voicemeeter startup acceptance.

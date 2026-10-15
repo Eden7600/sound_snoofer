@@ -39,3 +39,9 @@
 - [x] 6.1 Run full Go tests/vet and frontend model/type/lint/format/browser/accessibility checks, plus strict OpenSpec validation. Record results and commit final source fixes without modifying user-owned files or deployed outputs.
 - [x] 6.2 Coordinate the canonical build/restart and unchanged native desktop smoke after stable source checkpoints; confirm Send results do not block state/close and inspect packaged feedback at both sizes. Passed against the canonical c3cff86 build; live outcomes remain in 6.3.
 - [ ] 6.3 Coordinate appropriate live integrations to verify rapid independent mutes, stale target refusal, a delayed native error and an uncertain one-shot without replay. Preserve previous launch configuration and document unavailable hardware acceptance separately.
+
+2026-10-15 partial task 6.3 live evidence: the user confirms rapid Mic Mute + Playback Mute
+pairs work On then Off. Separate GUI checks showed per-control Processed/Saved results and
+both mutes restored Off. A real recording also paused/resumed/stopped successfully; the
+no-eligible-recording-sources refusal was validation, not a delayed native failure. Real
+stale-target rejection, delayed native error and uncertain one-shot/no replay remain open.
