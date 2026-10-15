@@ -14,6 +14,8 @@
 - [ ] 4. Commit checkpoint: unify the eight plugin screen gates and Plugins recovery actions.
   Cover exact Enable selection and confirmation, cancellation, missing/starting/failed states,
   lifecycle transitions without navigation, busy/reconnect refusal and healthy empty content.
+  Preserve legacy unversioned fixture rendering through the documented absent-map normalization,
+  with typed-map authority and unchanged revisioned action coverage.
 - [ ] 5. Commit checkpoint: add sidebar classification/mapping and accessible markers. Cover
   each positive source and the negative cases listed in the design; verify marker-to-screen
   keyboard journeys and no dispatch from navigation. Keep the header transient-only.

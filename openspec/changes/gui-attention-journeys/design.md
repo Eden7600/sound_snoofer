@@ -33,8 +33,15 @@ before the first provider publication. Do not promise intermediate start progres
 
 Go and TypeScript wire definitions, the fake host, manual fixtures and transport tests must carry
 the same field. Update existing lifecycle displays on Plugins and Third-Party Apps to consume
-the typed state, including Not monitored. Do not retain a string-based classification fallback
-in the newly packaged GUI; the host and GUI are built together.
+the typed state, including Not monitored. Do not classify lifecycle from status text.
+
+The existing unversioned native fixture remains compatible without editing its user-owned script.
+Only when the entire PluginStates map is null or omitted, normalize legacy lifecycle from an exact
+required publication (running); otherwise a plugin listed in Plugins is starting when Enabled is
+true and disabled otherwise, while an unknown/unpublished plugin is missing. Screen-specific
+readiness still requires its own publication. This limited fallback cannot infer failed from text.
+A supplied map, including an empty map, remains authoritative. Gates, Plugins and Not monitored
+share the same accessor; fixture actions retain their existing target revisions.
 
 ## 2. One plugin gate and its recovery actions
 

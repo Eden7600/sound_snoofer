@@ -20,6 +20,13 @@ from configuration. Existing status text and saved enablement SHALL remain avail
 - **WHEN** configuration references a plugin not compiled into this build
 - **THEN** its lifecycle is missing and no impossible Enable action is offered
 
+#### Scenario: Legacy unversioned fixture
+- **WHEN** the entire PluginStates map is null or omitted in an existing unversioned fixture
+- **THEN** exact required publications, saved enablement and plugin presence provide a limited legacy lifecycle
+- **AND** no descriptive status text is parsed to infer healthy or failed state
+- **AND** the fixture still renders its screens and emits actions with the supplied revisions
+- **AND** a provided lifecycle map, including an empty map, remains authoritative
+
 ### Requirement: Consistent plugin screen gates
 
 Audio, Routing, Soundboard, Lights, App Audio, Meetings, Media and Stream Deck SHALL show one
