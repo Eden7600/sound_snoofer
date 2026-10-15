@@ -600,6 +600,8 @@ const deckIcons: Record<string, string> = {
   "media-prev": "skip-back",
   "media-next": "skip-forward",
   "media-play": "play",
+  "media-like": "thumbs-up",
+  "media-dislike": "thumbs-down",
   "open-controls": "sliders-horizontal",
   defaults: "sliders-horizontal",
   "engine-restart": "refresh-cw",

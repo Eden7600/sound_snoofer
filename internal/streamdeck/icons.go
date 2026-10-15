@@ -84,6 +84,21 @@ func drawIcon(im *image.RGBA, icon string, ink color.RGBA) bool {
 		triangle(27, 38, 30, 1)
 		rect(68, 22, 7, 32)
 		rect(82, 22, 7, 32)
+	case "media-like", "media-dislike":
+		// Rotate the hand, including its cuff, so direction survives monochrome.
+		thumbLine := func(x1, y1, x2, y2 int) {
+			if icon == "media-dislike" {
+				x1, y1, x2, y2 = 112-x1, 76-y1, 112-x2, 76-y2
+			}
+			line(x1, y1, x2, y2)
+		}
+		outline := []image.Point{{28, 34}, {40, 34}, {49, 29}, {58, 10}, {64, 10},
+			{68, 16}, {68, 24}, {65, 34}, {85, 34}, {89, 39}, {82, 62}, {76, 66}, {28, 66}, {28, 34}}
+		for n := 1; n < len(outline); n++ {
+			a, b := outline[n-1], outline[n]
+			thumbLine(a.X, a.Y, b.X, b.Y)
+		}
+		thumbLine(40, 34, 40, 66)
 	case "mic-mute", "record-mic", "vr-mic":
 		for a := 180; a <= 360; a++ {
 			r := float64(a) * math.Pi / 180
