@@ -12,7 +12,7 @@ export const appState: {
   localError: string;
   dismissedNotice: string;
 } = {
-  state: { Controls: [], Plugins: {}, Enabled: {}, Notice: "", Confirmation: "" },
+  state: { Controls: [], Plugins: {}, PluginLabels: {}, Enabled: {}, Notice: "", Confirmation: "" },
   controls: new Map(),
   screen: "audio",
   pending: null,

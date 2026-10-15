@@ -14,7 +14,7 @@ with its focused checks; retain unrelated GUI defects and user changes.
 - [x] 4. `fix(gui)`: classify/name playback sends with existing Routing/source metadata and render
   Retry as a compact command action; regenerate affected fixtures, verify no duplicate recovery
   switches, unchanged Routing dispatch and Retry availability/press; inspect Audio at both sizes.
-- [ ] 5. `feat(gui)`: carry registered plugin labels through ViewState and use them in plugin
+- [x] 5. `feat(gui)`: carry registered plugin labels through ViewState and use them in plugin
   headings, Not monitored and binding context; qualify full Normal/VR provider labels; retain
   raw IDs, custom names, search and missing-label fallback. Update wire types/fixtures and focused
   host/provider/browser tests; regenerate affected audio and Stream Deck fixtures.

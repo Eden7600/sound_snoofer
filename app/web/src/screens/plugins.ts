@@ -18,7 +18,7 @@ export function buildPlugins() {
         ui.toggle,
       );
     card.dataset.part = "plugin";
-    text.append(el("h2", ui.h2, id), status);
+    text.append(el("h2", ui.h2, appState.state.PluginLabels?.[id] || id), status);
     card.append(text, toggle);
     root.append(card);
     updaters.push(() => {

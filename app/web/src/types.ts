@@ -61,6 +61,7 @@ export interface Control<T = unknown> {
 export interface ViewState {
   Controls: Control[] | null;
   Plugins: Record<string, string> | null;
+  PluginLabels: Record<string, string> | null;
   Enabled: Record<string, boolean> | null;
   Notice: string;
   Confirmation: string;

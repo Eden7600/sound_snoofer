@@ -99,6 +99,39 @@ test.describe("Stream Deck", () => {
     expect((await gui.last()).ID).toBe("streamdeck.slot");
   });
 
+  test("binding names distinguish profiles and preserve custom labels and IDs", async ({ gui }) => {
+    await gui.update(() => {
+      const normal = window.ctl("audio.normal-mode");
+      window.fixture.Controls.push(
+        { ...normal, ID: "audio.vr-profile-mode", Label: "VR Processing" },
+        { ...normal, ID: "appaudio.custom", Label: "mY studio" },
+      );
+    });
+    const binding = gui.page.getByLabel("Binding", { exact: true });
+    await expect(binding.locator('option[value="audio.normal-mode"]')).toHaveText("Normal Processing · Audio");
+    await expect(binding.locator('option[value="audio.vr-profile-mode"]')).toHaveText("VR Processing · Audio");
+    const custom = binding.locator('option[value="appaudio.custom"]');
+    await expect(custom).toHaveText("mY studio · App Audio");
+    await expect(custom).toHaveAttribute("title", "appaudio.custom");
+    const search = gui.page.getByLabel("Find a Binding");
+    for (const query of ["App Audio", "appaudio", "mY studio"]) {
+      await search.fill(query);
+      await expect(custom).toHaveCount(1);
+    }
+    await binding.selectOption("appaudio.custom");
+    expect(await request(gui)).toEqual(["streamdeck.binding", "appaudio.custom"]);
+    await gui.settled();
+    await search.blur(); // Structural updates preserve an active text edit until blur.
+    await gui.update(() => {
+      window.fixture.PluginLabels = { ...window.fixture.PluginLabels, appaudio: "My Apps" };
+    });
+    await expect(custom).toHaveText("mY studio · My Apps");
+    await gui.update(() => {
+      delete window.fixture.PluginLabels;
+    });
+    await expect(custom).toHaveText("mY studio · appaudio");
+  });
+
   test("key regions: range, add, source, overflow and remove", async ({ gui }) => {
     const { page } = gui;
     await clearRegions(gui);

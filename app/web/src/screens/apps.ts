@@ -147,6 +147,7 @@ export function buildApps() {
       list = el("ul", "list-disc pl-[18px] text-[13px] text-muted");
     list.dataset.part = "not-monitored";
     card.append(list);
-    for (const [id, status] of idle) list.append(el("li", "", id + " — " + status));
+    for (const [id, status] of idle)
+      list.append(el("li", "", (appState.state.PluginLabels?.[id] || id) + " — " + status));
   }
 }

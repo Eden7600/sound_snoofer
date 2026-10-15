@@ -48,6 +48,7 @@ function layoutKey() {
     appState.screen,
     list,
     Object.keys(appState.state.Plugins || {}),
+    appState.state.PluginLabels,
     appState.screen === "lights"
       ? [
           appState.state.Enabled?.hue,

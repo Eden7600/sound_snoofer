@@ -506,6 +506,18 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
       nowplaying: "Running",
       discord: "Running",
     },
+    PluginLabels: {
+      aec: "Echo Cancellation",
+      audio: "Audio",
+      soundboard: "Soundboard",
+      streamdeck: "Stream Deck",
+      vr: "VR",
+      media: "Windows Media",
+      hue: "Hue",
+      appaudio: "App Audio",
+      nowplaying: "Now Playing",
+      discord: "Discord",
+    },
     Enabled: {
       discord: true,
       audio: true,

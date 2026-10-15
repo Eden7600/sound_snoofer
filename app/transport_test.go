@@ -13,7 +13,7 @@ import (
 )
 
 func TestGenericPrivateFrames(t *testing.T) {
-	state := ViewState{Controls: []snoofer.Control{{ID: "external.light", Revision: 9, Value: "On"}}, Plugins: map[string]string{"external": "Running"}}
+	state := ViewState{Controls: []snoofer.Control{{ID: "external.light", Revision: 9, Value: "On"}}, Plugins: map[string]string{"external": "Running"}, PluginLabels: map[string]string{"external": "External Lights"}}
 	data, err := json.Marshal(frame{State: &state, Focus: true})
 	if err != nil {
 		t.Fatal(err)

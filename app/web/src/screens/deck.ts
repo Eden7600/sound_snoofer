@@ -286,8 +286,10 @@ export function buildDeck() {
         !compatible(item, dial)
       )
         continue;
-      const label = item.Label + " · " + item.ID.split(".")[0];
-      if (!label.toLocaleLowerCase().includes(search.value.toLocaleLowerCase()) && item.ID !== value) continue;
+      const pluginID = item.ID.split(".")[0] || item.ID;
+      const label = item.Label + " · " + (appState.state.PluginLabels?.[pluginID] || pluginID);
+      if (!(label + " " + pluginID).toLocaleLowerCase().includes(search.value.toLocaleLowerCase()) && item.ID !== value)
+        continue;
       const option = el("option", "", label);
       option.value = item.ID;
       option.title = item.ID;

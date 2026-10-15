@@ -65,6 +65,23 @@ func TestPlaybackSendLabelsAndRoutingGroup(t *testing.T) {
 	}
 }
 
+func TestFixedProfileBindingLabels(t *testing.T) {
+	s, _ := guiState(t, true)
+	s.VRConfigured = true
+	s.Intent.VRProfile = &config.ProfileChoices{Source: "auto", Mode: "element", Monitor: "post"}
+	published := controls(s)
+	for _, profile := range []struct{ id, name string }{{"normal-", "Normal"}, {"vr-profile-", "VR"}} {
+		for _, choice := range []struct{ id, name, short string }{
+			{"source", "Microphone", "Target"}, {"mode", "Processing", "FX"}, {"monitor", "Monitor", "Monitor"}, {"output", "Playback", "Playback"},
+		} {
+			c := controlByID(t, published, "audio."+profile.id+choice.id)
+			if c.Label != profile.name+" "+choice.name || c.ShortLabel != profile.name+" "+choice.short {
+				t.Errorf("%s label %q, compact label %q", c.ID, c.Label, c.ShortLabel)
+			}
+		}
+	}
+}
+
 func TestCompactLabelsAndStateIcons(t *testing.T) {
 	s := control.State{Connected: true, Profile: "Normal", Intent: &config.Intent{Enabled: false, Source: "desk", Mode: "direct", Monitor: "off", VRProfile: &config.ProfileChoices{Source: "auto", Mode: "element", Monitor: "pre"}, Recording: &config.RecordingChoices{MicTap: "pre"}}}
 	for _, mode := range []string{"direct", "element"} {

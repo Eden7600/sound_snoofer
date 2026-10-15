@@ -419,16 +419,16 @@ func controls(s control.State) []snoofer.Control {
 	}
 	normal := s.Intent
 	normalOptions := microphoneTargets(s.MicOptions, normal.Source)
-	add("normal-source", "Mic Stack Target", "Normal Microphone", "selection", normal.Source, normalOptions, "set")
-	add("normal-mode", "Processing", "Normal Microphone", "selection", normal.Mode, []string{"direct", "element"}, "set")
-	add("normal-monitor", "Monitoring", "Normal Microphone", "selection", normal.Monitor, []string{"off", "pre", "post"}, "set")
-	add("normal-output", "Playback", "Normal Playback", "selection", normal.PlaybackDevice, s.OutputOptions, "set")
+	add("normal-source", "Normal Microphone", "Normal Microphone", "selection", normal.Source, normalOptions, "set")
+	add("normal-mode", "Normal Processing", "Normal Microphone", "selection", normal.Mode, []string{"direct", "element"}, "set")
+	add("normal-monitor", "Normal Monitor", "Normal Microphone", "selection", normal.Monitor, []string{"off", "pre", "post"}, "set")
+	add("normal-output", "Normal Playback", "Normal Playback", "selection", normal.PlaybackDevice, s.OutputOptions, "set")
 	if s.VRConfigured && normal.VRProfile != nil {
 		p := normal.VRProfile
-		add("vr-profile-source", "Mic Stack Target", "VR Microphone", "selection", p.Source, microphoneTargets(s.VRSourceOptions, p.Source), "set")
-		add("vr-profile-mode", "Processing", "VR Microphone", "selection", p.Mode, []string{"direct", "element"}, "set")
-		add("vr-profile-monitor", "Monitoring", "VR Microphone", "selection", p.Monitor, []string{"off", "pre", "post"}, "set")
-		add("vr-profile-output", "Playback", "VR Playback", "selection", p.Playback, s.VROutputOptions, "set")
+		add("vr-profile-source", "VR Microphone", "VR Microphone", "selection", p.Source, microphoneTargets(s.VRSourceOptions, p.Source), "set")
+		add("vr-profile-mode", "VR Processing", "VR Microphone", "selection", p.Mode, []string{"direct", "element"}, "set")
+		add("vr-profile-monitor", "VR Monitor", "VR Microphone", "selection", p.Monitor, []string{"off", "pre", "post"}, "set")
+		add("vr-profile-output", "VR Playback", "VR Playback", "selection", p.Playback, s.VROutputOptions, "set")
 	}
 	for n := range out {
 		out[n].Epoch = s.Revision

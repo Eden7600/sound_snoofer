@@ -47,6 +47,7 @@ export interface Control<T = unknown> {
 export interface Fixture {
   Controls: Control[];
   Plugins: Record<string, string>;
+  PluginLabels?: Record<string, string>;
   Enabled: Record<string, boolean>;
   Notice: string;
   Confirmation: string;

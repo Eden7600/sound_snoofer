@@ -22,6 +22,29 @@ test.describe("Diagnostics", () => {
 });
 
 test.describe("Plugins", () => {
+  test("registered names keep their raw action IDs", async ({ gui }) => {
+    await gui.open();
+    await gui.screen("Plugins");
+    const card = gui.page.locator("[data-part=plugin]", {
+      has: gui.page.getByRole("heading", { name: "App Audio", exact: true }),
+    });
+    await card.getByRole("button", { name: "Disable", exact: true }).click();
+    expect((await gui.sent()).at(-1)).toEqual({ Kind: "selection", Plugin: "appaudio", Enable: false });
+  });
+
+  test("missing plugin labels fall back to IDs and later snapshots refresh names", async ({ gui }) => {
+    await gui.open((fixture) => {
+      delete fixture.PluginLabels;
+    });
+    await gui.screen("Plugins");
+    await expect(gui.page.getByRole("heading", { name: "appaudio", exact: true })).toHaveCount(1);
+    await gui.update(() => {
+      window.fixture.PluginLabels = { appaudio: "Mix Desk", media: "" };
+    });
+    await expect(gui.page.getByRole("heading", { name: "Mix Desk", exact: true })).toHaveCount(1);
+    await expect(gui.page.getByRole("heading", { name: "media", exact: true })).toHaveCount(1);
+  });
+
   test("enable-only list with host confirmation", async ({ gui }) => {
     await gui.open();
     await gui.screen("Plugins");
