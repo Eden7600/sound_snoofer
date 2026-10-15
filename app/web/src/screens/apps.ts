@@ -3,6 +3,7 @@ import { appState, root, updaters, c } from "../state.ts";
 import { connectionText, connectionTone, timeValue, relativeTime, stale } from "../model.ts";
 
 import { copyText } from "../clipboard.ts";
+import { viewKey } from "../view-state.ts";
 
 function reportCard(id: string, parent: HTMLElement) {
   const initial = c(id);
@@ -19,6 +20,7 @@ function reportCard(id: string, parent: HTMLElement) {
       button("Copy Details", () => copyText(connectionText(c(id) || initial), copied), ui.small),
       "copy",
     );
+  viewKey(copy, id, "copy");
   card.dataset.part = "app-card";
   const endpoint = el("code", "mb-1.5 block font-mono text-xs break-words text-muted"),
     times = el("p", "mb-1.5 text-xs text-muted"),
@@ -83,10 +85,14 @@ export function buildApps() {
   bar.append(
     counts,
     withIcon(
-      button(
-        "Copy All",
-        () => copyText(reports.map((r) => connectionText(c(r.ID) || r)).join("\n\n"), copied),
-        ui.small,
+      viewKey(
+        button(
+          "Copy All",
+          () => copyText(reports.map((r) => connectionText(c(r.ID) || r)).join("\n\n"), copied),
+          ui.small,
+        ),
+        "apps",
+        "copy-all",
       ),
       "copy",
     ),

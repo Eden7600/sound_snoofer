@@ -2,6 +2,7 @@ import { controlsByID, gridMove } from "./model.ts";
 import { $, ui, icon } from "./dom.ts";
 import { appState, root, widgets, updaters, c, update, showError, setReconnecting } from "./state.ts";
 import { send, viewVersion, hydrateState } from "./host.ts";
+import { captureView, restoreView } from "./view-state.ts";
 import type { ViewState, ViewUpdate } from "./types.ts";
 import type { MediaView } from "./screens/media-types.ts";
 import type { AppAudioView } from "./screens/appaudio-types.ts";
@@ -141,8 +142,12 @@ function receive(next: ViewState | null) {
       update();
       return;
     }
+    const saved = signature ? captureView(root) : undefined;
     signature = nextKey;
     build();
+    update();
+    if (saved) restoreView(root, saved);
+    return;
   }
   update();
 }

@@ -5,9 +5,16 @@ import { el, button, iconButton, withIcon, ui } from "./dom.ts";
 import { appState, c, updaters, widgets } from "./state.ts";
 import { request, press } from "./host.ts";
 import { commitSelect } from "./select.ts";
+import { viewKey } from "./view-state.ts";
+function widgetKey(id: string) {
+  return id.startsWith("streamdeck.")
+    ? [id, ...["profile", "page", "deck", "slot", "shared"].map((part) => c("streamdeck." + part)?.Value || "")]
+    : [id];
+}
 export function command(id: string, label: string, parent: HTMLElement, className = "", iconName = "") {
   if (!c(id)) return null;
   const b = button(label, () => press(id), className);
+  viewKey(b, ...widgetKey(id), "command");
   if (iconName) withIcon(b, iconName);
   parent.append(b);
   updaters.push(() => {
@@ -86,9 +93,17 @@ export function control(id: string, parent: HTMLElement, label?: string, { layou
     input = el("div", ui.actions);
     const value = el("span", "max-w-[65%] text-right break-words");
     input.append(
-      iconButton("minus", "Decrease " + (label || initial.Label), () => request(c(id), "adjust", "", -1)),
+      viewKey(
+        iconButton("minus", "Decrease " + (label || initial.Label), () => request(c(id), "adjust", "", -1)),
+        ...widgetKey(id),
+        "decrease",
+      ),
       value,
-      iconButton("plus", "Increase " + (label || initial.Label), () => request(c(id), "adjust", "", 1)),
+      viewKey(
+        iconButton("plus", "Increase " + (label || initial.Label), () => request(c(id), "adjust", "", 1)),
+        ...widgetKey(id),
+        "increase",
+      ),
     );
     updaters.push(() => {
       value.textContent = display(c(id) || initial);
@@ -107,6 +122,7 @@ export function control(id: string, parent: HTMLElement, label?: string, { layou
         },
         ui.small,
       );
+    viewKey(apply, ...widgetKey(id), "apply");
     editor.append(input, apply);
     row.append(editor);
     const enable = () => {
@@ -116,6 +132,7 @@ export function control(id: string, parent: HTMLElement, label?: string, { layou
     input.addEventListener("input", enable);
     updaters.push(enable);
   } else row.append(input);
+  viewKey(input, ...widgetKey(id), "field");
   parent.append(row);
   widgets.push({ id, row, title, note, input, initial });
 }
@@ -181,9 +198,17 @@ export function mixer(id: string, parent: HTMLElement, title: string) {
   node.append(el("h3", ui.stripTitle, title), device, value, track, bar, scale, text, actions);
   const mute = button("0 dB", () => press(id), ui.toggle);
   actions.append(
-    iconButton("minus", title + " down", () => request(c(id), "adjust", "", -1)),
-    mute,
-    iconButton("plus", title + " up", () => request(c(id), "adjust", "", 1)),
+    viewKey(
+      iconButton("minus", title + " down", () => request(c(id), "adjust", "", -1)),
+      id,
+      "decrease",
+    ),
+    viewKey(mute, id, "press"),
+    viewKey(
+      iconButton("plus", title + " up", () => request(c(id), "adjust", "", 1)),
+      id,
+      "increase",
+    ),
   );
   // Only soundboard's press means reset; audio gain press retains its existing mute behavior.
   if (id !== "soundboard.volume") {

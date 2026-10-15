@@ -5,6 +5,7 @@ import { control, setArt, clipState } from "../widgets.ts";
 import { display, tone, numericValue, sceneRoom } from "../model.ts";
 import type { Control } from "../types.ts";
 import type { HueStatusView, HueRoom } from "./lights-types.ts";
+import { viewKey } from "../view-state.ts";
 
 function lightsSetup(parent: HTMLElement) {
   const card = el("section", ui.panel + " mb-[18px] border-[#345365]"),
@@ -13,6 +14,7 @@ function lightsSetup(parent: HTMLElement) {
     actions = el("div", ui.actions);
   card.dataset.part = "setup";
   const pair = button("Pair", () => press("hue.pair"), ui.primary);
+  viewKey(pair, "hue.pair", "press");
   actions.append(pair);
   card.append(title, text, actions);
   parent.append(card);
@@ -87,12 +89,25 @@ function lightDial(
   slider.max = String(max);
   slider.step = "any";
   slider.setAttribute("aria-label", title);
+  viewKey(slider, id, "slider");
   node.append(el("h3", ui.stripTitle, title), value, slider, note, actions);
   parent.append(node);
   actions.append(
-    iconButton("minus", title + " down", () => request(c(id), "adjust", "", -1)),
-    button(pressLabel, () => press(id)),
-    iconButton("plus", title + " up", () => request(c(id), "adjust", "", 1)),
+    viewKey(
+      iconButton("minus", title + " down", () => request(c(id), "adjust", "", -1)),
+      id,
+      "decrease",
+    ),
+    viewKey(
+      button(pressLabel, () => press(id)),
+      id,
+      "press",
+    ),
+    viewKey(
+      iconButton("plus", title + " up", () => request(c(id), "adjust", "", 1)),
+      id,
+      "increase",
+    ),
   );
   // The plugin owns absolute values; the slider sends the equivalent relative ticks on release.
   slider.onchange = () => {
@@ -132,6 +147,7 @@ function segmented(id: string, title: string, parent: HTMLElement) {
       "-ml-px min-w-0 flex-1 rounded-none px-1 py-2 first:ml-0 first:rounded-l-[7px] last:rounded-r-[7px] aria-pressed:relative aria-pressed:border-active-edge aria-pressed:bg-active-bg aria-pressed:text-active",
     );
     group.append(b);
+    viewKey(b, id, "option", option);
     updaters.push(() => {
       const item = c(id);
       b.setAttribute("aria-pressed", String(item?.Value === option));
@@ -145,6 +161,7 @@ function sceneCard(id: string, parent: HTMLElement) {
     name = el("strong", "text-[13px] break-words"),
     status = el("small", "mt-[5px] text-[11px] text-muted");
   b.dataset.part = "scene";
+  viewKey(b, id, "scene");
   b.append(art, name, status);
   parent.append(b);
   updaters.push(() => {
@@ -175,6 +192,7 @@ function roomsCard(parent: HTMLElement) {
       box = el("input", "size-4 accent-active");
     box.type = "checkbox";
     box.value = room.ID;
+    viewKey(box, "hue.rooms", room.ID);
     label.append(box, el("span", "", room.Name + (room.Kind === "zone" ? " (zone)" : "")));
     list.append(label);
     boxes.push(box);
@@ -269,6 +287,8 @@ export function buildLights() {
     const details = el("details", "mt-4"),
       summary = el("summary", "", "Other Rooms");
     details.append(summary);
+    viewKey(details, "hue", groupControl?.Value || "", "other-rooms");
+    viewKey(summary, "hue", groupControl?.Value || "", "other-rooms-summary");
     room.append(details);
     for (const name of [...new Set(others.map(sceneRoom))].sort()) {
       const heading = el("h3", "mt-4 text-xs font-bold text-muted", name || "Other");
@@ -284,6 +304,7 @@ export function buildLights() {
     toggle = button("", () => press("hue.sync"), ui.toggle + " mb-[18px] w-full p-3.5 text-base"),
     help = el("p", "text-muted");
   sync.append(syncState, toggle);
+  viewKey(toggle, "hue.sync", "toggle");
   segmented("hue.sync-mode", "Mode", sync);
   segmented("hue.sync-intensity", "Intensity", sync);
   sync.append(help);

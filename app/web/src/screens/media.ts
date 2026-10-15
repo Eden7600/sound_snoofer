@@ -4,6 +4,7 @@ import { request, press, send } from "../host.ts";
 import { setArt } from "../widgets.ts";
 import { progressAt } from "../model.ts";
 import type { MediaView, MediaSession } from "./media-types.ts";
+import { viewKey } from "../view-state.ts";
 
 // mediaCard shows one session: artwork, title, source, progress with a seek
 // slider and play/pause, which also focuses it; the focused card adds Previous,
@@ -26,6 +27,7 @@ function mediaCard(id: string, parent: HTMLElement) {
   seek.min = "0";
   seek.step = "1000";
   seek.dataset.part = "seek";
+  viewKey(seek, id, "seek");
   const times = el("div", "flex justify-between text-[11px] text-muted tabular-nums"),
     elapsed = el("span"),
     length = el("span");
@@ -51,6 +53,10 @@ function mediaCard(id: string, parent: HTMLElement) {
   const mute = button("Mute", () => press("nowplaying.mute"), ui.toggle + " " + ui.small);
   play.dataset.part = "play";
   mute.dataset.part = "mute";
+  viewKey(prev, id, "previous");
+  viewKey(play, id, "play");
+  viewKey(next, id, "next");
+  viewKey(mute, id, "mute");
   actions.append(prev, play, next, mute, status);
   card.append(head, seek, times, actions);
   parent.append(card);

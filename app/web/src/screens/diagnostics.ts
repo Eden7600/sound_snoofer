@@ -4,6 +4,7 @@ import { send } from "../host.ts";
 import { control, command } from "../widgets.ts";
 import { tone } from "../model.ts";
 import { copyText } from "../clipboard.ts";
+import { viewKey } from "../view-state.ts";
 
 function currentNotices() {
   const groups = new Map<string, { label: string; status: string; tone: string }[]>();
@@ -42,7 +43,11 @@ export function buildDiagnostics() {
   const toolbar = el("div", ui.toolbar);
   toolbar.append(
     withIcon(
-      button("Retry Plugins", () => send({ Kind: "retry" })),
+      viewKey(
+        button("Retry Plugins", () => send({ Kind: "retry" })),
+        "diagnostics",
+        "retry",
+      ),
       "refresh-cw",
     ),
   );
@@ -75,6 +80,7 @@ export function buildDiagnostics() {
     ),
     "copy",
   );
+  viewKey(copy, "diagnostics", "copy");
   actions.append(copy, feedback);
   details.append(actions, list);
   let signature = "";

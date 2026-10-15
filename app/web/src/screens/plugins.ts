@@ -1,6 +1,7 @@
 import { ui, el, button } from "../dom.ts";
 import { appState, root, updaters } from "../state.ts";
 import { send } from "../host.ts";
+import { viewKey } from "../view-state.ts";
 
 export function buildPlugins() {
   for (const id of Object.keys(appState.state.Plugins || {}).sort()) {
@@ -18,6 +19,7 @@ export function buildPlugins() {
         ui.toggle,
       );
     card.dataset.part = "plugin";
+    viewKey(toggle, "plugin", id, "toggle");
     text.append(el("h2", ui.h2, appState.state.PluginLabels?.[id] || id), status);
     card.append(text, toggle);
     root.append(card);

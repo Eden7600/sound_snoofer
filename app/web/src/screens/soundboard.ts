@@ -3,6 +3,7 @@ import { root, updaters, c, appState, update } from "../state.ts";
 import { request, press } from "../host.ts";
 import { command, control, mixer, setArt, clipState } from "../widgets.ts";
 import { display, tone } from "../model.ts";
+import { viewKey, preserveSearch } from "../view-state.ts";
 
 export function buildSoundboard() {
   const clips = [...appState.controls.values()].filter((v) => v.ID.startsWith("soundboard.clip-"));
@@ -11,6 +12,8 @@ export function buildSoundboard() {
   search.type = "search";
   search.placeholder = "Search Clips";
   search.setAttribute("aria-label", "Search Clips");
+  search.oninput = update;
+  preserveSearch(search, ["soundboard", "search"], update);
   toolbar.append(icon("search", "size-5 shrink-0 text-muted"), search);
   command("soundboard.stop", "Stop", toolbar, "", "square");
   root.append(toolbar);
@@ -44,6 +47,7 @@ export function buildSoundboard() {
       name = el("strong", "text-[13px] break-words", initial.Label),
       status = el("small", "mt-[5px] text-[11px] text-muted");
     b.dataset.part = "clip";
+    viewKey(b, initial.ID, "play");
     b.append(art, name, status);
     b.title = initial.Label;
     grid.append(b);
@@ -69,5 +73,4 @@ export function buildSoundboard() {
       b.hidden = !item.Label.toLocaleLowerCase().includes(search.value.toLocaleLowerCase());
     });
   }
-  search.oninput = update;
 }

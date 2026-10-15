@@ -2,6 +2,7 @@ import { ui, el, panel, empty, iconButton, icon } from "../dom.ts";
 import { root, updaters, c, appState } from "../state.ts";
 import { press } from "../host.ts";
 import { control, command, mixer } from "../widgets.ts";
+import { viewKey } from "../view-state.ts";
 
 export function buildAudio() {
   if (![...appState.controls.keys()].some((id) => id.startsWith("audio."))) {
@@ -108,6 +109,7 @@ function transport(card: HTMLElement) {
   ] as const) {
     if (!c(id)) continue;
     const b = iconButton(name, label, () => press(id));
+    viewKey(b, id, "press");
     row.append(b);
     updaters.push(() => {
       b.disabled = !!appState.pending || !c(id)?.Available || !!c(id)?.Inactive;

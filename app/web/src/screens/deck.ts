@@ -4,6 +4,7 @@ import { request, press } from "../host.ts";
 import { control, command } from "../widgets.ts";
 import { compatible, gridMove } from "../model.ts";
 import type { DeckView } from "./deck-types.ts";
+import { viewKey, preserveSearch } from "../view-state.ts";
 
 interface DeckRange {
   page?: string;
@@ -69,6 +70,8 @@ export function buildDeck() {
     K = shape.Keys.length,
     D = shape.Dials.length,
     columns = shape.Columns;
+  const pageContext = ["deck", c("streamdeck.profile")?.Value || "", c("streamdeck.page")?.Value || ""];
+  const bindingContext = [...pageContext, shape.Selected, c("streamdeck.shared")?.Value || ""];
   const workspace = el(
       "div",
       "grid grid-cols-[minmax(0,1fr)_280px] items-start gap-[18px] min-[1500px]:grid-cols-[minmax(0,1fr)_330px] max-[1120px]:grid-cols-1",
@@ -127,6 +130,7 @@ export function buildDeck() {
     if (!dial) b.append(number, glyph);
     b.append(regionTag);
     b.append(name, source);
+    viewKey(b, ...pageContext, K, D, columns, dial ? "dial" : "key", index);
     (dial ? dials : keys).append(b);
     b.onkeydown = (e) => {
       if (!e.key.startsWith("Arrow")) return;
@@ -221,6 +225,8 @@ export function buildDeck() {
   const more = el("details", "mt-4"),
     summary = el("summary", "", "Page Options");
   more.append(summary);
+  viewKey(more, ...pageContext, "page-options");
+  viewKey(summary, ...pageContext, "page-options-summary");
   tools.append(more);
   control("streamdeck.add", more, "New Page");
   regionsPanel(left);
@@ -269,6 +275,7 @@ export function buildDeck() {
   );
   select.size = 9;
   select.setAttribute("aria-label", "Binding");
+  viewKey(select, ...bindingContext, "bindings");
   inspector.append(search, select);
   function populate() {
     const value = c("streamdeck.binding")?.Value || "";
@@ -303,6 +310,7 @@ export function buildDeck() {
     select.value = value;
   }
   search.oninput = populate;
+  preserveSearch(search, [...bindingContext, "search"], populate);
   populate();
   let bindingRevision: number | undefined;
   select.onfocus = () => {
@@ -314,7 +322,8 @@ export function buildDeck() {
   };
   updaters.push(() => {
     select.disabled = !!appState.pending || !c("streamdeck.binding")?.Available;
-    if (document.activeElement !== select) select.value = c("streamdeck.binding")?.Value || "";
+    const value = c("streamdeck.binding")?.Value || "";
+    if (document.activeElement !== select && select.value !== value) select.value = value;
   });
   const bar = el(
       "div",
@@ -394,6 +403,7 @@ function regionsPanel(parent: HTMLElement) {
     sets.className = "text-xs " + (v?.Scrolls ? "text-muted" : "text-attention");
   });
   const regions = view.Regions || [];
+  const context = ["deck", c("streamdeck.profile")?.Value || "", c("streamdeck.page")?.Value || ""];
   if (!regions.length)
     card.append(el("p", ui.note, "No regions. Select keys or dials (Shift+click or Shift+arrows) and add one."));
   regions.forEach((region, i) => {
@@ -411,6 +421,8 @@ function regionsPanel(parent: HTMLElement) {
             : regionKeysLabel(region.First, region.Last),
       );
     select.setAttribute("aria-label", "Region " + (i + 1) + " Source");
+    const regionKey = [...context, JSON.stringify(regions), i];
+    viewKey(select, ...regionKey, "source");
     let editRevision: number | undefined;
     select.onfocus = () => {
       editRevision = c("streamdeck.region-source")?.Revision;
@@ -432,6 +444,8 @@ function regionsPanel(parent: HTMLElement) {
     box.onchange = () => request(c("streamdeck.region-clip"), "set", i + "," + (box.checked ? "off" : "on"));
     const remove = button("Remove", () => request(c("streamdeck.region-remove"), "set", String(i)), ui.danger);
     remove.setAttribute("aria-label", "Remove Region " + (i + 1));
+    viewKey(box, ...regionKey, "overflow");
+    viewKey(remove, ...regionKey, "remove");
     row.append(name, select);
     if (stacked) row.append(stacked);
     row.append(keysLabel);
@@ -457,6 +471,8 @@ function regionsPanel(parent: HTMLElement) {
     );
   source.setAttribute("aria-label", "New Region Source");
   create.dataset.part = "add-region";
+  viewKey(source, ...context, "new-region-source");
+  viewKey(create, ...context, "add-region");
   add.append(source, create);
   card.append(add);
   updaters.push(() => {

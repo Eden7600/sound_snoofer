@@ -4,6 +4,7 @@ import { request, press, send } from "../host.ts";
 import { meterBar, setArt } from "../widgets.ts";
 import { display, tone, numericValue, relativeTime } from "../model.ts";
 import type { AppAudioView, AppAudioApp } from "./appaudio-types.ts";
+import { viewKey } from "../view-state.ts";
 
 // appEdit sends a pick or rule change for an app.
 function appEdit(op: string, app: string, value = "") {
@@ -48,6 +49,13 @@ function appStrip(id: string, parent: HTMLElement) {
   const more = el("details", "mt-3 text-[13px]"),
     summary = el("summary", "cursor-pointer text-muted", "More");
   more.append(summary);
+  viewKey(more, id, initial.Label, "more");
+  viewKey(summary, id, initial.Label, "more-summary");
+  viewKey(mute, id, "mute");
+  viewKey(slider, id, "volume");
+  viewKey(pin, id, initial.Label, "pin");
+  viewKey(earlier, id, initial.Label, "earlier");
+  viewKey(later, id, initial.Label, "later");
   const rename = el("input", "min-w-0 flex-1");
   rename.type = "text";
   rename.placeholder = "New name";
@@ -61,6 +69,8 @@ function appStrip(id: string, parent: HTMLElement) {
       ui.small,
     );
   renameRow.append(rename, renameApply);
+  viewKey(rename, id, initial.Label, "rename");
+  viewKey(renameApply, id, initial.Label, "rename-apply");
   const combine = el("select", "min-w-0 flex-1");
   combine.setAttribute("aria-label", "Combine " + initial.Label + " into");
   const combineRow = el("div", "mt-2 flex gap-2"),
@@ -72,6 +82,8 @@ function appStrip(id: string, parent: HTMLElement) {
       ui.small,
     );
   combineRow.append(combine, combineApply);
+  viewKey(combine, id, initial.Label, "combine");
+  viewKey(combineApply, id, initial.Label, "combine-apply");
   for (const other of (c<AppAudioView>("appaudio.status")?.ViewData?.Apps || []).filter(
     (a) => !a.Hidden && a.ID !== id,
   )) {
@@ -81,6 +93,7 @@ function appStrip(id: string, parent: HTMLElement) {
   }
   const hide = button("Hide", () => appEdit("hide", initial.Label), ui.small + " " + ui.danger);
   hide.dataset.part = "hide";
+  viewKey(hide, id, initial.Label, "hide");
   const details = el("dl", "mt-3 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-1 text-[12px] text-muted");
   more.append(renameRow, combineRow, el("div", ui.actions + " mt-2"), details);
   more.children[3]?.append(hide);
@@ -96,6 +109,7 @@ function appStrip(id: string, parent: HTMLElement) {
       const row = el("div", "flex items-center justify-between gap-2 py-1"),
         programs = (rule.Programs || []).join(", ");
       const b = button("Separate", () => appEdit("separate", initial.Label, rule.Match), ui.small);
+      viewKey(b, id, initial.Label, "separate", rule.Match);
       b.setAttribute("aria-label", "Separate " + programs);
       separates.push(b);
       row.append(el("span", "min-w-0 break-all text-ink", programs), b);
@@ -167,6 +181,7 @@ export function buildAppAudio() {
   minutes.step = "1";
   minutes.setAttribute("aria-label", "Recent Window in Minutes");
   minutes.dataset.part = "recent";
+  viewKey(minutes, "appaudio", "recent");
   minutes.onchange = () => {
     const value = Number(minutes.value),
       current = c<AppAudioView>("appaudio.status")?.ViewData?.RecentMinutes;
@@ -214,13 +229,21 @@ function excludedCard(view: Partial<AppAudioView>) {
   const apps = view.Apps || [],
     editable = () => !appState.pending && !!c("appaudio.edit")?.Available,
     buttons: HTMLButtonElement[] = [];
-  const row = (title: string, detail: string, action: (event: MouseEvent) => void, label: string, aria: string) => {
+  const row = (
+    title: string,
+    detail: string,
+    action: (event: MouseEvent) => void,
+    label: string,
+    aria: string,
+    key: string[],
+  ) => {
     const node = el("div", "flex items-center justify-between gap-3 border-t border-[#25323e] py-2.5"),
       text = el("div", "min-w-0");
     text.append(el("div", "break-all", title));
     if (detail) text.append(el("small", "block break-all text-[11px] text-muted", detail));
     const b = button(label, action, ui.small);
     b.setAttribute("aria-label", aria);
+    viewKey(b, "appaudio", ...key);
     buttons.push(b);
     node.append(text, b);
     card.append(node);
@@ -233,11 +256,12 @@ function excludedCard(view: Partial<AppAudioView>) {
       () => appEdit("include", pattern, pattern),
       "Remove",
       "Remove " + pattern,
+      ["include", pattern],
     );
   }
   if (!(view.Exclude || []).length) card.append(el("p", "text-[13px] text-muted", "Nothing is excluded."));
   for (const a of apps.filter((a) => a.Hidden && a.Open && !(a.Rule || "").startsWith("Excluded"))) {
-    row(a.Name, a.Rule, () => appEdit("unhide", a.Name), "Unhide", "Unhide " + a.Name);
+    row(a.Name, a.Rule, () => appEdit("unhide", a.Name), "Unhide", "Unhide " + a.Name, [a.ID, a.Name, "unhide"]);
   }
   const add = el("div", "mt-3 flex gap-2 border-t border-[#25323e] pt-3"),
     input = el("input", "min-w-0 flex-1");
@@ -256,6 +280,8 @@ function excludedCard(view: Partial<AppAudioView>) {
     ui.small,
   );
   apply.dataset.part = "exclude";
+  viewKey(input, "appaudio", "exclude");
+  viewKey(apply, "appaudio", "exclude-apply");
   input.onkeydown = (e) => {
     if (e.key === "Enter") apply.click();
   };

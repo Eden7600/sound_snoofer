@@ -3,6 +3,7 @@ import { root, updaters, c, appState, update } from "../state.ts";
 import { request, press } from "../host.ts";
 import { display } from "../model.ts";
 import { commitSelect } from "../select.ts";
+import { viewKey } from "../view-state.ts";
 import type { PriorityView, PriorityEntry, PrioritySuggestion, MicView, OutputSlotView } from "./routing-types.ts";
 
 // priorityEdit sends one change to a device priority list; Snoofer validates,
@@ -11,6 +12,9 @@ import type { PriorityView, PriorityEntry, PrioritySuggestion, MicView, OutputSl
 // from. Index-based edits drawn from older lists send revision 0, which the host rejects as
 // stale, instead of changing whatever now sits at that index.
 let drawnConfig = "";
+function routingKey<T extends HTMLElement>(node: T, ...parts: Array<string | number>) {
+  return viewKey(node, "routing", drawnConfig, ...parts);
+}
 function listEdit(id: string, value: string) {
   const control = c(id);
   request(control, "set", value, 0, control?.Value === drawnConfig ? control.Revision : 0);
@@ -34,7 +38,12 @@ function matchBadge(entry: PriorityEntry, missing = "No match") {
   return b;
 }
 // patternField is a pattern input that applies on Enter or Apply.
-function patternField(value: string | undefined, label: string, apply: (value: string) => void) {
+function patternField(
+  value: string | undefined,
+  label: string,
+  apply: (value: string) => void,
+  key: Array<string | number>,
+) {
   const wrap = el("div", "flex min-w-[min(100%,16rem)] flex-1 gap-[7px]"),
     input = el("input", "min-w-0 flex-1 font-mono text-xs"),
     b = button("Apply", () => apply(input.value), ui.small);
@@ -42,6 +51,8 @@ function patternField(value: string | undefined, label: string, apply: (value: s
   input.value = String(value);
   input.setAttribute("aria-label", label);
   input.spellcheck = false;
+  routingKey(input, ...key, "field");
+  routingKey(b, ...key, "apply");
   input.onkeydown = (e) => {
     if (e.key === "Enter") b.click();
     if (e.key === "Escape") {
@@ -66,6 +77,7 @@ function entryButtons(list: string, index: number, count: number, name: string) 
       iconButton("trash-2", "Remove " + name, () => priorityEdit(list, "remove", index)),
     ] as const;
   buttons[2].classList.add(ui.danger);
+  for (const [i, action] of ["up", "down", "remove"].entries()) routingKey(buttons[i]!, list, index, action);
   box.append(...buttons);
   updaters.push(() => {
     for (const b of buttons) b.disabled = !editable();
@@ -119,6 +131,7 @@ function suggestionRows(
         "plus",
       );
       b.title = title;
+      routingKey(b, list, JSON.stringify(entry), "add");
       b.setAttribute("aria-label", label + " " + s.Name);
       row.append(b);
       updaters.push(() => {
@@ -162,8 +175,11 @@ function candidateRows(
     row.append(
       entry.DeviceID
         ? deviceName(entry.DeviceName, entry.Matches)
-        : patternField(entry.Pattern, title + " " + (n + 1) + " pattern", (value) =>
-            priorityEdit(list, "set", n, value, "pattern"),
+        : patternField(
+            entry.Pattern,
+            title + " " + (n + 1) + " pattern",
+            (value) => priorityEdit(list, "set", n, value, "pattern"),
+            [list, n, "pattern"],
           ),
     );
     if (list === "playback") row.append(badge((entry.Driver || "").toUpperCase()));
@@ -180,13 +196,21 @@ function micName(view: Partial<PriorityView>, id: string | undefined) {
   return id === "off" ? "Off" : (view.Mics || []).find((m) => m.ID === id)?.Name || id || "";
 }
 // textField is a plain text input that applies on Enter or Apply.
-function textField(value: string, label: string, max: number, apply: (value: string) => void) {
+function textField(
+  value: string,
+  label: string,
+  max: number,
+  apply: (value: string) => void,
+  key: Array<string | number>,
+) {
   const wrap = el("div", "flex min-w-[min(100%,12rem)] flex-1 gap-[7px]"),
     input = el("input", "min-w-0 flex-1"),
     b = button("Apply", () => apply(input.value.trim()), ui.small);
   input.type = "text";
   input.value = value;
   input.maxLength = max;
+  routingKey(input, ...key, "field");
+  routingKey(b, ...key, "apply");
   input.setAttribute("aria-label", label);
   input.onkeydown = (e) => {
     if (e.key === "Enter") b.click();
@@ -220,7 +244,11 @@ function micsCard(parent: HTMLElement, view: Partial<PriorityView>) {
         : badge(m.Option ? "Ready" : "Unavailable");
     state.dataset.part = "mic-state";
     row.append(
-      textField(m.Name, "Microphone " + (n + 1) + " name", 16, (v) => priorityEdit("mics", "set", n, v, "name")),
+      textField(m.Name, "Microphone " + (n + 1) + " name", 16, (v) => priorityEdit("mics", "set", n, v, "name"), [
+        "mics",
+        m.ID,
+        "name",
+      ]),
       micSource(m, n, view),
       readyToggle(m, n),
       state,
@@ -250,6 +278,8 @@ function micsCard(parent: HTMLElement, view: Partial<PriorityView>) {
     name.maxLength = 16;
     name.setAttribute("aria-label", "New Microphone Name");
     kind.setAttribute("aria-label", "New Microphone Source");
+    routingKey(name, "new-mic", "name");
+    routingKey(kind, "new-mic", "source");
     kind.append(Object.assign(el("option", "", "Interface Channels"), { value: "" }));
     const devices = view.Suggestions?.["mic-devices:"] || [];
     devices.forEach((s, n) => {
@@ -285,6 +315,7 @@ function micsCard(parent: HTMLElement, view: Partial<PriorityView>) {
       name.disabled = kind.disabled = !editable();
       b.disabled = !editable() || !name.value.trim();
     });
+    routingKey(b, "new-mic", "add");
     add.append(name, kind, b);
     card.append(add);
   }
@@ -295,6 +326,7 @@ function micSource(m: MicView, n: number, view: Partial<PriorityView>) {
   const select = el("select", "min-w-0 max-w-[16rem]"),
     devices = view.Suggestions?.["mic-devices:"] || [];
   select.setAttribute("aria-label", m.Name + " Source");
+  routingKey(select, "mics", m.ID, "source");
   select.append(Object.assign(el("option", "", "Interface Channels"), { value: "interface" }));
   if (m.Device) select.append(Object.assign(el("option", "", "Device"), { value: "current" }));
   devices.forEach((s, i) => {
@@ -334,6 +366,7 @@ function readyToggle(m: MicView, n: number) {
   b.setAttribute("aria-pressed", String(!!m.Ready));
   b.setAttribute("aria-label", m.Name + " always ready");
   b.title = "Auto never skips it for silence";
+  routingKey(b, "mics", m.ID, "ready");
   updaters.push(() => {
     b.disabled = !editable();
   });
@@ -348,6 +381,7 @@ function channelFields(entry: PriorityEntry, n: number, m: MicView) {
   wrap.dataset.part = "channels";
   const mode = el("select", "w-24");
   mode.setAttribute("aria-label", m.Name + " on interface " + (n + 1));
+  routingKey(mode, "interfaces", n, m.ID, "mode");
   for (const [value, label] of [
     ["off", "Off"],
     ["mono", "Mono"],
@@ -378,6 +412,7 @@ function channelFields(entry: PriorityEntry, n: number, m: MicView) {
     send(mode.value === "off" ? "" : mode.value === "mono" ? String(left) : left + "," + (current[1] || left + 1)),
   );
   for (const i of inputs) i.onchange = () => send(inputs.map((x) => x.value).join(","));
+  inputs.forEach((input, channel) => routingKey(input, "interfaces", n, m.ID, "channel", channel));
   updaters.push(() => {
     for (const x of [mode, ...inputs]) x.disabled = !editable();
   });
@@ -394,6 +429,7 @@ function activityCard(parent: HTMLElement, view: Partial<PriorityView>) {
   card.dataset.part = "activity";
   const check = el("select", "min-w-0");
   check.setAttribute("aria-label", "Meter");
+  routingKey(check, "activity", "check");
   check.append(Object.assign(el("option", "", "Off"), { value: "0" }));
   for (let k = 1; k <= 4; k++) check.append(Object.assign(el("option", "", "Top " + k), { value: String(k) }));
   check.value = String(a?.check ?? 0);
@@ -406,6 +442,7 @@ function activityCard(parent: HTMLElement, view: Partial<PriorityView>) {
     i.value = a ? String(value) : "";
     i.setAttribute("aria-label", label);
     i.onchange = () => priorityEdit("activity", "set", 0, i.value, field);
+    routingKey(i, "activity", field);
     return i;
   };
   const threshold = number(a?.silence_db, "Silence Below (dBFS)", "silence_db", -120, -20),
@@ -435,16 +472,22 @@ function interfaceCard(parent: HTMLElement, view: Partial<PriorityView>) {
       el("span", "text-xs text-muted", "Driver"),
       entry.ASIOID
         ? deviceName(entry.ASIOName, entry.Drivers)
-        : patternField(entry.ASIOPattern, "Interface " + (n + 1) + " driver pattern", (v) =>
-            priorityEdit("interfaces", "set", n, v, "asio_pattern"),
+        : patternField(
+            entry.ASIOPattern,
+            "Interface " + (n + 1) + " driver pattern",
+            (v) => priorityEdit("interfaces", "set", n, v, "asio_pattern"),
+            ["interfaces", n, "asio_pattern"],
           ),
     );
     fields.append(
       el("span", "text-xs text-muted", "Presence"),
       entry.PresenceID
         ? deviceName(entry.PresenceName, entry.Matches)
-        : patternField(entry.PresencePattern, "Interface " + (n + 1) + " presence pattern", (v) =>
-            priorityEdit("interfaces", "set", n, v, "presence_pattern"),
+        : patternField(
+            entry.PresencePattern,
+            "Interface " + (n + 1) + " presence pattern",
+            (v) => priorityEdit("interfaces", "set", n, v, "presence_pattern"),
+            ["interfaces", n, "presence_pattern"],
           ),
     );
     const channels = el("div", "flex flex-wrap items-center gap-x-4 gap-y-2");
@@ -471,6 +514,8 @@ function interfaceCard(parent: HTMLElement, view: Partial<PriorityView>) {
     add.dataset.part = "interface-add";
     driver.setAttribute("aria-label", "New Interface Driver");
     input.setAttribute("aria-label", "New Interface Presence Input");
+    routingKey(driver, "new-interface", "driver");
+    routingKey(input, "new-interface", "presence");
     drivers.forEach((s, n) => {
       const o = el("option", "", s.Name);
       o.value = String(n);
@@ -506,6 +551,7 @@ function interfaceCard(parent: HTMLElement, view: Partial<PriorityView>) {
     updaters.push(() => {
       b.disabled = driver.disabled = input.disabled = !editable();
     });
+    routingKey(b, "new-interface", "add");
     add.append(el("h3", ui.stripTitle + " mb-0 basis-full", "Add Interface"), driver, input, b);
     card.append(add);
   }
@@ -527,6 +573,7 @@ function micPriorityCard(parent: HTMLElement, view: Partial<PriorityView>) {
     const add = el("div", "mt-4 flex gap-2 border-t border-[#25323e] pt-3"),
       select = el("select", "min-w-0 flex-1");
     select.setAttribute("aria-label", "Microphone to Add");
+    routingKey(select, "microphones", "add-choice");
     for (const id of missing) {
       const o = el("option", "", micName(view, id));
       o.value = id;
@@ -539,6 +586,7 @@ function micPriorityCard(parent: HTMLElement, view: Partial<PriorityView>) {
     updaters.push(() => {
       b.disabled = select.disabled = !editable();
     });
+    routingKey(b, "microphones", "add");
     add.append(select, b);
     card.append(add);
   }
@@ -569,6 +617,7 @@ function outputEdit(op: string, id: string, value = "") {
 function routeCell(id: string, label: string) {
   const b = button("", () => press(id), ui.toggle + " w-full min-w-0 px-2 py-1.5");
   b.dataset.part = "route";
+  routingKey(b, id, "route");
   b.setAttribute("aria-label", label);
   updaters.push(() => {
     const item = c(id),
@@ -599,6 +648,7 @@ function outputsCard(parent: HTMLElement, view: Partial<PriorityView>) {
   const scroll = el("div", "overflow-x-auto"),
     table = el("table", "w-full min-w-[520px] border-separate border-spacing-x-2 border-spacing-y-1.5 text-[13px]");
   scroll.append(table);
+  viewKey(scroll, "routing", "output-scroll");
   card.append(scroll);
   const head = el("tr"),
     thead = el("thead"),
@@ -637,6 +687,8 @@ function outputsCard(parent: HTMLElement, view: Partial<PriorityView>) {
       rename = el("input", "min-w-0 flex-1 text-xs"),
       renameRow = el("div", "flex gap-1.5");
     device.setAttribute("aria-label", slot.Label + " device");
+    routingKey(device, "output", slotID, "device");
+    routingKey(rename, "output", slotID, "name");
     device.append(Object.assign(el("option", "", "No device"), { value: "" }));
     // The current device keeps its saved form; others are saved by identity.
     if (deviceName) {
@@ -667,6 +719,8 @@ function outputsCard(parent: HTMLElement, view: Partial<PriorityView>) {
     const apply = button("Rename", () => outputEdit("rename", slotID, rename.value.trim()), ui.small),
       remove = iconButton("trash-2", "Remove " + slot.Label, () => outputEdit("remove", slotID));
     remove.classList.add(ui.danger);
+    routingKey(apply, "output", slotID, "rename");
+    routingKey(remove, "output", slotID, "remove");
     rename.onkeydown = (e) => {
       if (e.key === "Enter") apply.click();
     };
@@ -716,6 +770,8 @@ function outputsCard(parent: HTMLElement, view: Partial<PriorityView>) {
     name.maxLength = 16;
     name.setAttribute("aria-label", "New Output Name");
     device.setAttribute("aria-label", "New Output Device");
+    routingKey(name, "new-output", "name");
+    routingKey(device, "new-output", "device");
     device.append(Object.assign(el("option", "", "No device"), { value: "" }));
     const devices = view.OutputDevices || [];
     devices.forEach((d, n) => {
@@ -747,6 +803,7 @@ function outputsCard(parent: HTMLElement, view: Partial<PriorityView>) {
       b.disabled = !editableOutputs() || !name.value.trim();
     });
     name.addEventListener("input", update);
+    routingKey(b, "new-output", "add");
     add.append(name, device, b);
     card.append(add);
   }

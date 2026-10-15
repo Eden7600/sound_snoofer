@@ -2,7 +2,7 @@
 
 - [x] 1. Review this plan against the landed transport/recovery frontend and enumerate explicit
   element keys and edit-context boundaries. Strictly validate the change before source edits.
-- [ ] 2. Commit checkpoint: preserve focus, scroll, details and searches around same-screen
+- [x] 2. Commit checkpoint: preserve focus, scroll, details and searches around same-screen
   structural builds. Add failing regressions for App Audio More, Lights Other Rooms, Deck Page
   Options/binding search and Soundboard search, stable control focus and removed-target fallback.
   Verify restored filtering, both viewport sizes and no action during restoration.
@@ -18,6 +18,6 @@
 - [ ] 5. Update UI contract and audit status for these intentional changes. Run strict type/lint/
   format, model and complete isolated GUI checks within the harness budget; inspect dialog layout
   at 1280×820 and 800×600 and run strict OpenSpec validation.
-- [ ] 6. Deferred until the running-host restriction is lifted: coordinated canonical build and
+- [ ] 6. Coordinate the canonical build and
   packaged WebView2 acceptance of state restoration, dialog cancellation, continued polling and
   captured-target rejection. Restore the prior launch; hardware integration acceptance is separate.
