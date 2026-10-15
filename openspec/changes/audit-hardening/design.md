@@ -35,8 +35,18 @@ The surface remembers the last open error per HID path. It sends `Event{Device: 
 ## 24. Light-write epoch
 The light queue gets an epoch, incremented by `resetGroupDials`. `sendLight` captures it, and `lightWritten` ignores results from an older epoch. The worker generation check is unchanged.
 
-## 25. Same-origin replacement
-Firefox extension origins are random per install, so the extension ID cannot be pinned. Instead, a connection records its `Origin`. A newer hello for the same browser replaces the current connection only if the origins match; otherwise it is refused with a visible reason. An extension reload keeps its origin, so reconnecting still works.
+## 25. Occupied browser names
+The committed audit-completion change supersedes the initial same-origin replacement policy.
+Refuse every second live connection claiming an occupied browser name, even from the same
+origin. Under the bridge lock, retain the incumbent and its generation; a refused socket
+publishes no sessions and receives no commands. Only after incumbent cleanup may a fresh
+connection register with a new generation. Preserve the extension's existing refusal/retry
+handling, origin gate and captured-generation checks.
+
+This uses the original audit's reject-second-connection option. It does not authenticate the
+first claimant. Firefox's declared add-on ID differs from its profile-specific extension
+origin, and this repository has no published Chrome ID or manifest key to pin. Do not add
+pairing, persistent trust state or invented IDs.
 
 ## Observed shutdown deadline diagnostic
 During the 2026-10-15 canonical-build attempt, production host PID 70268 exceeded

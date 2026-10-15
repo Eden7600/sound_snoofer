@@ -92,12 +92,21 @@ Light-write results from before a room change SHALL NOT affect the new room's di
 - **WHEN** the user changes room while a light write is in flight
 - **THEN** the late result neither releases the new room's queue nor marks its dials
 
-### Requirement: Browser bridge connections cannot be evicted by other extensions
-A browser bridge connection SHALL be replaced only by a connection from the same extension origin.
+### Requirement: Browser bridge connections cannot be evicted by another connection
+A browser bridge connection SHALL retain an occupied browser name until its owned cleanup
+completes. Every second live claimant SHALL be refused regardless of extension origin,
+without changing the incumbent's generation, sessions or command ownership. This admission
+rule SHALL NOT be described as authentication of the first claimant.
 
-#### Scenario: Other extension connects
-- **WHEN** another extension connects with the same browser name while the bridge is connected
-- **THEN** it is refused, and the existing connection stays
+#### Scenario: A second connection claims an occupied name
+- **WHEN** another connection claims the same browser name while the bridge is connected
+- **THEN** it is refused, including when its origin matches the incumbent
+- **AND** the existing connection keeps its sessions, generation and commands
+
+#### Scenario: A browser reconnects after cleanup
+- **WHEN** the incumbent has disconnected and its owned cleanup completes
+- **THEN** a fresh connection may register with a new generation
+- **AND** commands captured for the old generation cannot reach it
 
 ### Requirement: Shutdown deadline failures identify the awaited plugin
 When the host's cleanup deadline expires while awaiting a plugin, the returned

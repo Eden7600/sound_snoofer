@@ -143,7 +143,7 @@ func TestBridgeRefusesOtherProtocols(t *testing.T) {
 	}
 }
 
-func TestBridgeSessionsCommandsAndReplacement(t *testing.T) {
+func TestBridgeSessionsCommandsAndReconnect(t *testing.T) {
 	r := startBridgeRig(t)
 	// Firefox's own Windows session has an unrecognisable app ID; its title
 	// matching a tab hides it.
@@ -174,12 +174,12 @@ func TestBridgeSessionsCommandsAndReplacement(t *testing.T) {
 	if err := ws.ReadJSON(&cmd); err != nil || cmd.ID != "7:0" || cmd.Op != "next" {
 		t.Fatal("command", cmd, err)
 	}
-	// A newer connection from the same browser replaces the first.
-	second := r.connect("moz-extension://x", "Firefox", protocol)
-	if _, _, err := ws.ReadMessage(); err == nil {
-		t.Fatal("replaced connection still open")
+	if err := ws.Close(); err != nil {
+		t.Fatal(err)
 	}
-	r.wait("second connection", func(v statusView) bool { return len(v.Browsers) == 1 })
+	r.wait("disconnected before reconnect", func(v statusView) bool { return len(v.Browsers) == 0 })
+	second := r.connect("moz-extension://x", "Firefox", protocol)
+	r.wait("reconnected", func(v statusView) bool { return len(v.Browsers) == 1 })
 	// Too many sessions closes the connection and drops its tabs; the
 	// Windows session returns.
 	many := make([]browserSession, maxBrowserSessions+1)
@@ -231,54 +231,56 @@ func TestBridgeRetriesBusyPortAndStopsAfterClosing(t *testing.T) {
 	again.Close()
 }
 
-func TestBridgeRejectsReplacementFromAnotherOrigin(t *testing.T) {
+func TestBridgeRejectsSecondLiveConnection(t *testing.T) {
 	for _, scheme := range []string{"chrome-extension://", "moz-extension://"} {
-		t.Run(scheme, func(t *testing.T) {
-			r := startBridgeRig(t)
-			original := r.connect(scheme+"original", "Browser", protocol)
-			r.wait("original connected", func(v statusView) bool { return len(v.Browsers) == 1 })
-			if err := original.WriteJSON(report{Type: "sessions", Sessions: []browserSession{{ID: "7:0", Instance: "7:0", Tab: 7, Title: "Original", State: "playing", CanNext: true}}}); err != nil {
-				t.Fatal(err)
-			}
-			r.wait("original session", func(v statusView) bool { return len(v.Sessions) == 1 })
-			other := r.connect(scheme+"other", "Browser", protocol)
-			if err := other.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
-				t.Fatal(err)
-			}
-			var refused refusal
-			if err := other.ReadJSON(&refused); err != nil || refused.Type != "refused" || !strings.Contains(refused.Reason, "another extension") {
-				t.Fatalf("different origin was not refused: %+v, %v", refused, err)
-			}
-			var closed *websocket.CloseError
-			if _, _, err := other.ReadMessage(); !errors.As(err, &closed) || closed.Code != 4003 {
-				t.Fatalf("refused connection remained open: %v", err)
-			}
-			r.wait("original retained and refusal visible", func(v statusView) bool {
-				return len(v.Browsers) == 1 && len(v.Sessions) == 1 && v.Sessions[0].Title == "Original" && v.Bridge.Refused == refused.Reason
-			})
-			var next snoofer.Control
-			for _, c := range r.controls.Snapshot() {
-				if c.ID == "nowplaying.next" {
-					next = c
+		for _, claimant := range []string{"original", "other"} {
+			t.Run(scheme+claimant, func(t *testing.T) {
+				r := startBridgeRig(t)
+				original := r.connect(scheme+"original", "Browser", protocol)
+				r.wait("original connected", func(v statusView) bool { return len(v.Browsers) == 1 })
+				if err := original.WriteJSON(report{Type: "sessions", Sessions: []browserSession{{ID: "7:0", Instance: "7:0", Tab: 7, Title: "Original", State: "playing", CanNext: true}}}); err != nil {
+					t.Fatal(err)
 				}
-			}
-			if err := r.controls.Dispatch(context.Background(), snoofer.Request{ID: next.ID, Revision: next.Revision, Operation: "press"}); err != nil {
-				t.Fatal(err)
-			}
-			if err := original.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
-				t.Fatal(err)
-			}
-			var command browserCommand
-			if err := original.ReadJSON(&command); err != nil || command.ID != "7:0" || command.Op != "next" {
-				t.Fatalf("original no longer receives commands: %+v, %v", command, err)
-			}
-			if err := original.Close(); err != nil {
-				t.Fatal(err)
-			}
-			r.wait("original disconnected", func(v statusView) bool { return len(v.Browsers) == 0 })
-			r.connect(scheme+"other", "Browser", protocol)
-			r.wait("new origin accepted after disconnect", func(v statusView) bool { return len(v.Browsers) == 1 && v.Bridge.Refused == "" })
-		})
+				r.wait("original session", func(v statusView) bool { return len(v.Sessions) == 1 })
+				other := r.connect(scheme+claimant, "Browser", protocol)
+				if err := other.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+					t.Fatal(err)
+				}
+				var refused refusal
+				if err := other.ReadJSON(&refused); err != nil || refused.Type != "refused" || !strings.Contains(refused.Reason, "already active") {
+					t.Fatalf("second live connection was not refused: %+v, %v", refused, err)
+				}
+				var closed *websocket.CloseError
+				if _, _, err := other.ReadMessage(); !errors.As(err, &closed) || closed.Code != 4003 {
+					t.Fatalf("refused connection remained open: %v", err)
+				}
+				r.wait("original retained and refusal visible", func(v statusView) bool {
+					return len(v.Browsers) == 1 && len(v.Sessions) == 1 && v.Sessions[0].Title == "Original" && v.Bridge.Refused == refused.Reason
+				})
+				var next snoofer.Control
+				for _, c := range r.controls.Snapshot() {
+					if c.ID == "nowplaying.next" {
+						next = c
+					}
+				}
+				if err := r.controls.Dispatch(context.Background(), snoofer.Request{ID: next.ID, Revision: next.Revision, Operation: "press"}); err != nil {
+					t.Fatal(err)
+				}
+				if err := original.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+					t.Fatal(err)
+				}
+				var command browserCommand
+				if err := original.ReadJSON(&command); err != nil || command.ID != "7:0" || command.Op != "next" {
+					t.Fatalf("original no longer receives commands: %+v, %v", command, err)
+				}
+				if err := original.Close(); err != nil {
+					t.Fatal(err)
+				}
+				r.wait("original disconnected", func(v statusView) bool { return len(v.Browsers) == 0 })
+				r.connect(scheme+"other", "Browser", protocol)
+				r.wait("new origin accepted after disconnect", func(v statusView) bool { return len(v.Browsers) == 1 && v.Bridge.Refused == "" })
+			})
+		}
 	}
 }
 
@@ -305,10 +307,47 @@ func TestBridgeCapturedGenerationNeverUsesReplacement(t *testing.T) {
 	}
 	first := connect()
 	old := <-updates
+	duplicate := connect()
+	if err := duplicate.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	var refused refusal
+	if err := duplicate.ReadJSON(&refused); err != nil || refused.Type != "refused" {
+		t.Fatalf("duplicate not refused: %+v, %v", refused, err)
+	}
+	if b.generation("Firefox") != old.Generation {
+		t.Fatal("refusal changed incumbent generation")
+	}
+	if err := b.send("Firefox", browserCommand{Type: "command", ID: "7:0", Instance: "document", Generation: old.Generation, Op: "next"}); err != nil {
+		t.Fatal("incumbent command refused", err)
+	}
+	if err := first.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	var incumbentCommand browserCommand
+	if err := first.ReadJSON(&incumbentCommand); err != nil || incumbentCommand.Op != "next" {
+		t.Fatalf("incumbent lost its command: %+v, %v", incumbentCommand, err)
+	}
+	var closed *websocket.CloseError
+	if _, _, err := duplicate.ReadMessage(); !errors.As(err, &closed) || closed.Code != 4003 {
+		t.Fatalf("duplicate received a command or remained open: %v", err)
+	}
+	select {
+	case update := <-updates:
+		t.Fatalf("refused connection published an update: %+v", update)
+	default:
+	}
+	if err := first.Close(); err != nil {
+		t.Fatal(err)
+	}
+	disconnected := <-updates
+	if disconnected.Connected || disconnected.Generation != old.Generation {
+		t.Fatalf("wrong disconnect: %+v", disconnected)
+	}
 	second := connect()
 	current := <-updates
-	if old.Generation == 0 || current.Generation <= old.Generation {
-		t.Fatal(old, current)
+	if old.Generation == 0 || current.Generation != old.Generation+1 {
+		t.Fatal("refusal consumed a generation", old, current)
 	}
 	if err := b.send("Firefox", browserCommand{Type: "command", ID: "7:0", Instance: "document", Generation: old.Generation, Op: "next"}); !errors.Is(err, errBrowserChanged) {
 		t.Fatal("old command accepted", err)
@@ -326,11 +365,72 @@ func TestBridgeCapturedGenerationNeverUsesReplacement(t *testing.T) {
 	if string(got["value"]) != "0" || string(got["instance"]) != `"document"` || got["Generation"] != nil {
 		t.Fatal(got)
 	}
-	if err := first.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+}
+
+func TestBridgeConcurrentClaimsKeepOneConnection(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	updates := make(chan browserUpdate, 16)
+	port := freePort(t)
+	b, err := listen(ctx, port, updates)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := first.ReadMessage(); err == nil {
-		t.Fatal("replaced connection remained live")
+	t.Cleanup(func() { cancel(); b.close() })
+	var sockets [2]*websocket.Conn
+	for n := range sockets {
+		sockets[n], _, err = websocket.DefaultDialer.Dial(fmt.Sprintf("ws://127.0.0.1:%d/nowplaying", port), http.Header{"Origin": []string{"chrome-extension://same"}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { sockets[n].Close() })
+	}
+	start := make(chan struct{})
+	written := make(chan error, len(sockets))
+	for _, ws := range sockets {
+		go func() {
+			<-start
+			written <- ws.WriteJSON(hello{Type: "hello", Protocol: protocol, Browser: "Chrome"})
+		}()
+	}
+	close(start)
+	for range sockets {
+		if err := <-written; err != nil {
+			t.Fatal(err)
+		}
+	}
+	connected := <-updates
+	if connected.Generation != 1 || !connected.Connected {
+		t.Fatalf("first connection: %+v", connected)
+	}
+	// A command and a refusal identify the winner without relying on scheduling.
+	if err := b.send("Chrome", browserCommand{Type: "command", Generation: connected.Generation, Op: "next"}); err != nil {
+		t.Fatal(err)
+	}
+	commands, refusals := 0, 0
+	for _, ws := range sockets {
+		if err := ws.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+			t.Fatal(err)
+		}
+		var message struct{ Type string }
+		if err := ws.ReadJSON(&message); err != nil {
+			t.Fatal(err)
+		}
+		switch message.Type {
+		case "command":
+			commands++
+		case "refused":
+			refusals++
+		default:
+			t.Fatalf("unexpected message: %+v", message)
+		}
+	}
+	if commands != 1 || refusals != 1 || b.generation("Chrome") != connected.Generation {
+		t.Fatalf("commands=%d refusals=%d generation=%d", commands, refusals, b.generation("Chrome"))
+	}
+	select {
+	case update := <-updates:
+		t.Fatalf("second claimant published an update: %+v", update)
+	default:
 	}
 }
 

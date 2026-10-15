@@ -8,7 +8,7 @@
 - [x] 6. `fix(deck)`: seed the key baseline from the current input report (initial implementation; hardware evidence below supersedes this approach in task 14).
 - [x] 7. `fix(deck)`: report every deck path that fails to open; retire temporary path reports on recovery/removal; surface and report-lifecycle tests.
 - [x] 8. `fix(hue)`: ignore light-write results from before a room change; test.
-- [x] 9. `fix(nowplaying)`: replace bridge connections only from the same origin; test.
+- [x] 9. `fix(nowplaying)`: initially restrict replacement to the same origin; tested. Superseded by audit-completion task 4, which rejects every second live browser-name claim and retains reconnect generation guards.
 - [x] 10. Validate: gofmt, `go test ./...`, `go vet ./...`, GUI check, OpenSpec strict validation, canonical build.
 - [x] 10a. `fix(host)`: add plugin context to the host deadline branch without changing
   cleanup policy. First extend the held-instance timeout regression to fail on the

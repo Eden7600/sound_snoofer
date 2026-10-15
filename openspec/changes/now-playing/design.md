@@ -64,7 +64,7 @@ Revised after review: the extension is a standalone codebase published to the Ch
 - **Handshake:** the first message is `hello{protocol, version, browser}`. Protocol 1 is supported; any other value is refused with "Update Snoofer" when newer, or "Update the extension" when older.
 - **Messages from the extension:** `sessions{[…]}`. Each session has `id` (`tab:frame`), `tab`, `site`, `title`, `artist`, `album`, `art` (base64 PNG, sent only when it changes, otherwise `artKey`), `state`, `positionMs`, `durationMs`, `updatedMs`, `rate`, `canNext`, `canPrev`, `canSeek`, `muted` and `audible`.
 - **Messages to the extension:** `command{id, op, value}`.
-- **Bounds:** messages are limited to 1 MiB and sessions to 64 per browser. One connection per browser name; a newer connection replaces the older one.
+- **Bounds:** messages are limited to 1 MiB and sessions to 64 per browser. One connection per browser name; a second live connection is refused, and a new connection is admitted after the incumbent disconnects.
 - **Legacy setting:** `Settings.Token` from the first build is accepted and ignored, so saved configurations still load.
 
 ### De-duplication

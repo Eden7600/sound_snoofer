@@ -27,7 +27,7 @@ Findings 14, 15 and 26 are handled elsewhere:
 - **22:** keys and dial buttons start released on each connection, so the first valid down report dispatches once. Remove the unsupported synchronous startup query; retain repeated-report deduplication and existing release/generation handling.
 - **23:** a deck path that fails to open is reported even while another deck runs; its temporary path report is retired when that path opens or disappears.
 - **24:** a Hue light-write result from before a room change is ignored.
-- **25:** a newer bridge connection replaces a live one only when it comes from the same extension origin.
+- **25:** every second live connection claiming an occupied browser name is refused, including the same origin; after incumbent cleanup, a reconnect receives a fresh generation. This completes the original reject-second-connection option without authenticating the first claimant.
 - **Shutdown diagnostic follow-up:** include the plugin being awaited when the host's
   shutdown deadline expires, preserving error identity and prior cleanup failures.
   Keep shutdown order, deadlines, error-dialog behavior and build refusal unchanged.

@@ -51,7 +51,6 @@ type report struct {
 // serialized here.
 type bridgeConn struct {
 	browser    string
-	origin     string
 	generation uint64
 	ws         *websocket.Conn
 	mu         sync.Mutex
@@ -67,9 +66,9 @@ func (c *bridgeConn) write(v any) error {
 }
 
 // bridge accepts extension connections on localhost. Loopback keeps other
-// machines out and the origin check keeps web pages out, so no secret is
-// needed. It owns its listener and connection goroutines; close stops them
-// and waits.
+// machines out and the origin check keeps web pages out; neither authenticates
+// the first claimant. It owns its listener and connection goroutines; close
+// stops them and waits.
 type bridge struct {
 	updates chan<- browserUpdate
 	ctx     context.Context
@@ -215,19 +214,18 @@ func (b *bridge) serve(w http.ResponseWriter, r *http.Request) {
 		_ = ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(4002, "protocol"), time.Now().Add(writeTimeout))
 		return
 	}
-	conn := &bridgeConn{browser: browser, origin: r.Header.Get("Origin"), ws: ws}
+	conn := &bridgeConn{browser: browser, ws: ws}
 	b.mu.Lock()
 	if b.closed {
 		b.mu.Unlock()
 		return
 	}
-	previous := b.conns[browser]
-	if previous != nil && previous.origin != conn.origin {
-		reason := "Refused another extension claiming " + browser + "; its connection is already active"
+	if b.conns[browser] != nil {
+		reason := "Refused another connection claiming " + browser + "; its connection is already active"
 		b.refused = reason
 		b.mu.Unlock()
 		_ = conn.write(refusal{Type: "refused", Reason: reason}) // Best effort; close follows.
-		_ = ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(4003, "origin"), time.Now().Add(writeTimeout))
+		_ = ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(4003, "connected"), time.Now().Add(writeTimeout))
 		return
 	}
 	b.nextGeneration++
@@ -235,9 +233,6 @@ func (b *bridge) serve(w http.ResponseWriter, r *http.Request) {
 	b.conns[browser] = conn
 	b.refused = ""
 	b.mu.Unlock()
-	if previous != nil {
-		_ = previous.ws.Close() // A reconnect from the same extension origin wins.
-	}
 	b.deliver(browserUpdate{Browser: browser, Version: h.Version, Connected: true, Generation: conn.generation})
 	defer func() {
 		b.mu.Lock()
