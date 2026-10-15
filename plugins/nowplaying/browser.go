@@ -1,74 +1,24 @@
 package nowplaying
 
 import (
-	"fmt"
 	"time"
+
+	"sound-snoofer/internal/browserbridge"
 )
 
-// browserSession is one tab or frame as the extension reports it.
-type browserSession struct {
-	ID             string  `json:"id"`       // "tab:frame".
-	Instance       string  `json:"instance"` // Content-port lifetime within this connection.
-	Tab            int     `json:"tab"`
-	Site           string  `json:"site"`
-	Title          string  `json:"title"`
-	Artist         string  `json:"artist"`
-	Album          string  `json:"album"`
-	Art            string  `json:"art,omitempty"` // Base64 PNG, sent when ArtKey changes.
-	ArtKey         string  `json:"artKey"`
-	State          string  `json:"state"` // playing or paused.
-	PositionMs     int64   `json:"positionMs"`
-	DurationMs     int64   `json:"durationMs"`
-	UpdatedMs      int64   `json:"updatedMs"`
-	Rate           float64 `json:"rate"`
-	CanNext        bool    `json:"canNext"`
-	CanPrev        bool    `json:"canPrev"`
-	CanSeek        bool    `json:"canSeek"`
-	Muted          bool    `json:"muted"`
-	Track          string  `json:"track,omitempty"`
-	Rating         string  `json:"rating,omitempty"`
-	CanRate        bool    `json:"canRate,omitempty"`
-	ReloadRequired bool    `json:"reloadRequired,omitempty"`
-}
+type browserSession = browserbridge.MediaSession
+type browserUpdate = browserbridge.MediaUpdate
+type browserCommand = browserbridge.MediaCommand
 
-// browserUpdate replaces everything known about one browser. A disconnected
-// update removes the browser.
-type browserUpdate struct {
-	Browser    string
-	Version    string
-	Connected  bool
-	Generation uint64
-	Sessions   []browserSession
-}
-
-// browserCommand is sent to the extension.
-type browserCommand struct {
-	Type       string `json:"type"` // "command".
-	ID         string `json:"id"`
-	Instance   string `json:"instance"`
-	Generation uint64 `json:"-"`     // Captured bridge connection, never resolved by browser name alone.
-	Op         string `json:"op"`    // play, pause, toggle, next, prev, seek, mute or rate.
-	Value      int64  `json:"value"` // Explicit 0/1 for toggle/mute, milliseconds for seek.
-	Track      string `json:"track,omitempty"`
-	Rating     string `json:"rating,omitempty"`
-}
-
-// maxBrowserSessions bounds what one browser may report.
 const maxBrowserSessions = 64
 
+var (
+	errBrowserChanged = browserbridge.ErrConnectionChanged
+	errBrowserBusy    = browserbridge.ErrBusy
+)
+
 func validBrowserSessions(sessions []browserSession) error {
-	if len(sessions) > maxBrowserSessions {
-		return fmt.Errorf("browser reported %d sessions; at most %d", len(sessions), maxBrowserSessions)
-	}
-	for _, s := range sessions {
-		if s.ID == "" || len(s.ID) > 64 || s.Instance == "" || len(s.Instance) > 64 || len(s.Art) > 128*1024 {
-			return fmt.Errorf("invalid browser session")
-		}
-		if len(s.Track) > 128 || s.Rating != "" && s.Rating != "unknown" && !knownRating(s.Rating) || s.CanRate && (s.Track == "" || !knownRating(s.Rating)) {
-			return fmt.Errorf("invalid browser rating")
-		}
-	}
-	return nil
+	return browserbridge.ValidateMediaSessions(sessions)
 }
 
 // fromBrowser converts a tab; art is the cached thumbnail for its ArtKey.

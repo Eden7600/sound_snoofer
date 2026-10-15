@@ -2,11 +2,13 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
 
+	"sound-snoofer/internal/browserbridge"
 	"sound-snoofer/snoofer"
 )
 
@@ -50,10 +52,14 @@ func (a UIAction) reply(outcome snoofer.Outcome) {
 }
 
 // stopHost uses a bounded independent cleanup deadline after run cancellation.
-func stopHost(h *snoofer.Host) error {
+func stopHost(h *snoofer.Host, browser *browserbridge.Bridge) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	return h.Stop(ctx)
+	hostErr := h.Stop(ctx)
+	if browser == nil {
+		return hostErr
+	}
+	return errors.Join(hostErr, browser.Close(ctx))
 }
 
 func confirmation(before, after snoofer.Config) string {

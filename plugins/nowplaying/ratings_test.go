@@ -232,15 +232,13 @@ func TestRatingTimeoutLateStateAndTrackRetirement(t *testing.T) {
 }
 
 func TestRatingUncertainSendKeepsReservation(t *testing.T) {
-	for _, definite := range []bool{false, true} {
+	for _, sendErr := range []error{errors.New("socket write failed"), errBrowserChanged, errBrowserBusy} {
+		definite := errors.Is(sendErr, errBrowserChanged) || errors.Is(sendErr, errBrowserBusy)
 		r := newRig(t, true)
 		reportRatings(r, ratedSession(t, nil))
 		r.w.send = func(_ string, c browserCommand) error {
 			r.sent = append(r.sent, c)
-			if definite {
-				return errBrowserChanged
-			}
-			return errors.New("socket write failed")
+			return sendErr
 		}
 		c, done := r.queue("nowplaying.like", "press", "", 0)
 		r.w.process(r.ctx, c, r.now)

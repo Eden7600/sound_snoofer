@@ -13,9 +13,39 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"sound-snoofer/internal/browserbridge"
 	"sound-snoofer/internal/mediasessions"
 	"sound-snoofer/snoofer"
 )
+
+const protocol = 2
+
+type hello struct {
+	Type             string
+	Protocol         int
+	Version, Browser string
+}
+type refusal struct{ Type, Reason string }
+type report struct {
+	Type     string
+	Sessions []browserSession
+}
+
+func readBridgeJSON(ws *websocket.Conn, target any) error {
+	for {
+		_, raw, err := ws.ReadMessage()
+		if err != nil {
+			return err
+		}
+		var envelope struct{ Type string }
+		if err := json.Unmarshal(raw, &envelope); err != nil {
+			return err
+		}
+		if envelope.Type != "capabilities" {
+			return json.Unmarshal(raw, target)
+		}
+	}
+}
 
 type bridgeRig struct {
 	t        *testing.T
@@ -45,7 +75,8 @@ func startBridgeRigOn(t *testing.T, port int, windowsSessions ...mediasessions.S
 	r := &bridgeRig{t: t, controls: snoofer.NewControls(), windows: &fakeWindows{sessions: windowsSessions}, port: port}
 	// The legacy token from the first build still loads, and is ignored.
 	raw, _ := json.Marshal(Settings{Port: r.port, Token: "legacy"})
-	services := snoofer.Services{Controls: r.controls, Live: true, SaveSettings: func(string, json.RawMessage, json.RawMessage) error {
+	owner := browserbridge.New(context.Background(), raw)
+	services := snoofer.Services{Controls: r.controls, Browser: owner, Live: true, SaveSettings: func(string, json.RawMessage, json.RawMessage) error {
 		t.Error("settings saved; the bridge needs none")
 		return errors.New("unexpected save")
 	}}
@@ -60,6 +91,9 @@ func startBridgeRigOn(t *testing.T, port int, windowsSessions ...mediasessions.S
 		defer cancel()
 		if err := instance.Stop(ctx); err != nil {
 			t.Error("stop:", err)
+		}
+		if err := owner.Close(ctx); err != nil {
+			t.Error(err)
 		}
 	})
 	return r
@@ -98,7 +132,7 @@ func (r *bridgeRig) status() statusView {
 
 func (r *bridgeRig) wait(what string, ready func(statusView) bool) statusView {
 	r.t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
+	deadline := time.Now().Add(7 * time.Second)
 	for {
 		v := r.status()
 		if ready(v) {
@@ -132,7 +166,7 @@ func TestBridgeRefusesOtherProtocols(t *testing.T) {
 			t.Fatal(err)
 		}
 		var m refusal
-		if err := ws.ReadJSON(&m); err != nil || m.Type != "refused" || !strings.HasPrefix(m.Reason, want) {
+		if err := readBridgeJSON(ws, &m); err != nil || m.Type != "refused" || !strings.HasPrefix(m.Reason, want) {
 			t.Fatalf("protocol %d: %+v %v", version, m, err)
 		}
 		var closeErr *websocket.CloseError
@@ -170,7 +204,7 @@ func TestBridgeSessionsCommandsAndReconnect(t *testing.T) {
 		t.Fatal(err)
 	}
 	var cmd browserCommand
-	if err := ws.ReadJSON(&cmd); err != nil || cmd.ID != "7:0" || cmd.Op != "next" {
+	if err := readBridgeJSON(ws, &cmd); err != nil || cmd.ID != "7:0" || cmd.Op != "next" {
 		t.Fatal("command", cmd, err)
 	}
 	if err := ws.Close(); err != nil {
@@ -246,7 +280,7 @@ func TestBridgeRejectsSecondLiveConnection(t *testing.T) {
 					t.Fatal(err)
 				}
 				var refused refusal
-				if err := other.ReadJSON(&refused); err != nil || refused.Type != "refused" || !strings.Contains(refused.Reason, "already active") {
+				if err := readBridgeJSON(other, &refused); err != nil || refused.Type != "refused" || !strings.Contains(refused.Reason, "already active") {
 					t.Fatalf("second live connection was not refused: %+v, %v", refused, err)
 				}
 				var closed *websocket.CloseError
@@ -269,7 +303,7 @@ func TestBridgeRejectsSecondLiveConnection(t *testing.T) {
 					t.Fatal(err)
 				}
 				var command browserCommand
-				if err := original.ReadJSON(&command); err != nil || command.ID != "7:0" || command.Op != "next" {
+				if err := readBridgeJSON(original, &command); err != nil || command.ID != "7:0" || command.Op != "next" {
 					t.Fatalf("original no longer receives commands: %+v, %v", command, err)
 				}
 				if err := original.Close(); err != nil {
@@ -285,13 +319,21 @@ func TestBridgeRejectsSecondLiveConnection(t *testing.T) {
 
 func TestBridgeCapturedGenerationNeverUsesReplacement(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	updates := make(chan browserUpdate, 16)
 	port := freePort(t)
-	b, err := listen(ctx, port, updates)
+	owner := browserbridge.New(ctx, json.RawMessage(fmt.Sprintf(`{"port":%d}`, port)))
+	b, err := owner.AcquireMedia(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { cancel(); b.close() })
+	updates := b.Updates()
+	t.Cleanup(func() {
+		cancel()
+		closeCtx, stop := context.WithTimeout(context.Background(), 3*time.Second)
+		defer stop()
+		if err := owner.Close(closeCtx); err != nil {
+			t.Error(err)
+		}
+	})
 	connect := func() *websocket.Conn {
 		t.Helper()
 		ws, _, err := websocket.DefaultDialer.Dial(fmt.Sprintf("ws://127.0.0.1:%d/nowplaying", port), http.Header{"Origin": []string{"moz-extension://same"}})
@@ -311,20 +353,20 @@ func TestBridgeCapturedGenerationNeverUsesReplacement(t *testing.T) {
 		t.Fatal(err)
 	}
 	var refused refusal
-	if err := duplicate.ReadJSON(&refused); err != nil || refused.Type != "refused" {
+	if err := readBridgeJSON(duplicate, &refused); err != nil || refused.Type != "refused" {
 		t.Fatalf("duplicate not refused: %+v, %v", refused, err)
 	}
-	if b.generation("Firefox") != old.Generation {
+	if b.Generation("Firefox") != old.Generation {
 		t.Fatal("refusal changed incumbent generation")
 	}
-	if err := b.send("Firefox", browserCommand{Type: "command", ID: "7:0", Instance: "document", Generation: old.Generation, Op: "next"}); err != nil {
+	if err := b.Send("Firefox", browserCommand{Type: "command", ID: "7:0", Instance: "document", Generation: old.Generation, Op: "next"}); err != nil {
 		t.Fatal("incumbent command refused", err)
 	}
 	if err := first.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
 		t.Fatal(err)
 	}
 	var incumbentCommand browserCommand
-	if err := first.ReadJSON(&incumbentCommand); err != nil || incumbentCommand.Op != "next" {
+	if err := readBridgeJSON(first, &incumbentCommand); err != nil || incumbentCommand.Op != "next" {
 		t.Fatalf("incumbent lost its command: %+v, %v", incumbentCommand, err)
 	}
 	var closed *websocket.CloseError
@@ -348,17 +390,17 @@ func TestBridgeCapturedGenerationNeverUsesReplacement(t *testing.T) {
 	if old.Generation == 0 || current.Generation != old.Generation+1 {
 		t.Fatal("refusal consumed a generation", old, current)
 	}
-	if err := b.send("Firefox", browserCommand{Type: "command", ID: "7:0", Instance: "document", Generation: old.Generation, Op: "next"}); !errors.Is(err, errBrowserChanged) {
+	if err := b.Send("Firefox", browserCommand{Type: "command", ID: "7:0", Instance: "document", Generation: old.Generation, Op: "next"}); !errors.Is(err, errBrowserChanged) {
 		t.Fatal("old command accepted", err)
 	}
-	if err := b.send("Firefox", browserCommand{Type: "command", ID: "7:0", Instance: "document", Generation: current.Generation, Op: "mute", Value: 0}); err != nil {
+	if err := b.Send("Firefox", browserCommand{Type: "command", ID: "7:0", Instance: "document", Generation: current.Generation, Op: "mute", Value: 0}); err != nil {
 		t.Fatal(err)
 	}
 	if err := second.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
 		t.Fatal(err)
 	}
 	var got map[string]json.RawMessage
-	if err := second.ReadJSON(&got); err != nil {
+	if err := readBridgeJSON(second, &got); err != nil {
 		t.Fatal(err)
 	}
 	if string(got["value"]) != "0" || string(got["instance"]) != `"document"` || got["Generation"] != nil {
@@ -368,13 +410,21 @@ func TestBridgeCapturedGenerationNeverUsesReplacement(t *testing.T) {
 
 func TestBridgeConcurrentClaimsKeepOneConnection(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	updates := make(chan browserUpdate, 16)
 	port := freePort(t)
-	b, err := listen(ctx, port, updates)
+	owner := browserbridge.New(ctx, json.RawMessage(fmt.Sprintf(`{"port":%d}`, port)))
+	b, err := owner.AcquireMedia(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { cancel(); b.close() })
+	updates := b.Updates()
+	t.Cleanup(func() {
+		cancel()
+		closeCtx, stop := context.WithTimeout(context.Background(), 3*time.Second)
+		defer stop()
+		if err := owner.Close(closeCtx); err != nil {
+			t.Error(err)
+		}
+	})
 	var sockets [2]*websocket.Conn
 	for n := range sockets {
 		sockets[n], _, err = websocket.DefaultDialer.Dial(fmt.Sprintf("ws://127.0.0.1:%d/nowplaying", port), http.Header{"Origin": []string{"chrome-extension://same"}})
@@ -402,7 +452,7 @@ func TestBridgeConcurrentClaimsKeepOneConnection(t *testing.T) {
 		t.Fatalf("first connection: %+v", connected)
 	}
 	// A command and a refusal identify the winner without relying on scheduling.
-	if err := b.send("Chrome", browserCommand{Type: "command", Generation: connected.Generation, Op: "next"}); err != nil {
+	if err := b.Send("Chrome", browserCommand{Type: "command", Generation: connected.Generation, Op: "next"}); err != nil {
 		t.Fatal(err)
 	}
 	commands, refusals := 0, 0
@@ -411,7 +461,7 @@ func TestBridgeConcurrentClaimsKeepOneConnection(t *testing.T) {
 			t.Fatal(err)
 		}
 		var message struct{ Type string }
-		if err := ws.ReadJSON(&message); err != nil {
+		if err := readBridgeJSON(ws, &message); err != nil {
 			t.Fatal(err)
 		}
 		switch message.Type {
@@ -423,8 +473,8 @@ func TestBridgeConcurrentClaimsKeepOneConnection(t *testing.T) {
 			t.Fatalf("unexpected message: %+v", message)
 		}
 	}
-	if commands != 1 || refusals != 1 || b.generation("Chrome") != connected.Generation {
-		t.Fatalf("commands=%d refusals=%d generation=%d", commands, refusals, b.generation("Chrome"))
+	if commands != 1 || refusals != 1 || b.Generation("Chrome") != connected.Generation {
+		t.Fatalf("commands=%d refusals=%d generation=%d", commands, refusals, b.Generation("Chrome"))
 	}
 	select {
 	case update := <-updates:

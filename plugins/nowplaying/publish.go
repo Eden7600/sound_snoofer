@@ -44,14 +44,17 @@ type statusView struct {
 func (w *worker) publish(providerCtx context.Context, commands chan command, now time.Time) {
 	w.refreshContexts()
 	var controls []snoofer.Control
+	bridgeState := bridgeView{Port: w.settings.port(), Error: w.bridgeErr}
+	if w.bridge != nil {
+		status := w.bridge.Status()
+		w.bridgeErr = status.Error
+		bridgeState = bridgeView{Port: status.Port, Error: status.Error, Refused: status.Refused}
+	}
 	var attention snoofer.AttentionLevel
 	if w.winErr != "" || w.bridgeErr != "" {
 		attention = snoofer.AttentionCritical
 	}
-	view := statusView{Windows: "Connected", WindowsError: w.winErr, Bridge: bridgeView{Port: w.settings.port(), Error: w.bridgeErr}}
-	if w.bridge != nil {
-		view.Bridge.Refused = w.bridge.lastRefusal()
-	}
+	view := statusView{Windows: "Connected", WindowsError: w.winErr, Bridge: bridgeState}
 	if w.winErr != "" {
 		view.Windows = w.winErr
 	}

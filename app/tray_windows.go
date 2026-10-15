@@ -18,6 +18,7 @@ import (
 	"github.com/getlantern/systray"
 	"golang.org/x/sys/windows"
 
+	"sound-snoofer/internal/browserbridge"
 	"sound-snoofer/snoofer"
 )
 
@@ -106,7 +107,8 @@ func Run(ctx context.Context, args []string, plugins ...snoofer.Plugin) error {
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	registry := snoofer.NewControls()
-	host := snoofer.New(cfg, snoofer.Services{Controls: registry, Path: absolute, Live: !*dry}, plugins...)
+	browser := browserbridge.New(runCtx, cfg.Plugins["nowplaying"].Settings)
+	host := snoofer.New(cfg, snoofer.Services{Controls: registry, Browser: browser, Path: absolute, Live: !*dry}, plugins...)
 	host.Start(runCtx)
 	finished := make(chan error, 1)
 	restart := false
@@ -287,7 +289,7 @@ func Run(ctx context.Context, args []string, plugins ...snoofer.Plugin) error {
 	case <-time.After(time.Second):
 		serveErr = errors.New("tray stopped unexpectedly")
 	}
-	stopErr := stopHost(host)
+	stopErr := stopHost(host, browser)
 	if err = errors.Join(serveErr, stopErr); err != nil {
 		return err
 	}

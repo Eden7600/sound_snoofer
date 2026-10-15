@@ -46,7 +46,7 @@ func (w *worker) rate(captured session, want string, now time.Time) snoofer.Outc
 	}
 	pending := ratingState{target: target, want: want, at: now, pending: true}
 	err := w.send(current.Source, browserCommand{Type: "command", ID: current.ID, Instance: current.Instance, Generation: current.Generation, Op: "rate", Track: current.Track, Rating: want})
-	if errors.Is(err, errBrowserChanged) {
+	if errors.Is(err, errBrowserChanged) || errors.Is(err, errBrowserBusy) {
 		return reject(err.Error())
 	}
 	if err != nil {

@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+
+	"sound-snoofer/internal/browserbridge"
 )
 
 // Instance owns all resources acquired during Start. Stop must honor its deadline.
@@ -36,6 +38,7 @@ type Plugin struct {
 
 // Services contains core facilities. Only declared plugin dependencies arrive separately.
 type Services struct {
+	Browser      *browserbridge.Bridge
 	SaveSettings func(string, json.RawMessage, json.RawMessage) error
 	Controls     *Controls
 	Path         string

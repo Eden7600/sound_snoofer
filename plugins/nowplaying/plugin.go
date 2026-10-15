@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"time"
 
+	"sound-snoofer/internal/browserbridge"
 	"sound-snoofer/internal/mediasessions"
 	"sound-snoofer/internal/placeholder"
 	"sound-snoofer/snoofer"
@@ -83,12 +84,18 @@ func validate(raw json.RawMessage) error {
 }
 
 type instance struct {
+	bridge *browserbridge.MediaLease
 	cancel context.CancelFunc
 	done   chan struct{}
 }
 
 func (i *instance) Stop(ctx context.Context) error {
-	return snoofer.CancelAndWait(ctx, i.cancel, i.done)
+	i.cancel()
+	var bridgeErr error
+	if i.bridge != nil {
+		bridgeErr = i.bridge.Close(ctx)
+	}
+	return errors.Join(bridgeErr, snoofer.CancelAndWait(ctx, i.cancel, i.done))
 }
 
 // scrub is a dial seek being gathered: detents move the target, and one seek
@@ -117,7 +124,7 @@ type worker struct {
 	settings  Settings
 	raw       json.RawMessage // The saved settings, for compare-and-swap saves.
 	saveErr   string
-	bridge    *bridge // Nil when the port could not be opened.
+	bridge    *browserbridge.MediaLease
 	bridgeErr string
 
 	openWindows   func() (windowsSource, error)
@@ -162,32 +169,22 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, open fu
 	w.settings, w.raw = settings, raw
 	runCtx, cancel := context.WithCancel(ctx)
 	i := &instance{cancel: cancel, done: make(chan struct{})}
-	updates := make(chan browserUpdate, 16)
-	commands := make(chan command, 8)
-	// A busy port leaves Windows sessions working; the GUI shows why tabs are
-	// missing, and the worker retries until the port is free.
-	listenAt := time.Now()
-	tryListen := func(now time.Time) {
-		if w.bridge != nil || now.Before(listenAt) {
-			return
-		}
-		listenAt = now.Add(t.retry)
-		b, err := listen(runCtx, w.settings.port(), updates)
+	var updates <-chan browserUpdate
+	if s.Browser != nil {
+		bridge, err := s.Browser.AcquireMedia(runCtx)
 		if err != nil {
-			w.bridgeErr = err.Error()
-			return
+			cancel()
+			return nil, err
 		}
-		w.bridge, w.send, w.browserGeneration, w.bridgeErr = b, b.send, b.generation, ""
+		i.bridge, w.bridge = bridge, bridge
+		updates, w.send, w.browserGeneration = bridge.Updates(), bridge.Send, bridge.Generation
+	} else {
+		w.bridgeErr = "browser bridge unavailable"
 	}
-	tryListen(time.Now())
+	commands := make(chan command, 8)
 	go func() {
-		// Registered first, so it runs last: Stop returns once the listener is closed.
 		defer close(i.done)
-		defer func() {
-			if w.bridge != nil {
-				w.bridge.close()
-			}
-		}()
+		defer cancel()
 		// The Windows companion belongs to this OS thread for its whole life.
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
@@ -197,14 +194,17 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, open fu
 		defer ticker.Stop()
 		for {
 			now := time.Now()
-			tryListen(now)
 			w.step(now)
 			w.publish(runCtx, commands, now)
 			select {
 			case <-runCtx.Done():
 				return
 			case <-ticker.C:
-			case u := <-updates:
+			case u, ok := <-updates:
+				if !ok {
+					updates = nil
+					continue
+				}
 				w.browser(u)
 			case r := <-commands:
 				w.process(runCtx, r, time.Now())
@@ -304,6 +304,12 @@ func (w *worker) browser(u browserUpdate) {
 }
 
 func (w *worker) merge(now time.Time) {
+	// Overflow can retire a connection without room for its disconnect event.
+	for name, update := range w.browsers {
+		if w.browserGeneration(name) != update.Generation {
+			delete(w.browsers, name)
+		}
+	}
 	tabTitles := map[string]bool{}
 	for _, u := range w.browsers {
 		for _, s := range u.Sessions {
@@ -577,7 +583,7 @@ func (w *worker) command(s session, op string, value int64, now time.Time) snoof
 			w.failure[s.Key] = "Declined"
 		}
 		delete(w.pending, s.Key)
-		if errors.Is(err, errBrowserChanged) {
+		if errors.Is(err, errBrowserChanged) || errors.Is(err, errBrowserBusy) {
 			return reject(err.Error())
 		}
 		result = operationError(err)

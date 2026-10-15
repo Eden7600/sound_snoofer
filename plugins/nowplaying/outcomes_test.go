@@ -249,7 +249,7 @@ func TestBrowserBoundariesAndCapturedIntent(t *testing.T) {
 	for _, tc := range []struct {
 		err  error
 		want snoofer.OutcomeStatus
-	}{{nil, snoofer.Submitted}, {errBrowserChanged, snoofer.Rejected}, {errors.New("socket lost"), snoofer.Unknown}} {
+	}{{nil, snoofer.Submitted}, {errBrowserChanged, snoofer.Rejected}, {errBrowserBusy, snoofer.Rejected}, {errors.New("socket lost"), snoofer.Unknown}} {
 		r := newRig(t, true)
 		browserPlayer(r, 1, "document-a")
 		c, results := r.queue("nowplaying.mute", "press", "", 0)
