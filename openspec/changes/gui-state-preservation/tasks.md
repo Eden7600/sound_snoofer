@@ -11,6 +11,8 @@
   apps, deck page/profile/serial/slot boundaries and reordered Routing lists. Keep focused select
   deferral, dropdown cancellation and stale revision-zero behavior; verify deferred rebuilds after
   blur when transport returns null. Prove explicit cancel/observed completion clear draft state.
+  Verify Routing Add choices retain their payload meaning, clear when raw option numbers are
+  reused for different devices, and create an output without device fields for explicit No device.
 - [ ] 4. Commit checkpoint: replace the three Deck native confirmations with the shared styled
   dialog. Cover Cancel/Escape, exact one-shot accept, continued polling/rebuilds, revision/target
   invalidation, missing/disabled controls, reconnection, host-prompt priority and focus return.

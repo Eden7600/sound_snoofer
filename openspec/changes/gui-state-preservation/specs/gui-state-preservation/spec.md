@@ -37,6 +37,16 @@ Context changes, removed targets or missing selected options SHALL NOT silently 
 - **THEN** a later no-change poll still rebuilds and restores compatible state
 - **AND** dropdown commit/cancel and focus-time revision semantics remain unchanged
 
+#### Scenario: A Routing Add option changes meaning
+- **WHEN** a catalogue rebuild removes a selected Add option or reuses its raw option number for another device
+- **THEN** the local choice is cleared and Add requires a new valid selection
+- **AND** unchanged choices retain the same payload identity without dispatch
+
+#### Scenario: A new output explicitly has no device
+- **WHEN** a user supplies a new output name and chooses No device while devices are available
+- **THEN** Add Output submits the name without a device or device_id field
+- **AND** an empty option is never interpreted as the first catalogue device
+
 ### Requirement: Destructive Deck confirmation is nonblocking and target-bound
 Delete Page, Forget Deck and disabling Own Layout SHALL use the shared styled dialog while polling
 continues. Each local confirmation SHALL retain its original warning, action identity, revision and

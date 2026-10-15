@@ -75,6 +75,14 @@ Local Add forms can survive unrelated catalogue changes only while every selecte
 still exists with the same meaning. If an option disappears, clear that choice and require a new
 selection; never select a neighboring/default device on the user's behalf.
 
+Routing Add forms currently encode catalogue choices as numeric option values. Capture the
+meaning of that raw value with the draft and invalidate it if the same number later names a
+different driver/input/device. An explicit empty option retains its own meaning: New Output's
+“No device” creates a named slot with no device fields, even when connected devices are offered.
+Do not coerce that empty value through `Number("")`, which currently selects catalogue entry zero.
+Cover empty selection, unchanged meaning, removed options and reused option numbers before the
+Routing implementation; a missing choice requires a new selection before Add becomes available.
+
 ## Nonblocking confirmations
 Use one renderer/controller for the existing styled dialog and a discriminated host/local
 confirmation state. Keep the host's text, Cancel / Apply & restart actions and saved-choice
