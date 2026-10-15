@@ -102,6 +102,9 @@ func TestEditorSaveAndInputGenerations(t *testing.T) {
 		}
 	}
 	initial := frame("A", "")
+	deckControl(t, registry, "device-"+testDeck, func(c snoofer.Control) bool {
+		return c.Connection != nil && c.Connection.State == snoofer.ConnectionConnected
+	})
 	command("name", "set", "Renamed")
 	command("save", "press", "")
 	if control("status").Value != "Unsaved — Saved" || control("status").Attention != snoofer.AttentionCritical {

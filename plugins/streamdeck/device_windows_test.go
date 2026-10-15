@@ -54,10 +54,6 @@ func TestDeviceReportSeparateFromLayoutStatus(t *testing.T) {
 		t.Fatalf("device report not reached; last %+v", find(report))
 		return snoofer.Control{}
 	}
-	go func() {
-		for range frames { // Drain rendered frames.
-		}
-	}()
 	wait(func(c snoofer.Control) bool { return c.Connection.State == snoofer.ConnectionDisconnected })
 	events <- device.Event{Connected: true, Device: serial, Serial: serial, Model: "plus", Product: 0x0084}
 	report = "streamdeck.device-" + serial

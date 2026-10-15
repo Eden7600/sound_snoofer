@@ -30,7 +30,7 @@ Checkpoint 3: Six decoded-pixel baselines were captured before extraction and pa
 Checkpoint 2: Removed only unused worker IDs, acknowledgements, deduplication and batch edits; callbacks, Origin notice clearing, scoped feedback and native acknowledgements remain. Linked package tests/vet and three strict specs pass; focused regressions pass 25 repetitions. A negative overlay proves the notice-clearing check detects regression. Independent and root reviews found no issues.
 
 ## Validation fixture ownership
-- [ ] 5a. Fix confirmed Stream Deck fixture readiness and bounded waits; remove
+- [x] 5a. Fix confirmed Stream Deck fixture readiness and bounded waits; remove
   the unnecessary test-only frame drain. Prove the schedule, repeat focused checks,
   review and commit before rerunning full validation.
 - [x] 5b. Initialize bridge Windows-session data before worker startup; retain
@@ -41,3 +41,5 @@ Checkpoint 2: Removed only unused worker IDs, acknowledgements, deduplication an
   and commit.
 
 Validation 5b, 5c: Bridge native sessions are initialized before worker startup; all bridge tests pass 25 race-detector runs. Hue establishes room brightness before disconnecting Sync and retains immediate assertions; 75 CPU-scheduled focused race cases and the full Hue race suite pass. Both package vet checks and root review pass.
+
+Validation 5a: A controlled connection publication proves the old edit is rejected without saving and a connected edit saves once. Readiness waits now precede outcome/editor edits, save-entry waits are bounded, and the unnecessary frame drain is removed. Each affected outcome/device case passed 900 normal and 60 race repetitions across CPU schedules; the editor case passed 30 race runs. Full Stream Deck race tests, vet and root review pass.
