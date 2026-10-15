@@ -11,3 +11,5 @@
 - [x] 9. `test(gui)`: axe-core scans with recorded known violations.
 - [x] 10. `test(gui)`: layout geometry at both viewports.
 - [x] 11. Validate: full suite within the 60 s budget (record the time), each spec file alone, `go test ./...`, `go vet ./...`, `scripts/check.ps1`, OpenSpec strict validation.
+
+- [ ] 12. Set the measured four-worker default after the expanded suite exposes oversubscription with sixteen automatic workers. Rerun the ordinary full check command within the 60-second browser budget; preserve timeouts and assertions.

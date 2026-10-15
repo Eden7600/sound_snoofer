@@ -23,3 +23,5 @@
 - [ ] 6. Coordinate the canonical build and
   packaged WebView2 acceptance of state restoration, dialog cancellation, continued polling and
   captured-target rejection. Restore the prior launch; hardware integration acceptance is separate.
+
+- [ ] 5a. Add a failing shared-notice Dismiss focus regression, retain the rendered button across unchanged polls, and verify dismissal and full GUI checks without relaxing timeouts.

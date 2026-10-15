@@ -54,3 +54,6 @@ Known layout defects use exact screen, viewport and affected-control expectation
 ## check.ps1
 - `scripts/check.ps1` builds the CSS and runs `npx playwright test -c app/web/test`, failing the check on any failure.
 - `-GUI` keeps the native WebView2 smoke (`check-desktop.cjs`), which is unchanged.
+
+### Final integration concurrency
+The expanded 289-test suite passes with four workers in 46.2 seconds. The host exposes 32 logical CPUs; Playwright's automatic sixteen workers cause widespread unrelated setup/action timeouts and exceed the 60-second budget. Set four workers in the existing Playwright config so the ordinary check command uses the validated concurrency. Keep the 15-second per-test timeout and all assertions unchanged; validate the default command again.

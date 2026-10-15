@@ -124,3 +124,6 @@ Full frontend/model/OpenSpec checks run against isolated source fixtures. The ru
 restriction has been lifted; coordinate canonical build, restart and packaged WebView2 acceptance
 after the source checkpoints are coherent. Restore the prior launch and keep hardware acceptance
 separate; do not mark native acceptance complete from isolated browser results.
+
+### Unchanged shared notices
+Polling must not replace the shared notice Dismiss button when its message is unchanged. Cache the rendered message in the existing notice rendering path; rebuild only when the displayed message changes. Add a controlled-clock keyboard regression proving repeated polls retain the focused Dismiss element and dismissal still clears the notice.
