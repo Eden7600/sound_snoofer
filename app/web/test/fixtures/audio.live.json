@@ -1061,7 +1061,8 @@
   {
     "ViewData": {
       "ID": "music",
-      "Bus": "A3"
+      "Bus": "A3",
+      "Device": "Speakers (SteelSeries Arena 7)"
     },
     "Artwork": "",
     "ShortLabel": "Music",
@@ -1095,7 +1096,7 @@
     "Group": "Routing",
     "Kind": "status",
     "Value": "In use",
-    "Status": "Speakers (SteelSeries Arena 7)",
+    "Status": "",
     "Icon": "vr-playback",
     "Options": null,
     "Operations": null,

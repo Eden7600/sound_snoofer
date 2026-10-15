@@ -137,3 +137,8 @@ commit `237a8ee`. Numbering continues from that file.
       genuine pending, unavailable and error semantics on other controls; do not simply
       ignore every status string. Specify this separately from `deck-status-bindings`,
       whose design intentionally retains existing rendering.
+
+    - **Source fix verified:** `output-slot-detail` moves the device caption to `ViewData.Device`.
+      Provider-backed Go and Routing tests pass; the actual offline 112px renderer preserves
+      In use, No device, Disconnected, No output and blank hidden slots. Canonical packaged and
+      physical-device acceptance remain deferred under the running-host restriction.

@@ -110,6 +110,8 @@ Apps and sessions without a logo show a placeholder tile in a colour derived fro
 
 Echo cancellation (the `aec` plugin) removes speaker echo from the managed microphone. Its mode is Auto (active while playback goes to speakers), On or Off, and Strength is Strong, Balanced or Gentle. Status is Active with echo removed (dB) and the estimated delay, Idle with the reason (Headphones, Mic off, Needs 48 kHz and similar), Wait, Off or Error (the mic passes through). The Audio screen has an Echo cancellation card, and the Echo key (speaker, struck-out sound, mic) cycles Auto, On and Off; On is cyan.
 
+Output-slot device names are descriptive detail on the GUI; destination keys retain their state word (In use, No device, Disconnected or No output) and its state color.
+
 The default Routing page puts destinations on rows (Playback, then output slots 1–3) and sources on columns (destination, Computer, Monitor, Soundboard, Tape); positions without a slot or source are blank keys with their bindings kept. Default Home reaches it from r1c9. Playback and Mic remain dials 1–2.
 
 Status controls can be bound to keys for display only: taps and holds do nothing while provider state continues to update. They are excluded from dial bindings; text controls are excluded from both keys and dials. The editor and layout validation use the same compatibility rules, and missing providers retain their saved bindings.

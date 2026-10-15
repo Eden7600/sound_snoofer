@@ -44,10 +44,9 @@ func slotControls(s control.State) []snoofer.Control {
 		if n <= len(outputs) {
 			slot = &outputs[n-1]
 			header.Label, header.ShortLabel, header.Value = slot.Name, slot.Name, outputStates[slot.State]
-			header.Status = slot.Device
 			header.Available = true
 			// The GUI addresses edits by ID, never by position.
-			header.ViewData, _ = json.Marshal(struct{ ID, Bus string }{slot.ID, slot.Bus})
+			header.ViewData, _ = json.Marshal(struct{ ID, Bus, Device string }{slot.ID, slot.Bus, slot.Device})
 		}
 		header.Hidden = slot == nil
 		out = append(out, header)

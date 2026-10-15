@@ -628,7 +628,8 @@ function outputsCard(parent: HTMLElement, view: Partial<PriorityView>) {
     const slot = c<OutputSlotView>(id);
     if (!slot) continue;
     const slotID = slot.ViewData?.ID || "",
-      th = column(slot.Label, () => c(id)?.Status, id);
+      deviceName = slot.ViewData?.Device || "",
+      th = column(slot.Label, () => c<OutputSlotView>(id)?.ViewData?.Device, id);
     th.dataset.part = "output-slot";
     // Slot management: device, rename, remove.
     const tools = el("div", "mt-2 flex flex-col gap-1.5"),
@@ -638,18 +639,18 @@ function outputsCard(parent: HTMLElement, view: Partial<PriorityView>) {
     device.setAttribute("aria-label", slot.Label + " device");
     device.append(Object.assign(el("option", "", "No device"), { value: "" }));
     // The current device keeps its saved form; others are saved by identity.
-    if (slot.Status) {
-      const o = el("option", "", slot.Status);
+    if (deviceName) {
+      const o = el("option", "", deviceName);
       o.value = "current";
       device.append(o);
     }
-    const choices = (view.OutputDevices || []).filter((d) => d.Name !== slot.Status);
+    const choices = (view.OutputDevices || []).filter((d) => d.Name !== deviceName);
     choices.forEach((d, n) => {
       const o = el("option", "", d.Name);
       o.value = String(n);
       device.append(o);
     });
-    device.value = slot.Status ? "current" : "";
+    device.value = deviceName ? "current" : "";
     commitSelect(device, () => {
       if (device.value === "") {
         outputEdit("device", slotID, "");

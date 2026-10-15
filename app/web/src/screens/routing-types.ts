@@ -57,4 +57,5 @@ export interface PriorityView {
 export interface OutputSlotView {
   ID: string;
   Bus: string;
+  Device: string;
 }

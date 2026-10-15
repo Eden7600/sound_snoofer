@@ -393,8 +393,7 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
   add("audio.output-edit", "Output Edit", "text", "abc", { Group: "Routing" });
   add("audio.slot-1", "Music", "status", "In use", {
     Group: "Routing",
-    Status: "Speakers (Arena 7)",
-    ViewData: { ID: "music", Bus: "A3" },
+    ViewData: { ID: "music", Bus: "A3", Device: "Speakers (Arena 7)" },
   });
   for (const [source, value, available] of [
     ["virtual:1", "On", true],
