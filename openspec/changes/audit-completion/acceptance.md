@@ -50,3 +50,34 @@ sends exactly one command to the captured instance and records elapsed time plus
 ErrTimeout (native 0x800705B4), refusal or success without retry. Keep OS-thread
 ownership and close the client; bound the scratch test process. Pure selector tests
 cover wrong identity, missing/duplicate sessions and unsupported command choices.
+
+## Bounded freeze after the command-deferral experiment
+The first real probe returned S_OK in 510 microseconds while the owned Next handler
+was still deferred; cleanup released it about 2.039 seconds later. This does not
+establish Unknown. Both owned processes exited normally, native sessions disappeared
+and their generated WAV files were removed.
+
+Prepare a scratch external supervisor using documented Toolhelp, OpenThread,
+SuspendThread and ResumeThread APIs for fault injection only. Accept only the
+exact ready.json role=stalled, sibling owned-media-player.exe, PID and creation
+FILETIME. Retain and revalidate the process handle; verify each opened thread
+handle belongs to that PID. Enumerate/open handles before suspension. Suspend
+each thread once, require previous count zero, track every successful increment
+and restore exactly that one increment on every exit path; never drain counts.
+Re-enumerate after suspension and during the interval; restore immediately if the thread inventory changes. Do not chase or suspend newly created threads.
+
+Arm a timer in the separate supervisor before suspension; restore at 15 seconds
+or on explicit release/stop, including setup failure. RAII/finally must restore
+and close every handle. Report resume failures. No target or supervisor termination
+while suspensions are owned. The timer is independent of the frozen player, not a
+guarantee against a supervisor crash or native API failure. Compile and pure/fake
+self-check identity, duplicate threads, partial failure and exact-once restoration
+before live use. No production hooks or user-player suspension.
+
+Record before/during/after timestamps and the frozen player's heartbeat gap and
+resumption. During the freeze, inspect increasing healthy-player title counters in
+live Snoofer; interpolated clocks alone do not count. Optionally submit one captured
+Next command, recording the actual native outcome and callback count after resume.
+If Windows still accepts immediately, record Processed rather than Unknown; keep
+the real timeout/uncertain-one-shot component unverified. Only a real bounded native
+timeout followed by correlated Snoofer uncertainty can close that component.
