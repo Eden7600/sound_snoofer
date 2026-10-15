@@ -51,3 +51,17 @@ failed setup and explicit user waivers. Desktop input SHALL require fresh approv
 #### Scenario: A test fixture cannot establish a live precondition
 - **WHEN** refused-device or frozen-player setup cannot be established safely
 - **THEN** the check remains unverified with its concrete blocker and cleanup recorded
+
+### Requirement: Validation fixture ownership
+Concurrent test fixtures SHALL establish asynchronous readiness before submitting
+actions and initialize shared data before worker startup. Their waits SHALL be
+bounded and cleanup SHALL not leave test-owned goroutines blocked indefinitely.
+
+#### Scenario: A remembered deck has not processed its connection event
+- **WHEN** an outcome test is preparing its first saved edit
+- **THEN** it waits for the actual connected report rather than remembered settings
+- **AND** a missing save entry reports a bounded failure with any premature outcome
+
+#### Scenario: A bridge test supplies a native session
+- **WHEN** its background media worker begins polling
+- **THEN** the fake native session is already initialized without concurrent mutation

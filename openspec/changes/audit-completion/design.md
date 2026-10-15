@@ -59,3 +59,19 @@ Do not mark hardware checks passed merely because setup was attempted. Record th
 no-dial model waiver explicitly. The prior anonymous shutdown timeout stays historical
 unless fresh evidence identifies a cause; preserve named shutdown diagnostics and
 do not invent an unverified repair. Ask before desktop input/visible launches.
+
+## Validation fixture ownership
+The full checks exposed two test setup defects. Stream Deck outcome tests can
+submit against remembered-device controls before the fake Connected event changes
+the editor epoch; the correct stale rejection then leaves an unbounded test wait.
+Wait for the connected device report before dispatch, bound save-entry waits and
+report premature outcomes. Remove the device-report test's unnecessary frame drain,
+which waits forever on a channel the fake surface never closes. Demonstrate the
+ordering with a controlled fake schedule and repeat affected tests across CPUs.
+
+The browser bridge test starts its worker before populating fake Windows sessions,
+racing Snapshot. Initialize that fixture before starting the worker rather than
+adding synchronization to the synchronous unit-test rig. Preserve the duplicate
+Windows/tab session assertion and run the bridge tests with the race detector.
+No production timing, stale-action guard or queue semantics changes are intended.
+Further full-suite failures require confirmed diagnosis before their repair.

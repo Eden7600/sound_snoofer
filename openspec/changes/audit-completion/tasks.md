@@ -28,3 +28,10 @@ Checkpoint 4: Same-origin Chrome/Firefox and concurrent-claim regressions failed
 Checkpoint 3: Six decoded-pixel baselines were captured before extraction and passed unchanged afterward, including transparency, aspect ratio and nonzero source bounds. Source immutability, provider file/dimension limits and invalid shared inputs pass. Artwork, Now Playing, Soundboard, Discord and snoofer package tests and vet pass. Root review confirms all eight OnOff callers migrated and GIF/decoding/cache policies remain local.
 
 Checkpoint 2: Removed only unused worker IDs, acknowledgements, deduplication and batch edits; callbacks, Origin notice clearing, scoped feedback and native acknowledgements remain. Linked package tests/vet and three strict specs pass; focused regressions pass 25 repetitions. A negative overlay proves the notice-clearing check detects regression. Independent and root reviews found no issues.
+
+## Validation fixture ownership
+- [ ] 5a. Fix confirmed Stream Deck fixture readiness and bounded waits; remove
+  the unnecessary test-only frame drain. Prove the schedule, repeat focused checks,
+  review and commit before rerunning full validation.
+- [ ] 5b. Initialize bridge Windows-session data before worker startup; retain
+  matching assertions, verify repeated race checks, review and commit.
