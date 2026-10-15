@@ -29,6 +29,11 @@ Build a small presentation-only notice projection from controls. Never infer act
 
 Group notices by the control ID's plugin prefix, using PluginLabels with raw-ID fallback. Copy Notices copies the displayed groups, labels and complete status strings in stable order using the existing clipboard/fallback implementation shared with Third-Party Apps. Keep Copy and its local status outside the poll-refreshed list so polling cannot steal its focus or erase feedback. Disable Copy when there are no notices. Do not clear host/action errors as a side effect of rendering this list.
 
+The copy regression must wait for the changed notice to be rendered before copying,
+then wait for a subsequent changed notice before checking preserved focus/feedback.
+Fixture edits alone do not deliver a poll; this makes the intended regression
+deterministic without changing runtime polling or adding fixed delays.
+
 ## Verification and coordination
 Land commit-sized screen checkpoints. Add focused pre-fix regressions for geometry/behavior, inspect rendered screenshots at both sizes, and run affected keyboard, dropdown, state-preservation and accessibility journeys. Provider payload assertions guard the moved Routing editors. Finish with strict frontend, model, full isolated GUI and OpenSpec checks. The root agent coordinates the canonical build, packaged WebView2 inspection and restoration of the previous host launch; the user has lifted the meeting-time running-host restriction. Do not claim hardware acceptance from browser screenshots.
 

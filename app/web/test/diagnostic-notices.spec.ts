@@ -44,6 +44,7 @@ test("copy notices keeps full errors and feedback across polls", async ({ gui })
   await gui.update(() => {
     window.ctl("aec.engine").Status = "Write failed\nC:/settings: access denied";
   });
+  await expect(gui.page.getByText("Write failed\nC:/settings: access denied", { exact: true })).toBeVisible();
   const copy = gui.page.getByRole("button", { name: "Copy Notices", exact: true });
   await copy.click();
   const text = await gui.page.evaluate(() => window.copied.at(-1));
@@ -52,6 +53,7 @@ test("copy notices keeps full errors and feedback across polls", async ({ gui })
   await gui.update(() => {
     window.ctl("aec.engine").Status = "New warning";
   });
+  await expect(gui.page.getByText("New warning", { exact: true })).toBeVisible();
   await expect(copy).toBeFocused();
   await expect(gui.page.getByText("Copied", { exact: true })).toBeVisible();
   expect(await gui.sent()).toEqual([]);

@@ -1,5 +1,9 @@
 # Tasks
 
+- [x] 11. Synchronize the notice-copy regression with rendered polls. Reproduce the
+  intermittent pre-poll copy failure, then verify repeated focused runs and the full
+  GUI suite without changing runtime behavior.
+
 - [x] 1. Review current callers, UI contract and stable-state annotations; commit this validated plan before implementation.
 - [x] 2. Audio/meter checkpoint: content-height cards, nearby live switch labels, Engine/Interface grouping and noncolliding scale labels. Verify both sizes and unchanged meter/state semantics.
 - [x] 3. Routing checkpoint: local section navigation, compact candidate rows, separate slot management and conditional microphone Apply. Cover long names, exact action payloads, stale edits and keyboard commitment at both sizes.
@@ -32,3 +36,9 @@ messages at captured 1266×813 and 786×593 sizes (approximately 1280×820 and 8
 windows). This is alignment evidence; no dismissal-click result is inferred. The isolated
 fixture closed via EOF with exit code 0 and zero captured action bytes. The normal canonical
 build had passed and the prior bin/snoofer.json host launch remained running unchanged.
+
+Task 11 verification, 2026-10-15: the original copy test failed in four of eight
+repeated runs by clicking before the updated notice was rendered. Waiting for the
+first and subsequent visible notices passed all 32 repeated focused tests. The
+full GUI suite passed 305 tests in 43.4 seconds; strict frontend gates passed.
+Runtime polling and clipboard behavior are unchanged.
