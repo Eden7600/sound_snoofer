@@ -429,10 +429,10 @@ func controls(s control.State) []snoofer.Control {
 	for n := range out {
 		out[n].Epoch = s.Revision
 		out[n].SurfaceOnly = out[n].Group == "Transport" || out[n].Group == "Bindings" || out[n].Group == "Diagnostics" || out[n].ID == "audio.playback-device" || out[n].ID == "audio.mic-device"
-		// Only selections have options to label: an empty value elsewhere,
-		// such as a command's, must not read Automatic.
-		if out[n].Kind == "selection" {
-			out[n].OptionLabels = map[string]string{"auto": "Automatic", "": "Automatic"}
+		key := strings.TrimPrefix(out[n].ID, "audio.")
+		switch key {
+		case "source", "normal-source", "vr-profile-source":
+			out[n].OptionLabels = map[string]string{"auto": "Automatic", "off": "Off"}
 			for id, label := range s.ChoiceLabels {
 				out[n].OptionLabels[id] = label
 			}
@@ -442,8 +442,15 @@ func controls(s control.State) []snoofer.Control {
 					out[n].OptionLabels[id] = label + " · Silent"
 				}
 			}
+		case "mode", "normal-mode", "vr-profile-mode":
+			out[n].OptionLabels = map[string]string{"direct": "Direct", "element": "Element"}
+		case "monitor", "normal-monitor", "vr-profile-monitor":
+			out[n].OptionLabels = map[string]string{"off": "Off", "pre": "Pre", "post": "Post"}
+		case "record-tap":
+			out[n].OptionLabels = map[string]string{"pre": "Pre", "post": "Post"}
+		case "output", "normal-output", "vr-profile-output":
+			out[n].OptionLabels = map[string]string{"": "Automatic"}
 		}
-		key := strings.TrimPrefix(out[n].ID, "audio.")
 		out[n].ShortLabel = shortLabel(key)
 		switch key {
 		case "mode", "normal-mode", "vr-profile-mode":

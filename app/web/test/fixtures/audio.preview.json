@@ -66,11 +66,8 @@
     "Hidden": false,
     "Inactive": false,
     "OptionLabels": {
-      "": "Automatic",
-      "auto": "Automatic",
-      "desk": "Desk · Silent",
-      "lav": "Lavalier",
-      "webcam": "Webcam"
+      "direct": "Direct",
+      "element": "Element"
     },
     "EnterOnly": false,
     "Epoch": 0,
@@ -118,11 +115,9 @@
     "Hidden": false,
     "Inactive": false,
     "OptionLabels": {
-      "": "Automatic",
-      "auto": "Automatic",
-      "desk": "Desk · Silent",
-      "lav": "Lavalier",
-      "webcam": "Webcam"
+      "off": "Off",
+      "post": "Post",
+      "pre": "Pre"
     },
     "EnterOnly": false,
     "Epoch": 0,
@@ -171,11 +166,7 @@
     "Hidden": false,
     "Inactive": false,
     "OptionLabels": {
-      "": "Automatic",
-      "auto": "Automatic",
-      "desk": "Desk · Silent",
-      "lav": "Lavalier",
-      "webcam": "Webcam"
+      "": "Automatic"
     },
     "EnterOnly": false,
     "Epoch": 0,
@@ -224,10 +215,10 @@
     "Hidden": false,
     "Inactive": false,
     "OptionLabels": {
-      "": "Automatic",
       "auto": "Automatic",
       "desk": "Desk · Silent",
       "lav": "Lavalier",
+      "off": "Off",
       "webcam": "Webcam"
     },
     "EnterOnly": false,
@@ -318,11 +309,8 @@
     "Hidden": false,
     "Inactive": false,
     "OptionLabels": {
-      "": "Automatic",
-      "auto": "Automatic",
-      "desk": "Desk · Silent",
-      "lav": "Lavalier",
-      "webcam": "Webcam"
+      "direct": "Direct",
+      "element": "Element"
     },
     "EnterOnly": false,
     "Epoch": 0,
@@ -369,11 +357,9 @@
     "Hidden": false,
     "Inactive": false,
     "OptionLabels": {
-      "": "Automatic",
-      "auto": "Automatic",
-      "desk": "Desk · Silent",
-      "lav": "Lavalier",
-      "webcam": "Webcam"
+      "off": "Off",
+      "post": "Post",
+      "pre": "Pre"
     },
     "EnterOnly": false,
     "Epoch": 0,
@@ -421,10 +407,10 @@
     "Hidden": false,
     "Inactive": false,
     "OptionLabels": {
-      "": "Automatic",
       "auto": "Automatic",
       "desk": "Desk · Silent",
       "lav": "Lavalier",
+      "off": "Off",
       "webcam": "Webcam"
     },
     "EnterOnly": false,
@@ -473,11 +459,7 @@
     "Hidden": false,
     "Inactive": false,
     "OptionLabels": {
-      "": "Automatic",
-      "auto": "Automatic",
-      "desk": "Desk · Silent",
-      "lav": "Lavalier",
-      "webcam": "Webcam"
+      "": "Automatic"
     },
     "EnterOnly": false,
     "Epoch": 0,
@@ -652,11 +634,8 @@
     "Hidden": false,
     "Inactive": false,
     "OptionLabels": {
-      "": "Automatic",
-      "auto": "Automatic",
-      "desk": "Desk · Silent",
-      "lav": "Lavalier",
-      "webcam": "Webcam"
+      "post": "Post",
+      "pre": "Pre"
     },
     "EnterOnly": false,
     "Epoch": 0,

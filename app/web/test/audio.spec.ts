@@ -45,6 +45,32 @@ test.describe("Audio", () => {
     await expect(recovery.getByText("3 held")).toHaveCount(1);
   });
 
+  test("selection labels preserve raw choices and configured names", async ({ gui }) => {
+    const normal = gui.page.locator("section", { has: gui.page.getByRole("heading", { name: "Normal", exact: true }) });
+    expect(await normal.getByLabel("Processing").locator("option").allTextContents()).toEqual(["Direct", "Element"]);
+    expect(await normal.getByLabel("Monitor").locator("option").allTextContents()).toEqual(["Off", "Pre", "Post"]);
+    expect(await normal.getByLabel("Microphone").locator("option").allTextContents()).toEqual([
+      "Automatic",
+      "Desk · Silent",
+      "Lavalier",
+    ]);
+    expect(await normal.getByLabel("Playback").locator("option").allTextContents()).toEqual([
+      "Automatic",
+      "Headphones (AirPods Pro)",
+      "Speakers (SteelSeries Arena 7)",
+      "Game (SteelSeries Arena 7)",
+    ]);
+    expect(await gui.page.getByLabel("Mic Stage", { exact: true }).locator("option").allTextContents()).toEqual([
+      "Pre",
+      "Post",
+    ]);
+    await normal.getByLabel("Processing").selectOption({ label: "Element" });
+    expect((await gui.last("audio.normal-mode")).Value).toBe("element");
+    await gui.settled();
+    await normal.getByLabel("Monitor").selectOption({ label: "Post" });
+    expect((await gui.last("audio.normal-monitor")).Value).toBe("post");
+  });
+
   test("tape transport sends its commands", async ({ gui }) => {
     const { page } = gui;
     const tape = page.locator("[data-part=tape]");

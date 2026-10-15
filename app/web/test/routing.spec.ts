@@ -15,11 +15,10 @@ test.describe("Routing", () => {
     const outputs = gui.page.locator("[data-part=outputs]");
     await expect(outputs.locator("[data-part=output-slot]"), "hidden slot positions shown").toHaveCount(1);
     expect(await outputs.locator("tbody th").allTextContents()).toEqual(["Computer", "Monitor", "Soundboard", "Tape"]);
-    // The Monitor cell shows the raw value "pre"; gui-content-fixes labels it (docs/gui-audit.md item 7).
     expect(await outputs.locator("[data-part=route]").allTextContents()).toEqual([
       "On",
       "On",
-      "pre",
+      "Pre",
       "Off",
       "Off",
       "On",
