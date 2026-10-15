@@ -4,7 +4,7 @@ import { send } from "./host.ts";
 import { isBusy } from "./actions.ts";
 import { viewKey } from "./view-state.ts";
 
-import { gateState, lifecycleStates, pluginScreens } from "./plugin-lifecycle.ts";
+import { gateState, lifecycleStates, pluginScreens, providerGateState, type PluginGate } from "./plugin-lifecycle.ts";
 
 export function pluginStates() {
   return lifecycleStates(appState.state);
@@ -13,20 +13,29 @@ export function pluginGateState(screen: string) {
   return gateState(appState.state, screen);
 }
 
+export function pluginLifecycleKey(screen: string) {
+  return JSON.stringify(pluginScreens[screen]?.map((gate) => providerGateState(appState.state, gate)));
+}
+
 // Selection, retry and confirmation share one lifecycle action group.
 export function lifecycleUnavailable() {
   return appState.reconnecting || isBusy("lifecycle");
 }
 
 export function buildPluginGate(screen: string) {
-  const gate = pluginScreens[screen],
-    state = pluginGateState(screen);
-  if (!gate || !state || state === "running") return false;
+  const gates = pluginScreens[screen];
+  return gates?.length === 1 ? buildProviderGate(gates[0]!, root) : false;
+}
+
+export function buildProviderGate(gate: PluginGate, parent: HTMLElement) {
+  const state = providerGateState(appState.state, gate);
+  if (state === "running") return false;
   const id = gate.plugin,
     label = appState.state.PluginLabels?.[id] || id;
-  const card = panel(label, root),
+  const card = panel(label, parent),
     message = el("p", state === "failed" ? "text-critical" : "text-muted");
   card.dataset.part = "plugin-gate";
+  card.dataset.plugin = id;
   message.textContent = {
     missing: "Not part of this build",
     disabled: "Off",

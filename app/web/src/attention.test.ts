@@ -6,11 +6,13 @@ import { pluginScreens } from "./plugin-lifecycle.ts";
 
 function state(): ViewState {
   const PluginStates = Object.fromEntries(
-    Object.values(pluginScreens).map(({ plugin }) => [plugin, "running" as const]),
+    Object.values(pluginScreens)
+      .flat()
+      .map(({ plugin }) => [plugin, "running" as const]),
   );
-  const Controls = Object.values(pluginScreens).map(
-    ({ publication }) => ({ ID: publication, ViewData: {}, Kind: "status" }) as Control,
-  );
+  const Controls = Object.values(pluginScreens)
+    .flat()
+    .map(({ publication }) => ({ ID: publication, ViewData: {}, Kind: "status" }) as Control);
   return {
     Controls,
     PluginStates: { ...PluginStates, aec: "running" },
@@ -63,6 +65,7 @@ test("typed current connection issues and setup use the finite destination map",
     ["aec.app-engine", "audio"],
     ["hue.app-bridge", "lights"],
     ["discord.app-client", "meetings"],
+    ["googlemeet.app-client", "meetings"],
     ["soundboard.app-playback", "soundboard"],
     ["streamdeck.app-device", ""],
     ["custom.peer", ""],
@@ -177,4 +180,22 @@ test("audio critical severity wins until its source recovers", () => {
   assert.deepEqual(screenAttention(view), { audio: "critical" });
   view.Controls = view.Controls!.filter((control) => control.ID !== "aec.status");
   assert.deepEqual(screenAttention(view), { audio: "attention" });
+});
+
+test("Meetings attention follows each provider independently", () => {
+  const view = state();
+  view.PluginStates!.discord = "disabled";
+  add(view, {
+    ID: "googlemeet.app-client",
+    Kind: "connection",
+    Connection: { State: "error" } as Control["Connection"],
+  });
+  assert.deepEqual(screenAttention(view), { apps: "critical", meetings: "critical" });
+  view.PluginStates!.googlemeet = "disabled";
+  assert.deepEqual(screenAttention(view), {});
+  view.PluginStates!.discord = "failed";
+  assert.deepEqual(screenAttention(view), { plugins: "critical", meetings: "critical" });
+  view.PluginStates!.discord = "running";
+  view.PluginStates!.googlemeet = "failed";
+  assert.deepEqual(screenAttention(view), { plugins: "critical", meetings: "critical" });
 });

@@ -2,6 +2,8 @@ import { ui, tc, el, panel } from "../dom.ts";
 import { root, updaters, c } from "../state.ts";
 import { command, control } from "../widgets.ts";
 import { display, tone } from "../model.ts";
+import { buildProviderGate, pluginStates } from "../plugin-gate.ts";
+import { pluginScreens } from "../plugin-lifecycle.ts";
 
 // stateLine shows a status control's value under a card title, toned by its appState.state.
 function stateLine(id: string, parent: HTMLElement) {
@@ -18,6 +20,14 @@ export function buildMeetings() {
   const grid = el("div", ui.grid);
   grid.dataset.part = "meetings";
   root.append(grid);
+  for (const gate of pluginScreens.meetings!) {
+    if (buildProviderGate(gate, grid)) continue;
+    if (gate.plugin === "discord") buildDiscord(grid);
+    else buildMeet(grid);
+  }
+}
+
+function buildDiscord(grid: HTMLElement) {
   const card = panel("Discord", grid);
   card.dataset.part = "discord";
   stateLine("discord.channel", card);
@@ -41,4 +51,27 @@ export function buildMeetings() {
   control("discord.video", card, "Camera");
   control("discord.screenshare", card, "Screen Share");
   control("discord.leave", card, "Leave Call");
+}
+
+function buildMeet(grid: HTMLElement) {
+  const card = panel("Google Meet", grid);
+  card.dataset.part = "googlemeet";
+  stateLine("googlemeet.call", card);
+  control("googlemeet.target", card, "Call");
+  control("googlemeet.mute", card, "Mute");
+  control("googlemeet.camera", card, "Camera");
+  const source = el("p", "mt-3 text-[13px] text-muted");
+  source.dataset.part = "source-muted";
+  card.append(source);
+  updaters.push(() => {
+    const mute = c("audio.mic-mute"),
+      stack = c("audio.mic-stack");
+    source.textContent =
+      mute?.Available && mute.Value === "On"
+        ? "Source muted"
+        : stack?.Available && stack.Value === "Off"
+          ? "Mic Stack off"
+          : "";
+    source.hidden = pluginStates().audio !== "running" || !source.textContent;
+  });
 }

@@ -140,6 +140,22 @@ Lights screen: setup banner only while something needs doing (Enable, Pair with 
 ![Lights screen](design/gui-lights.png)
 
 ## Meetings
+Meetings shows independent Discord and Google Meet cards. Each card uses its own
+plugin lifecycle gate, so one provider being Off, Starting or failed never hides
+the other. Google Meet shows the observed call, a Call selector, Mute and Camera.
+Mute On means Meet's local mic is muted; Camera On means Meet reports its camera
+on. Unknown is unavailable and never shown as Off. Actions retain the existing
+Sending/result feedback; pending does not replace observed state. Call choices use
+browser and tab number, without meeting names or codes. Losing the selected call
+requires explicit reselection and never falls back to another call.
+
+Meet controls do not change global or Discord mute. When available audio state
+shows upstream inhibition, the Meet card separately displays Source muted or Mic
+Stack off; local unmute is not a claim that audio reaches the call. Reuse the mic
+and camera symbols for bindable Meet controls, keep call status readable, and
+leave all default and personal deck positions unchanged. Third-Party Apps owns
+Meet connection diagnostics; Plugins owns lifecycle actions.
+
 Discord card: the voice channel (or Not in a call) under the title, the setup hint while credentials are missing, Connect while Discord needs approval, then Mute, Deafen, Camera, Screen share and Leave call; Camera, Screen share and Leave need a call. Discord mute is the Mic mute preference, so its key reuses the mic symbol and mirrors Mic mute in automatic layouts. The Meetings deck page puts the call on row 1, with Leave alone at c9; Home reaches it in one press. Deck symbols: a video camera for Discord camera (slashed and neutral while off), headphones for Deafen (slashed and red while deafened), a screen with a rising arrow for Share, and a hung-up handset for Leave. Selection keys show option labels.
 
 ![Meetings keys](design/meetings.png)

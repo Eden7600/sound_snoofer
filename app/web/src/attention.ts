@@ -1,7 +1,7 @@
 import type { ViewState } from "./types.ts";
 import type { PriorityView } from "./screens/routing-types.ts";
 import { connectionTone, stale } from "./model.ts";
-import { gateState, lifecycleStates, pluginScreens } from "./plugin-lifecycle.ts";
+import { lifecycleStates, pluginScreens, providerGateState } from "./plugin-lifecycle.ts";
 import { icon } from "./dom.ts";
 
 type Severity = "attention" | "critical";
@@ -21,6 +21,7 @@ const connectionScreens: Record<string, string> = {
   aec: "audio",
   hue: "lights",
   discord: "meetings",
+  googlemeet: "meetings",
   soundboard: "soundboard",
 };
 
@@ -31,11 +32,15 @@ export function screenAttention(state: ViewState, now = Date.now()) {
   const mark = (screen: string, severity: Severity) => {
     if (attention[screen] !== "critical") attention[screen] = severity;
   };
-  const ready = (screen: string) => gateState(state, screen) === "running";
+  const ready = (screen: string, plugin?: string) =>
+    pluginScreens[screen]?.some(
+      (gate) => (!plugin || gate.plugin === plugin) && providerGateState(state, gate) === "running",
+    );
   for (const [plugin, status] of Object.entries(lifecycle)) {
     if (status !== "failed") continue;
     mark("plugins", "critical");
-    for (const [screen, gate] of Object.entries(pluginScreens)) if (gate.plugin === plugin) mark(screen, "critical");
+    for (const [screen, gates] of Object.entries(pluginScreens))
+      if (gates.some((gate) => gate.plugin === plugin)) mark(screen, "critical");
   }
   for (const control of state.Controls || []) {
     const source = sources[control.ID];
@@ -64,7 +69,7 @@ export function screenAttention(state: ViewState, now = Date.now()) {
     if (!severity) continue;
     mark("apps", severity);
     const owner = connectionScreens[plugin];
-    if (owner && ready(owner)) mark(owner, severity);
+    if (owner && ready(owner, owner === "meetings" ? plugin : undefined)) mark(owner, severity);
   }
   if (ready("routing")) {
     const view = state.Controls?.find((control) => control.ID === "audio.priorities")?.ViewData as

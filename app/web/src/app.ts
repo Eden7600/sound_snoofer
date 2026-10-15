@@ -19,9 +19,9 @@ import { buildDeck, clearDeckRange, deckGeometry } from "./screens/deck.ts";
 import { buildPlugins } from "./screens/plugins.ts";
 import { buildApps } from "./screens/apps.ts";
 import { buildDiagnostics } from "./screens/diagnostics.ts";
-import { buildPluginGate, pluginGateState, pluginStates } from "./plugin-gate.ts";
+import { buildPluginGate, pluginGateState, pluginStates, pluginLifecycleKey } from "./plugin-gate.ts";
 let signature = "";
-let lifecycle: ReturnType<typeof pluginGateState>;
+let lifecycle: ReturnType<typeof pluginLifecycleKey>;
 const titles: Record<string, [string, string]> = {
   audio: ["AUDIO", "Audio"],
   routing: ["AUDIO", "Routing"],
@@ -50,8 +50,8 @@ function layoutKey() {
   list.push(c("audio.priority-edit")?.Value);
   return JSON.stringify([
     appState.screen,
-    pluginGateState(appState.screen),
-    appState.screen === "plugins" || pluginGateState(appState.screen) === "disabled"
+    pluginLifecycleKey(appState.screen),
+    appState.screen === "plugins" || appState.screen === "meetings" || pluginGateState(appState.screen) === "disabled"
       ? appState.state.ConfigRevision
       : null,
     appState.screen === "plugins" || appState.screen === "apps" ? pluginStates() : null,
@@ -66,7 +66,6 @@ function layoutKey() {
           [...appState.controls.values()].filter((v) => v.ID.startsWith("hue.scene-")).map((v) => v.Order),
         ]
       : null,
-    appState.screen === "meetings" ? [appState.state.Enabled?.discord] : null,
     appState.screen === "media"
       ? [
           appState.state.Enabled?.nowplaying,
@@ -145,7 +144,7 @@ function receive(next: ViewState | null) {
   appState.state = next || appState.state;
   appState.controls = controlsByID(appState.state);
   const nextKey = layoutKey(),
-    nextLifecycle = pluginGateState(appState.screen);
+    nextLifecycle = pluginLifecycleKey(appState.screen);
   const lifecycleChanged = lifecycle !== nextLifecycle;
   if (nextKey !== signature) {
     // Preserve edits until blur if a provider changes its available choices mid-edit.

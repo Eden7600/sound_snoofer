@@ -492,6 +492,24 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
   add("discord.leave", "Leave Discord Call", "command", "", { Group: "Discord" });
   add("discord.connect", "Connect Discord", "command", "", { Group: "Discord", Available: false });
 
+  add("googlemeet.call", "Meet Call", "status", "Brave · Tab 7", { Group: "Google Meet" });
+  add("googlemeet.target", "Meet Call", "selection", "call-7", {
+    Group: "Google Meet",
+    Options: ["", "call-7"],
+    OptionLabels: { "": "Select a call", "call-7": "Brave · Tab 7" },
+    Operations: ["set"],
+  });
+  add("googlemeet.mute", "Meet Mute", "toggle", "On", {
+    Group: "Google Meet",
+    Icon: "mic-mute",
+    Operations: ["press"],
+  });
+  add("googlemeet.camera", "Meet Camera", "toggle", "Off", {
+    Group: "Google Meet",
+    Icon: "discord-video",
+    Operations: ["press"],
+  });
+
   const fixture: Fixture = {
     Controls: controls,
     Plugins: {
@@ -505,6 +523,7 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
       appaudio: "Running",
       nowplaying: "Running",
       discord: "Running",
+      googlemeet: "Running",
     },
     PluginStates: {
       aec: "running",
@@ -517,6 +536,7 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
       appaudio: "running",
       nowplaying: "running",
       discord: "running",
+      googlemeet: "running",
     },
     PluginLabels: {
       aec: "Echo Cancellation",
@@ -529,10 +549,12 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
       appaudio: "App Audio",
       nowplaying: "Now Playing",
       discord: "Discord",
+      googlemeet: "Google Meet",
     },
     Enabled: {
       aec: true,
       discord: true,
+      googlemeet: true,
       audio: true,
       soundboard: true,
       streamdeck: true,

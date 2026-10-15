@@ -7,18 +7,19 @@ const screens = [
   ["Lights", "hue", "Hue", "hue.status"],
   ["App Audio", "appaudio", "App Audio", "appaudio.status"],
   ["Meetings", "discord", "Discord", "discord.channel"],
+  ["Meetings", "googlemeet", "Google Meet", "googlemeet.call"],
   ["Media", "nowplaying", "Now Playing", "nowplaying.status"],
   ["Stream Deck", "streamdeck", "Stream Deck", "streamdeck.preview"],
 ] as const;
 
 for (const [screen, id, label, publication] of screens) {
-  test(`${screen} distinguishes lifecycle states and first publication`, async ({ gui, page }) => {
+  test(`${screen} ${id} distinguishes lifecycle states and first publication`, async ({ gui, page }) => {
     await gui.open((fixture) => {
       fixture.PluginStates[id] = "disabled";
       fixture.Enabled[id] = false;
     });
     await gui.screen(screen);
-    const gate = page.locator("[data-part=plugin-gate]");
+    const gate = page.locator(`[data-part=plugin-gate][data-plugin="${id}"]`);
     await expect(gate.getByRole("heading", { name: label, exact: true })).toBeVisible();
     await expect(gate.getByText("Off", { exact: true })).toBeVisible();
     await gate.getByRole("button", { name: "Enable " + label, exact: true }).click();
