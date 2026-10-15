@@ -6,14 +6,15 @@ Whole-repository audit at commit `237a8ee`. It complements
 **Assumed load:** one person on one PC with one Snoofer process, real audio
 hardware, and devices that come and go.
 
-**Baseline:** `go vet ./...` is clean and `go test ./...` passes. `go test -race`
-was not run (it needs cgo on this toolchain).
+**Original baseline at `237a8ee`:** `go vet ./...` was clean and `go test ./...`
+passed. `go test -race` was not run on that cgo-disabled toolchain; the later full
+race result is recorded below.
 
 Findings are numbered so they can be referenced individually.
 
 ## Current status (2026-10-15)
 
-Reconciled through `07b616f` and the user-directed `audit-completion` change.
+Reconciled with the completed source work and final `audit-completion` evidence.
 The numbered findings and source locations below retain the original
 audit wording; they are historical evidence, not a list of current defects.
 
@@ -23,7 +24,7 @@ audit wording; they are historical evidence, not a list of current defects.
 | 14 | Fixed; live artwork removal/reappearance and clock/reopen checks pass | [view-state-transport](../openspec/changes/view-state-transport/tasks.md) |
 | 15 | Fixed through correlated per-action outcomes and independent reservations | [gui-action-outcomes](../openspec/changes/gui-action-outcomes/tasks.md) |
 | 16 | Fixed; priority/output edits retain their drawn list identity, with stale-list regression coverage | [audit-hardening](../openspec/changes/audit-hardening/tasks.md) |
-| 17 | Bounded native media waits implemented and tested | [audit-hardening](../openspec/changes/audit-hardening/tasks.md) |
+| 17 | Bounded native media waits implemented and tested; live Snoofer kept receiving healthy title updates while a verified owned player was frozen, then recovered that player's title | [audit-hardening](../openspec/changes/audit-hardening/tasks.md) |
 | 18 | Staged companion builds and interrupted dependency setup recovery implemented and tested | [audit-hardening](../openspec/changes/audit-hardening/tasks.md) |
 | 19 | Complete: `49ea955` removes unused acknowledgement/deduplication and batch paths, preserving callback outcomes, origin notice clearing, single-edit safety and meaningful tests | [audit-completion](../openspec/changes/audit-completion/tasks.md) |
 | 20 | Complete: shared decoding, journals, bus parsing, fallback and shutdown helpers; `9eb59e4` shares thumbnail fit/encode while retaining caller sizing/filtering/GIF policies, with input-limit coverage in `b002e6d` | [audit-completion](../openspec/changes/audit-completion/tasks.md) |
@@ -31,8 +32,12 @@ audit wording; they are historical evidence, not a list of current defects.
 The user explicitly requested completing the original recommendations, superseding
 the former retained work in findings 19, 20, 25 and 29. Mini, MK.2 and original XL
 support stays as-is by the user's instruction; their unavailable physical acceptance
-is waived, not passed. A genuinely refused second Deck, a frozen real player while
-another session updates, and uncertain one-shot/no-replay acceptance remain pending.
+is waived, not passed. Refused-second-deck acceptance is blocked by incompatible
+device sharing; a real uncertain one-shot/no-replay outcome remains unverified after
+bounded attempts. The final GUI Pause reported Processed, with exactly one command
+and one effect after resume. Frozen-player
+acceptance passes: healthy title counters advanced in live Snoofer during the verified
+freeze, the frozen session recovered after resume, and both owned players cleaned up.
 The original anonymous shutdown timeout remains unexplained; later coordinated
 graceful stops pass. See [GUI acceptance](gui-audit.md#current-status) for evidence.
 
@@ -41,10 +46,14 @@ verified portable compiler. Strict frontend gates, 297 browser tests in 42.2 sec
 and all 106 OpenSpec changes pass. The initial Stream Deck fixture hang, Now Playing
 fixture race and Hue readiness failure were repaired in `07b616f` and `ad94e6e`;
 production behavior was unchanged by those test repairs.
-The canonical build and native async/identity/callback self-tests pass. The build
-preceded only test changes; host PID 73604 was restored with the same
-`--config bin/snoofer.json` command, unchanged persisted audio-state and user-owned
-smoke-script fingerprints. The physical checks listed above remain unverified.
+The canonical build and native async/identity/callback self-tests pass; no production
+source changed afterward. Build-time host PID 73604 was later restarted as PID 70128 with
+the same `--config bin/snoofer.json` command; final controls PID is 11816. Persisted
+audio-state and user-owned smoke-script fingerprints are unchanged. Owned helper processes exited;
+sessions disappeared and silent WAVs were removed, the test notice is dismissed, and native Media
+shows only the user's Brave cards. Computer control was released at 20:05Z.
+No further live attempts are planned; refused-deck and uncertain-one-shot acceptance
+remain explicitly unverified.
 
 The companion [smaller audit](repo-audit-minor.md#current-status-2026-10-15) records
 the completed polling-content fix, shared OnOff helper and rejection of every second

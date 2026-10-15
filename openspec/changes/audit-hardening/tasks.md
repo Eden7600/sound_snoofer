@@ -41,8 +41,23 @@ menu and confirmed absent while Snoofer remained running. After relaunch, Record
 Stopped and Audio Callback Monitor Active; Buffers advanced 218493→219302 without a callback
 error. Voicemeeter/Recorder retained the actual disconnect-gap error as history. This completes
 the real Voicemeeter process-restart component. First Deck key/dial presses are already verified
-in task 15; a refused second Deck and frozen media-player acceptance remain open. Startup with
+in task 15; at that point a refused second Deck and frozen media-player acceptance remained open. Startup with
 Voicemeeter absent now passes, as separately recorded in audit-reliability-fixes task 16.
+
+Task 11 frozen-player component passes, 2026-10-15: run
+`f341fc3299a24e00aa8fe066dea403b1` verified the exact process creation times/paths for
+healthy PID 28360 and stalled PID 71744. All 32 observed stalled threads were frozen
+with stable inventory from 19:59:54.035Z to 20:00:08.983Z; the independent 15-second
+timer restored each owned suspension exactly once, without errors. Live Snoofer's
+native UI showed healthy title beat 29 at 19:59:58.672Z and beat 33 at 20:00:04.288Z,
+both during the freeze. The stalled title fell back and returned as beat 39 at
+20:00:21.391Z after resume. This proves fresh healthy updates, not interpolated clocks.
+No command was sent in this run. Both players exited normally with code 0; native
+probes confirmed zero exact owned sessions, and only their generated 160,044-byte
+WAVs were removed. Evidence is retained in chat scratch
+work/owned-media-player/runs/f341fc3299a24e00aa8fe066dea403b1-stalled/freeze.jsonl and
+work/owned-media-player/runs/f341fc3299a24e00aa8fe066dea403b1-ui.json.
+Task 11 remains unchecked only for the blocked refused-second-deck component.
 
 ## Second-deck refusal acceptance helper
 - [x] 16. Prepare the explicitly invoked scratch-only HID holder after this plan is
@@ -72,6 +87,23 @@ observed. The original configuration fingerprint was retained and no disposable 
 remained. Task 17 stays unchecked. Chat scratch log:
 work/deck-refusal-holder/runs/8d068724fc194c61896a4f21d7ad16d1/holder.stdout.log.
 
+Task 17 follow-up, 2026-10-15: both bounded access-zero refinements also failed
+before acquiring a held handle. Share-read failed with Win32 sharing error 32 in
+work/deck-refusal-holder/runs/1d8c35eade704434845e263d47267509/holder.stdout.log;
+the single final share-write attempt approved by `97b4e9c` failed with the same
+error in work/deck-refusal-holder/runs/f18827b971f54e129cd69dee8ca6a39b/holder.stdout.log.
+Each verified the exact Plus serial/model/path first. Incompatible device sharing
+blocks this setup; the owner/access mode is unknown, and no further holder modes,
+ACL/driver changes or unrelated-app closure will be attempted. Snoofer's refused-path
+reporting and other-deck operation under refusal remain unverified. Before the final
+attempt, host PID 58572 and controls PID 50120 exited normally; the same configuration
+was restored as host PID 70128. The user confirmed both decks normal after the first
+refinement. Final native UI recovery shows Plus A00WA6261J4HRK and Plus XL
+AD4MA61312DUNP Connected with Display On, callback Active (Buffers 14239), Recorder
+Stopped and Windows defaults Verified. Media shows only the user's Brave cards after
+owned-player cleanup. This is UI recovery, not a new physical press confirmation;
+refused-deck acceptance remains unproven and task 17 remains unchecked.
+
 ## Conditional installed-player feasibility
 - [ ] 18. After this plan is committed, create one uniquely owned scratch silent
   WAV. In a newly user-approved computer-control session, root launches the
@@ -90,5 +122,16 @@ Computer-control approval/wait timeouts exceeded the agreed window, so root stop
 CloseMainWindow returned false. The user then explicitly authorized termination of only the
 owned test process; PID, executable path and start time were verified, termination and exit
 were confirmed, and the exact 160,044-byte silent WAV was removed. Task 18 stays unchecked
-because its bounded normal-close criteria were not fulfilled. No frozen-player or uncertain-
-one-shot/no-replay acceptance is claimed; those checks remain open.
+because its bounded normal-close criteria were not fulfilled. This WMP attempt established
+neither frozen-player nor uncertain-one-shot/no-replay acceptance. The separate owned-player
+freeze later fulfilled task 11's frozen-player component above; uncertain one-shot remains open.
+
+Final reconciliation: the unsuccessful installed-WMP route is abandoned, not a new
+requirement to repeat. Frozen-player acceptance passes via the owned-player evidence
+above; tasks 11/17 remain unchecked for genuine refused-deck acceptance. A later GUI
+Pause during an owned freeze was Processed once with one effect/no replay, but did
+not expose an uncertain native result (gui-action-outcomes task 6.3). All owned media
+helper processes exited; their sessions and silent WAVs are gone. Host/controls 70128/11816 retain the same
+configuration; audio-state and user-owned smoke-script fingerprints are unchanged.
+The test notice is dismissed, Media shows only user Brave cards, and computer control
+was released at 20:05Z. No further live attempts are planned.

@@ -34,8 +34,23 @@ choice was explicitly rejected, and a real asynchronous native Soundboard failur
 originating action. The user accepted this quality improvement and requested completion of
 the existing repository audits, superseding their former retained work. Mini, MK.2 and
 original XL support stays as-is by explicit instruction; unavailable physical acceptance
-is waived, not passed. Refused-second-deck, frozen-player and uncertain-one-shot/no-replay
-acceptance remain pending; their evidence limits remain recorded.
+is waived, not passed. Refused-second-deck acceptance is blocked by incompatible device
+sharing: both access-zero sharing modes failed acquisition with error 32, so no holder
+was acquired and no further modes will be tried. The canonical host resumed its same
+configuration as PID 70128. Native UI recovery shows both decks Connected/Display On,
+callback Active (Buffers 14239), Recorder Stopped and Windows defaults Verified;
+Media shows only the user's Brave cards after owned cleanup. This is UI recovery,
+not a new physical press confirmation. Frozen-player acceptance now passes: live healthy
+title counters advanced from 29 to 33 inside the verified 15-second freeze, and the
+frozen player's title returned after resume. No command was sent in that run. A final
+separate run sent one GUI Pause during a verified freeze: Snoofer reported Processed
+and the resumed player logged one command and one effect without replay. The snapshots
+captured Sending then Processed; they did not establish native timeout or correlated
+uncertainty. The final owned players exited normally, their sessions and generated WAVs were removed,
+and no further live attempts are planned. Final host/controls PIDs are 70128/11816
+with the same configuration and unchanged audio-state/native-smoke fingerprints;
+the test notice is dismissed and Media shows only user Brave cards. Computer control
+was released at 20:05Z.
 
 The findings below retain their original audit wording and old source references;
 current implementation lives in `app/web/src`.
@@ -48,11 +63,11 @@ current implementation lives in `app/web/src`.
 | `gui-connection-recovery`: 5 | Source and native rejected-State fault checks pass: separate banner, bounded backoff, recovery and no replay | None for packaged recovery acceptance |
 | `gui-layout-polish`: 10–13 and meter/search parts of 14 | Affected screens, compact branding, navigation and native short/wrapped notice alignment pass | None for packaged layout acceptance; physical checks remain separate |
 | `gui-state-preservation`: 3, 6 | Complete; functional native restoration, dialog cancellation, polling and captured-target invalidation verified | No remaining functional native journey; aggregate validation and physical integration remain separately tracked |
-| `gui-action-outcomes`: 1, 4 | Source/native checks pass; rapid independent mute pairs, captured stale Mic Stage rejection and a real asynchronous native Soundboard failure are verified | Uncertain one-shot without replay; queued-target replacement remains unclaimed |
+| `gui-action-outcomes`: 1, 4 | Source/native checks pass; rapid mutes, captured stale Mic Stage rejection, asynchronous native Soundboard failure and one Processed GUI Pause with one effect/no replay are verified | Real uncertain native outcome remains unverified; queued-target replacement remains unclaimed native evidence |
 | `gui-attention-journeys`: remaining 14 | Complete; disabled/starting/failed Audio gates, marker-to-reason keyboard navigation, Plugins link/Retry availability and captured host-proposal cancellation verified natively | None for packaged presentation; real plugin lifecycle effects remain unclaimed |
 | `view-state-transport` | Complete; source/native smoke and live media artwork change, selective removal, clocks and controls reopen pass | None for the transport artwork acceptance |
 | `output-slot-detail` | Provider/renderer/browser checks, packaged device caption/current selection, and physical No device/In use/Disconnected/reconnect cases pass | None for specified packaged/physical output presentation |
-| Repository hardening/cleanup | Findings 19, 20, 25 and 29 implemented in `49ea955`, `9eb59e4`/`b002e6d` and `f1c10fc` under `audit-completion`; full Go/vet/race, frontend/browser/spec gates, canonical build and native self-tests pass | Genuine refused second Deck, frozen player with another session updating and uncertain one-shot; no-dial-model physical acceptance waived, not passed; original shutdown timeout unexplained |
+| Repository hardening/cleanup | Findings 19, 20, 25 and 29 implemented in `49ea955`, `9eb59e4`/`b002e6d` and `f1c10fc` under `audit-completion`; full Go/vet/race, frontend/browser/spec gates, canonical build and native self-tests pass; live healthy title updates continue during an owned-player freeze | Refused second Deck blocked by incompatible device sharing; real uncertain native outcome unverified; no-dial-model physical acceptance waived, not passed; original shutdown timeout unexplained |
 
 ### Shared source and build validation
 
@@ -62,11 +77,12 @@ current implementation lives in `app/web/src`.
   **106 OpenSpec changes** pass. The initial Stream Deck fixture hang, Now Playing
   fixture race and Hue readiness failure were repaired in `07b616f` and `ad94e6e`,
   with repeated race checks; production behavior was unchanged by those repairs.
-  The canonical build and native async/identity/callback self-tests pass; only test
-  changes followed the build. Host PID 73604 resumed `--config bin/snoofer.json` with
-  unchanged persisted audio-state and user-owned smoke-script fingerprints.
-  Remaining physical acceptance is unverified; Mini/MK.2/original XL checks are
-  explicitly waived by the user, not passed.
+  The canonical build and native async/identity/callback self-tests pass; no production
+  source changed after the build. The build-time restore was PID 73604; final host PID
+  70128 retains `--config bin/snoofer.json` with unchanged persisted audio-state and
+  user-owned smoke-script fingerprints. Refused-deck acceptance is blocked and real
+  uncertain-native-outcome acceptance is unverified; Mini/MK.2/original XL checks
+  are explicitly waived by the user, not passed.
 
 - Follow-up reconciliation of the existing repository audits found minor item 26
   still present. `a5ca385` fixes App Audio detail selection during polling and
@@ -259,7 +275,7 @@ Nine captured actions were retained in the local acceptance log.
   resuming. The physical case cycle and full cleanup completed within that new window; control
   was released. No Windows connection settings were changed.
 
-The scratch-only second-deck holder is prepared and reviewed, with atomic readiness and
+The initial scratch-only second-deck holder was prepared and reviewed, with atomic readiness and
 eight fake-handle cases passing 20 repetitions; its entry skips without opt-in. During the
 authorized live attempt, the host and controls child stopped normally and the Plus serial/model/
 path were verified, but the holder's exclusive read-only open itself failed with a sharing
@@ -276,16 +292,19 @@ window. Computer-control approval/wait timeouts
 exceeded the agreed window, so control stopped. Normal close returned false; after the user
 explicitly authorized cleanup of only the owned test process, its PID/path/start identity was
 verified, termination and exit were confirmed, and its exact 160,044-byte silent WAV was removed.
-This does not complete bounded normal-close feasibility, frozen-player or uncertain-action checks.
+That attempt did not complete bounded normal-close feasibility, frozen-player or
+uncertain-action checks. The later owned-player freeze passed separately, as recorded above.
 
-Keep aggregate acceptance tasks open until all their required checks are performed. An uncertain
-one-shot without replay remains open; the captured stale Mic Stage rejection does not establish
-queued-target replacement. Native recovery, live media artwork/clocks/reopen, rapid mute pairs,
-GUI recording Pause/resume/Stop, delayed native Soundboard failure, Voicemeeter process-restart
-recovery and startup before Voicemeeter are verified. Remaining recorder/deck transport scenarios
-and physical Stream Deck checks remain separate. The observed XL first-key failure is fixed and
-its key/dial-button retest passes on both available models. Mini/MK.2 are unavailable.
-Fixtures, screenshots and native self-tests do not establish those hardware results.
+Final reconciliation: source and validation work is complete. Refused-deck and real
+uncertain-native-outcome acceptance tasks stay unchecked with their measured limits;
+the completion procedure records these blockers without counting them as passes.
+Native recovery, live artwork/clocks/reopen, rapid mutes, recording Pause/resume/Stop,
+delayed native Soundboard failure, Voicemeeter restart/startup recovery, both Plus
+models' first key/dial presses and healthy updates during an owned-player freeze pass.
+The final Processed Pause produced one command and one effect without replay, but did
+not establish native uncertainty. Captured stale Mic Stage rejection does not establish queued-target
+replacement; that native evidence remains unclaimed. Mini/MK.2/original XL physical
+checks are waived, not passed. No additional live attempts remain scheduled.
 
 Native WebView2 confirmed item 2 during migration acceptance: Down on a closed Processing select
 sent a set action. The corrected closed-select and popup keyboard paths now pass native checks;

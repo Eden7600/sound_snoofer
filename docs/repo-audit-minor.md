@@ -5,7 +5,7 @@ commit `237a8ee`. Numbering continues from that file.
 
 ## Current status (2026-10-15)
 
-Reconciled through `07b616f` and the user-directed `audit-completion` change. Original findings and source
+Reconciled with completed source work and final `audit-completion` evidence. Original findings and source
 locations below are retained as historical evidence; current implementation is
 tracked here and in the linked OpenSpec tasks.
 
@@ -13,7 +13,7 @@ tracked here and in the linked OpenSpec tasks.
 | --- | --- | --- |
 | 21 | Fixed; callback cleanup distinguishes nothing registered from uncertain cleanup, and live Voicemeeter recovery passes | [audit-hardening](../openspec/changes/audit-hardening/tasks.md) |
 | 22 | Fixed; assume released buttons when no usable startup state exists, as the user explicitly requested. First key/dial presses pass on both Plus models; held XL presses toggle once | [audit-hardening](../openspec/changes/audit-hardening/tasks.md) |
-| 23 | Per-device open failures, deduplication and recovery implemented; genuine second-device refusal remains physically unverified | [audit-hardening](../openspec/changes/audit-hardening/tasks.md) |
+| 23 | Per-device open failures, deduplication and recovery implemented; physical refusal setup blocked because both access-zero sharing modes fail acquisition with error 32. No holder acquired; no further mode attempts | [audit-hardening](../openspec/changes/audit-hardening/tasks.md) |
 | 24 | Fixed with queue epochs so old-room completions cannot alter the new room | [audit-hardening](../openspec/changes/audit-hardening/tasks.md) |
 | 25 | Complete in `f1c10fc`: every second live claimant for an occupied browser name is rejected, including the same origin; reconnect is admitted after incumbent cleanup. This does not authenticate the first claimant or pin an extension ID | [audit-completion](../openspec/changes/audit-completion/tasks.md) |
 | 26 | Fixed in `a5ca385`: unchanged App Audio details retain selection while Heard updates; Media retains its icon within a card until playback state changes | [gui-polling-content](../openspec/changes/gui-polling-content/tasks.md) |
@@ -25,17 +25,27 @@ tracked here and in the linked OpenSpec tasks.
 
 The user's completion instruction supersedes the former retained work. Mini, MK.2
 and original XL support stays as-is; unavailable physical acceptance is explicitly
-waived, not passed. Refused-deck, frozen-player and uncertain-one-shot checks remain
-pending. [The main audit](repo-audit.md#current-status-2026-10-15) records those limits.
+waived, not passed. Refused-deck acceptance is blocked by incompatible device sharing;
+frozen-player acceptance now passes through live healthy title updates during a verified
+freeze and recovery afterward. The final GUI Pause was Processed once with one observed
+effect and no replay; a real uncertain native outcome remains unverified. The canonical host was
+restored with the same configuration as PID 70128 after the final holder setup failed.
+Native UI recovery shows both decks Connected/Display On, callback Active, Recorder
+Stopped and Windows defaults Verified; no new physical press confirmation is claimed.
+[The main audit](repo-audit.md#current-status-2026-10-15)
+records the wider acceptance limits.
 
 Latest completion validation: full Go tests, vet and race checks, strict frontend
 gates, 297 browser tests in 42.2 seconds and all 106 OpenSpec changes pass. The initial
 Stream Deck fixture hang, Now Playing fixture race and Hue readiness failure were
 repaired in `07b616f` and `ad94e6e`, with repeated race coverage. The canonical build
-and native async/identity/callback self-tests pass; only tests changed afterward.
-Host PID 73604 resumed `--config bin/snoofer.json`; persisted audio-state and
-user-owned smoke-script fingerprints stayed unchanged. Native checks listed above
-remain unverified.
+and native async/identity/callback self-tests pass; production source is unchanged.
+After the build-time restore as PID 73604, the later same-config host is PID 70128
+with controls PID 11816. Persisted audio-state and user-owned smoke-script fingerprints
+stayed unchanged. Owned helper processes exited; their sessions and silent WAVs are gone and the test notice
+is dismissed; native Media shows only the user's Brave cards. Computer control was
+released at 20:05Z. No further live attempts are planned; refused-deck and uncertain-
+one-shot acceptance remain unverified.
 
 Earlier finding 26 checkpoint: its two regressions failed before the fix and pass afterward. Full strict
 frontend gates, 15 model tests and 297 browser tests pass (44.2 seconds); both

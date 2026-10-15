@@ -39,7 +39,9 @@ Cleanup: release all deferrals, signal each owned helper to stop normally, confi
 each exact process exits and its SMTC session disappears, then remove only its own
 silent WAV. Keep logs. Do not terminate unrelated players or force-stop Snoofer.
 If normal cleanup fails, report the failure before stronger cleanup. Any GUI input
-or visible launch requires the user's freshly approved timed control session.
+or visible launch requires approval for the current control session. Under AGENTS.md,
+approval lasts through the current task and cleanup unless the user specifies a time
+limit; stop at any specified limit and announce when computer control is released.
 
 The scratch native probe uses a Go test overlay only, leaving the repository and
 canonical DLL untouched. Its default is disabled. Match exactly one owned nonce/role

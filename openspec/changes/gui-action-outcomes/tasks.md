@@ -64,3 +64,19 @@ the local failed summary for the vanished clip. This establishes asynchronous na
 not a delay exceeding 2.5 seconds. Task 6.3 remains open only for an uncertain one-shot without
 replay. The owned WMP feasibility attempt found no attributable native session; its cleanup
 is recorded in audit-hardening task 18 and does not establish uncertain-action acceptance.
+
+Final task 6.3 attempt, 2026-10-15: run `260a5fe8f8134261884899ba5777c763` verified
+healthy PID 56356 and stalled PID 39304. The stalled player's 33 threads stayed frozen
+from 20:03:37.637Z to 20:03:52.584Z; every owned suspension was restored successfully.
+One actual GUI Pause click occurred at 20:03:48.779Z during the freeze. The GUI showed
+Sending at 20:03:49.209Z, then "Processed · Media request processed" at 20:03:53.662Z.
+These spaced snapshots do not exclude brief frontend-local Unknown; no real native
+timeout or correlated uncertainty was established. The player received the callback after resume and logged
+exactly one command and one effect; the effect was visible at 20:04:13.631Z and the
+70.202-second cleanup record still reported commands=1/effects=1. This proves the
+accepted-command/no-replay journey only; no native HRESULT or call latency is inferred
+from GUI timestamps. Both players exited normally with code 0, exact native sessions
+disappeared and their generated 160,044-byte WAVs were removed. Evidence: chat scratch
+work/owned-media-player/runs/260a5fe8f8134261884899ba5777c763-ui.json and the matching
+-stalled/events.jsonl and -stalled/freeze.jsonl. Task 6.3 remains unchecked because
+real native uncertainty was not established; no further live attempts are planned.
