@@ -261,6 +261,7 @@ func TestSyncUnconfirmed(t *testing.T) {
 func TestSyncBridgeDisconnected(t *testing.T) {
 	h, _, app := startJoined(t, "bridge_connected", true)
 	h.value("hue.sync-status", "Ready")
+	h.waitControl("hue.brightness", func(c snoofer.Control) bool { return c.Available })
 	app.set(func(a *fakeSyncApp) { a.state["state"] = syncStateDisconnected })
 	h.value("hue.sync-status", "No bridge")
 	for _, id := range []string{"hue.sync", "hue.sync-mode", "hue.sync-intensity"} {

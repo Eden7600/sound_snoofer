@@ -35,14 +35,14 @@ func freePort(t *testing.T) int {
 	return l.Addr().(*net.TCPAddr).Port
 }
 
-func startBridgeRig(t *testing.T) *bridgeRig {
+func startBridgeRig(t *testing.T, windowsSessions ...mediasessions.Session) *bridgeRig {
 	t.Helper()
-	return startBridgeRigOn(t, freePort(t))
+	return startBridgeRigOn(t, freePort(t), windowsSessions...)
 }
 
-func startBridgeRigOn(t *testing.T, port int) *bridgeRig {
+func startBridgeRigOn(t *testing.T, port int, windowsSessions ...mediasessions.Session) *bridgeRig {
 	t.Helper()
-	r := &bridgeRig{t: t, controls: snoofer.NewControls(), windows: &fakeWindows{}, port: port}
+	r := &bridgeRig{t: t, controls: snoofer.NewControls(), windows: &fakeWindows{sessions: windowsSessions}, port: port}
 	// The legacy token from the first build still loads, and is ignored.
 	raw, _ := json.Marshal(Settings{Port: r.port, Token: "legacy"})
 	services := snoofer.Services{Controls: r.controls, Live: true, SaveSettings: func(string, json.RawMessage, json.RawMessage) error {
@@ -144,10 +144,9 @@ func TestBridgeRefusesOtherProtocols(t *testing.T) {
 }
 
 func TestBridgeSessionsCommandsAndReconnect(t *testing.T) {
-	r := startBridgeRig(t)
 	// Firefox's own Windows session has an unrecognisable app ID; its title
 	// matching a tab hides it.
-	r.windows.sessions = []mediasessions.Session{{ID: "308046B0AF4A39CB", Instance: "308046B0AF4A39CB", App: "308046B0AF4A39CB", Title: "Video", Status: "playing", CanPlay: true}}
+	r := startBridgeRig(t, mediasessions.Session{ID: "308046B0AF4A39CB", Instance: "308046B0AF4A39CB", App: "308046B0AF4A39CB", Title: "Video", Status: "playing", CanPlay: true})
 	ws := r.connect("moz-extension://x", "Firefox", protocol)
 	r.wait("connected", func(v statusView) bool { return len(v.Browsers) == 1 && v.Browsers[0].Name == "Firefox" })
 	if err := ws.WriteJSON(report{Type: "sessions", Sessions: []browserSession{{ID: "7:0", Instance: "7:0", Tab: 7, Site: "youtube.com", Title: "Video", State: "playing", CanNext: true}}}); err != nil {

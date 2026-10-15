@@ -33,9 +33,11 @@ Checkpoint 2: Removed only unused worker IDs, acknowledgements, deduplication an
 - [ ] 5a. Fix confirmed Stream Deck fixture readiness and bounded waits; remove
   the unnecessary test-only frame drain. Prove the schedule, repeat focused checks,
   review and commit before rerunning full validation.
-- [ ] 5b. Initialize bridge Windows-session data before worker startup; retain
+- [x] 5b. Initialize bridge Windows-session data before worker startup; retain
   matching assertions, verify repeated race checks, review and commit.
 
-- [ ] 5c. Await room brightness before the Hue Sync disconnect; retain immediate
+- [x] 5c. Await room brightness before the Hue Sync disconnect; retain immediate
   post-disconnect availability assertions, repeat with race instrumentation, review
   and commit.
+
+Validation 5b, 5c: Bridge native sessions are initialized before worker startup; all bridge tests pass 25 race-detector runs. Hue establishes room brightness before disconnecting Sync and retains immediate assertions; 75 CPU-scheduled focused race cases and the full Hue race suite pass. Both package vet checks and root review pass.
