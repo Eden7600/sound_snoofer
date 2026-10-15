@@ -20,6 +20,7 @@ export function buildMeetings() {
   const grid = el("div", ui.grid);
   grid.dataset.part = "meetings";
   root.append(grid);
+  buildShared(grid);
   for (const gate of pluginScreens.meetings!) {
     if (buildProviderGate(gate, grid)) continue;
     if (gate.plugin === "discord") buildDiscord(grid);
@@ -43,12 +44,12 @@ function buildDiscord(grid: HTMLElement) {
   command("discord.connect", "Connect", connect, ui.primary);
   card.append(connect);
   updaters.push(() => {
-    setup.hidden = c("discord.mute")?.Status !== "Setup needed";
+    setup.hidden = c("discord.call-mute")?.Status !== "Setup needed";
     connect.hidden = !c("discord.connect")?.Available && c("discord.connect")?.Status !== "Pending";
   });
-  control("discord.mute", card, "Mute");
+  control("discord.call-mute", card, "Mute");
   control("discord.deafen", card, "Deafen");
-  control("discord.video", card, "Camera");
+  control("discord.call-camera", card, "Camera");
   control("discord.screenshare", card, "Screen Share");
   control("discord.leave", card, "Leave Call");
 }
@@ -58,8 +59,16 @@ function buildMeet(grid: HTMLElement) {
   card.dataset.part = "googlemeet";
   stateLine("googlemeet.call", card);
   control("googlemeet.target", card, "Call");
-  control("googlemeet.mute", card, "Mute");
-  control("googlemeet.camera", card, "Camera");
+  control("googlemeet.call-mute", card, "Mute");
+  control("googlemeet.call-camera", card, "Camera");
+}
+
+function buildShared(grid: HTMLElement) {
+  const card = panel("Call Controls", grid);
+  card.dataset.part = "shared-meetings";
+  card.append(el("p", "-mt-1.5 mb-3 text-[13px] text-muted", "All compatible calls"));
+  control("meetings.mute", card, "Mute");
+  control("meetings.camera", card, "Camera");
   const source = el("p", "mt-3 text-[13px] text-muted");
   source.dataset.part = "source-muted";
   card.append(source);

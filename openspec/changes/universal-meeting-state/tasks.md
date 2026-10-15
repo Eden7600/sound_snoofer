@@ -13,7 +13,7 @@ Like/Dislike placement applies only to Plus XL. Desktop acceptance remains defer
   deafen behavior, exact lifetime/revision checks, and compatibility bindings.
 - [ ] 4. Adapt all eligible Meet calls to shared intent, preserving browser command
   identity, readback, cancellation, freshness and per-control pending limits.
-- [ ] 5. Reuse Meetings Mute/Camera controls in the GUI with actual per-app state,
+- [x] 5. Reuse Meetings Mute/Camera controls in the GUI with actual per-app state,
   truthful pending/unknown/error, independent provider gates and native key checks.
 - [ ] 6. Run full Go/vet/race, extension regression where affected, frontend/GUI
   gates and strict specs; canonical build and restore prior launch configuration.

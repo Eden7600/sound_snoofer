@@ -14,8 +14,8 @@ test.describe("Meetings", () => {
     await expect(discord.locator("[data-part=state]")).toHaveText("General");
     await expect(page.locator("[data-part=discord-setup]"), "setup hint while configured").toBeHidden();
     await expect(page.locator("[data-part=discord-connect]"), "Connect while connected").toBeHidden();
-    await discord.getByRole("button", { name: "Mute", exact: true }).click();
-    expect((await gui.last()).ID).toBe("discord.mute");
+    await page.locator("[data-part=shared-meetings]").getByRole("button", { name: "Mute", exact: true }).click();
+    expect((await gui.last()).ID).toBe("meetings.mute");
     await gui.settled();
     await discord.getByRole("button", { name: "Leave Call", exact: true }).click();
     expect((await gui.last()).ID).toBe("discord.leave");
@@ -24,13 +24,13 @@ test.describe("Meetings", () => {
   test("setup hint and enabling the plugin", async ({ gui }) => {
     const { page } = gui;
     await gui.update(() => {
-      const mute = window.ctl("discord.mute");
+      const mute = window.ctl("discord.call-mute");
       mute.Available = false;
       mute.Status = "Setup needed";
     });
     await page.locator("[data-part=discord-setup]").waitFor();
     await gui.update(() => {
-      const mute = window.ctl("discord.mute");
+      const mute = window.ctl("discord.call-mute");
       mute.Available = true;
       mute.Status = "";
       window.fixture.Enabled.discord = false;

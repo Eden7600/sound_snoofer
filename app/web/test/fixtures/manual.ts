@@ -492,6 +492,21 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
   add("discord.leave", "Leave Discord Call", "command", "", { Group: "Discord" });
   add("discord.connect", "Connect Discord", "command", "", { Group: "Discord", Available: false });
 
+  add("meetings.mute", "Mute", "toggle", "On", {
+    Group: "Meetings",
+    Icon: "mic-mute-muted",
+    Operations: ["press"],
+  });
+  add("meetings.camera", "Camera", "toggle", "Off", {
+    Group: "Meetings",
+    Icon: "discord-video-off",
+    Operations: ["press"],
+  });
+  for (const provider of ["discord", "googlemeet"]) {
+    const group = provider === "discord" ? "Discord" : "Google Meet";
+    add(provider + ".call-mute", "Mute", "status", "On", { Group: group, SurfaceOnly: true });
+    add(provider + ".call-camera", "Camera", "status", "Off", { Group: group, SurfaceOnly: true });
+  }
   add("googlemeet.call", "Meet Call", "status", "Brave · Tab 7", { Group: "Google Meet" });
   add("googlemeet.target", "Meet Call", "selection", "call-7", {
     Group: "Google Meet",

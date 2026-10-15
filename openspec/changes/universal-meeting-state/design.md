@@ -100,4 +100,8 @@ presentation and native key sizes. Run full Go/vet/race, frontend/GUI checks,
 strict OpenSpec validation and canonical build; preserve launch configuration.
 No desktop control or live account/layout changes until the user approves a new
 session. Real-site, both-app and physical-deck acceptance remain unchecked until run.
-`nCompatibility bindings display the shared target they toggle. SurfaceOnly status controls`n`discord.call-mute`, `discord.call-camera`, `googlemeet.call-mute` and`n`googlemeet.call-camera` expose actual app state without competing actions. The`nGUI uses those readouts; aliases may mirror the corresponding shared controls.
+
+Compatibility bindings display the shared target they toggle. SurfaceOnly status controls
+`discord.call-mute`, `discord.call-camera`, `googlemeet.call-mute` and
+`googlemeet.call-camera` expose actual app state without competing actions. The
+GUI uses those readouts; aliases may mirror the corresponding shared controls.

@@ -1,7 +1,6 @@
-# Universal meeting Go API proposal
+# Universal meeting Go API contract
 
-Planning draft for parallel adapters; no production files changed. Put the narrow
-coordinator in package `snoofer`, so its controls and completions do not introduce
+The narrow coordinator lives in package `snoofer`, so its controls and completions do not introduce
 an import cycle. `Services.Meetings *Meetings` is shared by audio, Discord and
 Google Meet. Host/app construction owns one instance and bounded shutdown. It is
 not another optional plugin and adds no dependency to Google Meet.
@@ -44,7 +43,7 @@ type MeetingCommand struct {
 }
 
 func (m *Meetings) Attach(ctx context.Context, provider string) (*MeetingAdapter, error)
-// provider is exactly "discord" or "googlemeet"; one live attachment each.
+// provider is a unique valid provider ID; one live attachment each.
 func (a *MeetingAdapter) Report(peers []MeetingPeer) error
 // Complete fresh current peer list. Ownership is copied. No transport I/O.
 func (a *MeetingAdapter) Changed() <-chan struct{}
@@ -171,5 +170,7 @@ next known joined observation starts a new baseline; do not restore old Camera O
 - Parent: GUI/deck shared controls, documentation/acceptance and saved Plus XL
   Like/Dislike placements. Extension wire format stays unchanged.
 
-Before implementing, freeze constructor/lifecycle names and any adjustments with
-the coordinator owner. All production work awaits the OpenSpec checkpoint.
+The host creates `NewMeetings(controls *Controls, live bool) *Meetings` when no
+instance was supplied through Services. Construction is inert; `Start(context.Context)
+error` starts the owner before plugins. `Close(context.Context) error` cancels its
+work and bounds shutdown, including when plugin cleanup fails.
