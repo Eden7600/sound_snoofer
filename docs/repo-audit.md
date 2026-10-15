@@ -11,6 +11,36 @@ was not run (it needs cgo on this toolchain).
 
 Findings are numbered so they can be referenced individually.
 
+## Current status (2026-10-15)
+
+Reconciled against the implemented OpenSpec changes and current source after
+`a5ca385`. The numbered findings and source locations below retain the original
+audit wording; they are historical evidence, not a list of current defects.
+
+| Findings | Current disposition | Implementation / evidence |
+| --- | --- | --- |
+| 1–13 | Fixed, each with a regression | [audit-reliability-fixes](../openspec/changes/audit-reliability-fixes/tasks.md) |
+| 14 | Fixed; live artwork removal/reappearance and clock/reopen checks pass | [view-state-transport](../openspec/changes/view-state-transport/tasks.md) |
+| 15 | Fixed through correlated per-action outcomes and independent reservations | [gui-action-outcomes](../openspec/changes/gui-action-outcomes/tasks.md) |
+| 16 | Fixed; priority/output edits retain their drawn list identity, with stale-list regression coverage | [audit-hardening](../openspec/changes/audit-hardening/tasks.md) |
+| 17 | Bounded native media waits implemented and tested | [audit-hardening](../openspec/changes/audit-hardening/tasks.md) |
+| 18 | Staged companion builds and interrupted dependency setup recovery implemented and tested | [audit-hardening](../openspec/changes/audit-hardening/tasks.md) |
+| 19 | Unused fields/helpers removed; existing non-GUI acknowledgement and batch protocol deliberately retained | [audit-cleanup](../openspec/changes/audit-cleanup/design.md), [action-outcome design](../openspec/changes/gui-action-outcomes/design.md) |
+| 20 | Shared decoding, journals, bus parsing, fallback and shutdown helpers complete; thumbnail implementations retained because their sizing, filtering and GIF policies differ | [audit-cleanup](../openspec/changes/audit-cleanup/tasks.md) |
+
+The user accepted the GUI audit's quality improvement and chose to move on without
+requiring the remaining physical checks. This does not mark those checks passed:
+Mini/MK.2 editing, a genuinely refused second Deck, a frozen real player while
+another session updates, and uncertain one-shot/no-replay acceptance remain
+unverified. The original anonymous shutdown timeout remains unexplained; later
+coordinated graceful stops pass. The race detector remains unrun on the cgo-disabled
+toolchain. See [GUI acceptance](gui-audit.md#current-status) for detailed evidence.
+
+The companion [smaller audit](repo-audit-minor.md#current-status-2026-10-15) records
+the completed polling-content fix and the explicitly retained tiny duplication.
+All findings across both reports now have an implementation or explicit retained
+scope; unperformed acceptance remains separate.
+
 ## Must fix
 
 1. **Stream Deck editor crashes for decks without dials**
@@ -259,10 +289,12 @@ Findings are numbered so they can be referenced individually.
 
 ## Smaller findings
 
-Eleven lower-priority findings (21-31) are in
+Thirteen lower-priority findings (21–33) are in
 [repo-audit-minor.md](repo-audit-minor.md).
 
-## Summary
+## Original audit summary
+
+The following verdict and coverage notes describe the 2026-10-14 audit baseline.
 
 **Verdict:** Fix 1-4 first. Each is a short, contained fix that makes a core
 feature work as intended. Then fix 5-7, which give wrong behaviour on real

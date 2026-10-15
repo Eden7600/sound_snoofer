@@ -3,6 +3,41 @@
 Lower-priority findings from the audit in [repo-audit.md](repo-audit.md), at
 commit `237a8ee`. Numbering continues from that file.
 
+## Current status (2026-10-15)
+
+Reconciled against current source at `a5ca385`. Original findings and source
+locations below are retained as historical evidence; current implementation is
+tracked here and in the linked OpenSpec tasks.
+
+| Findings | Current disposition | Implementation / evidence |
+| --- | --- | --- |
+| 21 | Fixed; callback cleanup distinguishes nothing registered from uncertain cleanup, and live Voicemeeter recovery passes | [audit-hardening](../openspec/changes/audit-hardening/tasks.md) |
+| 22 | Fixed; assume released buttons when no usable startup state exists, as the user explicitly requested. First key/dial presses pass on both Plus models; held XL presses toggle once | [audit-hardening](../openspec/changes/audit-hardening/tasks.md) |
+| 23 | Per-device open failures, deduplication and recovery implemented; genuine second-device refusal remains physically unverified | [audit-hardening](../openspec/changes/audit-hardening/tasks.md) |
+| 24 | Fixed with queue epochs so old-room completions cannot alter the new room | [audit-hardening](../openspec/changes/audit-hardening/tasks.md) |
+| 25 | Fixed within the accepted scope: another extension origin cannot evict a live browser connection. This does not authenticate the first claimant or pin an extension ID | [audit-hardening](../openspec/changes/audit-hardening/design.md) |
+| 26 | Fixed in `a5ca385`: unchanged App Audio details retain selection while Heard updates; Media retains its icon within a card until playback state changes | [gui-polling-content](../openspec/changes/gui-polling-content/tasks.md) |
+| 27–28 | Shared native-build setup and buffer helpers implemented, retaining callback validation | [audit-cleanup](../openspec/changes/audit-cleanup/tasks.md) |
+| 29 | Deliberately retained: two tiny local on/off helpers do not justify a new shared API | [audit-cleanup](../openspec/changes/audit-cleanup/design.md) |
+| 30–31 | Listed dead code removed; strict storage decoding covered for valid/default/null, duplicate, unknown and trailing input | [audit-cleanup](../openspec/changes/audit-cleanup/tasks.md) |
+| 32 | Fixed; display-only controls are allowed on keys and remain inert, with audio-first startup covered | [deck-status-bindings](../openspec/changes/deck-status-bindings/tasks.md) |
+| 33 | Fixed; provider, renderer, browser, packaged and physical AirPods states pass | [output-slot-detail](../openspec/changes/output-slot-detail/tasks.md) |
+
+Remaining physical limitations and the user's decision to accept the achieved GUI
+quality are recorded in [the main audit](repo-audit.md#current-status-2026-10-15).
+They are not outstanding source fixes or newly claimed passes.
+
+Finding 26's two regressions failed before the fix and pass afterward. Full strict
+frontend gates, 15 model tests and 297 browser tests pass (44.2 seconds); both
+screens were inspected at 1280x820 and 800x600. All 105 OpenSpec changes validate.
+The canonical build and native self-tests pass; the tray host restarted with its
+previous `--config bin/snoofer.json` command. Persisted audio-state and user-owned
+native-smoke-script fingerprints stayed unchanged. No desktop input was taken.
+Native lost-click behavior was not reproduced; the confirmed defect was repeated
+node replacement during polling.
+
+## Original findings
+
 21. **`SnooferStop` treats "nothing registered" as an uncertain cleanup**
     (`internal/voicemeeter/callback/monitor.c:50-59`,
     `internal/voicemeeter/callback_windows.go:241-246,315-319`)
@@ -141,4 +176,6 @@ commit `237a8ee`. Numbering continues from that file.
     - **Source fix verified:** `output-slot-detail` moves the device caption to `ViewData.Device`.
       Provider-backed Go and Routing tests pass; the actual offline 112px renderer preserves
       In use, No device, Disconnected, No output and blank hidden slots. Canonical packaged and
-      physical-device acceptance remain deferred under the running-host restriction.
+      physical-device acceptance now pass: No device, cyan In use, neutral Disconnected,
+      retained Routing device name/current selection, and return to In use after reconnect.
+      The temporary output/key binding was removed and Automatic playback restored.

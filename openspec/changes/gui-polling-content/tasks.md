@@ -4,7 +4,7 @@
 - [x] 2. Add focused browser regressions and verify they fail on the existing repeated replacements.
 - [x] 3. Preserve App Audio detail nodes and guard Media icon replacement; update the UI contract without changing layout or action behavior.
 - [x] 4. Run focused browser checks, strict TypeScript/ESLint/Prettier/model gates and the full browser suite; inspect both affected screens at 1280x820 and 800x600. Review and commit the source checkpoint.
-- [ ] 5. Reconcile the existing audit files, record validation, and perform the authorized canonical build with the prior host configuration restored. Keep previously unperformed hardware checks explicitly deferred.
+- [x] 5. Reconcile the existing audit files, record validation, and perform the authorized canonical build with the prior host configuration restored. Keep previously unperformed hardware checks explicitly deferred.
 
 ## Validation (2026-10-15)
 
@@ -23,3 +23,14 @@
 Native lost-click behavior was not reproduced or claimed. The fix establishes
 stable nodes during polling; it does not change the existing structural rebuild
 policy. No desktop control was used for these checks.
+
+Source checkpoint: `a5ca385`. Canonical `scripts/build.ps1` passed, including
+native ABI/buffer/callback-stop, media timeout and identity self-tests. The prior
+host and controls child exited normally; the background tray host resumed as PID
+55856 with the exact previous `--config bin/snoofer.json` path. Persisted audio-state
+and user-owned native-smoke-script fingerprints were unchanged. All 105 OpenSpec
+changes pass strict validation. Both repository reports now distinguish completed
+source work, intentional retention and the previously deferred physical checks.
+Full Go tests/vet and native GUI acceptance were not repeated for this frontend-only
+change; the cgo-disabled race detector and earlier physical limitations remain
+unverified. No unrelated user changes were included.

@@ -29,8 +29,9 @@ The normal canonical build passed; production retains the same --config bin/snoo
 Rapid independent mute pairs, real recording Pause/resume/Stop, callback recovery after
 Voicemeeter process restart and startup before Voicemeeter now pass. A captured stale Mic Stage
 choice was explicitly rejected, and a real asynchronous native Soundboard failure reached its
-originating action. The audit is **not fully accepted**: uncertain-one-shot/no-replay and
-remaining hardware checks below remain open.
+originating action. The user accepted this quality improvement and chose to move on to
+the existing repository audits. Uncertain-one-shot/no-replay and the remaining hardware
+checks below are deferred, not passed; their evidence limits remain recorded.
 
 The findings below retain their original audit wording and old source references;
 current implementation lives in `app/web/src`.
@@ -50,6 +51,14 @@ current implementation lives in `app/web/src`.
 | Repository hardening/cleanup | Original source gates, canonical companion build, native smoke and coordinated shutdown recheck pass; first key/dial presses pass on both connected models | Genuine refused second Deck, frozen player with another session updating, and Mini/MK.2 page editing; original shutdown timeout remains unexplained |
 
 ### Shared source and build validation
+
+- Follow-up reconciliation of the existing repository audits found minor item 26
+  still present. `a5ca385` fixes App Audio detail selection during polling and
+  Media icon replacement, with both regressions failing first. Strict frontend
+  gates, 15 model tests, **297 browser tests in 44.2 s**, both affected screens at
+  normal/minimum sizes, all 105 OpenSpec changes and the canonical build pass.
+  The tray host resumed its prior configuration; no new desktop session or
+  physical acceptance was claimed.
 
 - Before the native follow-ups, ordinary `scripts/check.ps1` at `49e3fd9` passed full Go tests and
   vet, strict TypeScript, ESLint, Prettier, 15 model tests, **290 browser tests in 43.4 s**, and
