@@ -1,6 +1,6 @@
 import { ui, el, button, panel, empty, iconButton, icon } from "../dom.ts";
 import { root, updaters, c, appState } from "../state.ts";
-import { request, press, send } from "../host.ts";
+import { request, press } from "../host.ts";
 import { setArt } from "../widgets.ts";
 import { progressAt } from "../model.ts";
 import type { MediaView, MediaSession } from "./media-types.ts";
@@ -150,21 +150,6 @@ function extensionCard(parent: HTMLElement) {
   });
 }
 export function buildMedia() {
-  if (!(appState.state.Plugins || {}).nowplaying) {
-    empty(root, "Now Playing is not part of this build.");
-    return;
-  }
-  if (!appState.state.Enabled?.nowplaying) {
-    const card = panel("Now Playing is off", root, "mb-[18px] border-[#345365]");
-    card.dataset.part = "setup";
-    card.append(el("p", "mt-2 mb-3.5 text-muted", "Show and control what is playing in each app and browser tab."));
-    const actions = el("div", ui.actions);
-    actions.append(
-      button("Enable Now Playing", () => send({ Kind: "selection", Plugin: "nowplaying", Enable: true }), ui.primary),
-    );
-    card.append(actions);
-    return;
-  }
   const sessions = [...appState.controls.values()]
     .filter((v) => v.Collection === "nowplaying.sessions")
     .sort((a, b) => (a.Order || 0) - (b.Order || 0));

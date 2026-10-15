@@ -1,6 +1,6 @@
-import { ui, tc, el, button, panel, empty, iconButton, icon } from "../dom.ts";
+import { ui, tc, el, button, panel, iconButton, icon } from "../dom.ts";
 import { root, updaters, c, appState } from "../state.ts";
-import { request, press, send } from "../host.ts";
+import { request, press } from "../host.ts";
 import { control, setArt, clipState } from "../widgets.ts";
 import { display, tone, numericValue, sceneRoom } from "../model.ts";
 import type { Control } from "../types.ts";
@@ -218,23 +218,6 @@ function roomsCard(parent: HTMLElement) {
   });
 }
 export function buildLights() {
-  if (!(appState.state.Plugins || {}).hue) {
-    empty(root, "Hue is not part of this build.");
-    return;
-  }
-  if (!appState.state.Enabled?.hue) {
-    const card = panel("Hue is off", root, "mb-[18px] border-[#345365]");
-    card.dataset.part = "setup";
-    card.append(el("p", "mt-2 mb-3.5 text-muted", "Control Hue scenes, room brightness and Hue Sync."));
-    const actions = el("div", ui.actions);
-    actions.append(button("Enable Hue", () => send({ Kind: "selection", Plugin: "hue", Enable: true }), ui.primary));
-    card.append(actions);
-    return;
-  }
-  if (!c<HueStatusView>("hue.status")) {
-    empty(root, "Hue: " + (appState.state.Plugins?.hue || "Starting"));
-    return;
-  }
   lightsSetup(root);
   const grid = el(
     "div",

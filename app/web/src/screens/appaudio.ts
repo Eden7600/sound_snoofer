@@ -1,6 +1,6 @@
 import { ui, tc, el, button, panel, empty, iconButton, icon } from "../dom.ts";
 import { root, updaters, c, appState, update } from "../state.ts";
-import { request, press, send } from "../host.ts";
+import { request, press } from "../host.ts";
 import { meterBar, setArt } from "../widgets.ts";
 import { display, tone, numericValue, relativeTime } from "../model.ts";
 import type { AppAudioView, AppAudioApp } from "./appaudio-types.ts";
@@ -163,21 +163,6 @@ function appStrip(id: string, parent: HTMLElement) {
   });
 }
 export function buildAppAudio() {
-  if (!(appState.state.Plugins || {}).appaudio) {
-    empty(root, "App Audio is not part of this build.");
-    return;
-  }
-  if (!appState.state.Enabled?.appaudio) {
-    const card = panel("App Audio is off", root, "mb-[18px] border-[#345365]");
-    card.dataset.part = "setup";
-    card.append(el("p", "mt-2 mb-3.5 text-muted", "Control the volume and mute of individual apps."));
-    const actions = el("div", ui.actions);
-    actions.append(
-      button("Enable App Audio", () => send({ Kind: "selection", Plugin: "appaudio", Enable: true }), ui.primary),
-    );
-    card.append(actions);
-    return;
-  }
   // The recent window is edited inline; it saves on Enter or when focus leaves.
   const intro = el("div", "mb-2 flex flex-wrap items-center gap-2 text-[13px] text-muted"),
     minutes = el("input", "w-20 tabular-nums");

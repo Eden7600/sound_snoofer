@@ -11,7 +11,7 @@
   delivery/revision behavior and recovery; publish explicit Media WindowsError and verify its
   existing problem line never hides an error named Connected. Regenerate audio/deck fixtures
   and run drift checks.
-- [ ] 4. Commit checkpoint: unify the eight plugin screen gates and Plugins recovery actions.
+- [x] 4. Commit checkpoint: unify the eight plugin screen gates and Plugins recovery actions.
   Cover exact Enable selection and confirmation, cancellation, missing/starting/failed states,
   lifecycle transitions without navigation, busy/reconnect refusal and healthy empty content.
   Preserve legacy unversioned fixture rendering through the documented absent-map normalization,

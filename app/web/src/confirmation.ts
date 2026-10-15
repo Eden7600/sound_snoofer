@@ -3,6 +3,7 @@ import { appState, c, root } from "./state.ts";
 import { send } from "./host.ts";
 import { restoreFocus } from "./view-state.ts";
 import type { Request } from "./types.ts";
+import { pluginGateState } from "./plugin-gate.ts";
 
 interface LocalConfirmation {
   title: string;
@@ -23,6 +24,7 @@ function valid(ticket: LocalConfirmation) {
   const control = c(ticket.request.ID);
   return (
     !ticket.invalid &&
+    pluginGateState(ticket.screen) === "running" &&
     !appState.reconnecting &&
     appState.screen === ticket.screen &&
     ticket.currentContext() === ticket.context &&

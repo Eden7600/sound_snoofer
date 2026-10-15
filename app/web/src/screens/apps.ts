@@ -4,6 +4,7 @@ import { connectionText, connectionTone, timeValue, relativeTime, stale } from "
 
 import { copyText } from "../clipboard.ts";
 import { viewKey } from "../view-state.ts";
+import { pluginStateText, pluginStates } from "../plugin-gate.ts";
 
 function reportCard(id: string, parent: HTMLElement) {
   const initial = c(id);
@@ -124,15 +125,15 @@ export function buildApps() {
     card.append(grid);
     for (const r of reports.filter((v) => (v.Group || "Other") === group)) reportCard(r.ID, grid);
   }
-  const idle = Object.entries(appState.state.Plugins || {})
-    .filter(([, status]) => status !== "Running")
+  const idle = Object.entries(pluginStates())
+    .filter(([, state]) => state !== "running")
     .sort();
   if (idle.length) {
     const card = panel("Not monitored", root, "mb-[18px]"),
       list = el("ul", "list-disc pl-[18px] text-[13px] text-muted");
     list.dataset.part = "not-monitored";
     card.append(list);
-    for (const [id, status] of idle)
-      list.append(el("li", "", (appState.state.PluginLabels?.[id] || id) + " — " + status));
+    for (const [id] of idle)
+      list.append(el("li", "", (appState.state.PluginLabels?.[id] || id) + " — " + pluginStateText(id)));
   }
 }

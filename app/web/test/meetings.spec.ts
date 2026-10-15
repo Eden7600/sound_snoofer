@@ -34,6 +34,7 @@ test.describe("Meetings", () => {
       mute.Available = true;
       mute.Status = "";
       window.fixture.Enabled.discord = false;
+      window.fixture.PluginStates.discord = "disabled";
     });
     await page.getByRole("button", { name: "Enable Discord", exact: true }).click();
     const action = (await gui.sent()).at(-1);
@@ -41,6 +42,7 @@ test.describe("Meetings", () => {
     expect([action.Kind, action.Plugin, action.Enable]).toEqual(["selection", "discord", true]);
     await gui.update(() => {
       window.fixture.Enabled.discord = true;
+      window.fixture.PluginStates.discord = "running";
     });
     await page.locator("[data-part=discord]").waitFor();
   });

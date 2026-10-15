@@ -19,7 +19,9 @@ import { buildDeck, clearDeckRange, deckGeometry } from "./screens/deck.ts";
 import { buildPlugins } from "./screens/plugins.ts";
 import { buildApps } from "./screens/apps.ts";
 import { buildDiagnostics } from "./screens/diagnostics.ts";
+import { buildPluginGate, pluginGateState, pluginStates } from "./plugin-gate.ts";
 let signature = "";
+let lifecycle: ReturnType<typeof pluginGateState>;
 const titles: Record<string, [string, string]> = {
   audio: ["AUDIO", "Audio"],
   routing: ["AUDIO", "Routing"],
@@ -48,6 +50,8 @@ function layoutKey() {
   list.push(c("audio.priority-edit")?.Value);
   return JSON.stringify([
     appState.screen,
+    pluginGateState(appState.screen),
+    appState.screen === "plugins" || appState.screen === "apps" ? pluginStates() : null,
     list,
     Object.keys(appState.state.Plugins || {}),
     appState.state.PluginLabels,
@@ -132,20 +136,30 @@ function build() {
     apps: buildApps,
     diagnostics: buildDiagnostics,
   };
-  builders[appState.screen]?.();
+  if (!buildPluginGate(appState.screen)) builders[appState.screen]?.();
 }
 function receive(next: ViewState | null) {
   appState.state = next || appState.state;
   appState.controls = controlsByID(appState.state);
-  const nextKey = layoutKey();
+  const nextKey = layoutKey(),
+    nextLifecycle = pluginGateState(appState.screen);
+  const lifecycleChanged = lifecycle !== nextLifecycle;
   if (nextKey !== signature) {
     // Preserve edits until blur if a provider changes its available choices mid-edit.
     const focused = document.activeElement;
-    if (focused && root.contains(focused) && ["INPUT", "SELECT"].includes(focused.tagName) && !appState.pending) {
+    if (
+      !lifecycleChanged &&
+      focused &&
+      root.contains(focused) &&
+      ["INPUT", "SELECT"].includes(focused.tagName) &&
+      !appState.pending
+    ) {
       update();
       return;
     }
     const saved = signature ? captureView(root) : undefined;
+    if (lifecycleChanged) saved?.nodes.clear();
+    lifecycle = nextLifecycle;
     signature = nextKey;
     build();
     update();
