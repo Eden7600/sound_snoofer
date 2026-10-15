@@ -123,9 +123,17 @@ func (d *device) io(ctx context.Context, b []byte, write bool) (int, error) {
 	deadline := time.Now().Add(time.Second)
 	for {
 		status, err := windows.WaitForSingleObject(event, 50)
+		// Completion wins over the deadline: a dropped key release leaves a phantom hold.
+		if err == nil && status == windows.WAIT_OBJECT_0 {
+			e = windows.GetOverlappedResult(d.handle, &over, &n, false)
+			return int(n), e
+		}
 		if err != nil || ctx.Err() != nil || time.Now().After(deadline) {
 			windows.CancelIoEx(d.handle, &over)
-			windows.GetOverlappedResult(d.handle, &over, &n, true)
+			// The transfer may still have completed before the cancel took effect.
+			if windows.GetOverlappedResult(d.handle, &over, &n, true) == nil && n > 0 {
+				return int(n), nil
+			}
 			if ctx.Err() != nil {
 				return 0, ctx.Err()
 			}
@@ -133,10 +141,6 @@ func (d *device) io(ctx context.Context, b []byte, write bool) (int, error) {
 				return 0, err
 			}
 			return 0, context.DeadlineExceeded
-		}
-		if status == windows.WAIT_OBJECT_0 {
-			e = windows.GetOverlappedResult(d.handle, &over, &n, false)
-			return int(n), e
 		}
 	}
 }

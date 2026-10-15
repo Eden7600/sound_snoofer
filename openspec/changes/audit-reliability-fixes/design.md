@@ -17,7 +17,7 @@ The plugin sends `normal-source`, `normal-output`, `vr-profile-source` and `vr-p
 `SetCallback` short-circuits only when the requested state is already in effect: `enable == m.enabled && sameHook(...) && (m.active || !enable)`. A failed registration retries, at most every 5 s, because the worker requests the callback on every iteration. The `unsafeClose` gate is unchanged.
 
 ## 5. Deck reads at the deadline
-`device.io` checks `WAIT_OBJECT_0` before the deadline. When the deadline or cancellation fires, it cancels and waits for the result. If the cancelled read still returned bytes, it returns them. Reads no longer have a deadline (the read loop's context still stops them); writes keep the 1 s deadline.
+`device.io` checks `WAIT_OBJECT_0` before the deadline. When the deadline or cancellation fires, it cancels and waits for the result; if the transfer still completed with bytes, it returns them. The 1 s deadline stays: the read loop simply reissues the read, and the HID driver buffers reports meanwhile. This is native I/O with no fake; it is verified by build and on hardware.
 
 ## 6. Browser bridge input
 - Go: a message that fails to decode is skipped (`continue`), not treated as a closed connection.

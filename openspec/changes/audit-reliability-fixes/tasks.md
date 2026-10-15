@@ -5,7 +5,7 @@
 - [x] 3. `fix(audio)`: check prefixed Normal/VR device rows for availability; tests for `normal-output` and a VR row.
 - [x] 4. `fix(audio)`: soundboard readiness compares planned `Strip[7]` operations; test with an output slot carrying the soundboard.
 - [x] 5. `fix(voicemeeter)`: retry a failed callback registration; test.
-- [ ] 6. `fix(deck)`: deliver reads completed at the deadline; reads have no deadline.
+- [x] 6. `fix(deck)`: deliver reads that complete at the deadline (native; verified on hardware in task 16).
 - [ ] 7. `fix(nowplaying)`: skip malformed bridge messages; coerce report fields; fetch only http(s) artwork without credentials; tests.
 - [ ] 8. `fix(routing)`: gate every interface-mic strip; test with a patch index of 4 or higher.
 - [ ] 9. `fix(audio)`: save tape ownership only before tape playback starts; test pausing a recording with saved choices unwritable.
@@ -17,4 +17,4 @@
 - [ ] 15. Validate: gofmt, `go test ./...`, `go vet ./...`, `node --test`, GUI check, OpenSpec strict validation, canonical build.
 
 ## Acceptance
-- [ ] 16. On hardware: edit a Stream Deck Mini or MK.2 page; start Snoofer before Voicemeeter and confirm the callback registers once Voicemeeter runs; pause a recording from Snoofer.
+- [ ] 16. On hardware: edit a Stream Deck Mini or MK.2 page; start Snoofer before Voicemeeter and confirm the callback registers once Voicemeeter runs; pause a recording from Snoofer; hold and release deck keys repeatedly with no phantom hold.
