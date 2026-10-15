@@ -6,6 +6,7 @@ import { compatible, gridMove } from "../model.ts";
 import type { DeckView } from "./deck-types.ts";
 import { viewKey, preserveSearch } from "../view-state.ts";
 import { registerDraft } from "../draft.ts";
+import { confirmAction } from "../confirmation.ts";
 
 interface DeckRange {
   context?: string;
@@ -276,7 +277,14 @@ export function buildDeck() {
   const del = command("streamdeck.delete", "Delete Page", deletion, ui.danger);
   if (del)
     del.onclick = () => {
-      if (window.confirm("Delete this page from the draft? Save applies the deletion.")) press("streamdeck.delete");
+      confirmAction(
+        del,
+        "streamdeck.delete",
+        "Delete page?",
+        "Delete this page from the draft? Save applies the deletion.",
+        "Delete Page",
+        () => JSON.stringify([c("streamdeck.profile")?.Value, c("streamdeck.page")?.Value]),
+      );
     };
   const selected = preview.ViewData.Selected,
     dial = selected >= K;
@@ -398,18 +406,30 @@ function decksPanel(parent: HTMLElement) {
   const own = widgets.at(-1);
   if (own?.id === "streamdeck.deck-own")
     own.input.onclick = () => {
-      if (
-        c("streamdeck.deck-own")?.Value !== "On" ||
-        window.confirm("Use the model layout on this deck? Its own layout is deleted.")
-      )
-        press("streamdeck.deck-own");
+      if (c("streamdeck.deck-own")?.Value !== "On") press("streamdeck.deck-own");
+      else
+        confirmAction(
+          own.input,
+          "streamdeck.deck-own",
+          "Use model layout?",
+          "Use the model layout on this deck? Its own layout is deleted.",
+          "Use Model Layout",
+          () => c("streamdeck.deck")?.Value || "",
+        );
     };
   const actions = el("div", ui.actions + " justify-end");
   card.append(actions);
   const forget = command("streamdeck.deck-forget", "Forget Deck", actions, ui.danger);
   if (forget)
     forget.onclick = () => {
-      if (window.confirm("Forget this deck and its own layout?")) press("streamdeck.deck-forget");
+      confirmAction(
+        forget,
+        "streamdeck.deck-forget",
+        "Forget deck?",
+        "Forget this deck and its own layout?",
+        "Forget Deck",
+        () => c("streamdeck.deck")?.Value || "",
+      );
     };
 }
 function regionsPanel(parent: HTMLElement) {

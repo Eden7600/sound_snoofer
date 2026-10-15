@@ -1,7 +1,8 @@
 import { controlsByID, gridMove } from "./model.ts";
 import { $, ui, icon } from "./dom.ts";
 import { appState, root, widgets, updaters, c, update, showError, setReconnecting } from "./state.ts";
-import { send, viewVersion, hydrateState } from "./host.ts";
+import { viewVersion, hydrateState } from "./host.ts";
+import { initializeConfirmation, closeLocalConfirmation } from "./confirmation.ts";
 import { captureView, restoreView } from "./view-state.ts";
 import type { ViewState, ViewUpdate } from "./types.ts";
 import type { MediaView } from "./screens/media-types.ts";
@@ -172,6 +173,7 @@ for (const b of document.querySelectorAll<HTMLButtonElement>("[data-screen]")) {
   b.className = ui.nav;
   b.prepend(icon(navIcons[target] || "circle", "size-5 shrink-0"));
   b.onclick = () => {
+    closeLocalConfirmation();
     clearDeckRange();
     appState.screen = target;
     signature = "";
@@ -187,12 +189,7 @@ for (const b of document.querySelectorAll<HTMLButtonElement>("[data-screen]")) {
     items[next]?.click();
   };
 }
-$("#confirm-no").onclick = () => send({ Kind: "cancel" });
-$("#confirm-yes").onclick = () => send({ Kind: "confirm" });
-$("#confirm").oncancel = (e) => {
-  e.preventDefault();
-  send({ Kind: "cancel" });
-};
+initializeConfirmation();
 let connectionFailures = 0;
 async function poll() {
   try {

@@ -182,3 +182,5 @@ Routing provides local section links. Output source switches and state stay in t
 The Deck Device/Page fields use matching stacked layouts. Save/Discard sits near them in normal document flow and never overlays the editor. Edit All Pages identifies shared binding scope with Same position on every page. A nonempty Soundboard library with no search matches shows No matching clips; clearing search restores the clips.
 
 Unapplied Routing names, patterns and Add choices survive unrelated rebuilds with their original revision. A changed configuration drops incompatible drafts. Removed or repurposed catalogue choices require reselection; explicit No device adds only a named output.
+
+Delete Page, Forget Deck and disabling Own Layout use the shared styled confirmation while polling continues. Cancel is the default and sends nothing. Acceptance uses the captured target and revision once; changed/unavailable targets or connection loss disable acceptance until cancellation. Host confirmations take precedence. Enabling Own Layout remains direct; Delete Page still requires Save Layout to persist.

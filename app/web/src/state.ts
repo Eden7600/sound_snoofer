@@ -2,6 +2,7 @@ import type { Control, ViewState, Pending, Widget } from "./types.ts";
 import { $, button, ui, badge, tc } from "./dom.ts";
 import { display, tone } from "./model.ts";
 import { syncDraft } from "./draft.ts";
+import { renderConfirmation } from "./confirmation.ts";
 export const root = $("#content");
 export const widgets: Widget[] = [];
 export const updaters: Array<() => void> = [];
@@ -93,9 +94,5 @@ export function update() {
   if (c("audio.pause-sends")?.Value === "On") $("#summary").append(badge("Sends paused", "attention"));
   root.setAttribute("aria-busy", String(!!appState.pending));
   refreshNotice();
-  const dialog = $<HTMLDialogElement>("#confirm");
-  if (appState.state.Confirmation) {
-    $("#confirm-text").textContent = appState.state.Confirmation;
-    if (!dialog.open) dialog.showModal();
-  } else if (dialog.open) dialog.close();
+  renderConfirmation();
 }

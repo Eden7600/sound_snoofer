@@ -40,6 +40,15 @@ export function captureView(root: HTMLElement) {
     ),
   };
 }
+export function restoreFocus(root: HTMLElement, key: string | undefined) {
+  const node = key ? keyed(root).get(key) : undefined;
+  if (node && !node.matches(":disabled") && node.checkVisibility({ visibilityProperty: true }))
+    node.focus({ preventScroll: true });
+  else {
+    root.tabIndex = -1;
+    root.focus({ preventScroll: true });
+  }
+}
 export function restoreView(root: HTMLElement, saved: ReturnType<typeof captureView>) {
   const nodes = keyed(root);
   for (const [key, state] of saved.nodes) {
@@ -53,15 +62,7 @@ export function restoreView(root: HTMLElement, saved: ReturnType<typeof captureV
     restoreDraft(node, state.draft);
   }
   // A modal opened by update owns focus; it lives outside the rebuilt content.
-  if (saved.focusInside && !document.querySelector("dialog[open]")) {
-    const node = saved.focused ? nodes.get(saved.focused) : undefined;
-    if (node && !node.matches(":disabled") && node.checkVisibility({ visibilityProperty: true }))
-      node.focus({ preventScroll: true });
-    else {
-      root.tabIndex = -1;
-      root.focus({ preventScroll: true });
-    }
-  }
+  if (saved.focusInside && !document.querySelector("dialog[open]")) restoreFocus(root, saved.focused);
   for (const [key, state] of saved.nodes) {
     const node = nodes.get(key);
     if (node) {

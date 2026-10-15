@@ -285,19 +285,19 @@ test.describe("Stream Deck", () => {
     const { page } = gui;
     const decks = page.locator("[data-part=decks]");
     await expect(decks.getByLabel("Paging")).toHaveValue("independent");
-    page.once("dialog", (d) => d.dismiss());
     await decks.getByRole("button", { name: "Forget Deck", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Cancel", exact: true }).click();
     expect(
       (await gui.sent()).map((a) => a.Request?.ID),
       "Forget without confirmation",
     ).not.toContain("streamdeck.deck-forget");
-    page.once("dialog", (d) => d.accept());
     await decks.getByRole("button", { name: "Forget Deck", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Forget Deck", exact: true }).click();
     expect((await gui.last()).ID).toBe("streamdeck.deck-forget");
     await gui.settled();
     const count = (await gui.sent()).length;
-    page.once("dialog", (d) => d.dismiss());
     await decks.getByRole("button", { name: "Own Layout" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Cancel", exact: true }).click();
     expect((await gui.sent()).length, "own layout dropped without confirmation").toBe(count);
   });
 
