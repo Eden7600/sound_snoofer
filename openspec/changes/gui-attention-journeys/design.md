@@ -101,15 +101,16 @@ Publish it only at these existing canonical status sites, using the source condi
 | appaudio.status | backendErr or editErr | critical |
 | soundboard.status | scanErr or current diagnostic | critical |
 | soundboard.status | current artwork failure without a critical condition; routing readiness failure already has a typed connection report | attention |
-| nowplaying.status | winErr, bridgeErr, saveErr or a current session failure | critical |
+| nowplaying.status | winErr, bridgeErr or a visible current session failure | critical |
 | streamdeck.status | an editor failure at its existing error assignment sites, distinct from empty/Saved feedback and Dirty | critical |
 
 Stream Deck retains a boolean/typed failure flag alongside current editor feedback, set at the
 actual error source and cleared wherever that feedback clears or becomes Saved. Do not compare
 the text to Saved: error text can equal it. Dirty alone is not a problem marker. Soundboard's
-intentional Preview label and unavailable playback in preview are not failures; only a concrete
-scan/artwork failure still displayed in preview can mark it. Do not flag a hidden diagnostic
+intentional Preview label and unavailable playback in preview are not failures; the current Preview label replaces every diagnostic, so preview publishes no attention metadata. Do not flag a hidden diagnostic
 that the destination does not show. Keep every producer's existing error lifetime.
+
+Media does not show nowplaying.deck-media save errors; those remain Deck-local action feedback and do not enter the Media status aggregate.
 
 Current Hue/Discord faults and setup use their typed connection reports. Pairing or individual
 action failures already attributed by gui-action-outcomes stay local; this change does not turn
