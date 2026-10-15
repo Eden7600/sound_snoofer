@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -37,7 +36,7 @@ func TestEditorSaveAndInputGenerations(t *testing.T) {
 	saved := make(chan Settings, 1)
 	services := snoofer.Services{Controls: registry, SaveSettings: func(_ string, _, data json.RawMessage) error {
 		if fail.Load() {
-			return errors.New("save denied")
+			return errors.New("Saved")
 		}
 		var settings Settings
 		if err := json.Unmarshal(data, &settings); err != nil {
@@ -105,13 +104,16 @@ func TestEditorSaveAndInputGenerations(t *testing.T) {
 	initial := frame("A", "")
 	command("name", "set", "Renamed")
 	command("save", "press", "")
-	if !strings.Contains(control("status").Value, "save denied") {
+	if control("status").Value != "Unsaved — Saved" || control("status").Attention != snoofer.AttentionCritical {
 		t.Fatal(control("status"))
 	}
 	frame("A", "") // A failed save must not change the active layout.
 	fail.Store(false)
 	command("save", "press", "")
 	committed := <-saved
+	if status := control("status"); status.Value != "Saved" || status.Attention != "" {
+		t.Fatalf("successful save retained failure metadata: %+v", status)
+	}
 	if committed.Layout.Pages[0].Name != "Renamed" {
 		t.Fatal("lost draft")
 	}
@@ -139,5 +141,9 @@ func TestEditorSaveAndInputGenerations(t *testing.T) {
 	command("save", "press", "")
 	if (<-saved).Layout.Pages[0].ID != "b" {
 		t.Fatal("reorder changed page identity")
+	}
+	command("name", "set", "Unsaved Name")
+	if control("status").Attention != "" {
+		t.Fatal("an unsaved draft is not a failure")
 	}
 }

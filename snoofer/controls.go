@@ -13,6 +13,14 @@ import (
 	"time"
 )
 
+// AttentionLevel describes a current problem, independently of display text.
+type AttentionLevel string
+
+const (
+	AttentionWarning  AttentionLevel = "attention"
+	AttentionCritical AttentionLevel = "critical"
+)
+
 // Control is an immutable snapshot. Operations are press, adjust or set.
 type Control struct {
 	ViewData                                    json.RawMessage `json:",omitempty"` // Optional provider-owned structured view; core treats it as opaque.
@@ -24,9 +32,10 @@ type Control struct {
 	Mirrors                                     string          // Optional ID of the control this one stands in for, such as a focus dial; surfaces avoid showing both.
 	Order                                       int             // Optional position within Collection; regions fill by Order, then label.
 	Meter                                       Meter
-	Progress                                    Progress    // Optional playback position; display only, like Meter.
-	Timers                                      []Timer     `json:",omitempty"` // Optional running countdowns, such as playing clips.
-	Connection                                  *Connection `json:",omitempty"` // Optional external integration report (Kind "connection").
+	Progress                                    Progress       // Optional playback position; display only, like Meter.
+	Timers                                      []Timer        `json:",omitempty"` // Optional running countdowns, such as playing clips.
+	Connection                                  *Connection    `json:",omitempty"` // Optional external integration report (Kind "connection").
+	Attention                                   AttentionLevel `json:",omitempty"` // Optional current problem; display-only.
 	SurfaceOnly                                 bool
 	Hidden                                      bool     // Optional: no useful place on surfaces right now; the deck renders a blank key and GUIs omit it. Publish it unavailable.
 	Inactive                                    bool     // Optional: has no effect right now, such as mic-path controls while the mic stack is off; surfaces show it greyed and inert in its place.
@@ -159,8 +168,9 @@ func (c *Controls) Publish(provider string, controls []Control, invoke func(cont
 		old, ok := c.entries[v.ID]
 		previous := old.control
 		previous.Revision = 0
-		previous.Meter = v.Meter       // Signal motion must not invalidate pending control input.
-		previous.Progress = v.Progress // Nor may playback advancing.
+		previous.Meter = v.Meter         // Signal motion must not invalidate pending control input.
+		previous.Progress = v.Progress   // Nor may playback advancing.
+		previous.Attention = v.Attention // A marker alone does not change the action target.
 		v.Revision = 0
 		if ok && reflect.DeepEqual(previous, v) {
 			v.Revision = old.control.Revision

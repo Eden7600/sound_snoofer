@@ -266,7 +266,14 @@ var micPathControls = map[string]bool{
 }
 
 func controls(s control.State) []snoofer.Control {
-	out := []snoofer.Control{{ID: "audio.health", Label: "Audio Health", Group: "System", Kind: "status", Value: s.Health, Status: strings.TrimSpace(s.Error + " " + s.StateError + " " + s.Notice), Available: true}}
+	var attention snoofer.AttentionLevel
+	switch {
+	case s.Error != "" || s.StateError != "" || s.Stalled || (s.Notice != "" && s.NoticeKind == control.NoticeError):
+		attention = snoofer.AttentionCritical
+	case s.RecoveryPending:
+		attention = snoofer.AttentionWarning
+	}
+	out := []snoofer.Control{{ID: "audio.health", Label: "Audio Health", Group: "System", Kind: "status", Value: s.Health, Status: strings.TrimSpace(s.Error + " " + s.StateError + " " + s.Notice), Attention: attention, Available: true}}
 	if s.Intent == nil {
 		return out
 	}

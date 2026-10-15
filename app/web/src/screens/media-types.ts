@@ -26,6 +26,7 @@ export interface MediaSession {
 export interface MediaView {
   Bridge: { Port: number; Error: string; Refused: string };
   Windows: string;
+  WindowsError?: string;
   Browsers: { Name: string; Version: string; Sessions: number }[] | null;
   Sessions: MediaSession[] | null;
 }

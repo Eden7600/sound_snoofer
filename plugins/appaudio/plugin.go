@@ -471,8 +471,12 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 	case !w.services.Live:
 		value = "Preview"
 	}
+	var attention snoofer.AttentionLevel
+	if w.backendErr != "" || w.editErr != "" {
+		attention = snoofer.AttentionCritical
+	}
 	controls = append(controls,
-		snoofer.Control{ID: "appaudio.status", Label: "App Audio", Group: "App Audio", Kind: "status", Value: value, Status: cmp.Or(w.backendErr, w.editErr), ViewData: data, Available: true},
+		snoofer.Control{ID: "appaudio.status", Label: "App Audio", Group: "App Audio", Kind: "status", Value: value, Status: cmp.Or(w.backendErr, w.editErr), Attention: attention, ViewData: data, Available: true},
 		// The edit control changes with every saved or failed edit, so a GUI waiting on it settles.
 		snoofer.Control{ID: "appaudio.edit", Label: "App Audio Edit", Group: "App Audio", Kind: "text", Value: fmt.Sprintf("%x", sha256.Sum256(w.raw))[:12], Status: w.editErr,
 			Operations: []string{"set"}, Available: w.services.SaveSettings != nil})

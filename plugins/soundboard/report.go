@@ -32,3 +32,25 @@ func playbackReport(link *snoofer.ConnectionTracker, live bool, ready error, loa
 	return snoofer.Control{ID: "soundboard.app-playback", Label: "Soundboard Playback", Group: "Soundboard", Kind: "connection", Value: value,
 		SurfaceOnly: true, Available: true, Connection: link.Report(renderer, details...)}
 }
+
+// libraryStatus classifies only the diagnostic that the library actually displays.
+func libraryStatus(live bool, diagnostic string, scanErr, ready error, clips []clip) (string, snoofer.AttentionLevel) {
+	if !live {
+		return "Preview", ""
+	}
+	if scanErr != nil {
+		return scanErr.Error(), snoofer.AttentionCritical
+	}
+	if ready != nil {
+		return ready.Error(), "" // The playback connection report owns routing readiness.
+	}
+	if diagnostic != "" {
+		return diagnostic, snoofer.AttentionCritical
+	}
+	for _, clip := range clips {
+		if clip.ArtworkError != "" {
+			return clip.ArtworkError, snoofer.AttentionWarning
+		}
+	}
+	return "", ""
+}

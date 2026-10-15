@@ -116,6 +116,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 		shared := false
 		editDeck := "" // Serial of the remembered deck the deck commands apply to.
 		status := ""   // Layout editor feedback only; device state lives in links.
+		var statusAttention snoofer.AttentionLevel
 		dirty := false
 		editorEpoch := uint64(1)
 		decks := map[string]*deckState{}  // Connected decks by device ID.
@@ -142,14 +143,14 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			for _, c := range s.Controls.Snapshot() {
 				if c.Available && slices.Contains(c.Operations, "reset") {
 					if err := s.Controls.Dispatch(runCtx, snoofer.Request{ID: c.ID, Revision: c.Revision, Operation: "reset"}); err != nil {
-						status = err.Error()
+						status, statusAttention = err.Error(), snoofer.AttentionCritical
 					}
 				}
 			}
 		}
 		dispatch := func(r snoofer.Request) {
 			if err := s.Controls.Dispatch(runCtx, r); err != nil {
-				status = err.Error()
+				status, statusAttention = err.Error(), snoofer.AttentionCritical
 			}
 		}
 		layoutOf := func(d *deckState) Layout {
@@ -214,13 +215,13 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 				return
 			}
 			if own, ok := settings.Serials[serial]; ok && own.model != modelKey(model) {
-				status = fmt.Sprintf("Deck %s has a layout for another model; it is not remembered", serial)
+				status, statusAttention = fmt.Sprintf("Deck %s has a layout for another model; it is not remembered", serial), snoofer.AttentionCritical
 				return
 			}
 			next := settings.clone()
 			next.Devices[serial] = Deck{Model: model, Name: next.Devices[serial].Name}
 			if err := save(next); err != nil {
-				status = "Remember deck: " + err.Error()
+				status, statusAttention = "Remember deck: "+err.Error(), snoofer.AttentionCritical
 			}
 		}
 		// show moves deck d to page id and, when mirrored, every other deck
@@ -465,7 +466,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 			}
 			viewData, viewErr := json.Marshal(editorView(draft, editPage, slot, dirty, all, deckList))
 			if viewErr != nil {
-				status = viewErr.Error()
+				status, statusAttention = viewErr.Error(), snoofer.AttentionCritical
 			} else {
 				list[len(list)-1].ViewData = viewData
 			}
@@ -474,6 +475,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 				note = "Unsaved — " + note
 			}
 			add("status", "Layout Status", "status", note, nil)
+			list[len(list)-1].Attention = statusAttention
 			add("save", "Save Layout", "command", "", nil, "press")
 			add("cancel", "Cancel Edits", "command", "", nil, "press")
 			own := "Off"
@@ -738,7 +740,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					}
 				}
 				if !current {
-					status = "Editor changed; try again"
+					status, statusAttention = "Editor changed; try again", snoofer.AttentionCritical
 					continue
 				}
 				if page, ok := strings.CutPrefix(r.ID, gotoPrefix); ok {
@@ -892,7 +894,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					err = save(next)
 					if err == nil {
 						dirty = false
-						status = "Saved"
+						status, statusAttention = "Saved", ""
 					}
 				case "deck":
 					if _, ok := settings.Devices[r.Value]; !ok {
@@ -951,7 +953,7 @@ func startWithSurface(ctx context.Context, s snoofer.Services, raw json.RawMessa
 					err = save(next)
 				}
 				if err != nil {
-					status = err.Error()
+					status, statusAttention = err.Error(), snoofer.AttentionCritical
 				}
 				publish()
 			}

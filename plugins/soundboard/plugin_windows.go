@@ -114,25 +114,9 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, deps ma
 		lastClip := ""
 		publish := func() {
 			ready := audioPlugin.SoundboardReady()
-			note := diagnostic
-			if scanErr != nil {
-				note = scanErr.Error()
-			} else if ready != nil {
-				note = ready.Error()
-			}
-			if note == "" {
-				for _, c := range clips {
-					if c.ArtworkError != "" {
-						note = c.ArtworkError
-						break
-					}
-				}
-			}
-			if !s.Live {
-				note = "Preview"
-			}
+			note, attention := libraryStatus(s.Live, diagnostic, scanErr, ready, clips)
 			controls := []snoofer.Control{
-				{ID: "soundboard.status", Label: "Soundboard", Group: "Soundboard", Kind: "status", Value: note, Timers: voices.timers(), Available: true},
+				{ID: "soundboard.status", Label: "Soundboard", Group: "Soundboard", Kind: "status", Value: note, Timers: voices.timers(), Attention: attention, Available: true},
 				{ID: "soundboard.stop", Label: "Stop Soundboard", ShortLabel: "Stop", Group: "Soundboard", Kind: "command", Icon: "soundboard-stop", Operations: []string{"press"}, Available: s.Live},
 				{ID: "soundboard.overlap", Label: "Overlap Clips", ShortLabel: "Overlap", Group: "Soundboard", Kind: "toggle", Icon: "soundboard-overlap", Value: onOff(settings.Overlap), Operations: []string{"press"}, Available: true},
 			}

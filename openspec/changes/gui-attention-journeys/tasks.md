@@ -6,7 +6,7 @@
 - [x] 2. Commit checkpoint: add typed lifecycle snapshot and PluginStates wire field; retain
   status text. Cover missing/disabled/starting/running/failed, dependency failures, snapshots and
   failure text matching healthy labels. Update fixture/test types and transport coverage.
-- [ ] 3. Commit checkpoint: add narrow provider attention metadata and tests, preserving action
+- [x] 3. Commit checkpoint: add narrow provider attention metadata and tests, preserving action
   identity and existing error lifetimes. Cover every producer in the design, metadata-only
   delivery/revision behavior and recovery; publish explicit Media WindowsError and verify its
   existing problem line never hides an error named Connected. Regenerate audio/deck fixtures

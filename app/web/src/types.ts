@@ -37,6 +37,7 @@ export interface Control<T = unknown> {
   Progress: Progress;
   Timers?: { Control: string; Ends: string }[];
   Connection?: Connection;
+  Attention?: "attention" | "critical";
   SurfaceOnly: boolean;
   Hidden: boolean;
   Inactive: boolean;

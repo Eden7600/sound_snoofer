@@ -34,15 +34,20 @@ type bridgeView struct {
 }
 
 type statusView struct {
-	Bridge   bridgeView
-	Windows  string // Connected, or why not.
-	Browsers []browserView
-	Sessions []viewSession
+	Bridge       bridgeView
+	Windows      string // Connected, or why not.
+	WindowsError string `json:",omitempty"` // Explicit failure, independent of display text.
+	Browsers     []browserView
+	Sessions     []viewSession
 }
 
 func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 	var controls []snoofer.Control
-	view := statusView{Windows: "Connected", Bridge: bridgeView{Port: w.settings.port(), Error: w.bridgeErr}}
+	var attention snoofer.AttentionLevel
+	if w.winErr != "" || w.bridgeErr != "" {
+		attention = snoofer.AttentionCritical
+	}
+	view := statusView{Windows: "Connected", WindowsError: w.winErr, Bridge: bridgeView{Port: w.settings.port(), Error: w.bridgeErr}}
 	if w.bridge != nil {
 		view.Bridge.Refused = w.bridge.lastRefusal()
 	}
@@ -58,6 +63,8 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 		status := w.failure[s.Key]
 		if _, ok := w.pending[s.Key]; ok {
 			status = "Pending"
+		} else if status != "" {
+			attention = snoofer.AttentionCritical
 		}
 		controls = append(controls, snoofer.Control{ID: id, Label: title, ShortLabel: title, Group: "Now Playing", Collection: "nowplaying.sessions", CollectionLabel: "Media Sessions",
 			Order: n + 1, Kind: "command", Icon: "media-play", Artwork: w.artwork(s), Value: s.Status, Status: status, Operations: []string{"press", "hold", "set"}, Hidden: w.settings.DeckMediaOff, Available: s.CanToggle || s.CanSeek})
@@ -122,7 +129,7 @@ func (w *worker) publish(commands chan snoofer.Request, now time.Time) {
 	if !w.services.Live {
 		summary = "Preview"
 	}
-	controls = append(controls, snoofer.Control{ID: "nowplaying.status", Label: "Now Playing", Group: "Now Playing", Kind: "status", Value: summary, ViewData: data, Available: true})
+	controls = append(controls, snoofer.Control{ID: "nowplaying.status", Label: "Now Playing", Group: "Now Playing", Kind: "status", Value: summary, ViewData: data, Attention: attention, Available: true})
 	_ = w.services.Controls.Publish("nowplaying", controls, func(ctx context.Context, r snoofer.Request) error {
 		select {
 		case commands <- r:

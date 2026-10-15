@@ -142,7 +142,7 @@ function extensionCard(parent: HTMLElement) {
     problem.textContent = [
       v.Bridge?.Error,
       v.Bridge?.Refused,
-      v.Windows && v.Windows !== "Connected" ? "Windows media sessions: " + v.Windows : "",
+      v.WindowsError ? "Windows media sessions: " + v.WindowsError : "",
     ]
       .filter(Boolean)
       .join(" · ");

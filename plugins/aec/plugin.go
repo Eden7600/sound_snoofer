@@ -485,27 +485,27 @@ func (w *worker) save(next Settings) error {
 }
 
 // status is the state word and its detail line.
-func (w *worker) status() (string, string) {
+func (w *worker) status() (string, string, snoofer.AttentionLevel) {
 	if w.loading {
-		return "Wait", "Loading " + engineLabels[w.settings.engine()]
+		return "Wait", "Loading " + engineLabels[w.settings.engine()], ""
 	}
 	failure := cmp.Or(w.releaseErr, w.retryErr, w.engineErr, w.statsErr)
 	switch {
 	case w.stats.Failed:
 		if w.stats.Reason != "" {
-			return "Error", "Engine error (" + w.stats.Reason + "); mic passes through" + w.retryDetail()
+			return "Error", "Engine error (" + w.stats.Reason + "); mic passes through" + w.retryDetail(), snoofer.AttentionCritical
 		}
-		return "Error", "Engine error; mic passes through" + w.retryDetail()
+		return "Error", "Engine error; mic passes through" + w.retryDetail(), snoofer.AttentionCritical
 	case failure != "":
-		return "Error", failure
+		return "Error", failure, snoofer.AttentionCritical
 	case !w.active && w.settings.mode() == "off":
-		return "Off", ""
+		return "Off", "", ""
 	case !w.active:
-		return "Idle", w.reason
+		return "Idle", w.reason, ""
 	case w.stats.SampleRate != 0 && (!engine.Supported(w.stats.SampleRate) || (w.settings.engine() == "localvqe-full" && w.stats.SampleRate != 48000)):
-		return "Idle", "Needs 48 kHz"
+		return "Idle", "Needs 48 kHz", snoofer.AttentionWarning
 	case !w.stats.Active:
-		return "Wait", ""
+		return "Wait", "", ""
 	}
 	detail := []string{}
 	if w.settings.engine() != "aec3" {
@@ -524,7 +524,7 @@ func (w *worker) status() (string, string) {
 	if w.stats.DelayKnown {
 		detail = append(detail, fmt.Sprintf("%d ms", w.stats.DelayMs))
 	}
-	return "Active", strings.Join(detail, " · ")
+	return "Active", strings.Join(detail, " · "), ""
 }
 
 func (w *worker) retryDetail() string {
@@ -535,7 +535,7 @@ func (w *worker) retryDetail() string {
 }
 
 func (w *worker) publish() {
-	value, detail := w.status()
+	value, detail, attention := w.status()
 	canSave := w.services.SaveSettings != nil
 	controls := []snoofer.Control{
 		{ID: "aec.retry", Label: "Retry Echo Cancellation", ShortLabel: "Retry", Group: "Echo Cancellation", Kind: "command", Icon: "echo", Operations: []string{"press"}, Available: w.canRetry()},
@@ -545,7 +545,7 @@ func (w *worker) publish() {
 		{ID: "aec.strength", Label: "Echo Strength", ShortLabel: "Strength", Group: "Echo Cancellation", Kind: "selection", Icon: "echo",
 			Value: w.settings.strength(), Options: strengths, OptionLabels: strengthText, Operations: []string{"set"}, Available: canSave && w.settings.engine() == "aec3"},
 		{ID: "aec.status", Label: "Echo Cancellation Status", ShortLabel: "Echo", Group: "Echo Cancellation", Kind: "status", Icon: "echo",
-			Value: value, Status: detail, Available: true},
+			Value: value, Status: detail, Attention: attention, Available: true},
 	}
 	if w.stats.TimingKnown {
 		controls = append(controls, snoofer.Control{ID: "aec.timing", Label: "Neural Timing", Kind: "status", Group: "Echo Cancellation", Available: true,

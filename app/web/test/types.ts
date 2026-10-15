@@ -33,6 +33,7 @@ export interface Control<T = unknown> {
   Icon?: string;
   Hidden?: boolean;
   Subdued?: boolean;
+  Attention?: "attention" | "critical";
   SurfaceOnly?: boolean;
   Options?: string[];
   OptionLabels?: Record<string, string>;

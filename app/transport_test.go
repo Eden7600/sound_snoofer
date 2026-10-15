@@ -91,6 +91,7 @@ func TestViewSenderTelemetryAndPresentation(t *testing.T) {
 		"progress": func() {
 			state.Controls[0].Progress = snoofer.Progress{Known: true, Playing: true, PositionMs: 100, At: time.Now()}
 		},
+		"attention":        func() { state.Controls[0].Attention = snoofer.AttentionCritical },
 		"view data":        func() { state.Controls[0].ViewData = json.RawMessage(`{"Sessions":[]}`) },
 		"plugin label":     func() { state.PluginLabels = map[string]string{"custom": "Custom"} },
 		"plugin state":     func() { state.Plugins = map[string]string{"custom": "Running"} },
