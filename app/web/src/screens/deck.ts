@@ -265,7 +265,7 @@ export function buildDeck() {
   search.setAttribute("aria-label", "Find a Binding");
   const select = el(
     "select",
-    "my-2.5 min-h-[220px] w-full text-xs max-[1120px]:min-h-[150px] *:p-[7px] *:whitespace-normal",
+    "my-2.5 min-h-[220px] max-h-[300px] w-full text-xs max-[1120px]:min-h-[150px] *:p-[7px] *:whitespace-normal",
   );
   select.size = 9;
   select.setAttribute("aria-label", "Binding");
