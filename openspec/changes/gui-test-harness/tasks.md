@@ -2,7 +2,7 @@
 ## Implementation
 - [x] 1. `docs(gui)`: specify the GUI test harness; record the TypeScript decisions and new order in `docs/gui-audit.md`.
 - [x] 2. `test(gui)`: add `@playwright/test` and `@axe-core/playwright`, config, routed page serving, fake host and the ported hand fixture; Chrome check; Audio specs ported.
-- [ ] 3. `test(gui)`: port Routing specs.
+- [x] 3. `test(gui)`: port Routing specs.
 - [ ] 4. `test(gui)`: port Stream Deck specs.
 - [ ] 5. `test(gui)`: port Soundboard, Lights, App Audio, Meetings, Media, Plugins, Apps and Diagnostics specs; remove `check-gui.cjs`; `check.ps1` runs the suite by default.
 - [ ] 6. `test(audio)`: golden GUI fixtures from the audio provider (live and preview), with drift test; specs use them.
