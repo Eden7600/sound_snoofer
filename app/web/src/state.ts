@@ -6,6 +6,7 @@ export const widgets: Widget[] = [];
 export const updaters: Array<() => void> = [];
 export const appState: {
   state: ViewState;
+  animationVersion: number;
   controls: Map<string, Control>;
   screen: string;
   pending: Pending | null;
@@ -14,6 +15,7 @@ export const appState: {
   dismissedNotice: string;
 } = {
   state: { Controls: [], Plugins: {}, PluginLabels: {}, Enabled: {}, Notice: "", Confirmation: "" },
+  animationVersion: 0,
   controls: new Map(),
   screen: "audio",
   pending: null,

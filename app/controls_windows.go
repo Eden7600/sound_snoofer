@@ -4,7 +4,6 @@ package app
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -24,7 +23,7 @@ type controls struct {
 	input, output *os.File
 	closeOnce     sync.Once
 	exitErr       error
-	animations    animationSender // Used only by the tray goroutine that publishes.
+	view          viewSender // Used only by the tray goroutine that publishes.
 }
 
 func startControls(ctx context.Context, state ViewState, actions chan<- UIAction) (*controls, error) {
@@ -101,15 +100,17 @@ func (c *controls) stop() {
 	}
 }
 func (c *controls) publish(state ViewState) error {
-	data, err := json.Marshal(frame{State: &state, Animations: c.animations.changed(state.Controls)})
+	data, err := c.view.prepare(state, false)
 	if err != nil {
 		return fmt.Errorf("encode controls state: %w", err)
 	}
-	offer(c.updates, data)
+	if data != nil {
+		offer(c.updates, data)
+	}
 	return nil
 }
 func (c *controls) focus(state ViewState) {
-	data, err := json.Marshal(frame{State: &state, Focus: true})
+	data, err := c.view.prepare(state, true)
 	if err == nil {
 		offer(c.updates, data)
 	}

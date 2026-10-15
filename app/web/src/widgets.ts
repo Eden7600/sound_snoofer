@@ -226,20 +226,21 @@ export function setArt(
   size: string,
   animated?: string,
 ) {
-  if (art.dataset.art === (artwork || "")) return;
+  const generation = animated ? String(appState.animationVersion) : "";
+  if (art.dataset.art === (artwork || "") && art.dataset.animation === generation) return;
   art.dataset.art = artwork || "";
+  art.dataset.animation = generation;
   art.replaceChildren();
   if (artwork) {
     const image = el("img", size + " object-contain");
     image.src = "data:image/png;base64," + artwork;
     image.alt = "";
     art.append(image);
-    if (animated) animate(art, image, animated, artwork);
+    if (animated) animate(art, image, animated, artwork, generation);
   } else art.append(fallback());
 }
-// animate plays a control's artwork frames, fetched once per artwork; frames
-// for older artwork are ignored, and playback stops when the image is replaced.
-async function animate(art: HTMLElement, image: HTMLImageElement, id: string, artwork: string) {
+// An animation generation also invalidates changes beyond the first still frame.
+async function animate(art: HTMLElement, image: HTMLImageElement, id: string, artwork: string, generation: string) {
   const desktop = window.go?.app?.Desktop;
   if (!desktop?.Animation) return;
   let frames;
@@ -248,10 +249,11 @@ async function animate(art: HTMLElement, image: HTMLImageElement, id: string, ar
   } catch {
     return;
   }
-  if (!frames || frames.length < 2 || frames[0]?.Artwork !== artwork) return;
+  const current = () => image.isConnected && art.dataset.art === artwork && art.dataset.animation === generation;
+  if (!current() || !frames || frames.length < 2 || frames[0]?.Artwork !== artwork) return;
   let n = 0;
   const step = () => {
-    if (!image.isConnected || art.dataset.art !== artwork) return;
+    if (!current()) return;
     n = (n + 1) % frames.length;
     const frame = frames[n];
     if (!frame) return;

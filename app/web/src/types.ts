@@ -87,8 +87,15 @@ export interface ArtworkFrame {
   Delay: number; // Go time.Duration in nanoseconds.
 }
 
+export interface ViewUpdate {
+  Version: number;
+  State: ViewState;
+  AnimationVersion: number;
+  Artwork?: Record<string, string>;
+}
+
 export interface Desktop {
-  State(): Promise<ViewState | null>;
+  State(sinceVersion: number): Promise<ViewUpdate | null>;
   Send(action: UIAction): Promise<void>;
   Animation(id: string): Promise<ArtworkFrame[] | null>;
 }

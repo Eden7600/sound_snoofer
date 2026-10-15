@@ -17,6 +17,8 @@ declare global {
     animations: Animations;
     sent: Action[];
     copied: string[];
+    liveMeters: boolean;
+    transport: { polls: number; unchanged: number; artwork: number; animations: number };
     // Finds a fixture control by ID (page side).
     ctl: <T = unknown>(id: string) => Control<T>;
   }
@@ -38,6 +40,8 @@ function installHost([fixture, animations]: [Fixture, Animations]): void {
   window.animations = animations;
   window.sent = [];
   window.copied = [];
+  window.liveMeters = true;
+  window.transport = { polls: 0, unchanged: 0, artwork: 0, animations: 0 };
   window.ctl = <T = unknown>(id: string): Control<T> => {
     const control = window.fixture.Controls.find((c) => c.ID === id);
     if (!control) throw new Error(`fixture has no ${id}`);
@@ -50,14 +54,54 @@ function installHost([fixture, animations]: [Fixture, Animations]): void {
       },
     },
   });
+  let version = 0,
+    artworkVersion = 0,
+    animationVersion = 0;
+  let previousState = "",
+    previousArtwork = "",
+    previousAnimations = "";
   const desktop = {
-    State: async () => {
+    State: async (sinceVersion: number) => {
+      window.transport.polls++;
       // Meter readings expire after 500 ms; keep the fixture's readings live.
       const next = structuredClone(window.fixture);
-      for (const c of next.Controls) if (c.Meter) c.Meter.At = new Date().toISOString();
-      return next;
+      const artwork: Record<string, string> = {};
+      const animations: Animations = {};
+      for (const c of next.Controls) {
+        if (window.liveMeters && c.Meter) c.Meter.At = new Date().toISOString();
+        if (c.Artwork) artwork[c.ID] = c.Artwork;
+        c.Artwork = "";
+        const frames = window.animations[c.ID];
+        if (frames && frames.length > 1) animations[c.ID] = frames;
+      }
+      const stateJSON = JSON.stringify(next),
+        artworkJSON = JSON.stringify(artwork),
+        animationJSON = JSON.stringify(animations);
+      if (stateJSON !== previousState || artworkJSON !== previousArtwork || animationJSON !== previousAnimations) {
+        version++;
+        if (artworkJSON !== previousArtwork) artworkVersion = version;
+        if (animationJSON !== previousAnimations) animationVersion = version;
+        previousState = stateJSON;
+        previousArtwork = artworkJSON;
+        previousAnimations = animationJSON;
+      }
+      if (sinceVersion === version) {
+        window.transport.unchanged++;
+        return null;
+      }
+      const includeArtwork = sinceVersion === 0 || sinceVersion < artworkVersion || sinceVersion > version;
+      if (includeArtwork) window.transport.artwork++;
+      return {
+        Version: version,
+        State: next,
+        AnimationVersion: animationVersion,
+        ...(includeArtwork ? { Artwork: artwork } : {}),
+      };
     },
-    Animation: async (id: string) => window.animations[id] ?? null,
+    Animation: async (id: string) => {
+      window.transport.animations++;
+      return structuredClone(window.animations[id] ?? null);
+    },
     Send: async (action: Action) => {
       window.sent.push(action);
       const r = action.Request;

@@ -33,17 +33,48 @@ var desktopAssets embed.FS
 
 // Desktop exposes only immutable state and the existing semantic action pipe.
 type Desktop struct {
-	mu         sync.Mutex
-	state      ViewState
-	animations map[string][]snoofer.ArtworkFrame // Replaced wholesale, like state.
-	actions    chan UIAction
-	ctx        context.Context
+	mu               sync.Mutex
+	state            ViewState
+	version          uint64
+	artwork          map[string]string
+	artworkVersion   uint64
+	animationVersion uint64
+	animations       map[string][]snoofer.ArtworkFrame // Replaced wholesale, like state.
+	actions          chan UIAction
+	ctx              context.Context
 }
 
-func (d *Desktop) State() ViewState {
+func (d *Desktop) State(sinceVersion uint64) *ViewUpdate {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	return d.state // Replaced wholesale; snapshots are never mutated.
+	if d.version == 0 || sinceVersion == d.version {
+		return nil
+	}
+	update := &ViewUpdate{Version: d.version, State: d.state, AnimationVersion: d.animationVersion}
+	if sinceVersion == 0 || sinceVersion < d.artworkVersion || sinceVersion > d.version {
+		artwork := d.artwork
+		update.Artwork = &artwork
+	}
+	return update // Replaced wholesale; snapshots are never mutated.
+}
+
+func (d *Desktop) applyFrame(f frame) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if f.State != nil {
+		if f.Version == 0 {
+			// The isolated native smoke still supplies complete, unversioned states.
+			state, artwork, _ := separateArtwork(*f.State)
+			f.State, f.Artwork, f.Version = &state, &artwork, d.version+1
+		}
+		d.state, d.version = *f.State, f.Version
+	}
+	if f.Artwork != nil {
+		d.artwork, d.artworkVersion = *f.Artwork, d.version
+	}
+	if f.Animations != nil {
+		d.animations, d.animationVersion = *f.Animations, d.version
+	}
 }
 
 // Animation returns a control's artwork frames, or none. The GUI requests
@@ -107,14 +138,7 @@ func RunDesktop(ctx context.Context) error {
 					if err := decoder.Decode(&f); err != nil {
 						return
 					}
-					d.mu.Lock()
-					if f.State != nil {
-						d.state = *f.State
-					}
-					if f.Animations != nil {
-						d.animations = f.Animations
-					}
-					d.mu.Unlock()
+					d.applyFrame(f)
 					if f.Focus {
 						wruntime.WindowUnminimise(uiCtx)
 						wruntime.WindowShow(uiCtx)

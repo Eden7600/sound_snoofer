@@ -1,10 +1,12 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
 	"maps"
+	"slices"
 
 	"sound-snoofer/snoofer"
 )
@@ -12,33 +14,77 @@ import (
 // Frames are private to one inherited-pipe controls session. No commands are
 // replayed after disconnection; the worker still validates action revisions.
 type frame struct {
-	State      *ViewState                        `json:",omitempty"`
-	Focus      bool                              `json:",omitempty"`
-	Animations map[string][]snoofer.ArtworkFrame `json:",omitempty"` // Every animated control's frames, sent only when they change.
+	Version    uint64
+	State      *ViewState                         `json:",omitempty"`
+	Focus      bool                               `json:",omitempty"`
+	Artwork    *map[string]string                 `json:",omitempty"`
+	Animations *map[string][]snoofer.ArtworkFrame `json:",omitempty"`
 }
 
-// animationSender tracks the artwork whose animations a controls session has,
-// so the frames cross the pipe once rather than with every state.
-type animationSender struct {
-	sent map[string]string // Control ID to the Artwork its frames animate.
+// ViewUpdate is a private GUI response. A missing Artwork retains the browser's
+// cache; an explicit empty map clears it.
+type ViewUpdate struct {
+	Version          uint64
+	State            ViewState
+	AnimationVersion uint64
+	Artwork          *map[string]string `json:",omitempty"`
 }
 
-// changed returns every animation when the set differs from what was sent,
-// otherwise nil.
-func (a *animationSender) changed(controls []snoofer.Control) map[string][]snoofer.ArtworkFrame {
-	current := map[string]string{}
-	frames := map[string][]snoofer.ArtworkFrame{}
-	for _, c := range controls {
-		if len(c.Animation) > 1 {
-			current[c.ID] = c.Artwork
-			frames[c.ID] = c.Animation
+type viewSender struct {
+	version    uint64
+	state      []byte
+	artwork    map[string]string
+	animations map[string][]snoofer.ArtworkFrame
+}
+
+func separateArtwork(state ViewState) (ViewState, map[string]string, map[string][]snoofer.ArtworkFrame) {
+	state.Controls = slices.Clone(state.Controls)
+	artwork := map[string]string{}
+	animations := map[string][]snoofer.ArtworkFrame{}
+	for i, c := range state.Controls {
+		if c.Artwork != "" {
+			artwork[c.ID] = c.Artwork
 		}
+		if len(c.Animation) > 1 {
+			animations[c.ID] = c.Animation
+		}
+		state.Controls[i].Artwork = ""
+		state.Controls[i].Animation = nil
 	}
-	if a.sent != nil && maps.Equal(current, a.sent) {
-		return nil
+	return state, artwork, animations
+}
+
+func (s *viewSender) prepare(state ViewState, focus bool) ([]byte, error) {
+	stripped, artwork, animations := separateArtwork(state)
+	stateJSON, err := json.Marshal(stripped)
+	if err != nil {
+		return nil, err
 	}
-	a.sent = current
-	return frames
+	artChanged := s.version == 0 || !maps.Equal(artwork, s.artwork)
+	animationChanged := s.version == 0 || !maps.EqualFunc(animations, s.animations, func(a, b []snoofer.ArtworkFrame) bool {
+		return slices.Equal(a, b)
+	})
+	changed := !bytes.Equal(stateJSON, s.state) || artChanged || animationChanged
+	if !changed && !focus {
+		return nil, nil
+	}
+	f := frame{Version: s.version, State: &stripped, Focus: focus}
+	if changed {
+		f.Version++
+	}
+	if artChanged {
+		f.Artwork = &artwork
+	}
+	if animationChanged {
+		f.Animations = &animations
+	}
+	data, err := json.Marshal(f)
+	if err != nil {
+		return nil, err
+	}
+	// Baselines describe successfully encoded frames; offer retains pending maps.
+	s.version, s.state, s.artwork, s.animations = f.Version, stateJSON, artwork, animations
+	return data, nil
 }
 
 func readActions(ctx context.Context, r io.Reader, actions chan<- UIAction) error {
@@ -66,9 +112,12 @@ func offer(ch chan []byte, data []byte) {
 	select {
 	case old := <-ch:
 		var previous, next frame
-		// Focus and animations survive replacement; state is superseded.
-		if json.Unmarshal(old, &previous) == nil && (previous.Focus || previous.Animations != nil) && json.Unmarshal(data, &next) == nil {
+		// Focus and complete asset replacements survive newer presentation state.
+		if json.Unmarshal(old, &previous) == nil && (previous.Focus || previous.Artwork != nil || previous.Animations != nil) && json.Unmarshal(data, &next) == nil {
 			next.Focus = next.Focus || previous.Focus
+			if next.Artwork == nil {
+				next.Artwork = previous.Artwork
+			}
 			if next.Animations == nil {
 				next.Animations = previous.Animations
 			}

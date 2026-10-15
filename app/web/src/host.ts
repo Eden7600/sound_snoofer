@@ -1,5 +1,21 @@
-import type { Control, UIAction } from "./types.ts";
+import type { Control, UIAction, ViewUpdate, ViewState } from "./types.ts";
 import { appState, c, update, showError } from "./state.ts";
+export let viewVersion = 0;
+let artwork: Record<string, string> = {};
+
+export function hydrateState(next: ViewUpdate | null): ViewState | null {
+  if (!next) return null;
+  const nextArtwork = next.Artwork ?? artwork;
+  const state = {
+    ...next.State,
+    Controls: next.State.Controls?.map((control) => ({ ...control, Artwork: nextArtwork[control.ID] || "" })) ?? null,
+  };
+  artwork = nextArtwork;
+  viewVersion = next.Version;
+  appState.animationVersion = next.AnimationVersion;
+  return state;
+}
+
 export async function send(action: UIAction) {
   if (appState.reconnecting) {
     showError("Host disconnected; action not sent");

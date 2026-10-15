@@ -1,8 +1,8 @@
 import { controlsByID, gridMove } from "./model.ts";
 import { $, ui, icon } from "./dom.ts";
 import { appState, root, widgets, updaters, c, update, showError, setReconnecting } from "./state.ts";
-import { send } from "./host.ts";
-import type { ViewState } from "./types.ts";
+import { send, viewVersion, hydrateState } from "./host.ts";
+import type { ViewState, ViewUpdate } from "./types.ts";
 import type { MediaView } from "./screens/media-types.ts";
 import type { AppAudioView } from "./screens/appaudio-types.ts";
 import type { DeckView } from "./screens/deck-types.ts";
@@ -188,10 +188,10 @@ $("#confirm").oncancel = (e) => {
 let connectionFailures = 0;
 async function poll() {
   try {
-    let next: ViewState | null;
+    let next: ViewUpdate | null;
     try {
       if (!window.go?.app?.Desktop) throw new Error("Desktop connection unavailable");
-      next = await window.go.app.Desktop.State();
+      next = await window.go.app.Desktop.State(viewVersion);
     } catch {
       connectionFailures = Math.min(connectionFailures + 1, 6);
       setReconnecting(true);
@@ -200,7 +200,7 @@ async function poll() {
     }
     connectionFailures = 0;
     setReconnecting(false);
-    receive(next);
+    receive(hydrateState(next));
   } catch (error) {
     showError(error);
   } finally {
