@@ -1,26 +1,33 @@
 # Tasks
 
-Status: proposed first-release scope awaiting feasibility and design checkpoints.
-Production implementation is authorized within that resolved scope; no additional
-implementation request is required. Implementation and live acceptance remain
-unperformed. Each checkpoint is a separately reviewable logical block; commit
-validated blocks according to AGENTS.md. Live control requires session permission.
+Status: transport/source design and disposable-call probe complete on 2026-10-15.
+Production implementation is authorized within the resolved scope. Implementation
+and extension/provider/deck acceptance remain unperformed. The probe evidence in
+observations.md establishes only the observed DOM candidate and lifecycle signals;
+it does not verify implemented stale-action rejection. Each checkpoint remains a
+separately reviewable block. Commit validated blocks according to AGENTS.md. Live
+control requires session permission.
 
-- [ ] 1. Resolve the transport/source design before production edits: trace both
+- [x] 1. Resolve the transport/source design before production edits: trace both
   consumers end to end; choose the narrow owner/placement, registration/shutdown,
   protocol compatibility, sender validation, command-result schema, deadlines and
   trust treatment; record concrete decisions in design.md. Confirm control IDs,
   call identity and selector/call-state feasibility requirements. Do not add a
   generic framework or silently expand pairing/authentication scope.
-- [ ] 2. With separate desktop-control permission, run an approved disposable Meet
+- [x] 2. With separate desktop-control permission, run an approved disposable Meet
   probe and record browser/layout/language, selectors, joined-call signals, observed
   state and one-action readback, background-tab behavior, prejoin/leave/rejoin and
   cleanup. Include mic/camera-on tests in the approved session scope without
   repeated prompts for covered steps. Amend the design with proven coverage or a
-  blocker before dependent implementation.
+  blocker before dependent implementation. Evidence: observations.md; stale-command
+  rejection and extension/provider/deck acceptance remain tasks 4, 6 and 7.
 - [ ] 3. Implement the documented narrow transport reuse with focused tests for
   Meet-only, Media-only and both running; stop/restart ownership, protocol mismatch,
   obsolete sockets/ports, duplicate-browser admission and existing media behavior.
+  Exercise each FIFO16 overflow, exact-connection retirement, the documented
+  same-browser outage, other-socket isolation, generation reconciliation, bounded
+  writes/results, capability transitions and fresh artwork recovery. Use the
+  concrete lifecycle/schema/deadline regression checklist in design.md.
   Preserve the existing first-claimant limitation unless the design explicitly
   resolves it. Do not modify unrelated bridge behavior or personal configuration.
 - [ ] 4. Implement the Meet adapter/provider and meaningful fake/fixture tests:
@@ -30,6 +37,11 @@ validated blocks according to AGENTS.md. Live control requires session permissio
   changes, a second call appearing after initial selection, no fallback after target
   loss, prejoin exclusion, permission/unsupported states and bounded cancellation.
   Use fixtures derived from the approved probe, with private call data removed.
+  Cover joined-root/control replacement, revision changes away and back, observer
+  readback, per-tab sample freshness, repeated/stale samples and heartbeat expiry.
+  Cover port-loss adapter reconnect and immediate cancellation on socket replacement
+  or feature disable, requiring fresh enablement/observation before new work.
+  Do not mark stale-rejection coverage complete from the live DOM probe alone.
 - [ ] 5. Add independent Meetings cards/gates, target selection and truthful local
   state/status; update its UI-contract section and focused GUI/attention fixtures.
   Make controls/status bindable in the existing deck editor; verify rendered known,
