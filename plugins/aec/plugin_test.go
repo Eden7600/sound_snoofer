@@ -86,12 +86,12 @@ var speakers = audio.EchoTargets{Mic: [2]int{0, 1}, Reference: [8]int{8, 9, 10, 
 func newWorker(settings Settings, m *fakeMixer, e *fakeEngine) *worker {
 	raw, _ := json.Marshal(settings)
 	services := snoofer.Services{Controls: snoofer.NewControls(), SaveSettings: func(string, json.RawMessage, json.RawMessage) error { return nil }}
-	return &worker{services: services, mixer: m, open: func(string) (canceller, error) { return e, nil }, raw: raw, settings: settings, requests: make(chan snoofer.Request, 8)}
+	return &worker{services: services, mixer: m, open: func(string) (canceller, error) { return e, nil }, raw: raw, settings: settings, requests: make(chan command, 8)}
 }
 
 func control(t *testing.T, w *worker, id string) snoofer.Control {
 	t.Helper()
-	w.publish()
+	w.publish(context.Background())
 	for _, c := range w.services.Controls.Snapshot() {
 		if c.ID == id {
 			return c

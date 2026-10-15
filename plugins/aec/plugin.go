@@ -171,7 +171,14 @@ func (i *instance) Stop(ctx context.Context) error {
 const releaseTimeout = 5 * time.Second
 const retryInterval = 15 * time.Second
 
+type command struct {
+	request    snoofer.Request
+	generation uint64
+	complete   snoofer.Completion
+}
+
 type worker struct {
+	generation     uint64
 	nextRetry      time.Time
 	retryRequested bool
 	retryErr       string
@@ -181,7 +188,7 @@ type worker struct {
 	raw            json.RawMessage
 	settings       Settings
 	speakers       []*regexp.Regexp
-	requests       chan snoofer.Request
+	requests       chan command
 
 	loaded     string
 	attempted  string
@@ -211,7 +218,7 @@ func start(ctx context.Context, s snoofer.Services, raw json.RawMessage, m mixer
 	}
 	runCtx, cancel := context.WithCancel(ctx)
 	i := &instance{cancel: cancel, done: make(chan struct{})}
-	w := &worker{services: s, mixer: m, open: open, raw: append(json.RawMessage(nil), raw...), settings: settings, speakers: speakers, requests: make(chan snoofer.Request, 8)}
+	w := &worker{services: s, mixer: m, open: open, raw: append(json.RawMessage(nil), raw...), settings: settings, speakers: speakers, requests: make(chan command, 8)}
 	go func() {
 		defer close(i.done)
 		defer s.Controls.Remove("aec")
@@ -225,12 +232,12 @@ func (w *worker) run(ctx context.Context, interval time.Duration) error {
 	defer ticker.Stop()
 	for {
 		w.step(ctx)
-		w.publish()
+		w.publish(ctx)
 		select {
 		case <-ctx.Done():
 			return w.shutdown()
 		case r := <-w.requests:
-			w.handle(r)
+			w.process(ctx, r)
 		case <-ticker.C:
 		}
 	}
@@ -271,6 +278,7 @@ func (w *worker) step(ctx context.Context) {
 		}
 		closeErr := w.engine.Close()
 		w.engine = nil
+		w.generation++
 		w.configured = false
 		w.stats = engine.Stats{}
 		w.nextRetry = time.Time{}
@@ -316,7 +324,7 @@ func (w *worker) activate(ctx context.Context, targets audio.EchoTargets) {
 			return
 		}
 		w.loading = true
-		w.publish()
+		w.publish(ctx)
 		w.attempted = w.settings.engine()
 		e, err := w.open(w.settings.engine())
 		w.loading = false
@@ -325,6 +333,7 @@ func (w *worker) activate(ctx context.Context, targets audio.EchoTargets) {
 			return
 		}
 		w.engine, w.engineErr = e, ""
+		w.generation++
 		w.loaded = w.settings.engine()
 	}
 	// A failed installation may still own a queued hook. Remove it before retrying.
@@ -336,6 +345,7 @@ func (w *worker) activate(ctx context.Context, targets audio.EchoTargets) {
 	}
 	config := engine.Config{Mic: targets.Mic, Reference: targets.Reference, Strength: strengthOf[w.settings.strength()]}
 	if !w.configured || config != w.applied {
+		w.generation++
 		if err := w.engine.Configure(config); err != nil {
 			w.engineErr = err.Error()
 			return
@@ -386,6 +396,7 @@ func (w *worker) canRetry() bool {
 }
 
 func (w *worker) retry(stream uint32, now time.Time) {
+	w.generation++
 	w.nextRetry = now.Add(retryInterval)
 	w.armed = stream // Failed resets also observe the cooldown on this stream.
 	if w.engine != nil {
@@ -414,6 +425,7 @@ func (w *worker) deactivate(ctx context.Context) {
 		return
 	}
 	w.hooked, w.releaseErr = false, ""
+	w.generation++
 }
 
 // shutdown removes the hook with a fresh deadline (the run context is
@@ -432,41 +444,60 @@ func (w *worker) shutdown() error {
 	return w.engine.Close()
 }
 
-func (w *worker) handle(r snoofer.Request) {
+func (w *worker) process(ctx context.Context, command command) {
+	if ctx.Err() != nil {
+		command.complete(snoofer.Outcome{Status: snoofer.Unknown, Detail: "Echo cancellation stopped before completion"})
+		return
+	}
+	if command.generation != w.generation {
+		command.complete(snoofer.Outcome{Status: snoofer.Rejected, Detail: "Echo cancellation changed; try again"})
+		return
+	}
+	command.complete(w.handle(command.request))
+}
+
+func (w *worker) handle(r snoofer.Request) snoofer.Outcome {
 	next := w.settings
 	switch r.ID {
 	case "aec.retry":
-		if r.Operation == "press" && w.canRetry() {
-			w.retryRequested = true
+		if r.Operation != "press" || !w.canRetry() {
+			return snoofer.Outcome{Status: snoofer.Rejected, Detail: "Echo cancellation retry is unavailable"}
 		}
-		return
+		w.retryRequested = true
+		return snoofer.Outcome{Status: snoofer.Submitted, Detail: "Retry requested"}
 	case "aec.engine":
 		if !slices.Contains(engines, r.Value) {
 			w.saveErr = "unknown engine " + r.Value
-			return
+			return snoofer.Outcome{Status: snoofer.Rejected, Detail: w.saveErr}
 		}
 		next.Engine = r.Value
 	case "aec.mode":
 		if !slices.Contains(modes, r.Value) {
 			w.saveErr = "unknown mode " + r.Value
-			return
+			return snoofer.Outcome{Status: snoofer.Rejected, Detail: w.saveErr}
 		}
 		next.Mode = r.Value
 	case "aec.strength":
 		if !slices.Contains(strengths, r.Value) {
 			w.saveErr = "unknown strength " + r.Value
-			return
+			return snoofer.Outcome{Status: snoofer.Rejected, Detail: w.saveErr}
+		}
+		if w.settings.engine() != "aec3" {
+			return snoofer.Outcome{Status: snoofer.Rejected, Detail: "Echo strength is unavailable for this engine"}
 		}
 		next.Strength = r.Value
 	default:
-		return
+		return snoofer.Outcome{Status: snoofer.Rejected, Detail: "Unknown echo cancellation command"}
 	}
 	w.saveErr = ""
 	if err := w.save(next); err != nil {
 		w.saveErr = err.Error()
-	} else if r.ID == "aec.engine" {
+		return snoofer.Outcome{Status: snoofer.Failed, Detail: err.Error()}
+	}
+	if r.ID == "aec.engine" {
 		w.attempted = ""
 	}
+	return snoofer.Outcome{Status: snoofer.Processed, Detail: "Saved"}
 }
 
 func (w *worker) save(next Settings) error {
@@ -481,6 +512,7 @@ func (w *worker) save(next Settings) error {
 		return err
 	}
 	w.raw, w.settings = raw, next
+	w.generation++
 	return nil
 }
 
@@ -534,7 +566,7 @@ func (w *worker) retryDetail() string {
 	return ""
 }
 
-func (w *worker) publish() {
+func (w *worker) publish(providerCtx context.Context) {
 	value, detail, attention := w.status()
 	canSave := w.services.SaveSettings != nil
 	controls := []snoofer.Control{
@@ -552,10 +584,17 @@ func (w *worker) publish() {
 			Value:  fmt.Sprintf("%.1f / %.1f ms", w.stats.WorkerPeakMs, w.stats.QueuePeakMs),
 			Status: fmt.Sprintf("Peak worker / queue · gaps %d · underruns %d", w.stats.Gaps, w.stats.Underruns)})
 	}
-	requests := w.requests
+	requests, generation := w.requests, w.generation
+	for n := range controls {
+		controls[n].Epoch = generation
+	}
 	_ = w.services.Controls.Publish("aec", controls, func(ctx context.Context, r snoofer.Request) error {
+		if err := providerCtx.Err(); err != nil {
+			return err
+		}
+		queued := command{request: r, generation: generation, complete: r.ClaimCompletion(providerCtx)}
 		select {
-		case requests <- r:
+		case requests <- queued:
 			return nil
 		case <-ctx.Done():
 			return ctx.Err()
