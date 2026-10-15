@@ -16,7 +16,7 @@ Fast recognition, truthful state, predictable actions. Users know Snoofer. Use s
 | GUI | Task-oriented Audio, Routing, Soundboard, Lights, App audio, Meetings, Media, Stream Deck, Plugins, Third-party apps and Diagnostics screens. Plugins only enables, disables and retries; no settings or plugin controls appear there. Diagnostics starts with a Startup card: Start at Login (On / Off), showing the Windows sign-in registration as observed, with a note when Windows disabled it or another copy holds it, and unavailable in preview. Native controls, keyboard focus, spatial deck editor and persistent local feedback. |
 | Tray | Open controls, lifecycle actions, concise state. No tutorials. |
 
-Provider Label identifies an action without an icon. Optional ShortLabel is for compact icon-bearing surfaces. Shortening presentation must never change IDs, layout bindings, command semantics or saved settings. Fixed-profile bindings retain Normal/VR qualifiers. Custom plugin labels remain intact.
+Provider Label identifies an action without an icon. Optional ShortLabel is for compact icon-bearing surfaces. Shortening presentation must never change IDs, layout bindings, command semantics or saved settings. Fixed-profile bindings retain Normal/VR qualifiers. Custom plugin labels remain intact. GUI plugin headings, Not monitored entries and binding context use registered plugin names, with plugin IDs as fallback. Binding search also accepts plugin IDs; selections retain raw control IDs. Normal/VR Microphone, Processing, Monitor and Playback labels distinguish fixed profiles. Page selectors retain provider-supplied built-in and custom names.
 
 ## Vocabulary
 | Meaning | Deck label/state |

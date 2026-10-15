@@ -18,7 +18,7 @@ with its focused checks; retain unrelated GUI defects and user changes.
   headings, Not monitored and binding context; qualify full Normal/VR provider labels; retain
   raw IDs, custom names, search and missing-label fallback. Update wire types/fixtures and focused
   host/provider/browser tests; regenerate affected audio and Stream Deck fixtures.
-- [ ] 6. `test(gui)`: protect already-correct built-in/custom page OptionLabels with an unchanged-ID
+- [x] 6. `test(gui)`: protect already-correct built-in/custom page OptionLabels with an unchanged-ID
   selection assertion; reconcile the UI contract for the intentional presentation changes and
   inspect native-size deck renderer output for affected option labels.
 - [ ] 7. Validate: frontend type/lint/format/model/browser checks, provider fixture drift,

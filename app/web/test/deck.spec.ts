@@ -230,6 +230,20 @@ test.describe("Stream Deck", () => {
     expect((await gui.last()).Value).toBe("Studio");
   });
 
+  test("page selection preserves built-in and custom names with raw page IDs", async ({ gui }) => {
+    const pages = gui.page.getByLabel("Page", { exact: true });
+    await expect(pages.locator('option[value="home"]')).toHaveText("Home");
+    await gui.update(() => {
+      const page = window.ctl("streamdeck.page");
+      page.Options = [...(page.Options || []), "my_studio"];
+      page.OptionLabels = { ...page.OptionLabels, my_studio: "mY Studio" };
+      page.Revision++;
+    });
+    await expect(pages.locator('option[value="my_studio"]')).toHaveText("mY Studio");
+    await pages.selectOption({ label: "mY Studio" });
+    expect(await request(gui)).toEqual(["streamdeck.page", "my_studio"]);
+  });
+
   test("a dirty layout saves", async ({ gui }) => {
     const { page } = gui;
     await gui.update(() => {
