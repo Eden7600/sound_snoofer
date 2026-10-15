@@ -79,6 +79,12 @@ channel or device identity. Existing intentional same-target accumulators MAY re
 - **THEN** its old lifetime request is rejected even if its display label or position is reused
 - **AND** partial or ambiguous work already submitted is reported honestly rather than replayed
 
+#### Scenario: Discord only exposes a toggle RPC
+- **WHEN** a queued Camera or Screen Share command reaches its captured connection and channel lifetime
+- **THEN** a known captured state retains its desired transition and a changed observed state is rejected before toggling
+- **AND** an unknown captured state remains usable only while still unknown, reporting the RPC response boundary without claiming a desired or observed value
+- **AND** leaving and returning to the same channel invalidates the old command and uncertain results never trigger a replay
+
 ### Requirement: Now Playing commands identify source lifetimes
 Now Playing SHALL preserve public control IDs while carrying private native-session,
 bridge-connection and browser-frame lifetime identities from publication through dispatch.

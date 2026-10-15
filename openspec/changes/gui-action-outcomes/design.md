@@ -115,6 +115,16 @@ played can explicitly say Cancelled before playback. Never infer not-applied fro
 error. Existing desired-state reconciliation, rate limiting and readback continue; this change
 adds no GUI-driven retries and does not replay one-shot scene, recorder, media or clip actions.
 
+### Discord toggle-only commands
+Discord Camera and Screen Share expose toggle RPCs, not explicit setters. Capture the
+connection generation, channel lifetime and published observed state with each command. When
+that state is known, retain the desired transition and reject a changed observed state before
+issuing the toggle. When it is unknown, retain that unknown state and reject if a newer known
+state arrived before dequeue; acceptance promises only the nonce RPC response boundary, never
+a desired or observed Camera/Share value. This does not change the existing availability of
+unknown-state toggles. Channel departure and return invalidate the old command even when the
+same channel ID is reused. No command retries after an uncertain result.
+
 ### Now Playing source identities
 The current Windows `AppUserModelID` plus enumeration suffix and browser `tab:frame` keys name
 display/control slots, not source lifetimes. Keep those IDs and persisted settings unchanged.
