@@ -206,7 +206,18 @@ func (h *Host) Stop(ctx context.Context) error {
 func (h *Host) Selection(id string, enabled bool) (Config, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	next := h.config.Clone()
+	return h.selection(h.config, id, enabled)
+}
+
+// SelectionFrom computes enablement against the exact configuration shown to the user.
+func (h *Host) SelectionFrom(current Config, id string, enabled bool) (Config, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.selection(current, id, enabled)
+}
+
+func (h *Host) selection(current Config, id string, enabled bool) (Config, error) {
+	next := current.Clone()
 	if _, ok := h.plugins[id]; !ok {
 		return next, fmt.Errorf("plugin %s is not compiled", id)
 	}

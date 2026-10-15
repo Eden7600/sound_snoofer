@@ -4,30 +4,36 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"sound-snoofer/snoofer"
 	"strings"
 	"time"
+
+	"sound-snoofer/snoofer"
 )
 
 // ViewState crosses the private controls pipe without domain-specific types.
 type ViewState struct {
-	Controls     []snoofer.Control
-	Plugins      map[string]string
-	PluginStates map[string]snoofer.PluginState
-	PluginLabels map[string]string
-	Enabled      map[string]bool
-	Notice       string
-	Confirmation string
+	Controls       []snoofer.Control
+	Plugins        map[string]string
+	PluginStates   map[string]snoofer.PluginState
+	PluginLabels   map[string]string
+	Enabled        map[string]bool
+	Notice         string
+	Confirmation   string
+	ConfigRevision string
+	ProposalID     string
 }
 
 // UIAction is either semantic input or a core lifecycle operation.
 type UIAction struct {
-	ID           string `json:",omitempty"`
-	Request      *snoofer.Request
-	Kind, Plugin string
-	Enable       bool
-	complete     snoofer.Completion
-	session      *actionSession
+	ID              string `json:",omitempty"`
+	Request         *snoofer.Request
+	Kind, Plugin    string
+	Enable          bool
+	ConfigRevision  string
+	ProposalID      string
+	startupExpected startupState
+	complete        snoofer.Completion
+	session         *actionSession
 }
 
 // ActionResult belongs to one private controls-session action, never view state.

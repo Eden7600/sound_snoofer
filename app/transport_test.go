@@ -91,14 +91,16 @@ func TestViewSenderTelemetryAndPresentation(t *testing.T) {
 		"progress": func() {
 			state.Controls[0].Progress = snoofer.Progress{Known: true, Playing: true, PositionMs: 100, At: time.Now()}
 		},
-		"attention":        func() { state.Controls[0].Attention = snoofer.AttentionCritical },
-		"view data":        func() { state.Controls[0].ViewData = json.RawMessage(`{"Sessions":[]}`) },
-		"plugin label":     func() { state.PluginLabels = map[string]string{"custom": "Custom"} },
-		"plugin state":     func() { state.Plugins = map[string]string{"custom": "Running"} },
-		"plugin lifecycle": func() { state.PluginStates = map[string]snoofer.PluginState{"custom": snoofer.PluginFailed} },
-		"enablement":       func() { state.Enabled = map[string]bool{"custom": true} },
-		"notice":           func() { state.Notice = "notice" },
-		"confirmation":     func() { state.Confirmation = "confirm" },
+		"attention":         func() { state.Controls[0].Attention = snoofer.AttentionCritical },
+		"view data":         func() { state.Controls[0].ViewData = json.RawMessage(`{"Sessions":[]}`) },
+		"plugin label":      func() { state.PluginLabels = map[string]string{"custom": "Custom"} },
+		"plugin state":      func() { state.Plugins = map[string]string{"custom": "Running"} },
+		"plugin lifecycle":  func() { state.PluginStates = map[string]snoofer.PluginState{"custom": snoofer.PluginFailed} },
+		"enablement":        func() { state.Enabled = map[string]bool{"custom": true} },
+		"notice":            func() { state.Notice = "notice" },
+		"confirmation":      func() { state.Confirmation = "confirm" },
+		"config revision":   func() { state.ConfigRevision = "next" },
+		"proposal identity": func() { state.ProposalID = "second" },
 	} {
 		t.Run(name, func(t *testing.T) {
 			change()

@@ -31,6 +31,7 @@
 - [ ] 5.1 Replace global pending gates with action/busy-key tracking throughout shared widgets and all screens. Keep timers active on null polls, keep timeouts reserved, and add bounded screen-local feedback without a result history.
 - [ ] 5.2 Make fake Desktop.Send return correlated controllable results; test concurrent actions, wrong/out-of-order results, busy controls, delayed errors, local timeout followed by real completion, navigation, disappearance and reconnect without replay.
 - [ ] 5.3 Add displayed config revision and owner-bound host proposal IDs; correlate startup's second queue and lifecycle outcomes. Test full/busy groups, stale selection, confirm/cancel IDs, external config edits, owner close and restart/disconnect uncertainty.
+- [x] 5.3a Host proposals retain owner, action, config revision and one-use identity; current-config selection and external-save guards are tested. Startup completion crosses the second core queue with captured registration and stop/full-queue checks. App/snoofer tests and vet pass; focused lifecycle/core checks pass 25 repetitions. Frontend integration remains open.
 - [ ] 5.4 Integrate with state-preservation's frozen local dialog tickets and focus rules. Update the UI contract, inspect local feedback at 1280×820 and 800×600, run focused GUI and Go tests, and commit the validated checkpoint.
 
 ## 6. Source verification and coordinated native acceptance

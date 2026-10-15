@@ -151,16 +151,15 @@ func Run(ctx context.Context, args []string, plugins ...snoofer.Plugin) error {
 		defer tick.Stop()
 		latest := ViewState{}
 		notice := ""
-		var proposed *snoofer.Config
-		expected := ""
-		openUI := func() {
+		lifecycle := lifecycle{path: absolute, host: host}
+		openUI := func() error {
 			if child != nil {
 				select {
 				case <-child.done:
 					child = nil
 				default:
 					child.focus(latest)
-					return
+					return nil
 				}
 			}
 			var e error
@@ -169,6 +168,7 @@ func Run(ctx context.Context, args []string, plugins ...snoofer.Plugin) error {
 				notice = e.Error()
 				ShowError(e)
 			}
+			return e
 		}
 		startup := ""
 		if exe, e := os.Executable(); e == nil {
@@ -184,27 +184,16 @@ func Run(ctx context.Context, args []string, plugins ...snoofer.Plugin) error {
 			startupToggle := startupControl(observed, readErr, startup, !*dry)
 			enable := startupToggle.Value != "On"
 			openControls := snoofer.Control{ID: "core.open-controls", SurfaceOnly: true, Label: "Controls", Group: "System", Kind: "command", Available: true, Icon: "open-controls", Operations: []string{"press"}}
-			_ = registry.Publish("core", []snoofer.Control{openControls, startupToggle}, func(ctx context.Context, r snoofer.Request) error {
-				action := UIAction{Kind: "open"}
-				if r.ID == startupToggle.ID {
-					action = UIAction{Kind: "startup", Enable: enable}
-				}
-				select {
-				case actions <- action:
-					return nil
-				default:
-					return fmt.Errorf("controls busy")
-				}
-			})
+			_ = registry.Publish("core", []snoofer.Control{openControls, startupToggle}, coreHandler(runCtx, actions, observed, enable))
 		}
 		publish := func() {
 			publishCore()
-			current, _, e := snoofer.Load(absolute)
+			current, revision, e := snoofer.Load(absolute)
 			if e != nil {
 				notice = e.Error()
 				current = cfg
 			}
-			latest = ViewState{Controls: registry.Snapshot(), Plugins: host.Status(), PluginStates: host.Lifecycle(), PluginLabels: map[string]string{}, Enabled: map[string]bool{}, Notice: notice}
+			latest = ViewState{Controls: registry.Snapshot(), Plugins: host.Status(), PluginStates: host.Lifecycle(), PluginLabels: map[string]string{}, Enabled: map[string]bool{}, Notice: notice, ConfigRevision: revision}
 			for _, p := range plugins {
 				latest.PluginLabels[p.ID] = p.Label
 				if _, ok := latest.Plugins[p.ID]; !ok {
@@ -214,8 +203,8 @@ func Run(ctx context.Context, args []string, plugins ...snoofer.Plugin) error {
 			for id, p := range current.Plugins {
 				latest.Enabled[id] = p.Enabled
 			}
-			if proposed != nil {
-				latest.Confirmation = confirmation(current, *proposed)
+			if proposal := lifecycle.pending(); proposal != nil {
+				latest.Confirmation, latest.ProposalID = proposal.text, proposal.id
 			}
 			if child != nil {
 				if e := child.publish(latest); e != nil {
@@ -266,55 +255,26 @@ func Run(ctx context.Context, args []string, plugins ...snoofer.Plugin) error {
 					}
 					break
 				}
-				// Lifecycle completion adapters are separate from registry dispatch.
-				// Until claimed there, actor acceptance establishes only submission.
-				a.reply(snoofer.Outcome{Status: snoofer.Submitted, Detail: "Submitted"})
+				var result snoofer.Outcome
+				var restartRequested bool
 				switch a.Kind {
 				case "open":
-					openUI()
-				case "retry":
-					host.Retry()
+					result = snoofer.Outcome{Status: snoofer.Processed, Detail: "Controls opened"}
+					if err := openUI(); err != nil {
+						result = lifecycleFailure(err)
+					}
 				case "startup":
-					if *dry {
-						break
-					}
-					if e := loginStartup.apply(a.Enable, startup); e != nil {
-						notice = e.Error()
-					}
-				case "selection":
-					current, rev, e := snoofer.Load(absolute)
-					if e != nil {
-						notice = e.Error()
-						break
-					}
-					next, e := host.Selection(a.Plugin, a.Enable)
-					if e != nil {
-						notice = e.Error()
-						break
-					}
-					// Keep live plugin settings; only the enablement closure comes from Host.
-					for id, p := range next.Plugins {
-						v := current.Plugins[id]
-						if len(v.Settings) == 0 {
-							v.Settings = p.Settings
-						}
-						v.Enabled = p.Enabled
-						current.Plugins[id] = v
-					}
-					proposed = &current
-					expected = rev
-				case "cancel":
-					proposed = nil
-				case "confirm":
-					if proposed != nil {
-						if _, e := snoofer.Save(absolute, *proposed, expected); e != nil {
-							notice = e.Error()
-							proposed = nil
-							break
-						}
-						restart = true
-						cancel()
-					}
+					result = applyStartup(runCtx, a, !*dry, startup, loginStartup.read, loginStartup.apply)
+				default:
+					result, restartRequested = lifecycle.handle(a)
+				}
+				a.reply(result)
+				if a.complete == nil && (result.Status == snoofer.Rejected || result.Status == snoofer.Failed || result.Status == snoofer.Unknown) {
+					notice = result.Detail
+				}
+				if restartRequested {
+					restart = true
+					cancel()
 				}
 				publish()
 			}
