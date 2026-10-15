@@ -38,6 +38,7 @@ type Plugin struct {
 
 // Services contains core facilities. Only declared plugin dependencies arrive separately.
 type Services struct {
+	Meetings     *Meetings
 	Browser      *browserbridge.Bridge
 	SaveSettings func(string, json.RawMessage, json.RawMessage) error
 	Controls     *Controls
@@ -66,6 +67,9 @@ func New(config Config, services Services, plugins ...Plugin) *Host {
 	if services.Controls == nil {
 		services.Controls = NewControls()
 	}
+	if services.Meetings == nil {
+		services.Meetings = NewMeetings(services.Controls, services.Live)
+	}
 	h := &Host{config: config, services: services, plugins: map[string]Plugin{}, duplicates: map[string]bool{}, instances: map[string]Instance{}, status: map[string]string{}}
 	for _, p := range plugins {
 		if _, exists := h.plugins[p.ID]; exists {
@@ -85,6 +89,10 @@ func (h *Host) Start(ctx context.Context) {
 		return
 	}
 	h.ctx, h.cancel = context.WithCancel(ctx)
+	if err := h.services.Meetings.Start(h.ctx); err != nil {
+		h.status["meetings"] = err.Error()
+		return
+	}
 	h.startAll()
 }
 
@@ -175,7 +183,7 @@ func (h *Host) Status() map[string]string {
 }
 
 // Stop quiesces work before reverse dependency cleanup. Errors block relaunch.
-func (h *Host) Stop(ctx context.Context) error {
+func (h *Host) Stop(ctx context.Context) (result error) {
 	h.mu.Lock()
 	if h.stopping {
 		h.mu.Unlock()
@@ -184,6 +192,7 @@ func (h *Host) Stop(ctx context.Context) error {
 	h.stopping = true
 	order := append([]string(nil), h.order...)
 	h.mu.Unlock()
+	defer func() { result = errors.Join(result, h.services.Meetings.Close(ctx)) }()
 	h.services.Controls.Close()
 	if h.cancel != nil {
 		h.cancel()

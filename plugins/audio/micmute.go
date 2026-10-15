@@ -53,3 +53,27 @@ func (i *Instance) SetMicMuteWithResult(muted bool, origin string, revision uint
 		return errors.New("audio queue full")
 	}
 }
+
+// attachMeetings exposes the existing serialized save path; it never writes a
+// second copy of the preference or performs native work on the coordinator.
+func (i *Instance) attachMeetings(services snoofer.Services) error {
+	if services.Meetings == nil {
+		return nil
+	}
+	var err error
+	i.meetings, err = services.Meetings.AttachAudio(i.ctx, func(value bool, revision uint64, complete snoofer.Completion) error {
+		if err := i.ctx.Err(); err != nil {
+			return err
+		}
+		return i.SetMicMuteWithResult(value, "meetings", revision, complete)
+	})
+	return err
+}
+
+func (i *Instance) reportMeetingMute() {
+	if i.meetings == nil {
+		return
+	}
+	preference := i.MicMute()
+	i.meetings.Report(snoofer.MeetingMicPreference{Known: preference.Known, Muted: preference.Muted, Applied: preference.Applied, Revision: preference.Revision})
+}

@@ -42,6 +42,7 @@ func (s Settings) gainStep() float32 {
 
 // Instance owns the audio actor and its snapshot publisher.
 type Instance struct {
+	meetings               *snoofer.MeetingAudio
 	soundboardReserved     bool
 	soundboard             *config.SoundboardRoutes
 	statePath, ownedPolicy string
@@ -141,6 +142,13 @@ func start(ctx context.Context, services snoofer.Services, raw json.RawMessage, 
 	}
 	runCtx, cancel := context.WithCancel(ctx)
 	i.cancel, i.ctx = cancel, runCtx
+	if err := i.attachMeetings(services); err != nil {
+		cancel()
+		if initialLease != nil {
+			initialLease()
+		}
+		return nil, err
+	}
 	states := make(chan control.State, 1)
 	workerDone := make(chan struct{})
 	started := make(chan error, 1)
@@ -196,12 +204,16 @@ func start(ctx context.Context, services snoofer.Services, raw json.RawMessage, 
 	go func() {
 		defer close(i.done)
 		defer services.Controls.Remove("audio")
+		if i.meetings != nil {
+			defer i.meetings.Close()
+		}
 		gainStep := settings.gainStep()
 		reports := reporter{processor: cfg.ProcessorProcess()}
 		for s := range states {
 			i.mu.Lock()
 			i.state = s
 			i.mu.Unlock()
+			i.reportMeetingMute()
 			snapshot := s
 			published := append(controls(snapshot), slotControls(snapshot)...)
 			published = append(published, i.priorityControls(snapshot)...)
