@@ -120,6 +120,7 @@ func (m *Meetings) audioFinished(s *meetingSave, outcome Outcome) {
 
 func (m *Meetings) tick(now time.Time) {
 	m.mu.Lock()
+	m.tickActionsLocked(now)
 	for _, p := range m.peers {
 		for n := range p.properties {
 			if a := p.properties[n].pending; a != nil && !now.Before(a.deadline) {

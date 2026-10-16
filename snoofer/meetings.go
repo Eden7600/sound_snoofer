@@ -27,9 +27,10 @@ type MeetingValue struct {
 
 // MeetingPeer separates a stable source slot from its exact writable lifetime.
 type MeetingPeer struct {
-	ID, Lifetime, Label string
-	Joined, NewCall     bool
-	Mute, Camera        MeetingValue
+	ID, Lifetime, Label  string
+	Joined, NewCall      bool
+	Mute, Camera         MeetingValue
+	Deafen, Share, Leave MeetingValue
 }
 
 // MeetingCommand is one claimed explicit write owned by the adapter worker.
@@ -81,6 +82,14 @@ type Meetings struct {
 	audioNext    *meetingSave
 	audioError   string
 	completions  []meetingCompletion
+
+	focus                             *meetingPeer
+	focusOrder, focusEpoch, nextFocus uint64
+	pinnedFocus                       bool
+	actions                           [3]*meetingActionAttempt
+	actionStatus                      [3]string
+	actionEpoch                       [3]uint64
+	publishedActions                  [3]meetingActionCapture
 }
 
 // MeetingAdapter is one provider attachment; its worker owns claimed commands.
@@ -109,6 +118,10 @@ type meetingPeer struct {
 	state      MeetingPeer
 	present    bool
 	properties [2]meetingProperty
+
+	focusSlot     int
+	focusOrder    uint64
+	focusLifetime string
 }
 
 type meetingProperty struct {
@@ -218,6 +231,15 @@ func (m *Meetings) Close(ctx context.Context) error {
 func (m *Meetings) stop() {
 	m.mu.Lock()
 	m.closed = true
+	for _, a := range m.actions {
+		if a != nil {
+			status := Unknown
+			if !a.claimed {
+				status = Rejected
+			}
+			m.finishActionLocked(a, Outcome{Status: status, Detail: "Meeting state stopped"})
+		}
+	}
 	completions := m.completions
 	m.completions = nil
 	for _, p := range m.peers {
@@ -295,6 +317,7 @@ func (a *MeetingAdapter) Close() {
 		}
 	}
 	m.cameraPeriodLocked()
+	m.refreshFocusLocked()
 	m.pruneRetiredLocked()
 	m.changedLocked()
 }
@@ -329,6 +352,11 @@ func meetingBool(v bool) int {
 }
 
 func (m *Meetings) cancelPeerLocked(p *meetingPeer) {
+	for _, a := range m.actions {
+		if a != nil && a.capture.peer == p {
+			m.cancelActionLocked(a, "Meeting call changed")
+		}
+	}
 	for n := range p.properties {
 		if attempt := p.properties[n].pending; attempt != nil {
 			attempt.cancel()
@@ -348,6 +376,11 @@ func (a *MeetingAdapter) Report(peers []MeetingPeer) error {
 			return errors.New("invalid meeting peer identity")
 		}
 		seen[peer.ID] = peer
+		for n, value := range []MeetingValue{peer.Deafen, peer.Share, peer.Leave} {
+			if value.Available && (value.Revision == 0 || n == 0 && !value.Known) {
+				return errors.New("invalid meeting action observation")
+			}
+		}
 		for _, value := range []MeetingValue{peer.Mute, peer.Camera} {
 			if value.Available && (!value.Known || value.Revision == 0) {
 				return errors.New("invalid meeting observation")
@@ -374,6 +407,7 @@ func (a *MeetingAdapter) Report(peers []MeetingPeer) error {
 	}
 	// Remove departed calls before new baselines can inherit the old camera period.
 	m.cameraPeriodLocked()
+	m.refreshFocusLocked()
 	m.pruneRetiredLocked()
 	retained := 0
 	for _, p := range m.peers {
@@ -437,6 +471,7 @@ func (a *MeetingAdapter) Report(peers []MeetingPeer) error {
 		}
 	}
 	m.cameraPeriodLocked()
+	m.refreshFocusLocked()
 	if changed {
 		m.changedLocked()
 	}
@@ -654,7 +689,7 @@ func (m *Meetings) Request(ctx context.Context, property MeetingProperty, revisi
 
 func (m *Meetings) publish() {
 	snapshot := m.Snapshot()
-	controls := make([]Control, 0, 2)
+	controls, focused := m.focusedControls()
 	for n, target := range []MeetingTarget{snapshot.Mute, snapshot.Camera} {
 		property, label, icon := MeetingMute, "Mute", "mic-mute"
 		if n == 1 {
@@ -674,6 +709,9 @@ func (m *Meetings) publish() {
 		controls = append(controls, Control{ID: "meetings." + string(property), Label: label, ShortLabel: label, Group: "Meetings", Kind: "toggle", Icon: icon, Value: value, Status: target.Status, Available: m.live && target.Known, Epoch: target.Revision, Operations: []string{"press"}})
 	}
 	_ = m.controls.Publish("meetings", controls, func(ctx context.Context, r Request) error {
+		if r.ID != "meetings.mute" && r.ID != "meetings.camera" {
+			return focused(ctx, r)
+		}
 		property, target := MeetingMute, snapshot.Mute
 		if r.ID == "meetings.camera" {
 			property, target = MeetingCamera, snapshot.Camera
