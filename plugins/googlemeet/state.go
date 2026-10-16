@@ -186,7 +186,7 @@ func (w *worker) synchronize(ctx context.Context, now time.Time) {
 		if !ok {
 			continue
 		}
-		peers = append(peers, snoofer.MeetingPeer{ID: t.peer(), Lifetime: t.value(), Label: t.label(), Joined: true, NewCall: c.newCall,
+		peers = append(peers, snoofer.MeetingPeer{ID: t.peer(), Lifetime: t.value(), Label: "Meet · " + t.label(), Joined: true, NewCall: c.newCall,
 			Mute: meetingValue(c.state.Mic), Camera: meetingValue(c.state.Camera),
 			Share: meetingValue(controlState(c.state, "share")), Leave: meetingValue(controlState(c.state, "leave"))})
 	}

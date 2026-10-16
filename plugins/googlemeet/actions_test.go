@@ -51,7 +51,7 @@ func TestMeetReportsOnlyExplicitActionCapabilities(t *testing.T) {
 	if old.Share.Available || old.Leave.Available || old.Deafen.Available || current.Deafen.Available {
 		t.Fatal("capability inferred from mic/camera", r.adapter.peers)
 	}
-	if !current.Share.Available || !current.Share.Known || current.Share.Value || !current.Leave.Available || !current.Leave.Value {
+	if current.Label != "Meet · Brave · Tab 8" || !current.Share.Available || !current.Share.Known || current.Share.Value || !current.Leave.Available || !current.Leave.Value {
 		t.Fatal("action capability missing", current)
 	}
 	for _, action := range []snoofer.MeetingAction{snoofer.MeetingShare, snoofer.MeetingLeave, snoofer.MeetingDeafen} {
