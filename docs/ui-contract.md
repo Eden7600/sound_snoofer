@@ -179,6 +179,12 @@ One card per connection report, grouped by plugin: app name, state badge, endpoi
 ![Third-party apps](design/gui-apps.png)
 
 ## Personal layout
+User amendment 2026-10-15: Plus XL Meetings keeps Mute, Deafen, Camera and Share
+at r1c1–c4 and Leave at r1c9, using the shared/focused meetings controls. Call
+focus buttons fill the formerly empty r2c1–c9 from meetings.focus with normal
+overflow. Focus uses the handset icon, identifies its app/browser tab, and is On
+only for the selected call. Smaller-deck layouts remain unchanged.
+
 User amendment 2026-10-15: Plus XL Home Like at r1c9 and Dislike at r2c9 supersede
 the older assignments listed below. Apply only these requested positions and the
 shared Meetings Mute/Camera bindings during the approved live session. Smaller
