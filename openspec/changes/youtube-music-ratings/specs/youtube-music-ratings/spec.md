@@ -27,6 +27,11 @@ The extension SHALL distinguish unrated, liked, disliked and unknown states from
 - **WHEN** the user changes the rating in YouTube Music while the song is paused
 - **THEN** the keys update without requiring playback to resume
 
+#### Scenario: Auxiliary rating snapshot lags live controls
+- **WHEN** the live player rating attribute and both pressed states agree for the verified playing item but the renderer data snapshot has an older rating
+- **THEN** the extension reports the current live rating and keeps the eligible controls actionable
+- **AND** inconsistent live pressed states still make the rating unknown
+
 #### Scenario: Artwork completes late
 - **WHEN** an older artwork request completes after a newer song or rating report
 - **THEN** the older snapshot cannot overwrite the current rating or revive the old track

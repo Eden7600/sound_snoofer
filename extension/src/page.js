@@ -79,7 +79,8 @@
       if ([like, dislike].some((button) => button.disabled || button.matches(":disabled") || button.getAttribute("aria-disabled") === "true")) return { wire };
       const status = renderer.getAttribute("like-status");
       const expected = { LIKE: ["like", "true", "false"], INDIFFERENT: ["none", "false", "false"], DISLIKE: ["dislike", "false", "true"] }[status];
-      if (!expected || status !== renderer.data.likeStatus || like.getAttribute("aria-pressed") !== expected[1] || dislike.getAttribute("aria-pressed") !== expected[2]) return { wire };
+      // The auxiliary data.likeStatus may lag the live controls after a click.
+      if (!expected || like.getAttribute("aria-pressed") !== expected[1] || dislike.getAttribute("aria-pressed") !== expected[2]) return { wire };
       return { wire: { ...wire, rating: expected[0], canRate: true }, like, dislike };
     } catch {
       // Page-owned getters and transient replacements may be unreadable.

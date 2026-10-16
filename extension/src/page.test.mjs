@@ -39,7 +39,7 @@ function page({ origin = "https://music.youtube.com", top = true, marker, paused
     setTimeout(fn) { timers.push(fn); return timers.length; }, setInterval(fn) { intervals.push(fn); },
     CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } } });
   h.status = (value) => {
-    renderer.status = renderer.data.likeStatus = value;
+    renderer.status = value;
     like.pressed = String(value === "LIKE"); dislike.pressed = String(value === "DISLIKE");
   };
   like.click = () => { like.clicks++; h.status(renderer.status === "LIKE" ? "INDIFFERENT" : "LIKE"); };
@@ -80,7 +80,8 @@ test("already-paused player reports its rating and observes manual changes", () 
   assert.equal(first.state, "paused"); assert.equal(first.rating, "like"); assert.equal(first.canRate, true); assert.ok(first.track.length <= 128);
   h.status("INDIFFERENT"); assert.equal(h.tick().rating, "none");
   h.status("DISLIKE"); const after = h.tick();
-  assert.equal(after.rating, "dislike"); assert.equal(after.track, first.track); assert.equal(h.video.plays, 0);
+  assert.equal(after.rating, "dislike"); assert.equal(after.canRate, true); assert.equal(after.track, first.track); assert.equal(h.video.plays, 0);
+  assert.equal(h.renderer.data.likeStatus, "LIKE", "auxiliary rating stays at its initial value");
 });
 
 test("a quiet YouTube Music landing page does not adopt a blank paused video", () => {
@@ -106,6 +107,8 @@ test("explicit desired state sets, clears and switches once without optimistic r
   h.command({ op: "rate", track, rating: "dislike" }); assert.equal(h.flush().rating, "dislike");
   h.command({ op: "rate", track, rating: "like" }); assert.equal(h.flush().rating, "like");
   assert.equal(h.like.clicks, 2); assert.equal(h.dislike.clicks, 1);
+  assert.equal(h.renderer.data.likeStatus, "LIKE", "commands must read live state despite stale auxiliary data");
+  assert.equal(h.flush().canRate, true);
   h.dislike.click = () => { h.dislike.clicks++; };
   h.command({ op: "rate", track, rating: "dislike" }); assert.equal(h.flush().rating, "like");
   h.tick(); h.tick(); assert.equal(h.dislike.clicks, 2, "no retry when website never confirms");
@@ -132,7 +135,7 @@ test("identity loss and player replacement retire the prior track token", () => 
 test("ambiguous, disabled and unreadable states are unknown and never click", () => {
   const changes = [
     (h) => h.likes.push(h.like), (h) => h.dislikes.push(h.dislike), (h) => h.players.push(h.player),
-    (h) => { h.renderer.data.likeStatus = "INDIFFERENT"; }, (h) => { h.dislike.pressed = "true"; },
+    (h) => { h.renderer.status = "INDIFFERENT"; }, (h) => { h.renderer.status = "INVALID"; }, (h) => { h.dislike.pressed = "true"; },
     (h) => { h.like.pressed = "TRUE"; }, (h) => { h.renderer.data.likesAllowed = false; },
     (h) => { h.like.disabled = true; }, (h) => { h.dislike.ariaDisabled = "true"; },
     (h) => { h.player.ad = true; }, (h) => { h.player.state = 3; },

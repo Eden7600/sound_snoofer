@@ -231,12 +231,12 @@ player.getVideoData = () => ({video_id: window.song});
 player.getPlayerState = () => 2;
 renderer.data = {target: {videoId: window.song}, likeStatus: 'LIKE', likesAllowed: true};
 window.setRating = (status) => {
-  renderer.setAttribute('like-status', status); renderer.data.likeStatus = status;
+  renderer.setAttribute('like-status', status);
   like.setAttribute('aria-pressed', String(status === 'LIKE'));
   dislike.setAttribute('aria-pressed', String(status === 'DISLIKE'));
 };
-like.onclick = () => { window.clicks++; setRating(renderer.data.likeStatus === 'LIKE' ? 'INDIFFERENT' : 'LIKE'); };
-dislike.onclick = () => { window.clicks++; setRating(renderer.data.likeStatus === 'DISLIKE' ? 'INDIFFERENT' : 'DISLIKE'); };
+like.onclick = () => { window.clicks++; setRating(renderer.getAttribute('like-status') === 'LIKE' ? 'INDIFFERENT' : 'LIKE'); };
+dislike.onclick = () => { window.clicks++; setRating(renderer.getAttribute('like-status') === 'DISLIKE' ? 'INDIFFERENT' : 'DISLIKE'); };
 window.setSong = (id) => { window.song = id; renderer.data.target.videoId = id; };
 navigator.mediaSession.metadata = new MediaMetadata({title: 'Fixture song', artist: 'Fixture artist'});
 </script>` }));
@@ -250,6 +250,7 @@ navigator.mediaSession.metadata = new MediaMetadata({title: 'Fixture song', arti
   send("dislike");
   await until("disliked rating", (m) => m.type === "sessions" && m.sessions.some((s) => s.id === session.id && s.rating === "dislike"));
   assert.equal(await page.evaluate(() => window.clicks), 2);
+  assert.equal(await page.evaluate(() => document.querySelector("#like-button-renderer").data.likeStatus), "LIKE", "auxiliary rating stays unchanged while live rating switches");
   fake.messages.length = 0;
   await page.evaluate(() => window.setRating("LIKE"));
   await until("paused manual rating", (m) => m.type === "sessions" && m.sessions.some((s) => s.id === session.id && s.rating === "like" && s.state === "paused"));

@@ -10,9 +10,9 @@ The approved read-only inspection on 2026-10-15 identified the current top-frame
 
 Support the observed layout only. Require the actual top-frame origin `https://music.youtube.com`, one `#movie_player`, and one `ytmusic-player-bar #like-button-renderer` of type `YTMUSIC-LIKE-BUTTON-RENDERER`. The active session media must be the video inside that player. Read the playing ID from `#movie_player.getVideoData().video_id` and require it to equal the renderer's `data.target.videoId`. The browsing URL and media title are insufficient: users can browse while a different song plays, and recordings can share metadata.
 
-Within that renderer, require exactly one Like button matching `.like-button-wrapper button[aria-pressed]` and one Dislike button matching `:scope > yt-button-shape > button[aria-pressed]`. Both must be enabled and `data.likesAllowed` must be exactly `true`. Require the renderer's `like-status` attribute, `data.likeStatus`, and the two `aria-pressed` values to agree:
+Within that renderer, require exactly one Like button matching `.like-button-wrapper button[aria-pressed]` and one Dislike button matching `:scope > yt-button-shape > button[aria-pressed]`. Both must be enabled and `data.likesAllowed` must be exactly `true`. Require the renderer's live `like-status` attribute and the two `aria-pressed` values to agree. Do not require agreement with `data.likeStatus`: the initial probe did not establish that auxiliary field as a live state source, and a stale value must not invalidate otherwise consistent current controls. Keep `data.target.videoId` and `data.likesAllowed` for identity and eligibility:
 
-| Status in both sources | Like pressed | Dislike pressed | Rating |
+| Live status | Like pressed | Dislike pressed | Rating |
 | --- | --- | --- | --- |
 | `LIKE` | `true` | `false` | `like` |
 | `INDIFFERENT` | `false` | `false` | `none` |
@@ -20,7 +20,7 @@ Within that renderer, require exactly one Like button matching `.like-button-wra
 
 The `LIKE` row was observed on the current player; `INDIFFERENT` occurred elsewhere on the page. The full unrated and disliked rows are expected mappings requiring automated coverage and live validation. Missing, conflicting or malformed fields, both buttons pressed, duplicate controls, a different layout, loading, account prompts or ambiguous player identity mean `unknown` with `canRate: false`. Do not infer state from colors or localized labels. Reject an `ad-showing` player; the inspected `getVideoData()` had no `isAd` field, so its absence is not an authoritative advertisement signal. Fail closed whenever the current item or eligibility cannot be established.
 
-Read only the renderer's target video ID, like status and likes-allowed flag; do not copy tracking parameters, service endpoints, account data or cookies.
+Read only the renderer's target video ID and likes-allowed data, live status attribute and pressed bits; do not copy tracking parameters, service endpoints, account data or cookies.
 
 YouTube's documented `videos.rate` and `videos.getRating` APIs are an alternative but require an authorized Google API flow. Reusing the user's signed-in page avoids adding that setup to Snoofer. The page integration is a compatibility commitment, not a stable Google API.
 

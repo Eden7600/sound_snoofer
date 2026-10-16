@@ -62,3 +62,9 @@ and explicit focus is retained until that call ends. Reload an already-open Meet
 tab after upgrading. Meet Deafen is N/A. Meet presentation remains unavailable
 until the site-specific Share adapter is inspected and implemented; the shared
 action transport does not itself establish screen-sharing support.
+
+Version 1.4.1 keeps YouTube Music ratings available when the renderer data has
+an older rating than the agreeing live buttons. Reload Snoofer Media on the
+browser extensions page, then reload affected YouTube Music tabs; existing
+page helpers keep their prior code until the tab reloads. No host rebuild or
+configuration change is required.

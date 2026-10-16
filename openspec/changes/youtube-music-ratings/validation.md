@@ -39,3 +39,24 @@ No desktop/browser control or real rating action was performed. Physical display
 and account mutation acceptance remain unchecked. The keys follow the selected
 media session: unsupported/old-helper sessions and Media on the Deck Off hide
 them; supported but unknown rating state shows N/A.
+
+
+## Rating-readback regression — 2026-10-16
+The connected Brave inspection now succeeds through the ChatGPT extension; the
+player DOM showed an enabled Like selected and Dislike clear. It did not expose
+the page-world cached rating, so the actual stale-field cause is not claimed
+confirmed. Fixtures holding that auxiliary rating fixed produced two failing
+page tests (`unknown` instead of `none`) before the correction. Removing only
+the auxiliary equality made them pass, with live-state/identity checks intact.
+
+- All 58 extension Node/build tests passed.
+- Isolated installed-Chrome page and headless-Brave real-extension checks passed,
+  including paused manual rating changes, clear/switch, stale-track rejection,
+  and the existing Meet round trips. Fixtures never contacted real accounts.
+- Strict OpenSpec validation and whitespace checks passed; independent diff
+  review found no actionable issue. Chrome and Firefox 1.4.1 packages built.
+- No host code/config changed, so Go/GUI suites and host rebuild were not repeated.
+  The live host was not restarted; unrelated user changes were preserved.
+
+The installed extension/tab still need reload and real rating acceptance. No
+real rating or playback was changed by this repair session.

@@ -37,3 +37,12 @@ for a later redesign; no Record or Meetings shortcut is replaced there.
 - [x] 9. Correct missing personal Plus XL Home bindings at indices 8/17, validate
   only the two intended changes, and restore the host's prior launch arguments.
   Applied 2026-10-16; physical rating acceptance in tasks 7–8 remains unchecked.
+
+## Rating-readback correction — 2026-10-16
+- [x] 10. Remove the auxiliary data-rating equality check, keep all live-state,
+  identity and eligibility guards, and cover stale auxiliary data in both the
+  page unit fixture and isolated extension/bridge fixture. Verify the regression
+  fails before the fix, run extension tests/checks, and package version 1.4.1.
+- [ ] 11. Reload the extension and affected tab, then verify the reported N/A
+  case with real key presses under an approved mutation session, restoring the
+  tested track rating. Read-only DOM inspection is not mutation acceptance.
