@@ -90,6 +90,7 @@ type Meetings struct {
 	actionStatus                      [3]string
 	actionEpoch                       [3]uint64
 	publishedActions                  [3]meetingActionCapture
+	shareSubmitted                    *meetingShareSubmission
 }
 
 // MeetingAdapter is one provider attachment; its worker owns claimed commands.
@@ -431,10 +432,10 @@ func (a *MeetingAdapter) Report(peers []MeetingPeer) error {
 		old, established := p.state, p.present && p.adapter == a && p.state.Lifetime == state.Lifetime
 		newCall := state.NewCall && (!established || !old.Joined)
 		changed = changed || !established || state != old
+		p.adapter, p.state, p.present = a, state, true
 		if !established {
 			m.cancelPeerLocked(p)
 		}
-		p.adapter, p.state, p.present = a, state, true
 		for n := range p.properties {
 			property := &p.properties[n]
 			if newCall {
@@ -472,6 +473,7 @@ func (a *MeetingAdapter) Report(peers []MeetingPeer) error {
 	}
 	m.cameraPeriodLocked()
 	m.refreshFocusLocked()
+	m.clearSubmittedShareLocked()
 	if changed {
 		m.changedLocked()
 	}

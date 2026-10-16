@@ -161,7 +161,7 @@ func TestMeetingFocusedActionsCaptureAndIndependentReservations(t *testing.T) {
 			t.Fatalf("wrong capture %+v", c)
 		}
 		control, handle := focusedControl(t, m, "meetings."+string(c.Action))
-		if control.Available || control.Status != "Pending" {
+		if !control.Available || control.Status != "Pending" {
 			t.Fatal(control)
 		}
 		if err := handle(context.Background(), Request{ID: control.ID, Operation: "press"}); err == nil {
@@ -216,8 +216,8 @@ func TestMeetingFocusChangeCancelsUnsentAndRetainsClaimedReservation(t *testing.
 		t.Fatal("claimed obsolete action not canceled")
 	}
 	control, handle := focusedControl(t, m, "meetings.share")
-	if control.Available {
-		t.Fatal("claimed reservation released early")
+	if !control.Available || control.Status != "Pending" {
+		t.Fatal("claimed reservation lost pending presentation", control)
 	}
 	if err := handle(context.Background(), Request{ID: control.ID, Operation: "press"}); err == nil {
 		t.Fatal("second same-kind action overlapped old claim")
@@ -335,7 +335,7 @@ func TestMeetingActionValidationAndSubmittedBoundary(t *testing.T) {
 	c.Complete(Outcome{Status: Submitted, Detail: "Choose a source in Meet"})
 	actionResult(t, results, Submitted)
 	control, _ := focusedControl(t, m, "meetings.share")
-	if control.Value == "On" || control.Status != "Choose a source in Meet" {
+	if control.Value != "Ready" || control.Status != "Choose a source in Meet" {
 		t.Fatal("menu opening became sharing", control)
 	}
 	noAction(t, a)
@@ -396,4 +396,88 @@ func TestMeetingLeaveReplacementPreservesOriginalResultOnly(t *testing.T) {
 		t.Fatal("old completion changed new call focus")
 	}
 	noAction(t, a)
+}
+
+func TestMeetingClaimedLeaveManualFocusCancelsCurrentCall(t *testing.T) {
+	m, a := meetingRig(t, true)
+	one, two := actionPeer("a"), actionPeer("b")
+	reportMeeting(t, a, one, two)
+	results := queueAction(t, m, 2)
+	c := nextAction(t, a)
+	chooseFocus(t, m, one.Label)
+	if c.Context.Err() == nil {
+		t.Fatal("manual focus change left old Leave writable before provider I/O")
+	}
+	if c.Peer != two.ID || c.Lifetime != two.Lifetime {
+		t.Fatal("manual focus change retargeted old Leave")
+	}
+	c.Complete(Outcome{Status: Rejected, Detail: "Canceled before send"})
+	actionResult(t, results, Rejected)
+	noAction(t, a)
+}
+
+func TestMeetingShareSubmittedInstructionFollowsReadback(t *testing.T) {
+	for _, readbackFirst := range []bool{false, true} {
+		m, a := meetingRig(t, true)
+		p := actionPeer("a")
+		p.Share.Known = true
+		reportMeeting(t, a, p)
+		results := queueAction(t, m, 1)
+		c := nextAction(t, a)
+		if readbackFirst {
+			p.Share.Value, p.Share.Revision = true, 2
+			reportMeeting(t, a, p)
+		}
+		c.Complete(Outcome{Status: Submitted, Detail: "Choose a source in Meet"})
+		actionResult(t, results, Submitted)
+		if !readbackFirst {
+			p.Share.Revision++
+			reportMeeting(t, a, p)
+			control, _ := focusedControl(t, m, "meetings.share")
+			if control.Status != "Choose a source in Meet" {
+				t.Fatal("unchanged Off lost submitted instruction", control)
+			}
+			p.Share.Value = true
+			p.Share.Revision++
+			reportMeeting(t, a, p)
+		}
+		control, _ := focusedControl(t, m, "meetings.share")
+		if control.Value != "On" || control.Status != "" {
+			t.Fatal("actual presentation retained obsolete menu instruction", control)
+		}
+	}
+}
+
+func TestMeetingShareFailureDoesNotBecomeSubmittedInstruction(t *testing.T) {
+	for _, status := range []OutcomeStatus{Unknown, Failed} {
+		m, a := meetingRig(t, true)
+		p := actionPeer("a")
+		p.Share.Known = true
+		reportMeeting(t, a, p)
+		results := queueAction(t, m, 1)
+		c := nextAction(t, a)
+		c.Complete(Outcome{Status: status})
+		actionResult(t, results, status)
+		p.Share.Value, p.Share.Revision = true, 2
+		reportMeeting(t, a, p)
+		control, _ := focusedControl(t, m, "meetings.share")
+		if control.Status == "" {
+			t.Fatal("ordinary readback erased failed/unknown result", status)
+		}
+	}
+}
+
+func TestMeetingShareSubmittedInstructionDoesNotFollowFocus(t *testing.T) {
+	m, a := meetingRig(t, true)
+	one, two := actionPeer("a"), actionPeer("b")
+	reportMeeting(t, a, one, two)
+	results := queueAction(t, m, 1)
+	c := nextAction(t, a)
+	c.Complete(Outcome{Status: Submitted, Detail: "Choose a source in Meet"})
+	actionResult(t, results, Submitted)
+	chooseFocus(t, m, one.Label)
+	control, _ := focusedControl(t, m, "meetings.share")
+	if control.Status != "" {
+		t.Fatal("new focus inherited submitted instruction", control)
+	}
 }

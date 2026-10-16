@@ -47,8 +47,22 @@ reuse. App/browser-tab labels contain no meeting names, codes or participants.
 Core controls meetings.deafen, meetings.share and meetings.leave capture exact
 focus epoch, peer lifetime and action observation. Selection/lifetime changes
 cancel unsent work; claimed work stays reserved until terminal completion or its
-bounded deadline. A claimed Leave retains its exact result waiter through focus or
-lifetime changes because departure can precede that correlated result; adapter
-shutdown and host shutdown still cancel it. Callbacks run outside the coordinator lock. Preview cannot
+bounded deadline. A claimed Leave retains its exact result waiter only after
+observed departure or captured lifetime replacement, because departure can precede
+that correlated result. Changing focus while the captured call is still joined
+in the same lifetime cancels its context, even after claim, so provider work
+waiting to send remains cancelable. Adapter and host shutdown cancel it too.
+Callbacks run outside the coordinator lock. Preview cannot
 submit focus or action changes. Per-app explicit controls remain provider-local.
 
+
+Pending preserves actual capability availability and carries Status Pending, so
+native keys show Wait; the captured request guard refuses duplicate operations.
+An available Share with unknown presentation state reads Ready, describing its
+workflow capability rather than inventing observed Off or On. Unsupported or
+absent calls retain N/A and are unavailable.
+A submitted Share workflow instruction is tied to its captured call lifetime,
+control revision and requested state. Keep it through unchanged or unknown
+reports; clear it once fresh known presentation readback matches that request,
+even when readback precedes Submitted. New focus/call lifetimes cannot inherit
+it. This typed submission note never clears an Unknown or Failed action result.

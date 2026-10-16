@@ -35,6 +35,11 @@ type meetingActionCapture struct {
 	observed      MeetingValue
 }
 
+type meetingShareSubmission struct {
+	capture meetingActionCapture
+	value   bool
+}
+
 type meetingActionAttempt struct {
 	capture  meetingActionCapture
 	action   int
@@ -113,6 +118,7 @@ func (m *Meetings) setFocusLocked(p *meetingPeer) {
 	m.focus, m.focusOrder = p, order
 	m.focusEpoch++
 	m.actionStatus = [3]string{}
+	m.shareSubmitted = nil
 	for _, attempt := range m.actions {
 		if attempt != nil {
 			m.cancelActionLocked(attempt, "Focused call changed")
@@ -164,6 +170,9 @@ func (m *Meetings) requestAction(ctx context.Context, n int, captured meetingAct
 	attempt := &meetingActionAttempt{capture: captured, action: n, value: value, ctx: commandCtx, cancel: cancel, complete: complete, deadline: time.Now().Add(5 * time.Second)}
 	attempt.stop = context.AfterFunc(ctx, cancel)
 	m.actions[n], m.actionStatus[n] = attempt, ""
+	if n == 1 {
+		m.shareSubmitted = nil
+	}
 	m.changedLocked()
 	return nil
 }
@@ -215,6 +224,10 @@ func (m *Meetings) finishActionLocked(a *meetingActionAttempt, outcome Outcome) 
 			m.actionStatus[a.action] = "Failed"
 		case Submitted:
 			m.actionStatus[a.action] = outcome.Detail
+			if a.action == 1 {
+				m.shareSubmitted = &meetingShareSubmission{a.capture, a.value}
+				m.clearSubmittedShareLocked()
+			}
 		default:
 			m.actionStatus[a.action] = ""
 		}
@@ -225,9 +238,23 @@ func (m *Meetings) finishActionLocked(a *meetingActionAttempt, outcome Outcome) 
 	m.changedLocked()
 }
 
+func (m *Meetings) clearSubmittedShareLocked() {
+	s := m.shareSubmitted
+	if s == nil || s.capture.focus != m.focusEpoch {
+		return
+	}
+	p := s.capture.peer
+	value := p.state.Share
+	if p.present && p.state.Joined && p.state.Lifetime == s.capture.lifetime && value.Known && value.Value == s.value && value.Revision != s.capture.observed.Revision {
+		m.actionStatus[1] = ""
+		m.shareSubmitted = nil
+		m.changedLocked()
+	}
+}
+
 func (m *Meetings) cancelActionLocked(a *meetingActionAttempt, detail string) {
 	// Departure can be observed before its correlated Leave result arrives.
-	if a.claimed && a.action == 2 && !a.capture.peer.adapter.closed {
+	if a.claimed && a.action == 2 && !a.capture.peer.adapter.closed && (!a.capture.peer.present || !a.capture.peer.state.Joined || a.capture.peer.state.Lifetime != a.capture.lifetime) {
 		return
 	}
 	a.cancel()
@@ -268,6 +295,9 @@ func (m *Meetings) focusedControls() ([]Control, func(context.Context, Request) 
 			available = meetingActionAvailable(p.state, n)
 			if available {
 				value = ""
+				if n == 1 && !v.Known {
+					value = "Ready"
+				}
 				if n != 2 && v.Known {
 					value = OnOff(v.Value)
 				}
@@ -281,7 +311,7 @@ func (m *Meetings) focusedControls() ([]Control, func(context.Context, Request) 
 			m.publishedActions[n] = captures[n]
 		}
 		if m.actions[n] != nil {
-			available, status = false, "Pending"
+			status = "Pending"
 		}
 		controls = append(controls, Control{ID: "meetings." + string(meetingActionName(n)), Label: label, ShortLabel: label, Group: "Meetings", Kind: kind, Icon: icon, Value: value, Status: status, Available: m.live && available, Epoch: m.actionEpoch[n], Operations: []string{"press"}})
 	}
