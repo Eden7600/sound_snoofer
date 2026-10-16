@@ -95,13 +95,15 @@ type MeetControl struct {
 
 // MeetCall identifies one observed document and joined-call lifetime.
 type MeetCall struct {
-	Tab      int64       `json:"tab"`
-	Instance string      `json:"instance"`
-	Sample   uint64      `json:"sample,string"`
-	Call     string      `json:"call"`
-	State    string      `json:"state"`
-	Mic      MeetControl `json:"mic"`
-	Camera   MeetControl `json:"camera"`
+	Tab      int64        `json:"tab"`
+	Instance string       `json:"instance"`
+	Sample   uint64       `json:"sample,string"`
+	Call     string       `json:"call"`
+	State    string       `json:"state"`
+	Mic      MeetControl  `json:"mic"`
+	Camera   MeetControl  `json:"camera"`
+	Share    *MeetControl `json:"share,omitempty"`
+	Leave    *MeetControl `json:"leave,omitempty"`
 }
 
 // MeetUpdate is immutable after delivery. Received belongs to the local owner.
@@ -151,7 +153,7 @@ func counter(s string) bool {
 }
 
 func validCommand(c MeetCommand) bool {
-	return c.Generation > 0 && c.Tab >= 0 && c.Tab <= 9007199254740991 && counter(c.Instance) && counter(c.Call) && c.Revision > 0 && (c.Control == "mic" || c.Control == "camera")
+	return c.Generation > 0 && c.Tab >= 0 && c.Tab <= 9007199254740991 && counter(c.Instance) && counter(c.Call) && c.Revision > 0 && (c.Control == "mic" || c.Control == "camera" || c.Control == "share" || c.Control == "leave" && c.Value)
 }
 
 // Presence is checked before ordinary decoding so omitted false/null fields cannot
@@ -245,11 +247,18 @@ func decodeCalls(data []byte) ([]MeetCall, error) {
 		if tab.Tab == nil || c.Tab < 0 || c.Tab > 9007199254740991 || seen[c.Tab] || !counter(c.Instance) || !counter(tab.Sample) || tab.Call == nil || c.Mic.Revision == 0 || c.Camera.Revision == 0 {
 			return nil, errors.New("invalid Meet tab")
 		}
+		var optional map[string]json.RawMessage
+		_ = json.Unmarshal(raw, &optional) // Full decoding above checked the object.
+		for _, name := range []string{"share", "leave"} {
+			if value, present := optional[name]; present && string(value) == "null" {
+				return nil, errors.New("invalid optional Meet control")
+			}
+		}
 		if c.State == "joined" {
 			if !counter(c.Call) {
 				return nil, errors.New("invalid Meet call")
 			}
-		} else if (c.State != "prejoin" && c.State != "unknown") || c.Call != "" || c.Mic.Available || c.Camera.Available {
+		} else if (c.State != "prejoin" && c.State != "unknown") || c.Call != "" || c.Mic.Available || c.Camera.Available || c.Share != nil && c.Share.Available || c.Leave != nil && c.Leave.Available {
 			return nil, errors.New("invalid Meet call state")
 		}
 		seen[c.Tab] = true
@@ -281,7 +290,7 @@ func decodeResult(data []byte) (MeetResult, error) {
 	if presence.Tab == nil || presence.Value == nil || presence.Reason == nil || !counter(presence.Revision) || !counter(r.ID) || !validCommand(MeetCommand{Generation: 1, Tab: r.Tab, Instance: r.Instance, Call: r.Call, Control: r.Control, Revision: r.Revision, Value: r.Value}) {
 		return r, errors.New("invalid Meet result")
 	}
-	valid := r.Status == "observed" && r.Reason == "" || r.Status == "rejected" && (r.Reason == "stale" || r.Reason == "unavailable" || r.Reason == "busy" || r.Reason == "disabled") || r.Status == "unknown" && (r.Reason == "not-confirmed" || r.Reason == "disconnected" || r.Reason == "stopped")
+	valid := r.Status == "observed" && r.Reason == "" || r.Status == "submitted" && r.Reason == "choose-source" && r.Control == "share" && r.Value || r.Status == "rejected" && (r.Reason == "stale" || r.Reason == "unavailable" || r.Reason == "busy" || r.Reason == "disabled") || r.Status == "unknown" && (r.Reason == "not-confirmed" || r.Reason == "disconnected" || r.Reason == "stopped")
 	if !valid {
 		return r, errors.New("invalid Meet result status")
 	}
