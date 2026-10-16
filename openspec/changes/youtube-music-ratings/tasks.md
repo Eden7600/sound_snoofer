@@ -43,6 +43,6 @@ for a later redesign; no Record or Meetings shortcut is replaced there.
   identity and eligibility guards, and cover stale auxiliary data in both the
   page unit fixture and isolated extension/bridge fixture. Verify the regression
   fails before the fix, run extension tests/checks, and package version 1.4.1.
-- [ ] 11. Reload the extension and affected tab, then verify the reported N/A
+- [x] 11. Reload the extension and affected tab, then verify the reported N/A
   case with real key presses under an approved mutation session, restoring the
   tested track rating. Read-only DOM inspection is not mutation acceptance.

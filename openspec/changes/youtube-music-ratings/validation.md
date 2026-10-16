@@ -60,3 +60,22 @@ the auxiliary equality made them pass, with live-state/identity checks intact.
 
 The installed extension/tab still need reload and real rating acceptance. No
 real rating or playback was changed by this repair session.
+
+
+## Live Like/clear acceptance — 2026-10-16
+The user authorized reload and a real Like/clear test. Brave tab control worked
+through its connected browser extension. Its internal Extensions page could not
+be claimed, so the user reloaded Snoofer Media after the 1.4.1 build. The agent
+reloaded the existing YouTube Music tab and retained the same playing item.
+The starting rating was unrated.
+
+The user pressed the Plus XL Like key and confirmed it worked, then clarified
+that they unliked immediately afterward: both On and back Off worked. This
+confirmation is accepted as the physical result; no additional verification of
+their confirmation is required. The tested rating is restored to its original
+unrated state. Browser control is released. No host restart or saved-config
+change was needed.
+
+This closes the reported Like-to-N/A regression acceptance. Dislike switching,
+multiple tabs, stale intent and reconnect variants remain the separate broader
+live tasks 7–8; this result does not claim those checks were performed.
