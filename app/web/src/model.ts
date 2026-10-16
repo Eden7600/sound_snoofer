@@ -31,7 +31,7 @@ export function meterValue(meter: Meter | undefined, now = Date.now()) {
   return Math.min(0, Math.max(-60, meter.DB));
 }
 export function display(control: Control) {
-  if (!control.Available) return "Unavailable";
+  if (!control.Available) return control.Value === "N/A" ? "N/A" : "Unavailable";
   return control.OptionLabels?.[control.Value] ?? control.Value ?? "";
 }
 export function gridMove(index: number, key: string, columns: number, count: number) {

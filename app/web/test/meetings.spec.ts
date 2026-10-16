@@ -17,8 +17,8 @@ test.describe("Meetings", () => {
     await page.locator("[data-part=shared-meetings]").getByRole("button", { name: "Mute", exact: true }).click();
     expect((await gui.last()).ID).toBe("meetings.mute");
     await gui.settled();
-    await discord.getByRole("button", { name: "Leave Call", exact: true }).click();
-    expect((await gui.last()).ID).toBe("discord.leave");
+    await page.locator("[data-part=focused-meeting]").getByRole("button", { name: "Leave Call", exact: true }).click();
+    expect((await gui.last()).ID).toBe("meetings.leave");
   });
 
   test("setup hint and enabling the plugin", async ({ gui }) => {

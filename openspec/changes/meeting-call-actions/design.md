@@ -71,3 +71,8 @@ and native key output, run appropriate Go/race, extension, GUI and strict spec
 gates, then the canonical build with exact prior launch restored. Keep unperformed
 live site/deck checks unchecked. User reported live Mute/Camera success on 2026-10-15;
 this does not by itself establish all multi-call propagation acceptance.
+
+GUI display preserves an explicit provider N/A when unavailable; it still hides
+stale On/Off behind Unavailable. The focused Deafen regression covers this shared
+display rule without changing other known values.
+

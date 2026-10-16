@@ -502,6 +502,37 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
     Icon: "discord-video-off",
     Operations: ["press"],
   });
+  add("meetings.focus-1", "Discord", "toggle", "Off", {
+    Group: "Meetings",
+    Collection: "meetings.focus",
+    Icon: "call",
+    Order: 1,
+    Operations: ["press"],
+  });
+  add("meetings.focus-2", "Brave · Tab 7", "toggle", "On", {
+    Group: "Meetings",
+    Collection: "meetings.focus",
+    Icon: "call",
+    Order: 2,
+    Operations: ["press"],
+  });
+  add("meetings.deafen", "Deafen", "toggle", "N/A", {
+    Group: "Meetings",
+    Icon: "discord-deafen",
+    Available: false,
+    Status: "Not supported",
+    Operations: ["press"],
+  });
+  add("meetings.share", "Share", "toggle", "Off", {
+    Group: "Meetings",
+    Icon: "screen-share",
+    Operations: ["press"],
+  });
+  add("meetings.leave", "Leave Call", "command", "", {
+    Group: "Meetings",
+    Icon: "call-leave",
+    Operations: ["press"],
+  });
   for (const provider of ["discord", "googlemeet"]) {
     const group = provider === "discord" ? "Discord" : "Google Meet";
     add(provider + ".call-mute", "Mute", "status", "On", { Group: group, SurfaceOnly: true });

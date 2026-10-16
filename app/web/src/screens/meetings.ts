@@ -1,5 +1,5 @@
 import { ui, tc, el, panel } from "../dom.ts";
-import { root, updaters, c } from "../state.ts";
+import { root, updaters, c, appState } from "../state.ts";
 import { command, control } from "../widgets.ts";
 import { display, tone } from "../model.ts";
 import { buildProviderGate, pluginStates } from "../plugin-gate.ts";
@@ -21,6 +21,7 @@ export function buildMeetings() {
   grid.dataset.part = "meetings";
   root.append(grid);
   buildShared(grid);
+  buildFocused(grid);
   for (const gate of pluginScreens.meetings!) {
     if (buildProviderGate(gate, grid)) continue;
     if (gate.plugin === "discord") buildDiscord(grid);
@@ -48,10 +49,7 @@ function buildDiscord(grid: HTMLElement) {
     connect.hidden = !c("discord.connect")?.Available && c("discord.connect")?.Status !== "Pending";
   });
   control("discord.call-mute", card, "Mute");
-  control("discord.deafen", card, "Deafen");
   control("discord.call-camera", card, "Camera");
-  control("discord.screenshare", card, "Screen Share");
-  control("discord.leave", card, "Leave Call");
 }
 
 function buildMeet(grid: HTMLElement) {
@@ -83,4 +81,33 @@ function buildShared(grid: HTMLElement) {
           : "";
     source.hidden = pluginStates().audio !== "running" || !source.textContent;
   });
+}
+
+function buildFocused(grid: HTMLElement) {
+  const card = panel("Focused Call", grid);
+  card.dataset.part = "focused-meeting";
+  const calls = [...appState.controls.values()]
+    .filter((item) => item.Collection === "meetings.focus")
+    .sort((a, b) => (a.Order || 0) - (b.Order || 0));
+  const choices = el("div", ui.actions + " mb-3");
+  choices.dataset.part = "call-focus";
+  card.append(choices);
+  for (const item of calls) {
+    const focus = command(item.ID, item.Label, choices, ui.toggle + " max-w-full whitespace-normal");
+    if (!focus) continue;
+    updaters.push(() => {
+      const current = c(item.ID);
+      focus.setAttribute("aria-pressed", String(current?.Value === "On"));
+      focus.dataset.tone = current ? tone(current) : "neutral";
+    });
+  }
+  const target = el("p", "mb-3 text-[13px] text-muted");
+  target.dataset.part = "focused-call-name";
+  card.append(target);
+  updaters.push(() => {
+    target.textContent = calls.map((item) => c(item.ID)).find((item) => item?.Value === "On")?.Label || "Not in a call";
+  });
+  control("meetings.deafen", card, "Deafen");
+  control("meetings.share", card, "Share");
+  control("meetings.leave", card, "Leave Call");
 }
