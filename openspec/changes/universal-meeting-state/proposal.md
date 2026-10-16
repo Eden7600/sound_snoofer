@@ -1,5 +1,8 @@
 # Universal meeting state
 
+The 2026-10-15 [focused call actions](../meeting-call-actions/design.md) follow-up
+supersedes the Discord-only Share/Leave scope and adds explicit call focus.
+
 ## Why
 The user wants one mute target and one camera target reflected in all compatible
 call apps. Changes made inside Discord, Google Meet or a future compatible app

@@ -1,5 +1,8 @@
 # Google Meet controls
 
+The 2026-10-15 [focused call actions](../meeting-call-actions/design.md) follow-up
+supersedes the Discord-only Share/Leave scope and adds explicit call focus.
+
 The user superseded the independent/selected-only mute and camera policy on
 2026-10-15 with [universal meeting state](../universal-meeting-state/design.md).
 The transport and DOM safety contract remains; that follow-up owns shared intent,

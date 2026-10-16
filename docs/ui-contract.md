@@ -158,8 +158,11 @@ lifecycle actions.
 Changing mute/camera in a compatible app updates shared intent and the other apps.
 Snoofer's saved Mic Mute remains the durable mute authority when audio is available;
 audio-absent operation uses runtime mute intent. Discord deafening retains its
-existing synthetic-mute exception. Discord-only Deafen, Screen Share and Leave Call
-remain local to Discord. Its setup/Connect affordances remain unchanged.
+existing synthetic-mute exception. Share, Leave and Deafen act on the focused joined call. Focus buttons default to
+the newest observed call; an explicit choice stays pinned until that call ends.
+Mute and Camera remain universal. Deafen is N/A for Meet or no supported call.
+Share opens the native presentation workflow; choosing a source remains the user's action. A menu opening is not sharing On. Explicit per-app bindings remain local.
+Discord setup/Connect affordances remain unchanged.
 
 Existing saved Discord/Meet mute and camera bindings request shared intent. The
 user's Plus XL Meetings Mute/Camera positions remain, now targeting shared controls;
