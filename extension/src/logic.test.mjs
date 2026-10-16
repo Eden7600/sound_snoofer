@@ -155,3 +155,19 @@ test("Meet observation identity is bounded and legacy omission remains readable"
     assert.equal(meetState({ ...state, mic: { ...c, identity } }), null);
   }
 });
+
+test("optional Meet actions retain strict values and only share can report a menu submission", () => {
+  const c = { value: true, revision: "1", identity: "1", available: true, reason: "" };
+  const state = { sample: "1", call: "1", state: "joined", mic: c, camera: c };
+  assert.equal(meetState(state).share, undefined);
+  assert.deepEqual(meetState({ ...state, share: { ...c, value: false }, leave: c }).leave, c);
+  for (const bad of [null, { ...c, value: undefined }, { ...c, identity: "01" }, { ...c, available: "true" }])
+    assert.equal(meetState({ ...state, share: bad }), null);
+  const command = { id: "1", tab: 0, instance: "1", call: "1", control: "share", revision: "1", value: true };
+  const result = { ...command, status: "submitted", reason: "choose-source" };
+  assert.deepEqual(meetResult(result, command), result);
+  for (const control of ["mic", "camera", "leave"])
+    assert.equal(meetResult({ ...result, control }, { ...command, control }), null);
+  assert.equal(meetResult({ ...result, value: false }, { ...command, value: false }), null);
+  assert.equal(meetCommand({ ...command, control: "leave", value: false }), null);
+});

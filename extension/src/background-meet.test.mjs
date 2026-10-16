@@ -138,3 +138,20 @@ test("install injection uses only isolated Meet files on Meet top frame", async 
   assert.deepEqual(injected.filter((i) => i.target.tabId === 7), [{ target: { tabId: 7, frameIds: [0] }, files: ["logic.js", "meet.js"] }]);
   assert.deepEqual(injected.filter((i) => i.target.tabId === 8).map((i) => i.files[0]), ["page.js", "bridge.js"]);
 });
+
+test("optional focused actions reject old helpers and preserve exact terminal results", async () => {
+  const h = await background(); h.caps(); const p = h.port(); h.ready(p); h.report(p);
+  h.message(h.command(p, "1", "leave", true));
+  assert.equal(h.results().at(-1).reason, "stale");
+  h.report(p, { ...state("2"), share: control(false), leave: control(true) });
+  const share = h.command(p, "2", "share", true); h.message(share);
+  p.onMessage.emit({ ...share, type: "meet-result", status: "submitted", reason: "choose-source" });
+  assert.equal(h.results().at(-1).status, "submitted");
+  const leave = h.command(p, "3", "leave", true); h.message(leave);
+  const ended = { ...state("3"), state: "prejoin", call: "" };
+  for (const c of [ended.mic, ended.camera]) { c.available = false; c.reason = "not-in-call"; }
+  h.report(p, ended);
+  p.onMessage.emit({ ...leave, type: "meet-result", status: "observed", reason: "" });
+  assert.equal(h.results().at(-1).id, "3"); assert.equal(h.results().at(-1).status, "observed");
+  h.advance(5000); assert.equal(p.sent.filter(m => m.type === "meet-command").length, 2);
+});

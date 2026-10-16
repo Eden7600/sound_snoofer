@@ -165,3 +165,24 @@ test("control identity changes only with node lifetime, including same-batch rei
   h.duplicates.mic = [h.mic]; h.observe(); h.duplicates.mic = []; h.observe();
   assert.notEqual(h.state().mic.identity, reinserted);
 });
+
+test("Leave clicks once and confirms only departure of its captured joined root", () => {
+  const h = adapter(); h.config();
+  assert.equal(h.state().leave.available, true);
+  h.leave.click = function() { this.clicks++; h.root.isConnected = false; h.roots = []; h.hasLeave = false; h.records.push({removedNodes:[h.root]}); };
+  h.command("leave", true);
+  assert.equal(h.leave.clicks, 1); assert.equal(h.results().at(-1).status, "observed");
+  assert.equal(h.state().leave.available, false);
+  h.advance(5000); assert.equal(h.leave.clicks, 1);
+});
+
+test("Leave rejects stale or disabled controls and cannot mistake capability for departure", () => {
+  const h = adapter(); h.config(); const old = h.state();
+  h.leave = { ...h.leave }; h.observe();
+  h.command("leave", true, { call: old.call }); assert.equal(h.results().at(-1).reason, "stale");
+  h.leave.disabled = true; h.observe(); h.command("leave", true); assert.equal(h.results().at(-1).reason, "unavailable");
+  h.leave.disabled = false; h.observe(); h.leave.click = function() { this.clicks++; };
+  h.command("leave", true); assert.equal(h.leave.clicks, 1);
+  h.advance(3000); assert.equal(h.results().at(-1).status, "unknown");
+  h.observe(); h.advance(5000); assert.equal(h.leave.clicks, 1);
+});

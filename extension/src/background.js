@@ -115,7 +115,7 @@ function routeMeet(message, ws) {
   const reject = (reason) => meetReply(ws, command, "rejected", reason);
   if (!meetEnabled) return reject("disabled");
   const frame = meetFrames.get(command.tab);
-  if (!frame || !frame.ready || !meetSender(frame.port.sender) || frame.port.sender.documentId !== frame.document || frame.instance !== command.instance || !frame.report || performance.now() - frame.at >= 3000 || frame.report.call !== command.call || frame.report[command.control].revision !== command.revision) return reject("stale");
+  if (!frame || !frame.ready || !meetSender(frame.port.sender) || frame.port.sender.documentId !== frame.document || frame.instance !== command.instance || !frame.report || performance.now() - frame.at >= 3000 || frame.report.call !== command.call || frame.report[command.control]?.revision !== command.revision) return reject("stale");
   if (!frame.report[command.control].available) return reject("unavailable");
   if (meetPending.size >= 8 || [...meetPending.values()].some((p) => p.frame === frame && p.command.call === command.call && p.command.control === command.control)) return reject("busy");
   const entry = { command, frame, ws };

@@ -140,7 +140,8 @@
     if (!value || !["joined", "prejoin", "unknown"].includes(value.state) || !meetCounter(value.sample) ||
         (value.state === "joined" ? !meetCounter(value.call) : value.call !== "")) return null;
     const result = { sample: value.sample, call: value.call, state: value.state };
-    for (const name of ["mic", "camera"]) {
+    for (const name of ["mic", "camera", "share", "leave"]) {
+      if ((name === "share" || name === "leave") && value[name] === undefined) continue;
       const c = value[name];
       if (!c || (typeof c.value !== "boolean" && c.value !== null) || typeof c.available !== "boolean" || !meetCounter(c.revision) ||
           !["", "unknown", "unavailable", "not-in-call", "reload-required"].includes(c.reason) ||
@@ -154,13 +155,14 @@
   function meetCommand(value) {
     if (!value || !meetCounter(value.id) || !Number.isSafeInteger(value.tab) || value.tab < 0 ||
         !meetCounter(value.instance) || !meetCounter(value.call) || !meetCounter(value.revision) ||
-        !["mic", "camera"].includes(value.control) || typeof value.value !== "boolean") return null;
+        !["mic", "camera", "share", "leave"].includes(value.control) || typeof value.value !== "boolean" || value.control === "leave" && !value.value) return null;
     const { id, tab, instance, call, control, revision, value: desired } = value;
     return { id, tab, instance, call, control, revision, value: desired };
   }
   function meetResult(value, command) {
     const echo = meetCommand(value);
     if (!echo || Object.keys(echo).some((key) => echo[key] !== command[key])) return null;
+    if (value.status === "submitted") return command.control === "share" && command.value && value.reason === "choose-source" ? { ...echo, status: value.status, reason: value.reason } : null;
     const reasons = { observed: [""], rejected: ["stale", "unavailable", "busy", "disabled"], unknown: ["not-confirmed", "disconnected", "stopped"] };
     if (!Object.hasOwn(reasons, value.status) || !reasons[value.status].includes(value.reason)) return null;
     return { ...echo, status: value.status, reason: value.reason };
