@@ -509,7 +509,7 @@ export function manualFixture(): { fixture: Fixture; animations: Animations } {
     Order: 1,
     Operations: ["press"],
   });
-  add("meetings.focus-2", "Brave · Tab 7", "toggle", "On", {
+  add("meetings.focus-2", "Meet · Brave · Tab 7", "toggle", "On", {
     Group: "Meetings",
     Collection: "meetings.focus",
     Icon: "call",

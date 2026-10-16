@@ -55,7 +55,7 @@ func keyArea(icon string) color.RGBA {
 	}
 	switch icon {
 	case "mic-mute", "vr-mic", "mic-stack", "mode-direct", "mode-element", "tap-pre", "tap-post", "echo",
-		"discord-connect", "discord-video", "screen-share", "call-leave":
+		"discord-connect", "discord-video", "screen-share", "call", "call-leave":
 		return micArea
 	}
 	return otherArea

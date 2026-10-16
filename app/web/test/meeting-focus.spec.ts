@@ -6,7 +6,7 @@ test("focused call buttons retain focus and route only focused action IDs", asyn
   await gui.screen("Meetings");
   const card = page.locator("[data-part=focused-meeting]");
   const discord = card.getByRole("button", { name: "Discord", exact: true });
-  const meet = card.getByRole("button", { name: "Brave · Tab 7", exact: true });
+  const meet = card.getByRole("button", { name: "Meet · Brave · Tab 7", exact: true });
   await expect(meet).toHaveAttribute("aria-pressed", "true");
   await expect(discord).toHaveAttribute("aria-pressed", "false");
   await expect(card.getByRole("button", { name: "Deafen", exact: true })).toBeDisabled();
@@ -36,7 +36,7 @@ test("departed calls remove focus buttons and leave unsupported actions inert", 
   await gui.open();
   await gui.screen("Meetings");
   const card = page.locator("[data-part=focused-meeting]");
-  await card.getByRole("button", { name: "Brave · Tab 7", exact: true }).focus();
+  await card.getByRole("button", { name: "Meet · Brave · Tab 7", exact: true }).focus();
   await gui.update(() => {
     window.fixture.Controls = window.fixture.Controls.filter((item) => item.Collection !== "meetings.focus");
     for (const id of ["meetings.deafen", "meetings.share", "meetings.leave"])

@@ -76,3 +76,7 @@ GUI display preserves an explicit provider N/A when unavailable; it still hides
 stale On/Off behind Unavailable. The focused Deafen regression covers this shared
 display rule without changing other known values.
 
+
+Native preview found the existing call identifier had no drawn symbol. Reuse the
+Leave handset without its down arrow for Focus, and classify it in the existing
+call/microphone area. The GUI deck preview uses its existing phone symbol.

@@ -372,17 +372,19 @@ func drawIcon(im *image.RGBA, icon string, ink color.RGBA) bool {
 		line(56, 47, 56, 27)
 		line(56, 27, 46, 36)
 		line(56, 27, 66, 36)
-	case "call-leave":
-		// Hung-up handset with a downward arrow.
+	case "call", "call-leave":
+		// Focus uses the handset; Leave adds the downward arrow.
 		for a := 200; a <= 340; a++ {
 			r := float64(a) * math.Pi / 180
 			dot(56+int(30*math.Cos(r)), 50+int(22*math.Sin(r)), 2)
 		}
 		rect(24, 40, 12, 10)
 		rect(76, 40, 12, 10)
-		line(56, 46, 56, 66)
-		line(56, 66, 48, 58)
-		line(56, 66, 64, 58)
+		if icon == "call-leave" {
+			line(56, 46, 56, 66)
+			line(56, 66, 48, 58)
+			line(56, 66, 64, 58)
+		}
 	default:
 		return false
 	}
