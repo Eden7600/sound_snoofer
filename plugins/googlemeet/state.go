@@ -47,6 +47,12 @@ func controlState(c browserbridge.MeetCall, control string) browserbridge.MeetCo
 	if control == "camera" {
 		return c.Camera
 	}
+	if control == "share" && c.Share != nil {
+		return *c.Share
+	}
+	if control == "leave" && c.Leave != nil {
+		return *c.Leave
+	}
 	return browserbridge.MeetControl{}
 }
 
@@ -153,7 +159,8 @@ func (w *worker) reconcile(now time.Time) {
 		}
 	}
 	for _, p := range w.pending {
-		if !w.eligible(p.target, now) {
+		// Leave confirmation can follow the snapshot that removes its call.
+		if p.control != "leave" && !w.eligible(p.target, now) {
 			p.cancel()
 		}
 	}
@@ -180,7 +187,8 @@ func (w *worker) synchronize(ctx context.Context, now time.Time) {
 			continue
 		}
 		peers = append(peers, snoofer.MeetingPeer{ID: t.peer(), Lifetime: t.value(), Label: t.label(), Joined: true, NewCall: c.newCall,
-			Mute: meetingValue(c.state.Mic), Camera: meetingValue(c.state.Camera)})
+			Mute: meetingValue(c.state.Mic), Camera: meetingValue(c.state.Camera),
+			Share: meetingValue(controlState(c.state, "share")), Leave: meetingValue(controlState(c.state, "leave"))})
 	}
 	// Reports wake all adapters; unchanged snapshots must not feed that wake back.
 	if !slices.Equal(peers, w.lastReport) {
@@ -217,6 +225,10 @@ func (w *worker) synchronize(ctx context.Context, now time.Time) {
 		return
 	}
 	for capacity := 8 - len(w.pending); capacity > 0; capacity-- {
+		if action, ok := w.meetings.NextAction(); ok {
+			w.applyAction(ctx, action, now)
+			continue
+		}
 		c, ok := w.meetings.Next()
 		if !ok {
 			return

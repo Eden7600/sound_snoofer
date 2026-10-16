@@ -128,6 +128,7 @@ type testAdapter struct {
 	real       *snoofer.MeetingAdapter
 	peers      []snoofer.MeetingPeer
 	commands   []snoofer.MeetingCommand
+	actions    []snoofer.MeetingActionCommand
 	integrated bool
 	reports    int
 }
@@ -139,6 +140,18 @@ func (a *testAdapter) Report(peers []snoofer.MeetingPeer) error {
 }
 func (a *testAdapter) Changed() <-chan struct{} { return a.real.Changed() }
 func (a *testAdapter) Close()                   { a.real.Close() }
+func (a *testAdapter) NextAction() (snoofer.MeetingActionCommand, bool) {
+	if a.integrated {
+		return a.real.NextAction()
+	}
+	if len(a.actions) == 0 {
+		return snoofer.MeetingActionCommand{}, false
+	}
+	c := a.actions[0]
+	a.actions = a.actions[1:]
+	return c, true
+}
+
 func (a *testAdapter) Next() (snoofer.MeetingCommand, bool) {
 	if a.integrated {
 		return a.real.Next()

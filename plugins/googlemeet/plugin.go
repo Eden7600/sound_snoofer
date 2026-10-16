@@ -29,6 +29,7 @@ type meetingAdapter interface {
 	Report([]snoofer.MeetingPeer) error
 	Changed() <-chan struct{}
 	Next() (snoofer.MeetingCommand, bool)
+	NextAction() (snoofer.MeetingActionCommand, bool)
 	Close()
 }
 
@@ -94,12 +95,20 @@ type command struct {
 	accepted                       time.Time
 }
 
+type callCommand struct {
+	ctx                     context.Context
+	peer, lifetime, control string
+	revision                uint64
+	value                   bool
+	complete                snoofer.Completion
+}
+
 type pending struct {
-	command snoofer.MeetingCommand
-	target  target
-	control string
-	wire    browserbridge.MeetCommand
-	cancel  context.CancelFunc
+	complete snoofer.Completion
+	target   target
+	control  string
+	wire     browserbridge.MeetCommand
+	cancel   context.CancelFunc
 }
 
 type completed struct {
@@ -147,7 +156,7 @@ func (w *worker) run(ctx context.Context) {
 		case <-ctx.Done():
 			for _, p := range w.pending {
 				p.cancel()
-				p.command.Complete(snoofer.Outcome{Status: snoofer.Unknown, Detail: "Meet stopped before confirmation"})
+				p.complete(snoofer.Outcome{Status: snoofer.Unknown, Detail: "Meet stopped before confirmation"})
 			}
 			return
 		case update, ok := <-updates:
@@ -204,14 +213,36 @@ func (w *worker) handle(ctx context.Context, c command, now time.Time) {
 }
 
 func (w *worker) apply(ctx context.Context, c snoofer.MeetingCommand, now time.Time) {
-	reject := func(detail string) { c.Complete(snoofer.Outcome{Status: snoofer.Rejected, Detail: detail}) }
-	if ctx.Err() != nil || c.Context.Err() != nil || !w.services.Live {
+	control := ""
+	switch c.Property {
+	case snoofer.MeetingMute:
+		control = "mic"
+	case snoofer.MeetingCamera:
+		control = "camera"
+	default:
+		c.Complete(snoofer.Outcome{Status: snoofer.Rejected, Detail: "Unknown Meet property"})
+		return
+	}
+	w.send(ctx, callCommand{c.Context, c.Peer, c.Lifetime, control, c.Revision, c.Value, c.Complete}, now)
+}
+
+func (w *worker) applyAction(ctx context.Context, c snoofer.MeetingActionCommand, now time.Time) {
+	if c.Action != snoofer.MeetingShare && c.Action != snoofer.MeetingLeave || c.Action == snoofer.MeetingLeave && !c.Value {
+		c.Complete(snoofer.Outcome{Status: snoofer.Rejected, Detail: "Unsupported Meet action"})
+		return
+	}
+	w.send(ctx, callCommand{c.Context, c.Peer, c.Lifetime, string(c.Action), c.Revision, c.Value, c.Complete}, now)
+}
+
+func (w *worker) send(ctx context.Context, c callCommand, now time.Time) {
+	reject := func(detail string) { c.complete(snoofer.Outcome{Status: snoofer.Rejected, Detail: detail}) }
+	if ctx.Err() != nil || c.ctx.Err() != nil || !w.services.Live {
 		reject("Meet command canceled or unavailable in preview")
 		return
 	}
 	var captured target
 	for _, choice := range w.choices {
-		if choice.peer() == c.Peer && choice.value() == c.Lifetime {
+		if choice.peer() == c.peer && choice.value() == c.lifetime {
 			captured = choice
 			break
 		}
@@ -221,18 +252,9 @@ func (w *worker) apply(ctx context.Context, c snoofer.MeetingCommand, now time.T
 		reject("Meet call changed or unavailable")
 		return
 	}
-	control := ""
-	switch c.Property {
-	case snoofer.MeetingMute:
-		control = "mic"
-	case snoofer.MeetingCamera:
-		control = "camera"
-	default:
-		reject("Unknown Meet property")
-		return
-	}
+	control := c.control
 	state := controlState(current.state, control)
-	if !state.Available || state.Identity == 0 || state.Value == nil || state.Revision != c.Revision {
+	if !state.Available || state.Identity == 0 || state.Value == nil || state.Revision != c.revision {
 		reject("Meet control changed or unavailable; try again")
 		return
 	}
@@ -247,13 +269,13 @@ func (w *worker) apply(ctx context.Context, c snoofer.MeetingCommand, now time.T
 		reject("Meet commands busy")
 		return
 	}
-	if *state.Value == c.Value {
-		c.Complete(snoofer.Outcome{Status: snoofer.Processed, Detail: "Meet state observed"})
+	if control != "leave" && *state.Value == c.value {
+		c.complete(snoofer.Outcome{Status: snoofer.Processed, Detail: "Meet state observed"})
 		return
 	}
 	wire := browserbridge.MeetCommand{Generation: captured.generation, Tab: captured.tab, Instance: captured.instance, Call: captured.call,
-		Control: control, Revision: c.Revision, Value: c.Value}
-	requestCtx, cancelRequest := context.WithTimeout(c.Context, completionTimeout)
+		Control: control, Revision: c.revision, Value: c.value}
+	requestCtx, cancelRequest := context.WithTimeout(c.ctx, completionTimeout)
 	stop := context.AfterFunc(ctx, cancelRequest)
 	cancel := func() { stop(); cancelRequest() }
 	results, err := w.connection.Send(requestCtx, captured.browser, wire)
@@ -264,7 +286,7 @@ func (w *worker) apply(ctx context.Context, c snoofer.MeetingCommand, now time.T
 	}
 	w.nextRequest++
 	id := w.nextRequest
-	w.pending[id] = pending{command: c, target: captured, control: control, wire: wire, cancel: cancel}
+	w.pending[id] = pending{complete: c.complete, target: captured, control: control, wire: wire, cancel: cancel}
 	delete(w.notes, key)
 	w.helpers.Add(1)
 	go func() {
@@ -301,15 +323,22 @@ func (w *worker) finish(done completed, now time.Time) {
 	if matched {
 		switch result.Status {
 		case "observed":
-			if w.eligible(p.target, now) {
+			if w.eligible(p.target, now) || p.control == "leave" {
 				status, detail = snoofer.Processed, "Meet state observed"
+				if p.control == "leave" {
+					detail = "Meet call left"
+				}
+			}
+		case "submitted":
+			if p.control == "share" && wire.Value && result.Reason == "choose-source" && w.eligible(p.target, now) {
+				status, detail = snoofer.Submitted, "Choose a source in Meet"
 			}
 		case "rejected":
 			status, detail = snoofer.Rejected, "Meet request rejected: "+result.Reason
 		}
 	}
-	if w.eligible(p.target, now) && status != snoofer.Processed {
+	if (p.control == "mic" || p.control == "camera") && w.eligible(p.target, now) && status != snoofer.Processed {
 		w.notes[actionKey{p.target, p.control}] = "Not confirmed"
 	}
-	p.command.Complete(snoofer.Outcome{Status: status, Detail: detail})
+	p.complete(snoofer.Outcome{Status: status, Detail: detail})
 }
