@@ -284,10 +284,11 @@ async function meetControls(context, fake, until) {
   await page.route("**/*", (route) => route.fulfill({ contentType: "text/html", body: `<!doctype html><title>Isolated Meet fixture</title>
 <div role="region" jsname="vNB5le"><button jsname="hw0c9" data-is-muted="true">Mic</button><button jsname="psRWwc" data-is-muted="true">Camera</button><button jsname="CQylAd">Leave</button></div>
 <script>
-window.meetClicks = {mic:0,camera:0};
+window.meetClicks = {mic:0,camera:0}; window.leaveClicks = 0;
 const wire = () => {
   document.querySelector('button[jsname="hw0c9"]').onclick = function() { window.meetClicks.mic++; this.setAttribute('data-is-muted', String(this.getAttribute('data-is-muted') !== 'true')); };
   document.querySelector('button[jsname="psRWwc"]').onclick = function() { window.meetClicks.camera++; if (!window.ignoreCamera) this.setAttribute('data-is-muted', String(this.getAttribute('data-is-muted') !== 'true')); };
+  document.querySelector('button[jsname="CQylAd"]').onclick = function() { window.leaveClicks++; this.closest('[role="region"]').remove(); document.body.insertAdjacentHTML('beforeend', '<button jsname="hw0c9" data-is-muted="true">Mic</button><button jsname="psRWwc" data-is-muted="true">Camera</button>'); };
 }; wire();
 window.replaceCall = () => { const old = document.querySelector('[role="region"]'); const replacement = old.cloneNode(true); old.replaceWith(replacement); wire(); };
 window.replaceMic = () => { const old = document.querySelector('button[jsname="hw0c9"]'); const replacement = old.cloneNode(true); replacement.setAttribute('data-is-muted', 'true'); old.replaceWith(replacement); wire(); };
@@ -344,9 +345,11 @@ window.replaceMic = () => { const old = document.querySelector('button[jsname="h
   const previousSample = call.sample;
   await fresh((c) => BigInt(c.sample) > BigInt(previousSample));
   assert.deepEqual(await page.evaluate(() => window.meetClicks), { mic: 1, camera: 2 });
-  await page.evaluate(() => { document.querySelector('[role="region"]').removeAttribute('role'); document.querySelector('button[jsname="CQylAd"]').remove(); });
+  assert.equal(call.leave.available, true);
+  assert.equal((await result(send("leave", true))).status, "observed");
+  assert.equal(await page.evaluate(() => window.leaveClicks), 1);
   await fresh((c) => c.state === "prejoin" && !c.mic.available && !c.camera.available);
   assert.deepEqual(errors, []);
   await page.close();
-  console.log("PASS: isolated Meet DOM/runtime bridge confirms one-shot mic/camera changes, rejects stale calls, expires uncertain results and excludes prejoin without replay");
+  console.log("PASS: isolated Meet DOM/runtime bridge confirms one-shot mic/camera changes and Leave departure, rejects stale calls, expires uncertain results and excludes prejoin without replay");
 }

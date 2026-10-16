@@ -55,3 +55,10 @@ This companion excludes exact `https://meet.google.com` frames from generic Medi
   - **Add-on ID:** `snoofer-media@sound-snoofer` (`GECKO_ID` in `build.mjs`). It is permanent after the first upload; change it before then if you want another.
   - **Data collection:** none is declared, because data goes only to the local Snoofer app.
 - **Protocol:** the message format is `PROTOCOL` in `src/logic.js` and `protocol` in `internal/browserbridge/bridge.go`. Change both together. Snoofer refuses a mismatch, and the popup says which side to update.
+
+Version 1.4.0 adds guarded Leave for the focused Meet call. Snoofer provides call
+focus buttons for one-shot actions; newest observed calls are selected by default,
+and explicit focus is retained until that call ends. Reload an already-open Meet
+tab after upgrading. Meet Deafen is N/A. Meet presentation remains unavailable
+until the site-specific Share adapter is inspected and implemented; the shared
+action transport does not itself establish screen-sharing support.
