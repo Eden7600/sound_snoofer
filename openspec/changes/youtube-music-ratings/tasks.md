@@ -13,7 +13,7 @@ Each numbered implementation block is a reviewable commit. Planning does not mar
 - [x] 6. Run Go tests, vet, race tests with the approved portable compiler, relevant GUI/type/lint/format checks, extension tests/builds and strict OpenSpec validation. Run the canonical application build and restore the prior launch configuration under existing permissions.
 
 ## Live acceptance
-- [ ] 7. In an approved browser/desktop session, update the extension and bind Like/Dislike on the Plus and Plus XL without replacing user assignments. Verify inactive/active state, set/clear/switch, paused manual changes and truthful pending/failure display. Record and restore every tested track's initial rating, including tracks changed during task 8.
+- [ ] 7. In an approved browser/desktop session, update the extension and verify the requested Plus XL Like/Dislike bindings without replacing other user assignments. Smaller layouts remain unchanged. Verify inactive/active state, set/clear/switch, paused manual changes and truthful pending/failure display. Record and restore every tested track's initial rating, including tracks changed during task 8.
 - [ ] 8. Verify browsing while music plays, song transitions, switching focused sessions, two YouTube Music tabs, page reload and bridge reconnect. Each first press works once, old actions never rate another track, and no rating is replayed. Record versions, results, cleanup and remaining website compatibility limits.
 
 Automated implementation checkpoint: [validation.md](validation.md). Live tasks 7–8 remain unchecked.
@@ -23,13 +23,17 @@ Automated implementation checkpoint: [validation.md](validation.md). Live tasks 
 The user deferred desktop acceptance and requested Like at Home's top-right key,
 with Dislike immediately below. On the Plus XL these are r1c9/r2c9 (zero-based
 indices 8/17); both are currently empty in the inspected saved layout. Apply this
-to the personal layout during the next approved live session, preserving all
-other assignments and shipped defaults. This supersedes the earlier lack of a
+to the personal layout, preserving all other assignments and shipped defaults.
+On 2026-10-16 the user reported the missing keys: complete this saved-layout
+correction through the background save/restart workflow. Browser and rating
+acceptance still require their separate desktop-control approval. This supersedes the earlier lack of a
 placement request; it does not authorize unrelated layout migration.
 
-On the smaller Plus, the corresponding r1c4/r2c4 slots currently hold Record and
-Go to Meetings. Whether to replace these or limit the request to Plus XL is
-awaiting the user's answer. No live layout has been changed.
+The smaller Plus keeps its existing Record and Meetings shortcuts.
 
 Placement resolved: apply only to Plus XL. Smaller-deck layouts remain unchanged
 for a later redesign; no Record or Meetings shortcut is replaced there.
+
+- [x] 9. Correct missing personal Plus XL Home bindings at indices 8/17, validate
+  only the two intended changes, and restore the host's prior launch arguments.
+  Applied 2026-10-16; physical rating acceptance in tasks 7–8 remains unchecked.

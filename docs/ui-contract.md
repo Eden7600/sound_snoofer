@@ -186,9 +186,8 @@ overflow. Focus uses the handset icon, identifies its app/browser tab, and is On
 only for the selected call. Smaller-deck layouts remain unchanged.
 
 User amendment 2026-10-15: Plus XL Home Like at r1c9 and Dislike at r2c9 supersede
-the older assignments listed below. Apply only these requested positions and the
-shared Meetings Mute/Camera bindings during the approved live session. Smaller
-decks remain unchanged for later redesign.
+the older assignments listed below. These two rating bindings were applied on
+2026-10-16; smaller decks remain unchanged for later redesign.
 
 Positions are row/column (r1c1 top-left). Home: Open controls at r4c5; Sync, Mode, Intensity and Brightness (press toggles the room) at r1c6–c9; Motion at r2c9; go-to Meetings, Soundboard and Lights at r4c6, r4c8 and r4c9. Lights: Room, Brightness, Motion, Sort, Sync, Mode, Intensity at r1c1–c7, room scenes region r2–r4. Soundboard: clips region r1–r4 c1–c8, Overlap r1c9, Stop r4c9. Meetings: Mute, Deafen, Camera and Share at r1c1–c4, Leave at r1c9. Chosen rooms: Cody Office. Dials: Playback (1), Mic (2), Brightness (5) on Home; Playback (1), Saturation (2), Decor (3), Mixed (4), Brightness (5) on Lights; Playback and Mic on Meetings; 3 and 4 unassigned; dial 6 is pagination. Soundboard dial 1 is Volume. This is a user-owned layout choice; do not relocate it during builds or overwrite other users' layouts.
 
