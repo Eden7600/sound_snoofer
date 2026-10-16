@@ -191,6 +191,8 @@ type worker struct {
 	pending                      map[string]pendingWrite
 	notes                        map[string]string
 	meetings                     *snoofer.MeetingAdapter
+	meetingActions               map[snoofer.MeetingAction]*meetingActionWrite
+	actionRevisions              [3]uint64
 	meetingWrites                map[snoofer.MeetingProperty]*meetingWrite
 	meetingReported              snoofer.MeetingPeer
 	meetingNewCall               bool
@@ -201,7 +203,7 @@ type worker struct {
 func newWorker(s snoofer.Services, raw json.RawMessage, settings Settings, dial func() (io.ReadWriteCloser, string, error), client *http.Client, endpoint string) *worker {
 	w := &worker{services: s, raw: append(json.RawMessage(nil), raw...), settings: settings, dial: dial, client: client, endpoint: endpoint,
 		requests: make(chan command, 8), frames: make(chan incoming), tokens: make(chan tokenResult),
-		calls: map[string]call{}, pending: map[string]pendingWrite{}, meetingWrites: map[snoofer.MeetingProperty]*meetingWrite{}, notes: map[string]string{}, state: stateClosed}
+		calls: map[string]call{}, pending: map[string]pendingWrite{}, meetingWrites: map[snoofer.MeetingProperty]*meetingWrite{}, meetingActions: map[snoofer.MeetingAction]*meetingActionWrite{}, notes: map[string]string{}, state: stateClosed}
 	if !settings.configured() {
 		w.state = stateSetup
 	}
@@ -330,6 +332,9 @@ func (w *worker) drop(err error, now time.Time) {
 }
 
 func (w *worker) closeConn() {
+	for _, action := range w.meetingActions {
+		w.finishMeetingAction(action, snoofer.Unknown, "Discord connection closed before confirmation")
+	}
 	w.finishMeetings("Discord connection closed before confirmation")
 	w.finishCalls("Discord connection closed before response")
 	if w.conn == nil {

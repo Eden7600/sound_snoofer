@@ -22,6 +22,7 @@ func (w *worker) meetingLifetime() string {
 // reportMeetings runs on every observation, before another event can hide an ABA
 // change. Observations remain actual readback, not the coordinator's target.
 func (w *worker) reportMeetings(now time.Time) {
+	w.settleMeetingActions(now)
 	if w.meetings == nil {
 		return
 	}
@@ -29,6 +30,9 @@ func (w *worker) reportMeetings(now time.Time) {
 	peer := snoofer.MeetingPeer{ID: "discord", Lifetime: w.meetingLifetime(), Label: "Discord", Joined: joined, NewCall: w.meetingNewCall}
 	peer.Mute = snoofer.MeetingValue{Known: w.voice.settingsKnown, Value: w.voice.mute, Available: joined && w.voice.settingsKnown && !w.voice.deaf && w.services.Live}
 	peer.Camera = snoofer.MeetingValue{Known: w.voice.videoKnown, Value: w.voice.video, Available: joined && w.voice.videoKnown && w.services.Live}
+	peer.Deafen = snoofer.MeetingValue{Known: w.voice.settingsKnown, Value: w.voice.deaf, Available: joined && w.voice.settingsKnown && w.services.Live}
+	peer.Share = snoofer.MeetingValue{Known: w.voice.screenKnown, Value: w.voice.screen, Available: joined && w.services.Live}
+	peer.Leave = snoofer.MeetingValue{Known: joined, Value: joined, Available: joined && w.services.Live}
 	previous := w.meetingReported
 	advance := func(value, old snoofer.MeetingValue, revision *uint64) snoofer.MeetingValue {
 		if *revision == 0 || previous.Lifetime != peer.Lifetime || previous.Joined != peer.Joined || value.Known != old.Known || value.Value != old.Value || value.Available != old.Available {
@@ -39,6 +43,9 @@ func (w *worker) reportMeetings(now time.Time) {
 	}
 	peer.Mute = advance(peer.Mute, previous.Mute, &w.muteRevision)
 	peer.Camera = advance(peer.Camera, previous.Camera, &w.cameraRevision)
+	peer.Deafen = advance(peer.Deafen, previous.Deafen, &w.actionRevisions[0])
+	peer.Share = advance(peer.Share, previous.Share, &w.actionRevisions[1])
+	peer.Leave = advance(peer.Leave, previous.Leave, &w.actionRevisions[2])
 	if peer == previous {
 		return
 	}
@@ -112,6 +119,13 @@ func (w *worker) syncMeetings(now time.Time) {
 		if w.meetingWrites[property] == nil && value.Known && value.Available && target.Known && value.Value == target.Value {
 			delete(w.notes, meetingControlID(property))
 		}
+	}
+	for {
+		command, ok := w.meetings.NextAction()
+		if !ok {
+			break
+		}
+		w.applyMeetingAction(command, now)
 	}
 	for {
 		command, ok := w.meetings.Next()

@@ -221,7 +221,7 @@ func TestDiscordCapturedConnectionAndChannelLifetimes(t *testing.T) {
 			}
 		})
 	}
-	for _, id := range []string{"discord.screenshare", "discord.leave"} {
+	for _, id := range []string{"discord.deafen", "discord.screenshare", "discord.leave"} {
 		for _, published := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/channel-ABA/published=%t", id, published), func(t *testing.T) {
 				w, pipe, ctx := outcomeWorker(t)

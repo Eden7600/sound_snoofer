@@ -37,6 +37,7 @@ type command struct {
 	channelLifetime uint64
 	known, desired  bool
 	targetRevision  uint64
+	focused         bool
 }
 
 func (w *worker) capture(r snoofer.Request) command {
@@ -94,10 +95,19 @@ func (w *worker) handle(ctx context.Context, c command, now time.Time) {
 		return
 	}
 	switch r.ID {
-	case "discord.screenshare", "discord.leave":
+	case "discord.deafen", "discord.screenshare", "discord.leave":
 		if !w.voice.channelKnown || c.channelID == "" || c.channelID != w.voice.channelID || c.channelLifetime != w.channelLifetime {
 			reject("Discord call changed")
 			return
+		}
+	}
+	if !c.focused {
+		for action := range w.meetingActions {
+			_, id := w.meetingActionValue(action)
+			if id == r.ID {
+				reject("Discord control pending")
+				return
+			}
 		}
 	}
 	delete(w.notes, r.ID)
@@ -136,6 +146,10 @@ func (w *worker) handle(ctx context.Context, c command, now time.Time) {
 		args["channel_id"] = nil
 	default:
 		reject("Unknown Discord control")
+		return
+	}
+	if ctx.Err() != nil {
+		reject("Discord action cancelled before sending")
 		return
 	}
 	if w.sendEvent(cmd, "", args, "write", r.ID, requestTimeout, now, c.complete) && want != "" {
@@ -195,12 +209,17 @@ func (w *worker) controlsFor(now time.Time, targets snoofer.MeetingSnapshot) []s
 	}
 	toggle := func(id, label, short, icon string, blocked string, known bool) snoofer.Control {
 		value := w.observed(id)
+		status := w.controlStatus(id, blocked)
+		if id == "discord.deafen" && (blocked != "" || !known) {
+			value = "N/A"
+			status = blocked
+		}
 		// Deafened is slashed headphones, drawn like a mute.
 		if id == "discord.deafen" && value == "On" {
 			icon += "-muted"
 		}
 		return snoofer.Control{ID: id, Label: label, ShortLabel: short, Group: "Discord", Kind: "toggle", Icon: icon, Value: value,
-			Status: w.controlStatus(id, blocked), Operations: []string{"press"}, Available: blocked == "" && known}
+			Status: status, Operations: []string{"press"}, Available: blocked == "" && known}
 	}
 	connect := ""
 	if w.state == stateAuthorizing {
@@ -212,7 +231,7 @@ func (w *worker) controlsFor(now time.Time, targets snoofer.MeetingSnapshot) []s
 		w.sharedControl(snoofer.MeetingMute, targets.Mute, "discord.mute", "Mute", "mic-mute"),
 		w.actualMeetingControl(snoofer.MeetingMute, inCall),
 		w.actualMeetingControl(snoofer.MeetingCamera, inCall),
-		toggle("discord.deafen", "Discord Deafen", "Deafen", "discord-deafen", reason, w.voice.settingsKnown),
+		toggle("discord.deafen", "Discord Deafen", "Deafen", "discord-deafen", inCall, w.voice.settingsKnown),
 		w.sharedControl(snoofer.MeetingCamera, targets.Camera, "discord.video", "Camera", "discord-video"),
 		toggle("discord.screenshare", "Discord Screen Share", "Share", "screen-share", inCall, true),
 		{ID: "discord.leave", Label: "Leave Discord Call", ShortLabel: "Leave", Group: "Discord", Kind: "command", Icon: "call-leave",
@@ -225,7 +244,7 @@ func (w *worker) controlsFor(now time.Time, targets snoofer.MeetingSnapshot) []s
 		c := &controls[i]
 		c.Epoch = uint64(w.generation)
 		switch c.ID {
-		case "discord.screenshare", "discord.leave":
+		case "discord.deafen", "discord.screenshare", "discord.leave":
 			c.Epoch = w.channelLifetime
 		case "discord.mute":
 			c.Epoch = targets.Mute.Revision
