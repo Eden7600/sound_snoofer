@@ -1,0 +1,34 @@
+# Design
+
+## Boundaries and scope
+Existing plugins/vr only detects vrserver.exe and applies audio policy. Keep it unchanged. Register vrclipboard independently of audio under !core && !no_vr && !no_vrclipboard. Defaults are {} and disabled, using the existing Plugins enable/restart flow. No new dependency, frontend schema or configuration setting is necessary.
+
+internal/vroverlay owns Windows/amd64 OpenVR loading/ABI and dashboard resources. internal/desktopinput owns foreground target capture and allowlisted keyboard input. plugins/vrclipboard owns the pure panel model/renderer, gesture state, worker loop and plugin supervision. All native work is injected behind these boundaries for isolated tests; package initialization is inert.
+
+## Runtime ownership
+Use a hidden child of the same canonical snoofer.exe, through the existing plugin Command entry point with redirected pipes and the exact parent config path. Parent never loads OpenVR or injects keys. Child receives shutdown through stdin EOF and reports only bounded status/error messages on stdout; never clipboard data or window titles. A Windows job closes only that child on parent loss, with bounded graceful cleanup before terminating an unresponsive owned child, following the existing controls-child pattern. Do not kill or restart the audio host.
+
+Supervise only when vrserver.exe is observed in the current Windows session. Do not invoke the runtime in preview mode. Use VRApplication_Overlay=2, the documented dashboard application type; a process precheck avoids intentional launches but is not an atomic guarantee against SteamVR exiting during initialization. This narrow OpenVR loader race is documented rather than promising that initialization can never start the runtime. After a Quit or worker exit, do not immediately respawn during the same observed runtime lifetime; require runtime absence/reappearance. Native startup failures are reported; no input is queued/replayed across restart. Treat SteamVR absence as normal.
+
+Discover the runtime from LocalAppData/openvr/openvrpaths.vrpath; bound the file size and require an absolute directory. Load its bin/win64/openvr_api.dll by absolute path. The installed runtime was checked to contain it without loading the DLL. Request the pinned public C function table FnTable:IVROverlay_028 through VR_InitInternal2 and VR_GetGenericInterface. Reject missing/incompatible loaders with clear status. Use explicit windows && amd64 support and ABI self-checks; other builds report unavailable. No private C++ vtable or compiler dependency.
+
+One worker goroutine locked to an OS thread owns initialization, polling, raw textures and shutdown. Create main and thumbnail dashboard overlays with a stable per-user key; do not pop up the dashboard automatically. Destroy the owning main overlay and shut down only this OpenVR client on cancellation/Quit. Never stop the compositor/runtime. Bound event draining and discard old input on visibility/focus loss, target change, cancellation or reconnect.
+
+## Panel and input
+Render a compact high-contrast image.RGBA pad using the existing x/image font package, with a title, target executable, seven large labeled buttons and concise feedback. Submit textures only on changes. Use the existing UI state colors, labels and focus treatment. Add a Use Focused App button to capture the most recent eligible desktop foreground window explicitly; initial activation captures the eligible target observed before opening the panel. No clipboard preview/history is needed.
+
+Observe eligible desktop foreground windows without activation. Exclude Snoofer itself, SteamVR shell processes, invisible/invalid windows and secure desktops. Keep the last eligible target only in worker memory; display only the executable basename. While the pad is active, keep its selected target stable until explicit recapture or a new activation. A pointer gesture captures the selected target and button on fresh left-button down; execute once only when the same controller releases over the same button, same target and current active overlay. Leaving/hiding/focus loss/old events cancels the gesture; holding never repeats.
+
+Before a shortcut, recheck window/process/thread/process-creation identity, input desktop, target integrity and cancellation. If necessary, attempt ordinary SetForegroundWindow once for the explicitly displayed target; verify actual foreground before injecting and refuse if Windows denies it. Do not use AttachThreadInput, fake Alt keys, elevation or foreground-lock changes. Reject held Ctrl/Alt/Shift/Windows keys or the requested action key. Send one balanced batch: Ctrl+C/X/V/A or a single Enter/Tab/Backspace down/up pair. No clipboard APIs or text logging.
+
+A complete SendInput count means Shortcut sent, not application or clipboard success. Partial insertion is uncertain: attempt release-only cleanup for keys inserted by this batch, report failure and never retry the action. Window checks reduce the OS focus race but SendInput cannot atomically bind to an HWND; do not promise guaranteed delivery under concurrent external focus changes. Show actionable failure text and keep the panel usable.
+
+## Verification and rollout
+Fake-only tests cover renderer hit boxes/geometry, pointer ownership/held/stale/lost-focus input, selected-target changes, key sequences, target identity/modifiers/integrity/desktop checks, partial insertion cleanup, cancellation, native ABI sizes/offsets, runtime-path parsing, preview/no-native behavior and worker lifecycle. Generate a synthetic panel PNG for visual inspection without opening native UI.
+
+During the current restriction, run only reviewed isolated tests, vet and suitable race checks using the previously approved compiler. Never use application build scripts (they stop the live host) or produce another application executable. Once the user authorizes interruption, run the canonical build, restore exact launch args/config, enable the optional plugin, and test the actual headset/controller, runtime exit/reconnect, focus retention, first presses, clipboard shortcuts and no repeated paste. Treat user confirmations as acceptance evidence without re-verifying them.
+
+## Sources
+- Valve C ABI/header: https://github.com/ValveSoftware/openvr/blob/master/headers/openvr_capi.h and https://github.com/ValveSoftware/openvr/blob/master/headers/openvr.h
+- Valve loader/path registry: https://github.com/ValveSoftware/openvr/blob/master/src/openvr_api_public.cpp and https://github.com/ValveSoftware/openvr/blob/master/src/vrcore/vrpathregistry_public.cpp
+- Windows input/focus: https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-sendinput and https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setforegroundwindow
