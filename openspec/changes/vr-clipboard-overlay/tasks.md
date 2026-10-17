@@ -12,3 +12,5 @@
 - [ ] 9. Deploy the validated compatibility correction and obtain real button/target feedback without inferring success from process presence. Corrective deployment through `65cedf4` is complete; real headset target/button feedback remains pending.
 
 - [x] 10. Follow eligible desktop target changes while active, cancel held/queued input on change, and prove update, unchanged-target and failed-capture behavior with fake worker regressions; validate and deploy through the canonical build.
+
+- [ ] 11. Recover automatically from queue overflow with bounded draining, fresh-input rearming, truthful waiting/ready status and fake regressions; run scoped checks and deploy through the canonical build. Physical stall acceptance remains in task 7.

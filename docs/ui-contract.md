@@ -252,3 +252,7 @@ repeats an action. Feedback says Shortcut sent, not Copied/Pasted: Windows key
 insertion does not confirm application behavior. The dashboard is user-opened,
 not automatically summoned. Plugins owns enablement and Third-party apps shows
 connection/failure state.
+
+VR Clipboard shows Clearing queued input during overflow recovery and returns to
+ready automatically once its queues are drained. Pending button presses are
+cancelled; recovery never repeats a clipboard action.

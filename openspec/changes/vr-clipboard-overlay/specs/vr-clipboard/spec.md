@@ -82,3 +82,21 @@ The active panel SHALL follow newly observed eligible desktop foreground targets
 #### Scenario: The target is unchanged
 - **WHEN** the same target is observed on subsequent polls
 - **THEN** an in-progress fresh gesture and its feedback are preserved without redundant redraws
+
+### Requirement: Automatic overflow recovery
+The clipboard overlay SHALL recover from event queue overflow by discarding stale input and draining bounded batches without requiring Snoofer or SteamVR to restart.
+
+#### Scenario: Event backlog after a runtime stall
+- **WHEN** an event queue exceeds the poll budget
+- **THEN** the worker remains alive, clears pointer and held-press state, and reports that queued input is being cleared
+- **AND** both owned queues are drained in bounded batches, including discarding the final partial batch, before input is rearmed and ready status returns
+
+#### Scenario: Input after recovery
+- **WHEN** queue draining finishes
+- **THEN** only a fresh gesture begun after recovery can submit one shortcut
+- **AND** pending presses, late releases and queued shortcuts are never replayed
+
+#### Scenario: Shutdown while draining
+- **WHEN** cancellation, Quit or an actual native failure occurs during overflow recovery
+- **THEN** normal shutdown/error handling remains effective and no input is sent
+- **AND** a flooding main queue cannot indefinitely starve the thumbnail queue

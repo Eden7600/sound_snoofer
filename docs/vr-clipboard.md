@@ -28,6 +28,9 @@ The plugin uses the installed SteamVR OpenVR loader and currently supports
 Windows amd64 with IVROverlay_028. Its separate hidden worker cannot stop the
 audio host. It connects only after SteamVR is observed running; OpenVR overlay
 initialization can still start the runtime if SteamVR exits during that check.
+An event queue overflow clears pending input and drains automatically; the panel
+shows **Clearing queued input** and resumes when the backlog is gone. Press again
+after recovery; queued shortcuts are never retried.
 After worker/runtime exit, it waits for SteamVR to disappear and return before
 starting another worker. Missing/incompatible runtimes appear in Third-party
 apps. Disable the plugin through the usual Plugins lifecycle to stop it.
