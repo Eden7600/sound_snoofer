@@ -3,6 +3,9 @@ $ErrorActionPreference = "Stop"
 Push-Location (Split-Path $PSScriptRoot -Parent)
 $previousCache = $env:GOCACHE
 try {
+    # The shutdown fixture defines fake native types; isolate them from the later live build.
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$PSScriptRoot/check-stop.ps1"
+    if ($LASTEXITCODE -ne 0) { throw "Shutdown selection checks failed" }
     & ./scripts/check-build.ps1
     $go = Get-Command go -ErrorAction SilentlyContinue
     if ($go) { $goPath = $go.Source } else { $goPath = "$env:ProgramFiles\Go\bin\go.exe" }

@@ -51,7 +51,8 @@ try {
         # Hold the handle so exit/PID reuse cannot redirect the wait.
         $null = $process.Handle
         $targets += $process
-        if ($entry.CommandLine -match '\b__controls\b') { continue }
+        $clipboardWorker = $entry.CommandLine -cmatch '^\s*(?:"[^"]+"|\S+)\s+--config\s+(?:"[^"]+"|\S+)\s+vrclipboard\s+worker\s*$'
+        if ($entry.CommandLine -match '\b__controls\b' -or $clipboardWorker) { continue }
         while (!$process.HasExited -and ![SnooferStopNative]::CloseTray($process.Id)) {
             if ([DateTime]::UtcNow -ge $deadline) {
                 throw "No responsive Snoofer tray for PID $($process.Id). No process was killed."

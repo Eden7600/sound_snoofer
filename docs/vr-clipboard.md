@@ -31,8 +31,10 @@ starting another worker. Missing/incompatible runtimes appear in Third-party
 apps. Disable the plugin through the usual Plugins lifecycle to stop it.
 
 ## Current development status
-Source implementation, isolated Go tests, scoped vet and race checks, strict
-OpenSpec validation and synthetic panel inspection are complete. The active
-application and VR session were not touched. Canonical build, deployment, enabling the
-plugin and physical headset acceptance are deferred until the user explicitly
-authorizes interruption. No personal settings or deck bindings are changed.
+Source implementation, isolated tests, scoped vet and race checks, strict
+OpenSpec validation and synthetic panel inspection are complete. Following the
+user’s explicit deployment authorization, the canonical build was installed,
+VR Clipboard was enabled, and Snoofer restarted with the prior configuration.
+SteamVR accepted the overlay connection. Other plugin settings were preserved
+and the controls window was restored. Physical controller/shortcut acceptance
+and runtime-exit testing remain pending.

@@ -15,12 +15,20 @@
 
 The command dispatch path preserves redirected pipes and skips console creation when valid streams exist. Early worker startup errors use stderr instead of the application's fatal dialog. Package initialization contains no native execution.
 
-## Deferred by the user's current-session restriction
+## Original source-only verification boundary
 
-No canonical build, scripts/check.ps1, deployment, host restart, personal configuration edit, visible application launch, desktop input, clipboard read or SteamVR connection was performed. No alternate application executable was produced. The plugin stays disabled in existing configurations.
+Before deployment authorization, no canonical build, scripts/check.ps1, deployment, host restart, personal configuration edit, visible application launch, desktop input, clipboard read or SteamVR connection was performed. No alternate application executable was produced. The default configuration keeps the plugin disabled.
 
-Task 6 remains open: after permission to interrupt, use the canonical build and restore the exact launch configuration, then opt in and check actual dashboard discovery, texture orientation/colors, controller hit locations, all seven shortcuts, held presses, primary-hand changes, target focus/refusal, runtime exit/reconnect, native job/pipe cleanup and audio-host continuity. User confirmations count as acceptance evidence.
+Task 7 remains open: check actual dashboard discovery, texture orientation/colors, controller hit locations, all seven shortcuts, held presses, primary-hand changes, target focus/refusal, runtime exit/reconnect, native job/pipe cleanup and audio-host continuity. User confirmations count as acceptance evidence.
 
 ## Platform limits
 
 The native loader/ABI, process job and real focus behavior still need headset acceptance. Windows SendInput cannot atomically bind delivery to a window; simultaneous external focus changes and same-process/thread window-handle reuse remain limits. OpenVR Overlay initialization can start SteamVR if it exits between process observation and loader initialization. These limits are documented in the user guide and design; fake-only checks do not prove hardware compatibility.
+
+## Authorized deployment
+
+The user then explicitly requested deployment. The canonical scripts/build.ps1 completed successfully, including native companion self-tests, GUI assets and bin/snoofer.exe. The original tray host and controls child exited normally. The live configuration was backed up under an ignored local deployment folder, VR Clipboard was enabled, and every other plugin setting was checked unchanged. The deployed executable’s configuration check exited successfully.
+
+Snoofer was restored with its exact previous configuration argument and its previously open controls window. A child worker remained running, and SteamVR’s server log confirmed its VRApplication_Overlay connection. No clipboard contents were read and no shortcut was sent during deployment. Physical acceptance has not been inferred from process presence.
+
+Deployment review also corrected scripts/stop.ps1 to skip tray messages for the exact private worker command while still waiting on its held process handle. The fake-only scripts/check-stop.ps1 regression failed before the fix and passes with child-first and host-first enumeration. scripts/check.ps1 runs that fixture in a separate PowerShell process so its fake native type cannot affect real shutdown later in the check. No application rebuild is needed for this script-only correction.

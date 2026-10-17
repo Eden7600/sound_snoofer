@@ -5,4 +5,5 @@
 - [x] 3. Implement and test the installed-runtime OpenVR adapter and explicit ABI/lifecycle handling.
 - [x] 4. Implement the pure panel renderer/gesture model and isolated worker/plugin integration, disabled defaults and diagnostics. Inspect a synthetic rendered preview.
 - [x] 5. Run reviewed isolated Go/vet/race checks and strict spec validation, document results and commit logical blocks. Preserve all unrelated changes and live state.
-- [ ] 6. ONLY after the user authorizes interruption: canonical build/deployment, exact host launch restoration, opt-in enablement and hardware acceptance. Check input target, all seven keys, held/multiple controllers, blocked/elevated focus, runtime shutdown/reconnect and cleanup. Accept user confirmations without redundant verification.
+- [x] 6. Following the user’s explicit “Deploy it”: canonical build/deployment, exact host launch restoration, VR Clipboard enablement and SteamVR connection check. Preserve other plugin settings and restore the prior controls window.
+- [ ] 7. Physical headset acceptance: input target, all seven keys, held/multiple controllers, blocked/elevated focus, runtime shutdown/reconnect and native cleanup. Accept user confirmations without redundant verification.
