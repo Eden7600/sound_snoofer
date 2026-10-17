@@ -9,4 +9,4 @@
 - [ ] 7. Physical headset acceptance: input target, all seven keys, held/multiple controllers, blocked/elevated focus, runtime shutdown/reconnect and native cleanup. Accept user confirmations without redundant verification.
 
 - [x] 8. Correct button-position handling to use MouseMove state; add realistic fake regressions and run scoped tests/vet/race. The native Capture-only probe also reproduced the privilege-buffer failure and passed after aligned storage was introduced; native liveness now uses GetExitCodeProcess.
-- [ ] 9. Deploy the validated compatibility correction and obtain real button/target feedback without inferring success from process presence.
+- [ ] 9. Deploy the validated compatibility correction and obtain real button/target feedback without inferring success from process presence. Corrective deployment through `65cedf4` is complete; real headset target/button feedback remains pending.

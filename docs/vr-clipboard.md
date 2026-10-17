@@ -38,3 +38,7 @@ VR Clipboard was enabled, and Snoofer restarted with the prior configuration.
 SteamVR accepted the overlay connection. Other plugin settings were preserved
 and the controls window was restored. Physical controller/shortcut acceptance
 and runtime-exit testing remain pending.
+
+A corrective build addresses target-capture rejection and coordinate-free
+controller button reports. Real headset verification of these fixes remains
+pending.

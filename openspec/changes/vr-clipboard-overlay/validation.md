@@ -38,3 +38,9 @@ Deployment review also corrected scripts/stop.ps1 to skip tray messages for the 
 The user reported that buttons did nothing and Target remained Select a desktop window. An explicitly opted-in read-only native Capture test reproduced GetTokenInformation failing with invalid memory access. Replacing byte-aligned token storage with a typed, aligned token-label buffer made the same probe pass and identify the foreground executable. No focus change, input or clipboard read occurred. The alignment invariant has an ordinary ABI regression; the native probe remains skipped unless explicitly enabled.
 
 Related native review replaced the undefined GetProcessTimes exit-time check with GetExitCodeProcess. The read-only Capture check also passed with that correction. Independent Valve-sample comparison corrected button events to use the last MouseMove position and current pointer ownership; coordinate-free click and pointer-invalidation regressions failed before the fix and pass afterward. Scoped unit tests, vet and race checks pass. Real headset delivery is still awaiting the user's next check.
+
+## Corrective deployment
+
+The canonical build through 65cedf4 completed successfully. The existing host, overlay worker and controls child all exited normally. Configuration validation passed; the same configuration argument and previously open controls were restored, without rewriting the live configuration. The replacement worker remained running and SteamVR logged its new VRApplication_Overlay connection.
+
+No shortcut delivery or focus behavior was verified during deployment. Tasks 7 and 9 remain open for real headset feedback; process presence and the successful read-only native Capture probe do not establish end-to-end input acceptance.
