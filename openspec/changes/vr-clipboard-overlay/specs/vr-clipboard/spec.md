@@ -66,3 +66,19 @@ VR Clipboard SHALL use the last MouseMove position for matching button transitio
 #### Scenario: Pointer position is unavailable
 - **WHEN** no current pointer position exists or focus, visibility, ownership or target invalidation cleared it
 - **THEN** a button transition cannot use a previous pointer position to send a shortcut
+
+### Requirement: Live desktop target selection
+The active panel SHALL follow newly observed eligible desktop foreground targets without requiring close/reopen or explicit recapture.
+
+#### Scenario: Another desktop application is selected
+- **WHEN** a different eligible target is observed while the panel stays active
+- **THEN** its displayed target updates on the next poll without activating a desktop window or sending input
+- **AND** any held gesture and queued input are discarded before a fresh gesture can act on the new displayed target
+
+#### Scenario: The dashboard owns focus
+- **WHEN** foreground capture is ineligible or fails
+- **THEN** the last eligible target remains displayed and send-time validation still applies
+
+#### Scenario: The target is unchanged
+- **WHEN** the same target is observed on subsequent polls
+- **THEN** an in-progress fresh gesture and its feedback are preserved without redundant redraws

@@ -6,8 +6,10 @@ It is separate from Snoofer's VR audio profile and starts disabled.
 After a build is deployed, enable **VR Clipboard** on Plugins using the usual
 restart confirmation. With SteamVR running, select **Snoofer Clipboard** in the
 dashboard. Select the text or field in the desktop application first. The panel
-shows its executable name; **Use Focused App** captures the latest eligible
-desktop window again.
+shows its executable name and follows newly focused eligible desktop windows
+while it stays open. It keeps the last desktop target while SteamVR owns focus.
+Changing target cancels a held button press. **Use Focused App** also refreshes
+the latest eligible desktop target.
 
 - **Copy**, **Cut**, **Paste**, **Select All** send Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+A.
 - **Tab**, **Backspace**, **Enter** send one key press each.

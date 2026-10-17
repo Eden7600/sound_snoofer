@@ -243,8 +243,9 @@ The optional VR Clipboard plugin adds a SteamVR dashboard tile, without a new
 desktop screen or changing the audio VR profile. The compact pad has large Copy,
 Cut, Paste, Select All, Tab, Backspace and Enter buttons, plus Use Focused App.
 The header identifies the captured target by executable name; never display
-clipboard contents or window titles. Keep the selected target stable while the
-panel is active and recapture only on explicit selection or a fresh activation.
+clipboard contents or window titles. Follow newly selected eligible desktop apps
+while the panel is active; retain the last target while SteamVR owns focus. A
+target change cancels any held gesture and redraws before accepting fresh input.
 Use the existing dark background, light text, cyan pointer/press treatment and
 red failure text, with a visible outline for hovered buttons. Holding never
 repeats an action. Feedback says Shortcut sent, not Copied/Pasted: Windows key
