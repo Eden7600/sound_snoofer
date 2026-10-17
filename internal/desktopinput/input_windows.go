@@ -114,7 +114,10 @@ func (native) window(hwnd uintptr) (info windowInfo, err error) {
 }
 
 // Windows token queries require aligned output storage.
-type integrityBuffer [32]uint64
+type integrityBuffer struct {
+	Label windows.Tokenmandatorylabel
+	SID   [240]byte
+}
 
 func processIntegrity(process windows.Handle) (level uint32, err error) {
 	var token windows.Token
@@ -123,7 +126,7 @@ func processIntegrity(process windows.Handle) (level uint32, err error) {
 	}
 	defer func() { err = errors.Join(err, token.Close()) }()
 	var storage integrityBuffer
-	data := unsafe.Slice((*byte)(unsafe.Pointer(&storage[0])), int(unsafe.Sizeof(storage)))
+	data := unsafe.Slice((*byte)(unsafe.Pointer(&storage)), int(unsafe.Sizeof(storage)))
 	var size uint32
 	if err = windows.GetTokenInformation(token, windows.TokenIntegrityLevel, &data[0], uint32(len(data)), &size); err != nil {
 		return 0, fmt.Errorf("Cannot check target privileges: %w", err)
@@ -131,7 +134,7 @@ func processIntegrity(process windows.Handle) (level uint32, err error) {
 	if size < uint32(unsafe.Sizeof(windows.Tokenmandatorylabel{})) || size > uint32(len(data)) {
 		return 0, errors.New("Invalid integrity information")
 	}
-	label := (*windows.Tokenmandatorylabel)(unsafe.Pointer(&data[0]))
+	label := &storage.Label
 	// The returned SID belongs to this bounded token-information buffer.
 	base, sid := uintptr(unsafe.Pointer(&data[0])), uintptr(unsafe.Pointer(label.Label.Sid))
 	if sid < base || sid-base > uintptr(size)-12 || label.Label.Attributes&windows.SE_GROUP_INTEGRITY == 0 {
