@@ -15,6 +15,7 @@ type fakeDriver struct {
 	calls                []string
 	fail                 string
 	events               map[uint64][]nativeEvent
+	polls                map[uint64]int
 	draws                []uint64
 	pixels               []byte
 	activeValue          bool
@@ -36,6 +37,10 @@ func (d *fakeDriver) draw(h uint64, p []byte, _, _ int) error {
 	return d.step("draw")
 }
 func (d *fakeDriver) poll(h uint64, event *nativeEvent) bool {
+	if d.polls == nil {
+		d.polls = make(map[uint64]int)
+	}
+	d.polls[h]++
 	if len(d.events[h]) == 0 {
 		return false
 	}
@@ -115,15 +120,15 @@ func mouse(kind uint32, x, y float32) nativeEvent {
 func TestEventsDecodeAndThumbnailIsolation(t *testing.T) {
 	d := &fakeDriver{events: map[uint64][]nativeEvent{
 		11: {mouse(301, 30, 40), {Type: 304}, {Type: 999}},
-		12: {mouse(301, 30, 40), {Type: 700}},
+		12: {mouse(301, 30, 40)},
 	}}
 	s := &Session{driver: d, main: 11, thumbnail: 12, height: 512}
 	events, err := s.Poll()
-	if err != nil || len(events) != 3 {
+	if err != nil || len(events) != 2 {
 		t.Fatalf("%+v %v", events, err)
 	}
 	want := Event{Kind: Down, X: 30, Y: 472, Button: 1, Cursor: 7, Age: 125 * time.Millisecond}
-	if events[0] != want || events[1].Kind != FocusLost || events[2].Kind != Quit {
+	if events[0] != want || events[1].Kind != FocusLost {
 		t.Fatal(events)
 	}
 	if events, err := s.Poll(); err != nil || len(events) != 0 {
@@ -173,6 +178,91 @@ func TestBoundedPollDiscardsEntireFailedBatch(t *testing.T) {
 		}
 		if !imageFailure && (!errors.Is(err, ErrEventFlood) || len(d.events[11]) != 10) {
 			t.Fatal("poll budget exceeded", err)
+		}
+	}
+}
+
+func eventBurst(count int) []nativeEvent {
+	events := make([]nativeEvent, count)
+	for n := range events {
+		events[n] = mouse(301, 1, 1)
+	}
+	return events
+}
+
+func TestPollBudgetIsPerHandle(t *testing.T) {
+	d := &fakeDriver{events: map[uint64][]nativeEvent{11: eventBurst(40), 12: eventBurst(40)}}
+	s := &Session{driver: d, main: 11, thumbnail: 12, height: 512}
+	events, err := s.Poll()
+	if err != nil || len(events) != 40 || d.polls[11] != 41 || d.polls[12] != 41 {
+		t.Fatalf("independent queues rejected: events=%d err=%v polls=%v", len(events), err, d.polls)
+	}
+}
+
+func TestPollDrainsBothQueuesAndDiscardsFinalTail(t *testing.T) {
+	d := &fakeDriver{events: map[uint64][]nativeEvent{
+		11: eventBurst(2*maxEvents + 2), 12: eventBurst(maxEvents + 3),
+	}}
+	s := &Session{driver: d, main: 11, thumbnail: 12, height: 512}
+	for n, want := range []struct {
+		main, thumbnail int
+		flood           bool
+	}{{maxEvents + 2, 3, true}, {2, 0, true}, {0, 0, false}} {
+		beforeMain, beforeThumbnail := d.polls[11], d.polls[12]
+		events, err := s.Poll()
+		if len(events) != 0 || errors.Is(err, ErrEventFlood) != want.flood || (!want.flood && err != nil) {
+			t.Fatalf("drain %d returned input or wrong error: events=%v err=%v", n, events, err)
+		}
+		if len(d.events[11]) != want.main || len(d.events[12]) != want.thumbnail {
+			t.Fatalf("drain %d starved a queue: remaining=%d,%d", n, len(d.events[11]), len(d.events[12]))
+		}
+		if d.polls[11]-beforeMain > maxEvents || d.polls[12]-beforeThumbnail > maxEvents {
+			t.Fatalf("drain %d exceeded native call budget: polls=%v", n, d.polls)
+		}
+	}
+	d.events[11] = []nativeEvent{mouse(300, 1, 1), mouse(301, 1, 1), mouse(302, 1, 1)}
+	events, err := s.Poll()
+	if err != nil || len(events) != 3 || events[0].Kind != Move || events[1].Kind != Down || events[2].Kind != Up {
+		t.Fatalf("fresh input did not recover: events=%v err=%v", events, err)
+	}
+}
+
+func TestPollTerminalEventsSurviveFloodAndDraining(t *testing.T) {
+	for _, terminal := range []struct {
+		name string
+		kind uint32
+	}{{"quit", 700}, {"image", 517}} {
+		for _, queue := range []struct {
+			name     string
+			handle   uint64
+			position int
+		}{{"main", 11, 1}, {"main-boundary", 11, maxEvents}, {"thumbnail", 12, 1}, {"thumbnail-boundary", 12, maxEvents}} {
+			for _, phase := range []string{"initial", "draining"} {
+				t.Run(terminal.name+"/"+queue.name+"/"+phase, func(t *testing.T) {
+					d := &fakeDriver{events: map[uint64][]nativeEvent{11: eventBurst(maxEvents + 1)}}
+					s := &Session{driver: d, main: 11, thumbnail: 12, height: 512}
+					if phase == "draining" {
+						if _, err := s.Poll(); !errors.Is(err, ErrEventFlood) {
+							t.Fatal("did not enter draining", err)
+						}
+					}
+					d.events = map[uint64][]nativeEvent{11: eventBurst(maxEvents + 1)}
+					d.events[queue.handle] = eventBurst(queue.position)
+					d.events[queue.handle][queue.position-1].Type = terminal.kind
+					d.polls = nil
+					events, err := s.Poll()
+					if terminal.kind == 700 {
+						if err != nil || len(events) != 1 || events[0].Kind != Quit {
+							t.Fatalf("Quit hidden by queued input: events=%v err=%v", events, err)
+						}
+					} else if len(events) != 0 || err == nil || errors.Is(err, ErrEventFlood) {
+						t.Fatalf("image failure hidden by overflow: events=%v err=%v", events, err)
+					}
+					if d.polls[11] > maxEvents || d.polls[12] > maxEvents {
+						t.Fatalf("terminal check exceeded native call budget: %v", d.polls)
+					}
+				})
+			}
 		}
 	}
 }

@@ -104,6 +104,7 @@ func runPanel(ctx context.Context, overlay padOverlay, renderer *padRenderer, de
 		return err
 	}
 	lastFrame := p.frame()
+	recovering := false
 	draw := func() error {
 		if err := overlay.Draw(renderer.render(p)); err != nil {
 			return err
@@ -135,6 +136,26 @@ func runPanel(ctx context.Context, overlay padOverlay, renderer *padRenderer, de
 			}
 			polledAt := time.Now()
 			events, err := overlay.Poll()
+			if ctx.Err() != nil {
+				return nil
+			}
+			if errors.Is(err, vroverlay.ErrEventFlood) {
+				p.clearPointer()
+				p.message, p.failed = "Clearing queued input", false
+				if !recovering {
+					recovering = true
+					if err := writeWorkerStatus(output, workerStatus{State: "waiting", Detail: p.message}); err != nil {
+						return err
+					}
+				}
+				if p.active && p.frame() != lastFrame {
+					if err := draw(); err != nil {
+						return err
+					}
+				}
+				p.since = time.Now()
+				continue
+			}
 			if err != nil {
 				return err
 			}
@@ -144,6 +165,22 @@ func runPanel(ctx context.Context, overlay padOverlay, renderer *padRenderer, de
 					p.deactivate()
 					return writeWorkerStatus(output, workerStatus{State: "waiting", Detail: "SteamVR closed the overlay"})
 				}
+			}
+			if recovering {
+				recovering = false
+				p.activate(latest, time.Now())
+				if active {
+					if err := draw(); err != nil {
+						return err
+					}
+					p.since = time.Now()
+				} else {
+					p.deactivate()
+				}
+				if err := writeWorkerStatus(output, workerStatus{State: "ready", Detail: "Open Clipboard in the SteamVR dashboard"}); err != nil {
+					return err
+				}
+				continue // Recovery requires a gesture begun after the refreshed frame.
 			}
 			if targetChanged {
 				continue // Discard input queued before the new target was displayed.

@@ -81,6 +81,7 @@ type Session struct {
 	width, height   int
 	mainPixels      []byte
 	thumbnailPixels []byte
+	draining        bool
 }
 
 func validateImages(width, height int, thumbnail *image.RGBA) error {
@@ -115,33 +116,44 @@ func newSession(d driver, key string, width, height int, thumbnail *image.RGBA) 
 	return s, nil
 }
 
-// Poll drains at most 64 native events across both owned handles. An overflowing
-// queue or image-load failure discards this entire batch; the caller must close
-// the session on error. Thumbnail pointer events never become pad input.
+// Poll reads at most 64 native events per owned handle. ErrEventFlood discards
+// input until both queues are observed empty, including that final partial batch.
+// Quit and image-load failure remain terminal. Thumbnail pointers never become input.
 func (s *Session) Poll() ([]Event, error) {
 	if s.driver == nil {
 		return nil, ErrClosed
 	}
 	var events []Event
-	count := 0
+	flooded := false
 	for _, handle := range []uint64{s.main, s.thumbnail} {
-		for {
+		count := 0
+		for ; count < maxEvents; count++ {
 			var raw nativeEvent
 			if !s.driver.poll(handle, &raw) {
 				break
-			}
-			count++
-			if count == maxEvents {
-				return nil, ErrEventFlood
 			}
 			if raw.Type == 517 { // VREvent_ImageFailed.
 				return nil, errors.New("OpenVR could not load the clipboard image")
 			}
 			e := raw.event(s.height)
-			if e.Kind != Unknown && (handle == s.main || e.Kind == Quit) {
+			if e.Kind == Quit {
+				return []Event{e}, nil
+			}
+			if !s.draining && e.Kind != Unknown && handle == s.main {
 				events = append(events, e)
 			}
 		}
+		if count == maxEvents {
+			flooded = true
+		}
+	}
+	if flooded {
+		s.draining = true
+		return nil, ErrEventFlood
+	}
+	if s.draining {
+		s.draining = false
+		return nil, nil
 	}
 	return events, nil
 }

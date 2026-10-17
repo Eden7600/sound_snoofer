@@ -15,11 +15,12 @@ import (
 )
 
 type fakePad struct {
-	active  bool
-	batches [][]vroverlay.Event
-	err     error
-	draws   int
-	polled  int
+	active     bool
+	batches    [][]vroverlay.Event
+	pollErrors []error
+	err        error
+	draws      int
+	polled     int
 }
 
 func (f *fakePad) Poll() ([]vroverlay.Event, error) {
@@ -27,11 +28,14 @@ func (f *fakePad) Poll() ([]vroverlay.Event, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
-	if len(f.batches) == 0 {
-		return nil, nil
+	var events []vroverlay.Event
+	if len(f.batches) != 0 {
+		events = f.batches[0]
+		f.batches = f.batches[1:]
 	}
-	events := f.batches[0]
-	f.batches = f.batches[1:]
+	if f.polled <= len(f.pollErrors) {
+		return events, f.pollErrors[f.polled-1]
+	}
 	return events, nil
 }
 func (f *fakePad) Active() bool           { return f.active }
@@ -74,7 +78,7 @@ func TestWorkerDispatchesOneFreshGestureWithoutReplayingFailure(t *testing.T) {
 }
 
 func TestWorkerCancellationQuitAndPollFailureNeverSend(t *testing.T) {
-	for _, mode := range []string{"cancel", "quit", "shown-quit", "poll"} {
+	for _, mode := range []string{"cancel", "quit", "shown-quit", "poll", "flood-cancel", "flood-quit", "flood-native"} {
 		t.Run(mode, func(t *testing.T) {
 			r, err := newPadRenderer()
 			if err != nil {
@@ -83,6 +87,7 @@ func TestWorkerCancellationQuitAndPollFailureNeverSend(t *testing.T) {
 			defer r.close()
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
+			nativeErr := errors.New("native poll failed")
 			f := &fakePad{active: true, batches: [][]vroverlay.Event{{{Kind: vroverlay.Quit}, pointer(vroverlay.Move, 2), pointer(vroverlay.Down, 2), pointer(vroverlay.Up, 2)}}}
 			if mode == "shown-quit" {
 				f.batches[0] = []vroverlay.Event{{Kind: vroverlay.Shown}, pointer(vroverlay.Move, 2), pointer(vroverlay.Down, 2), pointer(vroverlay.Up, 2), {Kind: vroverlay.Quit}}
@@ -91,26 +96,107 @@ func TestWorkerCancellationQuitAndPollFailureNeverSend(t *testing.T) {
 				cancel()
 			}
 			if mode == "poll" {
-				f.err = errors.New("overflow")
+				f.err = nativeErr
 			}
-			ticks := make(chan time.Time, 1)
-			ticks <- time.Unix(100, 0)
+			count := 1
+			if strings.HasPrefix(mode, "flood-") {
+				count = 3
+				f.batches = append([][]vroverlay.Event{nil}, f.batches...)
+				f.pollErrors = []error{vroverlay.ErrEventFlood, nil}
+				if mode == "flood-native" {
+					f.pollErrors[1] = nativeErr
+				}
+				if mode == "flood-cancel" {
+					f.batches[1] = []vroverlay.Event{pointer(vroverlay.Move, 2), pointer(vroverlay.Down, 2), pointer(vroverlay.Up, 2)}
+				}
+			}
+			ticks := make(chan time.Time, count)
+			for range count {
+				ticks <- time.Unix(100, 0)
+			}
 			close(ticks)
-			calls := 0
-			desktop := desktopIO{capture: func() (desktopinput.Target, error) { return testTarget(), nil },
+			calls, captures := 0, 0
+			desktop := desktopIO{capture: func() (desktopinput.Target, error) {
+				captures++
+				if mode == "flood-cancel" && captures == 2 {
+					cancel()
+				}
+				return testTarget(), nil
+			},
 				send: func(context.Context, desktopinput.Target, desktopinput.Action) error { calls++; return nil }}
 			var status bytes.Buffer
 			err = runPanel(ctx, f, r, desktop, testTarget(), ticks, &status)
-			if (mode == "poll") != (err != nil) || calls != 0 {
+			if (mode == "poll" || mode == "flood-native") != (err != nil) || calls != 0 {
 				t.Fatal(err, calls)
 			}
-			if (mode == "quit" || mode == "shown-quit") && !strings.Contains(status.String(), "SteamVR closed the overlay") {
+			if err != nil && !errors.Is(err, nativeErr) {
+				t.Fatal("terminal poll error changed", err)
+			}
+			if (mode == "quit" || mode == "shown-quit" || mode == "flood-quit") && !strings.Contains(status.String(), "SteamVR closed the overlay") {
 				t.Fatal("lost Quit status", status.String())
+			}
+			if strings.HasPrefix(mode, "flood-") && (f.polled > 2 || strings.Count(status.String(), `"state":"ready"`) != 1) {
+				t.Fatal("terminal condition rearmed the worker", f.polled, status.String())
 			}
 			if mode == "cancel" && (f.draws != 0 || f.polled != 0) {
 				t.Fatal("cancelled worker touched backend")
 			}
 		})
+	}
+}
+
+func TestWorkerRecoversFromFloodWithoutReplayingInput(t *testing.T) {
+	r, err := newPadRenderer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.close()
+	click := []vroverlay.Event{pointer(vroverlay.Move, 2), pointer(vroverlay.Down, 2), pointer(vroverlay.Up, 2)}
+	f := &fakePad{active: true,
+		pollErrors: []error{nil, vroverlay.ErrEventFlood, errors.Join(errors.New("poll backlog"), vroverlay.ErrEventFlood)},
+		batches: [][]vroverlay.Event{
+			{pointer(vroverlay.Move, 2), pointer(vroverlay.Down, 2)},
+			click, click, // Partial overflow batches must never dispatch.
+			append([]vroverlay.Event{pointer(vroverlay.Up, 2)}, click...), // Recovery also discards held/queued input.
+			{pointer(vroverlay.Up, 2)},                                    // The old held release remains inert after rearming.
+			click, nil,
+		},
+	}
+	ticks := make(chan time.Time, 7)
+	for range 7 {
+		ticks <- time.Now()
+	}
+	close(ticks)
+	captures, calls, drainingDraws := 0, 0, 0
+	desktop := desktopIO{
+		capture: func() (desktopinput.Target, error) {
+			captures++
+			if captures == 3 {
+				drainingDraws = f.draws
+			}
+			if captures == 4 && f.draws != drainingDraws {
+				t.Fatal("repeated overflow redrew an unchanged frame")
+			}
+			if captures == 5 && f.draws != drainingDraws+1 {
+				t.Fatal("recovery did not redraw once", drainingDraws, f.draws)
+			}
+			return testTarget(), nil
+		},
+		send: func(_ context.Context, target desktopinput.Target, action desktopinput.Action) error {
+			calls++
+			if f.polled != 6 || target != testTarget() || action != desktopinput.Paste {
+				t.Fatal("queued or held input replayed", f.polled, target, action)
+			}
+			return nil
+		},
+	}
+	var status bytes.Buffer
+	if err := runPanel(context.Background(), f, r, desktop, testTarget(), ticks, &status); err != nil {
+		t.Fatal("recoverable overflow stopped worker", err)
+	}
+	if calls != 1 || f.polled != 7 || strings.Count(status.String(), `"state":"waiting"`) != 1 ||
+		strings.Count(status.String(), "Clearing queued input") != 1 || strings.Count(status.String(), `"state":"ready"`) != 2 {
+		t.Fatal("incorrect recovery/input/status count", calls, f.polled, status.String())
 	}
 }
 
