@@ -123,7 +123,8 @@ func runPanel(ctx context.Context, overlay padOverlay, renderer *padRenderer, de
 				latest = target
 			}
 			active := overlay.Active()
-			if active && !p.active {
+			targetChanged := active && p.active && latest != p.target
+			if active && (!p.active || targetChanged) {
 				p.activate(latest, time.Now())
 				if err := draw(); err != nil {
 					return err
@@ -143,6 +144,9 @@ func runPanel(ctx context.Context, overlay padOverlay, renderer *padRenderer, de
 					p.deactivate()
 					return writeWorkerStatus(output, workerStatus{State: "waiting", Detail: "SteamVR closed the overlay"})
 				}
+			}
+			if targetChanged {
+				continue // Discard input queued before the new target was displayed.
 			}
 			for _, event := range events {
 				now := time.Now()

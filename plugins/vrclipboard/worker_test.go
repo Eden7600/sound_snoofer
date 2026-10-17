@@ -168,38 +168,46 @@ func TestWorkerExpiresQueuedGestureAfterSlowDispatch(t *testing.T) {
 	}
 }
 
-func TestWorkerRendersRecapturedTargetBeforeAcceptingAnotherGesture(t *testing.T) {
+func TestWorkerFollowsActiveTargetAndDiscardsQueuedGestures(t *testing.T) {
 	r, err := newPadRenderer()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer r.close()
 	f := &fakePad{active: true, batches: [][]vroverlay.Event{
-		nil,
-		{pointer(vroverlay.Move, 7), pointer(vroverlay.Down, 7), pointer(vroverlay.Up, 7), pointer(vroverlay.Move, 2), pointer(vroverlay.Down, 2), pointer(vroverlay.Up, 2)},
+		{pointer(vroverlay.Move, 2), pointer(vroverlay.Down, 2)}, // Held on the original target.
+		{pointer(vroverlay.Up, 2), pointer(vroverlay.Move, 2), pointer(vroverlay.Down, 2), pointer(vroverlay.Up, 2)},
+		{pointer(vroverlay.Move, 2), pointer(vroverlay.Down, 2)}, // Fresh gesture after the new target is drawn.
+		{pointer(vroverlay.Up, 2)},
 		{pointer(vroverlay.Move, 2), pointer(vroverlay.Down, 2), pointer(vroverlay.Up, 2)},
 	}}
-	ticks := make(chan time.Time, 3)
-	for range 3 {
+	ticks := make(chan time.Time, 5)
+	for range 5 {
 		ticks <- time.Now()
 	}
 	close(ticks)
 	next := testTarget()
 	next.Window++
 	next.Label = "other.exe"
-	captures, calls := 0, 0
+	captures, calls, firstSendDraws := 0, 0, 0
 	desktop := desktopIO{
 		capture: func() (desktopinput.Target, error) {
 			captures++
 			if captures == 1 {
 				return testTarget(), nil
 			}
+			if captures == 4 {
+				return desktopinput.Target{}, errors.New("excluded foreground")
+			}
 			return next, nil
 		},
 		send: func(_ context.Context, target desktopinput.Target, _ desktopinput.Action) error {
 			calls++
-			if f.polled != 3 || f.draws < 3 || target != next {
-				t.Fatalf("undisplayed target dispatched: poll=%d draws=%d target=%+v", f.polled, f.draws, target)
+			if f.polled != calls+3 || target != next {
+				t.Fatalf("old or queued target gesture dispatched: poll=%d target=%+v", f.polled, target)
+			}
+			if calls == 1 {
+				firstSendDraws = f.draws
 			}
 			return nil
 		},
@@ -207,7 +215,49 @@ func TestWorkerRendersRecapturedTargetBeforeAcceptingAnotherGesture(t *testing.T
 	if err := runPanel(context.Background(), f, r, desktop, testTarget(), ticks, io.Discard); err != nil {
 		t.Fatal(err)
 	}
-	if calls != 1 {
+	if calls != 2 {
 		t.Fatalf("fresh target gesture calls=%d", calls)
+	}
+	if f.draws != firstSendDraws+1 {
+		t.Fatal("unchanged target reset feedback or redrew the same frame", firstSendDraws, f.draws)
+	}
+}
+
+func TestWorkerRetainsQuitWhileDiscardingTargetChangeBatch(t *testing.T) {
+	r, err := newPadRenderer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.close()
+	f := &fakePad{active: true, batches: [][]vroverlay.Event{
+		nil,
+		{pointer(vroverlay.Move, 2), pointer(vroverlay.Down, 2), pointer(vroverlay.Up, 2), {Kind: vroverlay.Quit}},
+	}}
+	ticks := make(chan time.Time, 3)
+	for range 3 {
+		ticks <- time.Now()
+	}
+	close(ticks)
+	captures := 0
+	desktop := desktopIO{
+		capture: func() (desktopinput.Target, error) {
+			captures++
+			target := testTarget()
+			if captures > 1 {
+				target.Window++
+			}
+			return target, nil
+		},
+		send: func(context.Context, desktopinput.Target, desktopinput.Action) error {
+			t.Fatal("Quit batch dispatched input")
+			return nil
+		},
+	}
+	var status bytes.Buffer
+	if err := runPanel(context.Background(), f, r, desktop, testTarget(), ticks, &status); err != nil {
+		t.Fatal(err)
+	}
+	if captures != 2 || !strings.Contains(status.String(), "SteamVR closed the overlay") {
+		t.Fatal("target change discarded Quit", captures, status.String())
 	}
 }
