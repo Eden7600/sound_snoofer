@@ -236,3 +236,18 @@ Delete Page, Forget Deck and disabling Own Layout use the shared styled confirma
 The sidebar marks a screen only for a current typed lifecycle failure, approved provider attention, Routing ambiguity or typed connection issue visible there. Critical takes precedence over attention; recovery clears the marker. Third-Party Apps owns connection diagnostics, while Plugins owns failed starts. Optional missing devices, ordinary mute/Off/Preview/pending states, dirty layouts and historical errors are neutral. The marker occupies the navigation icon's existing space, preserves the button name, adds Problem or Needs attention as its description, and creates no focus stop or action. Narrow labels may wrap inside the existing sidebar width. The header remains limited to transient activity badges and the separate connection banner.
 
 Shared error notices keep Dismiss vertically centered within the notice padding. Complete messages, including long identifiers and line breaks, wrap beside it without overlap or horizontal scrolling. Unchanged polling retains the focused Dismiss button; dismissal remains local.
+
+
+## VR Clipboard
+The optional VR Clipboard plugin adds a SteamVR dashboard tile, without a new
+desktop screen or changing the audio VR profile. The compact pad has large Copy,
+Cut, Paste, Select All, Tab, Backspace and Enter buttons, plus Use Focused App.
+The header identifies the captured target by executable name; never display
+clipboard contents or window titles. Keep the selected target stable while the
+panel is active and recapture only on explicit selection or a fresh activation.
+Use the existing dark background, light text, cyan pointer/press treatment and
+red failure text, with a visible outline for hovered buttons. Holding never
+repeats an action. Feedback says Shortcut sent, not Copied/Pasted: Windows key
+insertion does not confirm application behavior. The dashboard is user-opened,
+not automatically summoned. Plugins owns enablement and Third-party apps shows
+connection/failure state.

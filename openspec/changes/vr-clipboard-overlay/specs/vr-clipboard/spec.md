@@ -25,7 +25,7 @@ Each gesture SHALL capture the displayed desktop target and action. Only one fre
 - **THEN** no shortcut is sent and the old gesture is not replayed later
 
 #### Scenario: Invalid desktop target
-- **WHEN** the target lifetime changes, foreground restoration is denied, another modifier is held, the desktop is locked, or privileges are insufficient
+- **WHEN** the recorded target identity changes, foreground restoration is denied, another modifier is held, the desktop is locked, or privileges are insufficient
 - **THEN** the action is rejected with feedback and is not redirected to another window
 
 #### Scenario: Partial insertion
