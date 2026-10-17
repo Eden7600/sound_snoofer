@@ -89,7 +89,11 @@ func (native) window(hwnd uintptr) (info windowInfo, err error) {
 	if err = windows.GetProcessTimes(process, &started, &exited, &kernel, &user); err != nil {
 		return info, err
 	}
-	if exited.HighDateTime != 0 || exited.LowDateTime != 0 {
+	var exitCode uint32
+	if err = windows.GetExitCodeProcess(process, &exitCode); err != nil {
+		return info, err
+	}
+	if exitCode != 259 { // STILL_ACTIVE; GetProcessTimes exit time is undefined while running.
 		return info, errors.New("Target process exited")
 	}
 	path := make([]uint16, windows.MAX_LONG_PATH)
@@ -109,13 +113,17 @@ func (native) window(hwnd uintptr) (info windowInfo, err error) {
 	return windowInfo{Target: Target{Window: hwnd, Process: pid, Thread: uint32(tid), Started: uint64(started.HighDateTime)<<32 | uint64(started.LowDateTime), Label: filepath.Base(windows.UTF16ToString(path[:size]))}, Integrity: level, Visible: true}, nil
 }
 
+// Windows token queries require aligned output storage.
+type integrityBuffer [32]uint64
+
 func processIntegrity(process windows.Handle) (level uint32, err error) {
 	var token windows.Token
 	if err = windows.OpenProcessToken(process, windows.TOKEN_QUERY, &token); err != nil {
 		return 0, fmt.Errorf("Cannot check target privileges: %w", err)
 	}
 	defer func() { err = errors.Join(err, token.Close()) }()
-	var data [256]byte
+	var storage integrityBuffer
+	data := unsafe.Slice((*byte)(unsafe.Pointer(&storage[0])), int(unsafe.Sizeof(storage)))
 	var size uint32
 	if err = windows.GetTokenInformation(token, windows.TokenIntegrityLevel, &data[0], uint32(len(data)), &size); err != nil {
 		return 0, fmt.Errorf("Cannot check target privileges: %w", err)
