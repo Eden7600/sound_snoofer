@@ -55,3 +55,14 @@ Implementation and verification SHALL respect the user's current prohibition on 
 - **WHEN** source development or automated checks run
 - **THEN** tests use fakes and do not launch the app, contact SteamVR, send input, read clipboard or change personal configuration
 - **AND** canonical deployment and hardware acceptance remain explicitly pending
+
+### Requirement: Simulated pointer position
+VR Clipboard SHALL use the last MouseMove position for matching button transitions, preserving pointer ownership and lifecycle guards independently of button-event coordinates.
+
+#### Scenario: Button reports omit position
+- **WHEN** the current controller points at a button and reports matching fresh down/up events without meaningful coordinates
+- **THEN** the selected button is hit-tested at the last pointer position and acts once
+
+#### Scenario: Pointer position is unavailable
+- **WHEN** no current pointer position exists or focus, visibility, ownership or target invalidation cleared it
+- **THEN** a button transition cannot use a previous pointer position to send a shortcut

@@ -34,3 +34,11 @@ During the current restriction, run only reviewed isolated tests, vet and suitab
 - Valve C ABI/header: https://github.com/ValveSoftware/openvr/blob/master/headers/openvr_capi.h and https://github.com/ValveSoftware/openvr/blob/master/headers/openvr.h
 - Valve loader/path registry: https://github.com/ValveSoftware/openvr/blob/master/src/openvr_api_public.cpp and https://github.com/ValveSoftware/openvr/blob/master/src/vrcore/vrpathregistry_public.cpp
 - Windows input/focus: https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-sendinput and https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setforegroundwindow
+
+## Controller compatibility correction
+
+The first live report says buttons do nothing and desktop focus is lost. The exact live cause awaits the panel's Target and feedback text. Independently, comparison with Valve's helloworldoverlay sample identified a concrete input compatibility gap: the sample obtains pointer position from MouseMove and reuses it for MouseButtonDown/Up; Snoofer incorrectly expects useful coordinates on every button event. Synthetic button fixtures masked this by always supplying coordinates.
+
+Keep pointer location/ownership from the latest Move in the panel model and ignore coordinates on Down/Up. A matching current pointer is required; no Move, leaving, hidden/focus loss, stale events, target changes or controller changes invalidate input as before. Button events retain their own age and identity checks. Stationary hovering does not require repeated Move events. Test zero/unrelated button coordinates, absent pointer, preserved cursor/device cancellation, and ordinary one-shot gestures. Do not relax Windows target checks or add focus-stealing workarounds without live evidence. Do not claim the user's complete focus issue is fixed from a source compatibility test alone.
+
+Reference: https://github.com/ValveSoftware/openvr/blob/master/samples/helloworldoverlay/openvroverlaycontroller.cpp
