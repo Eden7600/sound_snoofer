@@ -11,4 +11,4 @@
 - [x] 8. Correct button-position handling to use MouseMove state; add realistic fake regressions and run scoped tests/vet/race. The native Capture-only probe also reproduced the privilege-buffer failure and passed after aligned storage was introduced; native liveness now uses GetExitCodeProcess.
 - [ ] 9. Deploy the validated compatibility correction and obtain real button/target feedback without inferring success from process presence. Corrective deployment through `65cedf4` is complete; real headset target/button feedback remains pending.
 
-- [ ] 10. Follow eligible desktop target changes while active, cancel held/queued input on change, and prove update, unchanged-target and failed-capture behavior with fake worker regressions; validate and deploy through the canonical build.
+- [x] 10. Follow eligible desktop target changes while active, cancel held/queued input on change, and prove update, unchanged-target and failed-capture behavior with fake worker regressions; validate and deploy through the canonical build.

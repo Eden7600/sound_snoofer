@@ -44,3 +44,11 @@ Related native review replaced the undefined GetProcessTimes exit-time check wit
 The canonical build through 65cedf4 completed successfully. The existing host, overlay worker and controls child all exited normally. Configuration validation passed; the same configuration argument and previously open controls were restored, without rewriting the live configuration. The replacement worker remained running and SteamVR logged its new VRApplication_Overlay connection.
 
 No shortcut delivery or focus behavior was verified during deployment. Tasks 7 and 9 remain open for real headset feedback; process presence and the successful read-only native Capture probe do not establish end-to-end input acceptance.
+
+## Live target refresh correction
+
+The user reported that Target now updates when closing/reopening the panel but remains stale while it stays open. The worker was already observing foreground targets on every 50 ms tick but only applied them on activation or explicit recapture. Commit c5834cd applies an eligible target change while active through the existing activation/reset/draw path, then discards queued input after checking for Quit. Failed captures retain the last eligible target; unchanged captures preserve gestures and feedback. No new focus calls or clipboard access were added.
+
+The focused worker regression failed before the fix because releasing a held press dispatched the old target after a new target was captured. It now passes, including discarded queued clicks, fresh gesture recovery on the new target, failed-capture retention, unchanged feedback/redraw behavior and Quit during target change. The VR Clipboard package tests, vet and race checks pass.
+
+The canonical build and configuration check passed. Host, worker and controls shut down normally, then restarted with the same configuration and prior controls window. No live configuration was rewritten. Physical verification of active-panel target refresh and shortcut delivery remains pending; the user's latest report does not by itself confirm Paste success.
