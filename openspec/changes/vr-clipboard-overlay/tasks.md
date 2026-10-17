@@ -1,7 +1,7 @@
 # Tasks
 
 - [x] 1. Commit the design and requirements; validate OpenSpec strictly.
-- [ ] 2. Implement and test guarded Windows target capture and keyboard shortcuts with no clipboard reads.
+- [x] 2. Implement and test guarded Windows target capture and keyboard shortcuts with no clipboard reads.
 - [ ] 3. Implement and test the installed-runtime OpenVR adapter and explicit ABI/lifecycle handling.
 - [ ] 4. Implement the pure panel renderer/gesture model and isolated worker/plugin integration, disabled defaults and diagnostics. Inspect a synthetic rendered preview.
 - [ ] 5. Run reviewed isolated Go/vet/race checks and strict spec validation, document results and commit logical blocks. Preserve all unrelated changes and live state.
