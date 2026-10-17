@@ -19,8 +19,13 @@ func testTarget() desktopinput.Target {
 	return desktopinput.Target{Window: 12, Process: 34, Thread: 56, Started: 78, Label: "notepad.exe"}
 }
 func pointer(kind vroverlay.EventKind, button int) vroverlay.Event {
+	event := vroverlay.Event{Kind: kind, Y: panelHeight, Button: 1, Cursor: 2, Device: 3}
+	if kind != vroverlay.Move {
+		return event // A native button report may contain zero coordinates before Y conversion.
+	}
 	box := padButtons[button].bounds
-	return vroverlay.Event{Kind: kind, X: float32(box.Min.X + box.Dx()/2), Y: float32(box.Min.Y + box.Dy()/2), Button: 1, Cursor: 2, Device: 3}
+	event.X, event.Y = float32(box.Min.X+box.Dx()/2), float32(box.Min.Y+box.Dy()/2)
+	return event
 }
 
 func TestPanelGeometryAndAllowlist(t *testing.T) {
@@ -58,6 +63,7 @@ func TestPanelFreshReleaseActsOnceAndCapturesTarget(t *testing.T) {
 	now := time.Unix(100, 0)
 	p := newPanel()
 	p.activate(testTarget(), now)
+	p.handle(pointer(vroverlay.Move, 2), now, desktopinput.Target{})
 	if got := p.handle(pointer(vroverlay.Down, 2), now, desktopinput.Target{}); got != nil {
 		t.Fatal("down activated")
 	}
@@ -76,7 +82,9 @@ func TestPanelFreshReleaseActsOnceAndCapturesTarget(t *testing.T) {
 func TestPanelInterruptedOrStaleGesturesNeverAct(t *testing.T) {
 	now := time.Unix(100, 0)
 	cases := map[string]func(*panel, *vroverlay.Event){
-		"other button":   func(_ *panel, up *vroverlay.Event) { *up = pointer(vroverlay.Up, 1) },
+		"other button": func(p *panel, _ *vroverlay.Event) {
+			p.handle(pointer(vroverlay.Move, 1), now, desktopinput.Target{})
+		},
 		"other hand":     func(_ *panel, up *vroverlay.Event) { up.Cursor++ },
 		"other device":   func(_ *panel, up *vroverlay.Event) { up.Device++ },
 		"target changed": func(p *panel, _ *vroverlay.Event) { p.target.Window++ },
@@ -88,13 +96,18 @@ func TestPanelInterruptedOrStaleGesturesNeverAct(t *testing.T) {
 		},
 		"stale":             func(_ *panel, up *vroverlay.Event) { up.Age = time.Second },
 		"before activation": func(_ *panel, up *vroverlay.Event) { up.Age = time.Millisecond },
-		"invalid point":     func(_ *panel, up *vroverlay.Event) { up.X = float32(math.NaN()) },
-		"duplicate down":    func(p *panel, _ *vroverlay.Event) { p.handle(pointer(vroverlay.Down, 2), now, desktopinput.Target{}) },
+		"invalid point": func(p *panel, _ *vroverlay.Event) {
+			move := pointer(vroverlay.Move, 2)
+			move.X = float32(math.NaN())
+			p.handle(move, now, desktopinput.Target{})
+		},
+		"duplicate down": func(p *panel, _ *vroverlay.Event) { p.handle(pointer(vroverlay.Down, 2), now, desktopinput.Target{}) },
 	}
 	for name, alter := range cases {
 		t.Run(name, func(t *testing.T) {
 			p := newPanel()
 			p.activate(testTarget(), now)
+			p.handle(pointer(vroverlay.Move, 2), now, desktopinput.Target{})
 			p.handle(pointer(vroverlay.Down, 2), now, desktopinput.Target{})
 			up := pointer(vroverlay.Up, 2)
 			alter(p, &up)
@@ -109,6 +122,8 @@ func TestPanelLeavingOrChangingCursorCancelsUntilFreshPress(t *testing.T) {
 	now := time.Unix(100, 0)
 	otherCursor := pointer(vroverlay.Move, 2)
 	otherCursor.Cursor++
+	otherDevice := pointer(vroverlay.Move, 2)
+	otherDevice.Device++
 	for _, test := range []struct {
 		name string
 		move vroverlay.Event
@@ -116,10 +131,12 @@ func TestPanelLeavingOrChangingCursorCancelsUntilFreshPress(t *testing.T) {
 		{"leaves panel", vroverlay.Event{Kind: vroverlay.Move, X: -1, Y: -1, Cursor: 2}},
 		{"crosses another button", pointer(vroverlay.Move, 1)},
 		{"changes cursor", otherCursor},
+		{"changes device", otherDevice},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			p := newPanel()
 			p.activate(testTarget(), now)
+			p.handle(pointer(vroverlay.Move, 2), now, testTarget())
 			p.handle(pointer(vroverlay.Down, 2), now, testTarget())
 			p.handle(test.move, now, testTarget())
 			p.handle(pointer(vroverlay.Move, 2), now, testTarget())
@@ -133,14 +150,17 @@ func TestPanelLeavingOrChangingCursorCancelsUntilFreshPress(t *testing.T) {
 		})
 	}
 }
+
 func TestPanelRequiresTargetAndExplicitlyRecaptures(t *testing.T) {
 	now := time.Unix(100, 0)
 	p := newPanel()
 	p.activate(desktopinput.Target{}, now)
+	p.handle(pointer(vroverlay.Move, 2), now, testTarget())
 	p.handle(pointer(vroverlay.Down, 2), now, testTarget())
 	if p.handle(pointer(vroverlay.Up, 2), now, testTarget()) != nil {
 		t.Fatal("no target sent")
 	}
+	p.handle(pointer(vroverlay.Move, 7), now, testTarget())
 	p.handle(pointer(vroverlay.Down, 7), now, testTarget())
 	if p.handle(pointer(vroverlay.Up, 7), now, testTarget()) != nil || p.target != testTarget() {
 		t.Fatal("capture sent input or failed")
@@ -149,6 +169,68 @@ func TestPanelRequiresTargetAndExplicitlyRecaptures(t *testing.T) {
 	p.handle(pointer(vroverlay.Down, 2), now, testTarget())
 	if p.handle(pointer(vroverlay.Up, 2), now, testTarget()) != nil {
 		t.Fatal("hidden action")
+	}
+}
+
+func TestPanelButtonCoordinatesAreIgnoredAfterStationaryHover(t *testing.T) {
+	for _, coords := range [][2]float32{{0, panelHeight}, {10, 10}, {float32(math.NaN()), float32(math.Inf(1))}} {
+		now := time.Unix(100, 0)
+		p := newPanel()
+		p.activate(testTarget(), now)
+		p.handle(pointer(vroverlay.Move, 2), now, testTarget())
+		now = now.Add(time.Minute) // A stationary pointer need not send another Move.
+		down, up := pointer(vroverlay.Down, 2), pointer(vroverlay.Up, 2)
+		down.X, down.Y, up.X, up.Y = coords[0], coords[1], coords[0], coords[1]
+		p.handle(down, now, testTarget())
+		if got := p.handle(up, now, testTarget()); got == nil || got.action != desktopinput.Paste {
+			t.Fatal("button coordinates replaced the current pointer", coords, got)
+		}
+	}
+}
+
+func TestPanelRequiresCurrentPointerBeforeButtonTransitions(t *testing.T) {
+	now := time.Unix(100, 0)
+	for _, mode := range []string{"missing", "focus", "reopen", "target", "stale", "cursor", "device"} {
+		t.Run(mode, func(t *testing.T) {
+			p := newPanel()
+			p.activate(testTarget(), now)
+			if mode != "missing" {
+				p.handle(pointer(vroverlay.Move, 2), now, testTarget())
+			}
+			switch mode {
+			case "focus":
+				p.handle(vroverlay.Event{Kind: vroverlay.FocusLost}, now, testTarget())
+			case "reopen":
+				p.deactivate()
+				p.activate(testTarget(), now)
+			case "target":
+				p.target.Window++
+			case "stale":
+				move := pointer(vroverlay.Move, 2)
+				move.Age = time.Second
+				p.handle(move, now, testTarget())
+			case "cursor", "device":
+				down := pointer(vroverlay.Down, 2)
+				if mode == "cursor" {
+					down.Cursor++
+				} else {
+					down.Device++
+				}
+				p.handle(down, now, testTarget())
+			}
+			// Even populated button coordinates cannot revive an invalidated pointer.
+			down, up := pointer(vroverlay.Move, 2), pointer(vroverlay.Move, 2)
+			down.Kind, up.Kind = vroverlay.Down, vroverlay.Up
+			p.handle(down, now, testTarget())
+			if got := p.handle(up, now, testTarget()); got != nil {
+				t.Fatal("button transition revived an invalid pointer")
+			}
+			p.handle(pointer(vroverlay.Move, 2), now, testTarget())
+			p.handle(pointer(vroverlay.Down, 2), now, testTarget())
+			if got := p.handle(pointer(vroverlay.Up, 2), now, testTarget()); got == nil {
+				t.Fatal("fresh pointer did not recover")
+			}
+		})
 	}
 }
 

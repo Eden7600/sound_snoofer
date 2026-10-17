@@ -37,7 +37,7 @@ var padButtons = [...]padButton{
 	{"Use Focused\nApp", "", image.Rect(764, 260, 992, 368)},
 }
 
-type gesture struct {
+type pointerState struct {
 	button int
 	cursor uint32
 	device uint32
@@ -55,7 +55,8 @@ type panel struct {
 	active  bool
 	since   time.Time
 	hover   int
-	press   *gesture
+	pointer *pointerState
+	press   *pointerState
 	message string
 	failed  bool
 }
@@ -64,11 +65,17 @@ func newPanel() *panel { return &panel{hover: -1} }
 
 func (p *panel) activate(target desktopinput.Target, now time.Time) {
 	p.target, p.active, p.since = target, true, now
-	p.hover, p.press, p.message, p.failed = -1, nil, "", false
+	p.clearPointer()
+	p.message, p.failed = "", false
 }
 
 func (p *panel) deactivate() {
-	p.active, p.press, p.hover = false, nil, -1
+	p.active = false
+	p.clearPointer()
+}
+
+func (p *panel) clearPointer() {
+	p.pointer, p.press, p.hover = nil, nil, -1
 }
 
 func buttonAt(x, y float32) int {
@@ -91,39 +98,55 @@ func (p *panel) handle(event vroverlay.Event, now time.Time, latest desktopinput
 		return nil
 	}
 	if event.Kind == vroverlay.FocusLost {
-		p.press, p.hover = nil, -1
+		p.clearPointer()
 		return nil
 	}
 	if !p.active {
 		return nil
 	}
 	if event.Age < 0 || event.Age > maxEventAge || now.Add(-event.Age).Before(p.since) {
-		p.press, p.hover = nil, -1
+		p.clearPointer()
 		return nil
 	}
-	hit := buttonAt(event.X, event.Y)
-	switch event.Kind {
-	case vroverlay.Move:
+	if p.pointer != nil && p.pointer.target != p.target {
+		p.clearPointer()
+	}
+	if event.Kind == vroverlay.Move {
+		hit := buttonAt(event.X, event.Y)
+		if hit < 0 {
+			p.clearPointer()
+			return nil
+		}
 		if p.press != nil && (hit != p.press.button || event.Cursor != p.press.cursor || event.Device != p.press.device) {
 			p.press = nil
 		}
+		// Valve's overlay sample supplies position through Move; button events
+		// need not carry coordinates. Keep its hit and owner while stationary.
+		p.pointer = &pointerState{button: hit, cursor: event.Cursor, device: event.Device, target: p.target, at: now.Add(-event.Age)}
 		p.hover = hit
+		return nil
+	}
+	if (event.Kind != vroverlay.Down && event.Kind != vroverlay.Up) || event.Button != 1 {
+		return nil
+	}
+	if p.pointer == nil || event.Cursor != p.pointer.cursor || event.Device != p.pointer.device || now.Add(-event.Age).Before(p.pointer.at) {
+		p.clearPointer()
+		return nil
+	}
+	hit := p.pointer.button
+	switch event.Kind {
 	case vroverlay.Down:
-		if event.Button != 1 {
-			return nil
-		}
 		if p.press != nil {
 			p.press = nil
 			return nil
 		}
 		p.hover = hit
-		if hit >= 0 && (padButtons[hit].action == "" || p.target.Window != 0) {
-			p.press = &gesture{button: hit, cursor: event.Cursor, device: event.Device, target: p.target, at: now.Add(-event.Age)}
+		if padButtons[hit].action == "" || p.target.Window != 0 {
+			pressed := *p.pointer
+			pressed.at = now.Add(-event.Age)
+			p.press = &pressed
 		}
 	case vroverlay.Up:
-		if event.Button != 1 {
-			return nil
-		}
 		pressed := p.press
 		p.press, p.hover = nil, hit
 		if pressed == nil || hit != pressed.button || event.Cursor != pressed.cursor || event.Device != pressed.device ||
@@ -132,7 +155,10 @@ func (p *panel) handle(event vroverlay.Event, now time.Time, latest desktopinput
 		}
 		action := padButtons[hit].action
 		if action == "" {
-			p.target = latest
+			if p.target != latest {
+				p.target = latest
+				p.clearPointer()
+			}
 			p.message, p.failed = "", false
 			if latest.Window == 0 {
 				p.message, p.failed = "Select a desktop window first", true

@@ -8,5 +8,5 @@
 - [x] 6. Following the user’s explicit “Deploy it”: canonical build/deployment, exact host launch restoration, VR Clipboard enablement and SteamVR connection check. Preserve other plugin settings and restore the prior controls window.
 - [ ] 7. Physical headset acceptance: input target, all seven keys, held/multiple controllers, blocked/elevated focus, runtime shutdown/reconnect and native cleanup. Accept user confirmations without redundant verification.
 
-- [ ] 8. Correct button-position handling to use MouseMove state; add realistic fake regressions and run scoped tests/vet/race. Keep Windows-focus diagnosis separate until live evidence arrives.
+- [x] 8. Correct button-position handling to use MouseMove state; add realistic fake regressions and run scoped tests/vet/race. The native Capture-only probe also reproduced the privilege-buffer failure and passed after aligned storage was introduced; native liveness now uses GetExitCodeProcess.
 - [ ] 9. Deploy the validated compatibility correction and obtain real button/target feedback without inferring success from process presence.

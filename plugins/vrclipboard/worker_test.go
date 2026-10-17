@@ -45,7 +45,7 @@ func TestWorkerDispatchesOneFreshGestureWithoutReplayingFailure(t *testing.T) {
 			t.Fatal(err)
 		}
 		f := &fakePad{active: true, batches: [][]vroverlay.Event{
-			{pointer(vroverlay.Down, 2)}, {pointer(vroverlay.Up, 2)}, nil, nil, {pointer(vroverlay.Up, 2)},
+			{pointer(vroverlay.Move, 2), pointer(vroverlay.Down, 2)}, {pointer(vroverlay.Up, 2)}, nil, nil, {pointer(vroverlay.Up, 2)},
 		}}
 		ticks := make(chan time.Time, 5)
 		for n := range 5 {
@@ -83,9 +83,9 @@ func TestWorkerCancellationQuitAndPollFailureNeverSend(t *testing.T) {
 			defer r.close()
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			f := &fakePad{active: true, batches: [][]vroverlay.Event{{{Kind: vroverlay.Quit}, pointer(vroverlay.Down, 2), pointer(vroverlay.Up, 2)}}}
+			f := &fakePad{active: true, batches: [][]vroverlay.Event{{{Kind: vroverlay.Quit}, pointer(vroverlay.Move, 2), pointer(vroverlay.Down, 2), pointer(vroverlay.Up, 2)}}}
 			if mode == "shown-quit" {
-				f.batches[0] = []vroverlay.Event{{Kind: vroverlay.Shown}, pointer(vroverlay.Down, 2), pointer(vroverlay.Up, 2), {Kind: vroverlay.Quit}}
+				f.batches[0] = []vroverlay.Event{{Kind: vroverlay.Shown}, pointer(vroverlay.Move, 2), pointer(vroverlay.Down, 2), pointer(vroverlay.Up, 2), {Kind: vroverlay.Quit}}
 			}
 			if mode == "cancel" {
 				cancel()
@@ -142,6 +142,7 @@ func TestWorkerExpiresQueuedGestureAfterSlowDispatch(t *testing.T) {
 	}
 	defer r.close()
 	f := &fakePad{active: true, batches: [][]vroverlay.Event{{
+		pointer(vroverlay.Move, 2),
 		pointer(vroverlay.Down, 2), pointer(vroverlay.Up, 2),
 		pointer(vroverlay.Down, 2), pointer(vroverlay.Up, 2),
 	}}}
@@ -175,8 +176,8 @@ func TestWorkerRendersRecapturedTargetBeforeAcceptingAnotherGesture(t *testing.T
 	defer r.close()
 	f := &fakePad{active: true, batches: [][]vroverlay.Event{
 		nil,
-		{pointer(vroverlay.Down, 7), pointer(vroverlay.Up, 7), pointer(vroverlay.Down, 2), pointer(vroverlay.Up, 2)},
-		{pointer(vroverlay.Down, 2), pointer(vroverlay.Up, 2)},
+		{pointer(vroverlay.Move, 7), pointer(vroverlay.Down, 7), pointer(vroverlay.Up, 7), pointer(vroverlay.Move, 2), pointer(vroverlay.Down, 2), pointer(vroverlay.Up, 2)},
+		{pointer(vroverlay.Move, 2), pointer(vroverlay.Down, 2), pointer(vroverlay.Up, 2)},
 	}}
 	ticks := make(chan time.Time, 3)
 	for range 3 {
